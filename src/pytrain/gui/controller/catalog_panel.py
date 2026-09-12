@@ -140,6 +140,14 @@ class CatalogPanel(OverlayPanel):
             highlightbackground=LIONEL_ORANGE,
         )  # pixels
 
+    @property
+    def scroll_view(self) -> TouchListBox | None:
+        return self._catalog
+
+    def scroll_by_pixels(self, pixels: int) -> None:
+        if self._catalog is not None:
+            self._catalog.scroll_by_pixels(pixels)
+
     def select_highlighted(self) -> bool:
         # Activate whichever catalog entry is currently highlighted, mirroring a
         # touch long-press so controller "select" (A button) works the same way.

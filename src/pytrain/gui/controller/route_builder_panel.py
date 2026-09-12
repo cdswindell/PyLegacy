@@ -31,6 +31,7 @@ from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ..components.scroll_box import BAR_ACTIVE_COLOR, BAR_COLOR, BAR_EDGE_COLOR, BAR_EDGE_PX, BAR_TROUGH_COLOR
+from ..components.scroll_input import ScrollAccumulator
 from ..components.touch_scrollbar import TouchScrollbar
 from ..guizero_base import ACTIVE_STATE_BG
 from ...db.component_state import RouteState, SwitchState
@@ -112,10 +113,12 @@ class RouteBuilderPanel(OverlayPanel):
         self._descending = False
         self._candidates = []
         self._candidate: tuple[CommandScope, int] | None = None
+        self._picker_cursor: tuple[CommandScope, int] | None = None
         self._main_page = self._picker_page = None
         self._cards = self._picker = None
         self._picker_rows = 1
         self._picker_resize_pending = False
+        self._picker_scroll_pixels = ScrollAccumulator()
         self._name_field = self._number_field = self._search_field = None
         self._search_btn = None
         self._tmcc_id_field: Text | None = None
@@ -218,6 +221,23 @@ class RouteBuilderPanel(OverlayPanel):
     @property
     def picker_view_width(self) -> int:
         return self.content_width - self.picker_bar_width
+
+    @property
+    def picking(self) -> bool:
+        return self._picking
+
+    @property
+    def pad_ready(self) -> bool:
+        return self._picking and not self._search_field.is_editing
+
+    @property
+    def scroll_view(self) -> tk.Canvas | None:
+        if self.draft is None or any(
+            field is not None and field.is_editing
+            for field in (self._name_field, self._number_field, self._search_field)
+        ):
+            return None
+        return self._picker if self._picking else self._cards
 
     def _button(
         self, parent, text, command, *, column=None, columns=1, width=None, height=None, align=None, hold=False
@@ -461,7 +481,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._picker = self._canvas(self._picker_page, self.picker_row_height * self.picker_rows, False)
         if self.gui.compact:
             self._picker_scrollbar = TouchScrollbar(
-                self._picker.master, command=self.scroll_picker, width=self.picker_bar_width, min_thumb_length=64
+                self._picker.master, command=self.scroll_picker, width=self.picker_bar_width, min_thumb_length=32
             )
         else:
             self._picker_scrollbar = tk.Scrollbar(
@@ -756,6 +776,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._end_inline_edits(commit=True)
         self._picking = True
         self._candidate = None
+        self._picker_cursor = None
         self._refresh_picker()
 
     def set_filter(self, value: str) -> None:
@@ -782,6 +803,7 @@ class RouteBuilderPanel(OverlayPanel):
             self._search_field.begin_edit()
 
     def _refresh_picker(self) -> None:
+        self._picker_scroll_pixels.reset()
         self._search_btn.text = "Clear" if self._search_field.value else "Edit"
         scopes = (
             (CommandScope.SWITCH, CommandScope.ROUTE)
@@ -805,8 +827,11 @@ class RouteBuilderPanel(OverlayPanel):
             ),
             reverse=self._descending,
         )
-        if self._candidate not in {(scope, state.tmcc_id) for scope, state in self._candidates}:
+        keys = {(scope, state.tmcc_id) for scope, state in self._candidates}
+        if self._candidate not in keys:
             self._candidate = None
+        if self._picker_cursor not in keys:
+            self._picker_cursor = None
         for name, button in zip(("Switches", "Routes", "All"), self._filter_btns):
             button.text = f"{'● ' if self._filter == name else ''}{name}"
         for name, button in zip(("Name", "TMCC ID"), self._sort_btns):
@@ -847,6 +872,7 @@ class RouteBuilderPanel(OverlayPanel):
         for index, (scope, state) in enumerate(self._candidates):
             y = index * self.picker_row_height
             selected = self._candidate == (scope, state.tmcc_id)
+            focused = self.gui.compact and self._picker_cursor == (scope, state.tmcc_id)
             active = (isinstance(state, SwitchState) and state.is_thru) or (
                 isinstance(state, RouteState) and state.is_aligned
             )
@@ -856,7 +882,8 @@ class RouteBuilderPanel(OverlayPanel):
                 self.picker_view_width - 2,
                 y + self.picker_row_height - 2,
                 fill=ACTIVE_STATE_BG if active else SELECTED_BG if selected else CARD_BG,
-                outline=SELECTED_COLOR if selected else "#c1c8d0",
+                outline=SELECTED_COLOR if selected or focused else "#c1c8d0",
+                width=3 if focused else 1,
             )
             radius = self.indicator_size / 2
             center_x, center_y = radius + 12, y + self.picker_row_height / 2
@@ -918,8 +945,52 @@ class RouteBuilderPanel(OverlayPanel):
         if 0 <= index < len(self._candidates):
             scope, state = self._candidates[index]
             self._candidate = (scope, state.tmcc_id)
+            self._picker_cursor = self._candidate
             self._draw_picker()
             self._refresh()
+
+    def pad_step(self, delta: int) -> bool:
+        if not self.pad_ready or not self._candidates:
+            return False
+        index = next(
+            (i for i, (scope, state) in enumerate(self._candidates) if self._picker_cursor == (scope, state.tmcc_id)),
+            None,
+        )
+        index = int(self._picker.canvasy(0) // self.picker_row_height) if index is None else index + delta
+        index = max(0, min(index, len(self._candidates) - 1))
+        scope, state = self._candidates[index]
+        self._picker_cursor = (scope, state.tmcc_id)
+        self._draw_picker()
+        self._reveal_picker_index(index)
+        return True
+
+    def pad_mark(self) -> bool:
+        if not self.pad_step(0):
+            return False
+        self._candidate = self._picker_cursor
+        self._draw_picker()
+        self._refresh()
+        return True
+
+    def pad_clear(self) -> None:
+        if self.pad_ready:
+            self._candidate = None
+            self._draw_picker()
+            self._refresh()
+
+    def pad_add(self) -> None:
+        if self.pad_mark():
+            self.add_selected()
+
+    def _reveal_picker_index(self, index: int) -> None:
+        total = max(self.picker_rows, len(self._candidates)) * self.picker_row_height
+        top = self._picker.yview()[0] * total
+        start = index * self.picker_row_height
+        height = self.picker_rows * self.picker_row_height
+        if start < top:
+            self._picker.yview_moveto(start / total)
+        elif start + self.picker_row_height > top + height:
+            self._picker.yview_moveto((start + self.picker_row_height - height) / total)
 
     def _focus_list(self, canvas) -> None:
         if self.desktop_controls and not any(
@@ -942,14 +1013,7 @@ class RouteBuilderPanel(OverlayPanel):
                 index += delta
             index = max(0, min(index, len(self._candidates) - 1))
             self.choose_candidate(index)
-            total = max(self.picker_rows, len(self._candidates)) * self.picker_row_height
-            top = self._picker.yview()[0] * total
-            start = index * self.picker_row_height
-            height = self.picker_rows * self.picker_row_height
-            if start < top:
-                self._picker.yview_moveto(start / total)
-            elif start + self.picker_row_height > top + height:
-                self._picker.yview_moveto((start + self.picker_row_height - height) / total)
+            self._reveal_picker_index(index)
         return "break"
 
     def add_selected(self) -> None:
@@ -971,6 +1035,24 @@ class RouteBuilderPanel(OverlayPanel):
         self._picking = False
         self._refresh()
         self._reveal_selected()
+
+    def scroll_by_pixels(self, pixels: int) -> None:
+        canvas = self.scroll_view
+        if canvas is None or not pixels:
+            return
+        self._gesture = None
+        if self._picking:
+            first, last = canvas.yview()
+            if (pixels < 0 and first <= 0) or (pixels > 0 and last >= 1):
+                self._picker_scroll_pixels.reset()
+                return
+            unit = 1 if self.desktop_controls else self.picker_row_height
+            steps = self._picker_scroll_pixels.consume(pixels, unit)
+            if steps:
+                canvas.yview_scroll(steps, "units")
+        elif self.draft.components:
+            total = max(3, len(self.draft.components)) * self.card_width
+            canvas.xview_moveto(canvas.xview()[0] + pixels / total)
 
     def scroll_picker(self, *args) -> None:
         if len(args) == 3 and args[0] == "scroll" and args[2] == "units":

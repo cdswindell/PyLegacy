@@ -31,6 +31,7 @@ from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.components import RouteComponent
 from pytrain.gui.controller import engine_gui as gui_mod
 from pytrain.gui.controller import route_builder_panel as mod
+from pytrain.gui.controller import steam_deck_input as deck
 from pytrain.gui.controller.popup_manager import PopupManager
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -342,6 +343,322 @@ def picker_space(panel, available, overhead=280):
     panel._resize_picker()
 
 
+class DeckPickerGui(SimpleNamespace):
+    @property
+    def route_picker(self):
+        return gui_mod.EngineGui.route_picker.fget(self)
+
+    @property
+    def list_scroll_panel(self):
+        return gui_mod.EngineGui.list_scroll_panel.fget(self)
+
+
+@pytest.fixture
+def deck_picker(panel):
+    gui = DeckPickerGui(**vars(panel.gui))
+    gui._route_builder_panel = panel
+    gui._catalog_panel = None
+    gui.input_contexts = ()
+    gui.on_engine_command = Mock()
+    panel._gui = gui
+    panel._overlay = Widget()
+    for tmcc_id in range(1, 13):
+        known_switch(panel, tmcc_id, f"Switch {tmcc_id:02d}")
+    panel.open_picker()
+    picker_space(panel, panel.picker_row_height * 4)
+    focus = SimpleNamespace(gui=gui)
+    halt = Mock()
+    router = deck.DeckInputRouter(
+        deck.ControlProfile.load(),
+        left=lambda: gui,
+        right=lambda: None,
+        focused=lambda: focus.gui,
+        global_actions={"halt": halt},
+    )
+    return panel, router, focus, halt
+
+
+def pad_press(router, name, button=None):
+    router.handle(deck.DeckAction(name, "focused", 1.0, "pressed", button=button))
+    router.handle(deck.DeckAction(name, "focused", 0.0, "released", button=button))
+
+
+@pytest.mark.parametrize("target", ["left", "focused"])
+@pytest.mark.parametrize("context", [(), (deck.SWITCH_CONTEXT,), (deck.ROUTE_CONTEXT,)])
+def test_deck_analog_scrolls_picker_without_selecting_or_driving(deck_picker, target, context):
+    panel, router, _, _ = deck_picker
+    panel.gui.input_contexts = context
+    panel.choose_candidate(0)
+    router.handle(deck.DeckAction("throttle", target, -0.25, "changed"))
+    for now in (10.0, 10.2, 10.4, 10.6, 10.8):
+        router.tick(now)
+    assert panel._picker.y == panel.picker_row_height
+    router.handle(deck.DeckAction("throttle", target, 0.0, "changed"))
+    router.tick(11.0)
+    assert panel._picker.y == panel.picker_row_height
+    assert panel._candidate == panel._picker_cursor == (CommandScope.SWITCH, 1)
+    assert not panel.draft.dirty
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_deck_touchpad_scrolls_picker_and_cards_without_changing_route(deck_picker):
+    panel, router, _, _ = deck_picker
+    for value in (0.25, 0.75):
+        router.handle(deck.DeckAction(deck.QUILLING_HORN, "left", value, "changed"))
+    assert panel._picker.y > 0 and panel._candidate is None
+    panel.cancel()
+    for tmcc_id in range(1, 9):
+        add_switch(panel, tmcc_id)
+    panel._cards.xview_moveto(0)
+    before = RouteComponent.to_bytes(panel.draft.components), panel._selected
+    router.handle(deck.DeckAction(deck.QUILLING_HORN, "left", 0.4, "changed"))
+    assert panel._cards.x == 0, "changing pages starts a new stroke"
+    router.handle(deck.DeckAction(deck.QUILLING_HORN, "left", 0.6, "changed"))
+    assert panel._cards.x == pytest.approx(0.2 * deck.CONFIG_PAD_TRAVEL_PX)
+    assert (RouteComponent.to_bytes(panel.draft.components), panel._selected) == before
+    panel.gui.on_engine_command.assert_not_called()
+
+
+@pytest.mark.parametrize("stop", ["cancel", "hidden", "search", "disconnect"])
+def test_deck_analog_scroll_stops_when_picker_is_unavailable(deck_picker, stop):
+    panel, router, _, _ = deck_picker
+    router.handle(deck.DeckAction("throttle", "left", -1.0, "changed"))
+    router.handle(deck.DeckAction(deck.QUILLING_HORN, "left", 0.25, "changed"))
+    router.tick(10.0)
+    if stop == "cancel":
+        panel.cancel()
+    elif stop == "hidden":
+        panel._overlay.hide()
+    elif stop == "search":
+        panel._search_field.begin_edit()
+        for name in ("throttle", deck.QUILLING_HORN):
+            router.handle(deck.DeckAction(name, "left", 0.75, "changed"))
+    else:
+        router.clear()
+    router.tick(10.25)
+    assert panel._picker.y == 0
+    assert not router._list_scrolls and not router._list_pads
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_route_controller_scroll_clamps_and_preserves_small_movements(deck_picker):
+    panel, _, _, _ = deck_picker
+    for _ in range(panel.picker_row_height - 1):
+        panel.scroll_by_pixels(1)
+    assert panel._picker.y == 0
+    panel.scroll_by_pixels(1)
+    assert panel._picker.y == panel.picker_row_height
+    panel.scroll_by_pixels(10000)
+    assert panel._picker.yview()[1] == 1
+    panel.scroll_by_pixels(17)
+    panel.scroll_by_pixels(-panel.picker_row_height)
+    assert panel._picker.y == 7 * panel.picker_row_height
+    panel.scroll_by_pixels(-10000)
+    assert panel._picker.y == 0
+    panel.set_filter("Routes")
+    panel.scroll_by_pixels(10000)
+    assert panel._picker.y == 0 and panel._candidate is None
+
+
+@pytest.mark.parametrize("field_name", ["_name_field", "_number_field"])
+def test_route_metadata_editing_consumes_analog_input_without_scrolling(deck_picker, field_name):
+    panel, router, _, _ = deck_picker
+    panel.cancel()
+    for tmcc_id in range(1, 9):
+        add_switch(panel, tmcc_id)
+    panel._cards.xview_moveto(0)
+    getattr(panel, field_name).begin_edit()
+    router.handle(deck.DeckAction("throttle", "left", -1.0, "changed"))
+    for value in (0.25, 0.75):
+        router.handle(deck.DeckAction(deck.QUILLING_HORN, "left", value, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+    assert panel._cards.x == 0
+    assert not router._levers and not router._quills
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_deck_picker_browses_without_selecting_and_reveals_complete_rows(deck_picker):
+    panel, router, _, _ = deck_picker
+    for index in range(12):
+        pad_press(router, deck.DPAD_DOWN)
+        assert panel._picker_cursor == (CommandScope.SWITCH, index + 1)
+        assert panel._candidate is None and not panel._save_btn.enabled
+        start = index * panel.picker_row_height
+        assert panel._picker.y <= start
+        assert start + panel.picker_row_height <= panel._picker.y + panel._picker.options["height"]
+    pad_press(router, deck.DPAD_DOWN)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 12)
+    for _ in range(15):
+        pad_press(router, deck.DPAD_UP)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 1)
+    assert panel._picker.y == 0
+    assert not panel.draft.components and not panel.draft.dirty
+    panel.gui.on_engine_command.assert_not_called()
+
+
+@pytest.mark.parametrize("context", [(), (deck.SWITCH_CONTEXT,), (deck.ROUTE_CONTEXT,)])
+@pytest.mark.parametrize("clear_name,button", [(deck.DPAD_LEFT, None), ("bell", deck.BACK_PAGE_BUTTON)])
+def test_deck_picker_selects_clears_and_adds_highlighted_not_previous_choice(
+    deck_picker, monkeypatch, context, clear_name, button
+):
+    panel, router, _, _ = deck_picker
+    monkeypatch.setattr(panel.gui, "input_contexts", context)
+    pad_press(router, deck.DPAD_RIGHT)
+    assert panel._candidate == (CommandScope.SWITCH, 1) and panel._save_btn.enabled
+    pad_press(router, clear_name, button)
+    assert panel._candidate is None and not panel._save_btn.enabled
+    assert panel._picking
+    pad_press(router, deck.DPAD_RIGHT)
+    pad_press(router, deck.DPAD_DOWN)
+    assert panel._candidate == (CommandScope.SWITCH, 1)
+    pad_press(router, deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)
+    assert [c.tmcc_id for c in panel.draft.components] == [2]
+    assert not panel._picking
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_deck_picker_x_cancels_only_add_and_reopening_resets_cursor(deck_picker):
+    panel, router, _, _ = deck_picker
+    panel.draft.set_metadata("Keep this route", "12")
+    panel._close = Mock()
+    pad_press(router, deck.DPAD_DOWN)
+    pad_press(router, "volume_down", deck.CLOSE_POPUP_BUTTON)
+    assert not panel._picking and panel.gui.route_picker is None
+    assert panel.draft.dirty and panel.draft.road_name == "Keep this route"
+    panel._close.assert_not_called()
+    panel.open_picker()
+    assert panel._picker_cursor is None and panel._candidate is None
+
+
+def test_deck_picker_a_selects_and_adds_without_prior_dpad_press(deck_picker):
+    panel, router, _, _ = deck_picker
+    panel.scroll_picker("scroll", "4", "units")
+    pad_press(router, deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)
+    assert [c.tmcc_id for c in panel.draft.components] == [5]
+
+
+def test_deck_picker_cursor_tracks_touch_sort_and_filter_without_stale_selection(deck_picker):
+    panel, router, _, _ = deck_picker
+    panel.choose_candidate(6)
+    pad_press(router, deck.DPAD_DOWN)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 8)
+    panel.toggle_sort_direction()
+    pad_press(router, deck.DPAD_RIGHT)
+    assert panel._candidate == (CommandScope.SWITCH, 8)
+    panel.set_filter("Routes")
+    for name, button in [(deck.DPAD_DOWN, None), (deck.DPAD_RIGHT, None), (deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)]:
+        pad_press(router, name, button)
+    assert panel._picker_cursor is None and panel._candidate is None
+    assert panel._picking and not panel.draft.components
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_deck_picker_repeats_at_catalog_cadence_and_stops_on_release(deck_picker):
+    panel, router, _, _ = deck_picker
+    router.handle(deck.DeckAction(deck.DPAD_DOWN, "focused", 1.0, "pressed"))
+    for now in (10.0, 10.1, 10.4):
+        router.tick(now)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 1)
+    router.tick(10.6)
+    router.tick(10.8)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 3)
+    router.handle(deck.DeckAction(deck.DPAD_DOWN, "focused", 0.0, "released"))
+    router.tick(11.0)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 3)
+    assert panel._candidate is None
+
+
+@pytest.mark.parametrize("stop", ["cancel", "hidden", "focus", "search", "disconnect"])
+def test_deck_picker_stops_held_navigation_when_no_longer_available(deck_picker, stop):
+    panel, router, focus, _ = deck_picker
+    router.handle(deck.DeckAction(deck.DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.tick(10.0)
+    router.tick(10.1)
+    if stop == "cancel":
+        panel.cancel()
+    elif stop == "hidden":
+        panel._overlay.hide()
+    elif stop == "focus":
+        focus.gui = None
+    elif stop == "search":
+        panel._search_field.begin_edit()
+    else:
+        router.handle(deck.DeckAction("disconnect", "global", 0.0, "released"))
+    router.tick(10.6)
+    assert panel._picker_cursor == (CommandScope.SWITCH, 1)
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_deck_picker_search_editing_blocks_selection_but_allows_cancel_and_halt(deck_picker):
+    panel, router, _, halt = deck_picker
+    panel._search_field.begin_edit()
+    for name, button in [(deck.DPAD_DOWN, None), (deck.DPAD_RIGHT, None), (deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)]:
+        pad_press(router, name, button)
+    assert panel._candidate is None and not panel.draft.components
+    router.handle(deck.DeckAction("halt", "global", 1.0, "pressed"))
+    halt.assert_called_once_with()
+    pad_press(router, "volume_down", deck.CLOSE_POPUP_BUTTON)
+    assert not panel._picking and not panel._search_field.is_editing
+    panel.gui.on_engine_command.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "name,button",
+    [(deck.DPAD_DOWN, None), (deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON), ("volume_down", deck.CLOSE_POPUP_BUTTON)],
+)
+def test_deck_picker_stops_commands_held_before_opening(deck_picker, name, button):
+    panel, router, _, _ = deck_picker
+    panel.cancel()
+    router.handle(deck.DeckAction(name, "focused", 1.0, "pressed", button=button))
+    panel.gui.on_engine_command.assert_called()
+    panel.gui.on_engine_command.reset_mock()
+    panel.open_picker()
+    for now in (10.0, 10.1, 10.6, 10.8):
+        router.tick(now)
+    router.handle(deck.DeckAction(name, "focused", 0.0, "released", button=button))
+    assert not router._boosts and not router._sequences and not router._held_commands
+    assert panel._picker_cursor is None
+    panel.gui.on_engine_command.assert_not_called()
+
+
+def test_deck_picker_highlight_does_not_check_radio_or_replace_active_green(deck_picker):
+    panel, router, _, _ = deck_picker
+    state = SwitchState()
+    state._address = 1
+    state._state = TMCC1SwitchCommandEnum.THRU
+    panel.gui.state_store.states[(CommandScope.SWITCH, 1)] = state
+    panel.set_sort("TMCC ID")
+    pad_press(router, deck.DPAD_DOWN)
+    rectangles = [options for kind, _, options in panel._picker.drawn if kind == "rectangle"]
+    assert rectangles[0]["fill"] == mod.ACTIVE_STATE_BG
+    assert rectangles[0]["outline"] == mod.SELECTED_COLOR and rectangles[0]["width"] == 3
+    assert all(options["width"] == 1 for options in rectangles[1:])
+    assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == len(panel._candidates)
+    pad_press(router, deck.DPAD_RIGHT)
+    assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == len(panel._candidates) + 1
+    pad_press(router, deck.DPAD_LEFT)
+    assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == len(panel._candidates)
+
+
+@pytest.mark.parametrize("invalid", ["deleted", "self_route"])
+def test_deck_picker_a_keeps_existing_component_validation(deck_picker, invalid):
+    panel, router, _, _ = deck_picker
+    if invalid == "self_route":
+        known_route(panel, 12)
+        panel.set_filter("Routes")
+    else:
+        panel._candidates[0][1].is_deleted = True
+    pad_press(router, deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)
+    assert not panel.draft.components and panel._picking
+    assert (
+        "no longer available" in panel._status.value
+        if invalid == "deleted"
+        else "cannot include itself" in panel._status.value
+    )
+    panel.gui.on_engine_command.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "width,height,compact,system,available,bar_width",
     [
@@ -406,7 +723,7 @@ def test_picker_scrollbar_replaces_page_buttons_and_matches_scroll_box(panel, mo
     bar = panel._picker_scrollbar
     if compact:
         mod.TouchScrollbar.assert_called_once_with(
-            panel._picker.master, command=panel.scroll_picker, width=38, min_thumb_length=64
+            panel._picker.master, command=panel.scroll_picker, width=38, min_thumb_length=32
         )
     else:
         mod.TouchScrollbar.assert_not_called()

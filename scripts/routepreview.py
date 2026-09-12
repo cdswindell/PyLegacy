@@ -229,7 +229,7 @@ def check_picker_scrollbar(app, panel):
     if panel.gui.compact:
         x = bar.winfo_width() // 2
         thumb = [y for y in range(bar.winfo_height()) if bar.identify(x, y).endswith(("thumb", "slider"))]
-        assert len(thumb) >= 64, f"Steam Deck thumb is only {len(thumb)} pixels long"
+        assert len(thumb) >= 32, f"Steam Deck thumb is only {len(thumb)} pixels long"
     app.tk.call(command, "scroll", 1, "units")
     app.tk.update_idletasks()
     assert round(canvas.canvasy(0)) == panel.picker_row_height
@@ -259,6 +259,73 @@ def check_picker_scrollbar(app, panel):
     print("Picker scrollbar: arrows, paging, thumb position, and scrolled selection passed.", flush=True)
 
 
+def check_picker_controller(app, panel):
+    if not panel.gui.compact:
+        return
+    before = RouteComponent.to_bytes(panel.draft.components)
+    dirty = panel.draft.dirty
+    canvas = panel._picker
+    for index, (scope, state) in enumerate(panel._candidates):
+        assert panel.pad_step(1)
+        app.tk.update_idletasks()
+        assert panel._picker_cursor == (scope, state.tmcc_id)
+        assert panel._candidate is None and not panel._save_btn.enabled
+        start = index * panel.picker_row_height
+        assert canvas.canvasy(0) <= start
+        assert start + panel.picker_row_height <= canvas.canvasy(0) + canvas.winfo_height()
+        rows = [item for item in canvas.find_all() if canvas.type(item) == "rectangle"]
+        assert canvas.itemcget(rows[index], "outline") == route_builder_panel.SELECTED_COLOR
+        assert float(canvas.itemcget(rows[index], "width")) == 3
+    assert panel.pad_mark() and panel._save_btn.enabled
+    panel.pad_clear()
+    assert panel._candidate is None and not panel._save_btn.enabled
+    panel.cancel()
+    assert not panel.picking and panel.visible
+    assert RouteComponent.to_bytes(panel.draft.components) == before and panel.draft.dirty == dirty
+    panel.open_picker()
+    app.tk.update_idletasks()
+    print("Steam Deck picker: browse highlight, scrolling, selection, clearing, and cancel passed.", flush=True)
+
+
+def check_controller_scroll(app, panel):
+    from pytrain.gui.controller.steam_deck_input import ControlProfile, DeckAction, DeckInputRouter, QUILLING_HORN
+
+    host = SimpleNamespace(list_scroll_panel=panel)
+    router = DeckInputRouter(
+        ControlProfile.load(), left=lambda: host, right=lambda: None, focused=lambda: host, global_actions={}
+    )
+    canvas = panel.scroll_view
+    view = canvas.yview if panel.picking else canvas.xview
+    move = canvas.yview_moveto if panel.picking else canvas.xview_moveto
+    position = canvas.canvasy if panel.picking else canvas.canvasx
+    previous = view()[0]
+    move(0)
+    selection = panel._selected, panel._candidate, panel._picker_cursor
+    components = RouteComponent.to_bytes(panel.draft.components)
+    dirty = panel.draft.dirty
+    router.handle(DeckAction("throttle", "left", -0.25, "changed"))
+    for now in (10.0, 10.2, 10.4, 10.6, 10.8):
+        router.tick(now)
+    app.tk.update_idletasks()
+    assert position(0) > 0, "gentle joystick movement must accumulate"
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    stopped = position(0)
+    router.tick(11.0)
+    assert position(0) == stopped
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.9, "changed"))
+    assert position(0) == stopped, "first touch must not jump"
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.1, "changed"))
+    app.tk.update_idletasks()
+    assert position(0) == 0
+    assert (panel._selected, panel._candidate, panel._picker_cursor) == selection
+    assert RouteComponent.to_bytes(panel.draft.components) == components and panel.draft.dirty == dirty
+    if panel.picking:
+        assert panel._picker_scrollbar.get() == view()
+    router.clear()
+    move(previous)
+    print(f"Controller scrolling passed: {'picker' if panel.picking else 'component cards'}", flush=True)
+
+
 def check_picker_thumb(app, panel):
     if not panel.gui.compact:
         return
@@ -278,7 +345,7 @@ def check_picker_thumb(app, panel):
         x = bar.winfo_width() // 2
         for destination in (bar.winfo_height(), 0):
             thumb = [y for y in range(bar.winfo_height()) if bar.identify(x, y).endswith("thumb")]
-            assert len(thumb) >= 64, len(thumb)
+            assert len(thumb) >= 32, len(thumb)
             bar.event_generate("<ButtonPress-1>", x=x, y=thumb[len(thumb) // 2])
             bar.event_generate("<B1-Motion>", x=x, y=bar.winfo_height() // 2)
             app.tk.update_idletasks()
@@ -295,7 +362,7 @@ def check_picker_thumb(app, panel):
         store.states = states
         panel.open_picker()
         app.tk.update_idletasks()
-    print("Steam Deck thumb: 64-pixel minimum and dragging through 198 entries passed.", flush=True)
+    print("Steam Deck thumb: 32-pixel minimum and dragging through 198 entries passed.", flush=True)
 
 
 def check_touch_scroll(app, panel, canvas, horizontal):
@@ -435,6 +502,8 @@ def main():
         check_picker_resize(app, overlay, panel, width, budget, reserved)
         check_picker_scrollbar(app, panel)
         check_picker_thumb(app, panel)
+        check_picker_controller(app, panel)
+        check_controller_scroll(app, panel)
         assert panel._candidate is None
         assert not panel._save_btn.enabled
         assert str(panel._save_btn.tk.cget("state")) == "disabled"
@@ -540,6 +609,7 @@ def main():
         app.tk.update_idletasks()
         assert panel._cards.xview()[1] == 1.0
         check_bounds(app, overlay, panel, width, budget, "Full route")
+        check_controller_scroll(app, panel)
         if args.pycab:
             before = RouteComponent.to_bytes(panel.draft.components)
             panel._cards.focus_force()

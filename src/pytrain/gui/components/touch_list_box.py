@@ -96,6 +96,10 @@ class TouchListBox(ListBox):
 
     # ---------- Public API ----------
 
+    def scroll_by_pixels(self, pixels: int) -> str:
+        """Scroll vertically without changing or activating the highlighted entry."""
+        return self._scroll_by_pixels(0, pixels)
+
     def set_on_hold_select(self, callback: Callable[[int, str], None]) -> None:
         self.on_hold_select = callback
 

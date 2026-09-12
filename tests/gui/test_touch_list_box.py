@@ -118,13 +118,14 @@ def mod(monkeypatch: pytest.MonkeyPatch):
     sys.modules.pop(module_name, None)
 
 
-def test_precise_scrolling_accumulates_small_deltas_without_selecting(mod):
+@pytest.mark.parametrize("controller", [False, True])
+def test_precise_scrolling_accumulates_small_deltas_without_selecting(mod, controller):
     calls = []
     widget = mod.TouchListBox(object(), on_hold_select=lambda *args: calls.append(args), tap_highlight=True)
     lb = widget._lb
     lb.selection_set(1)
     widget._on_press(SimpleNamespace(y=0))
-    handler = lb._bindings["<TouchpadScroll>"]
+    handler = (lambda _event: widget.scroll_by_pixels(1)) if controller else lb._bindings["<TouchpadScroll>"]
     for _ in range(19):
         assert handler(SimpleNamespace(delta=0xFFFF)) == "break"
     assert lb.yview()[0] == 0

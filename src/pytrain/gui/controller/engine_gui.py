@@ -1633,6 +1633,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return bool(panel is not None and panel.visible)
 
     @property
+    def route_picker(self) -> RouteBuilderPanel | None:
+        """The visible Add to Route page, whose controls take precedence over the layout."""
+        panel = self._route_builder_panel
+        return panel if panel is not None and panel.visible and panel.picking else None
+
+    @property
+    def list_scroll_panel(self) -> RouteBuilderPanel | CatalogPanel | None:
+        """The list whose viewport the pane's joystick and touchpad can scroll."""
+        for panel in (self._route_builder_panel, self._catalog_panel):
+            if panel is not None and panel.visible:
+                return panel
+        return None
+
+    @property
     def _open_chooser(self):
         """The StateInfo field whose choice list is up, if any."""
         info = self._state_info

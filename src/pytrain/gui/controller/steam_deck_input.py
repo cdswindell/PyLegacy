@@ -1952,6 +1952,8 @@ class DeckInputRouter:
         # tick() after the press (arming it tick()-side keeps the timing on the
         # same clock tick() uses).
         self._scrolls: dict[Target, list] = {}
+        # Keep picker repeats tied to the panel that received the press, even if focus moves.
+        self._picker_scrolls: dict[Target, list] = {}
         # A stick held over while the LCS configuration panel is up on that pane, as a
         # fraction of full deflection; tick() moves the panel's page by it. Kept apart from
         # _scrolls, which steps a catalog highlight on its own slow cadence: this moves a page
@@ -1961,6 +1963,10 @@ class DeckInputRouter:
         # the next report can be read as the distance it has traveled. A pad says where the
         # finger *is*; what a page follows is where it has *gone*.
         self._config_pads: dict[Target, float] = {}
+        # List gestures belong to one panel/view, not to whichever replaces it on that pane.
+        self._list_contexts: dict[Target, tuple[Any, Any]] = {}
+        self._list_scrolls: dict[Target, float] = {}
+        self._list_pads: dict[Target, float] = {}
         # Maps a held button to [target, command, interval, next_send_time] so
         # each repeating button keeps its own cadence.
         self._held_commands: dict[int, list] = {}
@@ -1985,11 +1991,16 @@ class DeckInputRouter:
         if action.name == "disconnect":
             self.clear()
             return
+        list_context = self._sync_list_scrolling(action.target)
         if self._controls_only(action):
             return
         if self._chooser_only(action):
             return
         if self._config_panel_only(action):
+            return
+        if self._route_picker_only(action):
+            return
+        if self._list_scrolled(action, list_context):
             return
         if self._handle_contexts(action):
             return
@@ -2107,6 +2118,8 @@ class DeckInputRouter:
             gui.on_engine_command(command)
 
     def tick(self, now: float) -> None:
+        for target in ("left", "right", "focused"):
+            self._sync_list_scrolling(target)
         if self._last_tick is None:
             self._last_tick = now
             return
@@ -2115,6 +2128,23 @@ class DeckInputRouter:
             return
         self._last_tick = now
         elapsed = min(elapsed, max(0.25, self.profile.repeat_interval))
+        for target, value in tuple(self._list_scrolls.items()):
+            panel, _view = self._list_contexts[target]
+            panel.scroll_by_pixels(-round(value * CONFIG_SCROLL_RATE * elapsed))
+        for target in ("left", "right", "focused"):
+            if getattr(self._target_gui(target), "route_picker", None) is not None:
+                self._stop_picker_commands(target)
+        for target, entry in tuple(self._picker_scrolls.items()):
+            panel, delta, next_scroll_time = entry
+            gui = self._target_gui(target)
+            if getattr(gui, "route_picker", None) is not panel or not panel.pad_ready:
+                self._picker_scrolls.pop(target, None)
+                continue
+            if next_scroll_time is None:
+                entry[2] = now + CATALOG_SCROLL_INITIAL_DELAY
+            elif now + 1e-9 >= next_scroll_time:
+                panel.pad_step(delta)
+                entry[2] = now + CATALOG_SCROLL_REPEAT_INTERVAL
         for target, lever in tuple(self._levers.items()):
             gui = self._target_gui(target)
             state = getattr(gui, "throttle_state", None) if gui is not None else None
@@ -2273,8 +2303,12 @@ class DeckInputRouter:
         # not selected has been written nowhere and is waiting on nothing, so a disconnect has
         # nothing to flush. Sending it would put a choice on the wire that was never asked for.
         self._scrolls.clear()
+        self._picker_scrolls.clear()
         self._config_scrolls.clear()
         self._config_pads.clear()
+        self._list_contexts.clear()
+        self._list_scrolls.clear()
+        self._list_pads.clear()
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
@@ -2362,6 +2396,108 @@ class DeckInputRouter:
             gui.cancel_chooser()
             return True
         return True
+
+    def _sync_list_scrolling(self, target: Target) -> tuple[Any, Any] | None:
+        gui = self._target_gui(target)
+        panel = getattr(gui, "list_scroll_panel", None)
+        if any(getattr(gui, name, False) for name in ("controls_visible", "chooser_visible", "lcs_config_visible")):
+            panel = None
+        context = (panel, panel.scroll_view) if panel is not None else None
+        if self._list_contexts.get(target) != context:
+            self._list_scrolls.pop(target, None)
+            self._list_pads.pop(target, None)
+            self._list_contexts.pop(target, None)
+            if context is not None:
+                self._list_contexts[target] = context
+        if panel is not None:
+            # Stop commands even when the list opens under an already-held control, before
+            # another axis event arrives. A trigger with no pad binding keeps its horn.
+            if target in self._levers:
+                self._clear_lever(target)
+            self._acc_throttles.pop(target, None)
+            self._direction_latches.discard(target)
+            for name in ("throttle", "direction"):
+                self._release_momentary(gui, (target, name))
+                self._clear_context_latches(target, name)
+            if any(b.action == QUILLING_HORN and b.target == target for b in self.profile.touchpads.values()):
+                self._quills.pop(target, None)
+        return context
+
+    def _list_scrolled(self, action: DeckAction, context: tuple[Any, Any] | None) -> bool:
+        if context is None:
+            return False
+        if action.name == "direction":
+            # A diagonal scroll gesture must not change direction or switch accessory power.
+            return True
+        stick = action.name == "throttle"
+        if not stick and not (action.name == QUILLING_HORN and self._touchpad_bound(action)):
+            return False
+        panel, view = context
+        if view is None:
+            # An inline editor owns the panel; consume analog input without scrolling or
+            # letting it fall through to the layout underneath the keyboard.
+            return True
+        if stick:
+            if action.value:
+                self._list_scrolls[action.target] = max(-1.0, min(1.0, action.value))
+            else:
+                self._list_scrolls.pop(action.target, None)
+        else:
+            fraction = max(0.0, min(1.0, float(action.value)))
+            if not fraction:
+                self._list_pads.pop(action.target, None)
+            else:
+                last = self._list_pads.get(action.target)
+                self._list_pads[action.target] = fraction
+                if last is not None:
+                    panel.scroll_by_pixels(round((fraction - last) * CONFIG_PAD_TRAVEL_PX))
+        return True
+
+    def _route_picker_only(self, action: DeckAction) -> bool:
+        if action.phase != "pressed":
+            if action.name in (DPAD_UP, DPAD_DOWN):
+                self._picker_scrolls.pop(action.target, None)
+            # Let releases clean up any layout command held before the picker opened.
+            return False
+        panel = getattr(self._target_gui(action.target), "route_picker", None)
+        if panel is None or not self._picker_control(action):
+            return False
+        self._stop_picker_commands(action.target)
+        if action.name in (DPAD_UP, DPAD_DOWN):
+            delta = -1 if action.name == DPAD_UP else 1
+            if panel.pad_step(delta):
+                self._picker_scrolls[action.target] = [panel, delta, None]
+        elif action.name == DPAD_RIGHT:
+            panel.pad_mark()
+        elif action.name == DPAD_LEFT or action.button == BACK_PAGE_BUTTON:
+            panel.pad_clear()
+        elif action.button == SELECT_BUTTON:
+            self._picker_scrolls.pop(action.target, None)
+            panel.pad_add()
+        elif action.button == CLOSE_POPUP_BUTTON:
+            self._picker_scrolls.pop(action.target, None)
+            panel.cancel()
+        return True
+
+    @staticmethod
+    def _picker_control(action: DeckAction) -> bool:
+        return action.name in (DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT) or action.button in (
+            SELECT_BUTTON,
+            BACK_PAGE_BUTTON,
+            CLOSE_POPUP_BUTTON,
+        )
+
+    def _stop_picker_commands(self, target: Target) -> None:
+        # These keys now work the picker, not commands started behind it before it opened.
+        self._boosts.pop(target, None)
+        self._scrolls.pop(target, None)
+        self._sequences.pop(target, None)
+        for key, (action, _dispatch) in tuple(self._context_repeats.items()):
+            if key[0] == target and self._picker_control(action):
+                self._context_repeats.pop(key, None)
+        for button, entry in tuple(self._held_commands.items()):
+            if entry[0] == target and button in (SELECT_BUTTON, BACK_PAGE_BUTTON, CLOSE_POPUP_BUTTON):
+                self._held_commands.pop(button, None)
 
     def _config_panel_only(self, action: DeckAction) -> bool:
         """True when the LCS configuration panel is up on this pane and owns the action.
@@ -2839,8 +2975,8 @@ class DeckInputRouter:
             # The catalog is where the thing this pane shows gets picked, and A is how an
             # entry in it is confirmed: a reader looking at that list is re-scoping the pane
             # rather than working what it already holds, so neither face button is claimed
-            # while it is up. The triggers and sticks have no job there, so they are not held
-            # back.
+            # while it is up. Analog list scrolling is handled before this context routing;
+            # the remaining controls still work the layout.
             #
             # Anything the control had left repeating goes with it, the way the release above
             # drops a held momentary output: a D-pad direction the catalog has taken must not

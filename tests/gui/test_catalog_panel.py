@@ -6,6 +6,7 @@ import pytest
 
 from src.pytrain.db.component_state import RouteState, SwitchState
 from src.pytrain.gui.controller.catalog_panel import CatalogPanel
+from src.pytrain.gui.controller.engine_gui import EngineGui
 from src.pytrain.gui.guizero_base import ACTIVE_STATE_BG
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -57,6 +58,25 @@ class _Provider:
 class _Store:
     def get_all(self, _scope: CommandScope) -> list:
         return []
+
+
+def test_controller_scroll_uses_visible_catalog_without_selecting() -> None:
+    calls = []
+    panel = CatalogPanel.__new__(CatalogPanel)
+    panel._overlay = SimpleNamespace(visible=True)
+    panel._catalog = SimpleNamespace(scroll_by_pixels=calls.append)
+    gui = SimpleNamespace(_route_builder_panel=None, _catalog_panel=panel)
+    assert EngineGui.list_scroll_panel.fget(gui) is panel
+    assert panel.scroll_view is panel._catalog
+    panel.scroll_by_pixels(37)
+    panel.scroll_by_pixels(-12)
+    assert calls == [37, -12]
+    panel._overlay.visible = False
+    assert EngineGui.list_scroll_panel.fget(gui) is None
+    panel._catalog = None
+    panel.scroll_by_pixels(10)
+    assert panel.scroll_view is None
+    assert calls == [37, -12]
 
 
 def test_select_highlighted_delegates_to_catalog_list_box() -> None:

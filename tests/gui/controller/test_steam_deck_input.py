@@ -4214,6 +4214,140 @@ def test_a_disconnect_forgets_a_held_scroll_and_a_stroke_in_progress() -> None:
     assert left.scroll_calls == []
 
 
+def _scrolling_list_gui():
+    gui = _gui()
+    gui.scroll_calls = []
+    gui.list_scroll_panel = SimpleNamespace(scroll_view=object(), scroll_by_pixels=gui.scroll_calls.append)
+    return gui
+
+
+def test_list_sticks_scroll_both_panes_at_lcs_speed_independent_of_focus():
+    left, right = _scrolling_list_gui(), _scrolling_list_gui()
+    router, _, _, focus, _ = _router(left=left, right=right)
+    router.handle(DeckAction("throttle", "left", -1.0, "changed"))
+    router.handle(DeckAction("throttle", "right", 0.5, "changed"))
+    focus.value = right
+    router.tick(10.0)
+    router.tick(10.25)
+    assert left.scroll_calls == [90]
+    assert right.scroll_calls == [-45]
+    assert left.nudge_calls == right.nudge_calls == []
+    assert left.command_calls == right.command_calls == []
+
+
+@pytest.mark.parametrize("kind", [None, PANEL_GENERIC, PANEL_ASC2])
+def test_list_scrolling_ignores_sideways_joystick_motion(kind):
+    left = _gui() if kind is None else _acc_gui(kind)
+    scrolling = _scrolling_list_gui()
+    left.list_scroll_panel = scrolling.list_scroll_panel
+    router, _, _, _, _ = _router(left=left)
+    for value in (0.9, 0.0, -0.9, 0.0):
+        router.handle(DeckAction("direction", "left", value, "changed"))
+    assert not left.command_calls and not scrolling.scroll_calls
+    if kind is not None:
+        assert not left.acc_calls and not left.lcs_calls
+
+
+def test_list_touchpad_tracks_travel_and_restarts_after_lift():
+    left = _scrolling_list_gui()
+    router, _, right, _, _ = _router(_touchpad_profile(), left=left)
+    for value in (0.25, 0.75, 0.5, 0.0, 0.9):
+        router.handle(DeckAction(QUILLING_HORN, "left", value, "changed"))
+    assert left.scroll_calls == [400, -200]
+    router.tick(10.0)
+    router.tick(10.25)
+    assert not left.command_calls and not right.command_calls
+
+
+@pytest.mark.parametrize("stop", ["close", "replace", "page", "editor", "controls", "chooser", "disconnect"])
+def test_list_scrolling_drops_held_input_when_its_view_is_gone(stop):
+    left = _scrolling_list_gui()
+    panel = left.list_scroll_panel
+    router, _, _, _, _ = _router(_touchpad_profile(), left=left)
+    router.handle(DeckAction("throttle", "left", -1.0, "changed"))
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.2, "changed"))
+    router.tick(10.0)
+    if stop == "close":
+        left.list_scroll_panel = None
+    elif stop == "replace":
+        left.list_scroll_panel = _scrolling_list_gui().list_scroll_panel
+    elif stop == "page":
+        panel.scroll_view = object()
+    elif stop == "editor":
+        panel.scroll_view = None
+    elif stop == "controls":
+        left.controls_visible = True
+    elif stop == "chooser":
+        left.chooser_visible = True
+    else:
+        router.clear()
+    router.tick(10.25)
+    assert not router._list_scrolls and not router._list_pads
+    assert not left.scroll_calls and not left.speed_calls and not left.command_calls
+
+
+def test_list_opening_stops_preexisting_analog_commands_without_another_axis_event():
+    left = _scrolling_list_gui()
+    panel, left.list_scroll_panel = left.list_scroll_panel, None
+    router, _, _, _, _ = _router(_touchpad_profile(), left=left)
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.tick(10.0)
+    left.list_scroll_panel = panel
+    router.tick(10.25)
+    assert not router._levers and not router._quills
+    assert not left.nudge_calls and not left.commit_calls and not left.command_calls
+
+
+def test_list_leaves_unbound_horn_and_global_halt_available():
+    left = _scrolling_list_gui()
+    left.on_engine_command = lambda command, data=None: left.command_calls.append((command, data))
+    router, _, _, _, global_calls = _router(left=left)
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.handle(DeckAction("halt", "global", 1.0, "pressed"))
+    router.tick(10.0)
+    router.tick(10.25)
+    assert left.command_calls == [(HORN_COMMAND, 12)]
+    assert global_calls == ["halt"]
+    assert not left.scroll_calls
+
+
+@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_ASC2, PANEL_BPC2])
+def test_list_takes_stick_from_accessory_and_releases_held_output(kind):
+    left = _acc_gui(kind)
+    router, _, _, _, _ = _router(left=left)
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    before = left.acc_speed_calls.copy()
+    scrolling = _scrolling_list_gui()
+    left.list_scroll_panel = scrolling.list_scroll_panel
+    router.tick(10.0)
+    router.tick(10.25)
+    assert left.acc_speed_calls == before
+    assert not router._acc_throttles and not router._momentary_holds
+    assert left.momentary_calls == ([True, False] if kind == PANEL_ASC2 else [])
+    router.handle(DeckAction("throttle", "left", -1.0, "changed"))
+    router.tick(10.5)
+    assert scrolling.scroll_calls == [90]
+    assert left.acc_speed_calls == before
+    assert not left.acc_calls and not left.lcs_calls
+
+
+def test_list_closing_restarts_touchpad_stroke_and_returns_stick_to_engine():
+    left = _scrolling_list_gui()
+    panel = left.list_scroll_panel
+    router, _, _, _, _ = _router(_touchpad_profile(), left=left)
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.2, "changed"))
+    left.list_scroll_panel = None
+    router.tick(10.0)
+    left.list_scroll_panel = panel
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.9, "changed"))
+    assert not left.scroll_calls
+    left.list_scroll_panel = None
+    router.handle(DeckAction("throttle", "left", -0.5, "changed"))
+    router.tick(10.25)
+    assert left.nudge_calls and not left.scroll_calls
+
+
 def _switch_gui(*, switch_active: bool = True):
     """A pane showing a track switch, recording the throws asked of it.
 
