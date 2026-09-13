@@ -45,6 +45,7 @@ def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
     assert lights is not None and (lights.hold, lights.hold_kind, lights.hold_target) == (True, "panel", "lights")
     assert more is not None and (more.hold, more.hold_kind, more.hold_target) == (True, "panel", "more")
     assert sequence is not None and sequence.repeat is True
+    assert sequence.repeat_interval_ms == 200
 
 
 def test_passenger_holds_match_controller_view_destinations() -> None:
