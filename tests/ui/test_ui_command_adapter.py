@@ -53,6 +53,17 @@ def _capture_build(monkeypatch):
     return built, sends
 
 
+def test_startup_and_shutdown_hold_use_delayed_dialog_variants(monkeypatch) -> None:
+    built, sends = _capture_build(monkeypatch)
+    adapter = PyTrainCabCommandAdapter(_StateAdapter(_State()))
+
+    assert adapter.perform_hold("startup") is True
+    assert built[-1][0].name == "START_UP_DELAYED"
+    assert adapter.perform_hold("shutdown") is True
+    assert built[-1][0].name == "SHUTDOWN_DELAYED"
+    assert sends == [True, True]
+
+
 def test_legacy_smoke_up_steps_from_current_level(monkeypatch) -> None:
     built, sends = _capture_build(monkeypatch)
     state = _State(smoke_level=TMCC2EffectsControl.SMOKE_MEDIUM)
