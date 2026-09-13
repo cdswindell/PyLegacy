@@ -199,6 +199,26 @@ class PyTrainCabCommandAdapter:
             return self.supports_effect("SMOKE_OFF") and self.supports_effect("SMOKE_HIGH")
         return self.supports_named("SMOKE_OFF") and self.supports_named("SMOKE_ON")
 
+    def _step_smoke(self, delta: int) -> bool:
+        """Move one smoke level from the state currently reported by the engine."""
+        if not self.state.is_legacy:
+            return self.send_named("SMOKE_ON" if delta > 0 else "SMOKE_OFF")
+
+        levels = (
+            TMCC2EffectsControl.SMOKE_OFF,
+            TMCC2EffectsControl.SMOKE_LOW,
+            TMCC2EffectsControl.SMOKE_MEDIUM,
+            TMCC2EffectsControl.SMOKE_HIGH,
+        )
+        current = getattr(self.state, "smoke_level", None)
+        try:
+            index = levels.index(current)
+        except ValueError:
+            index = 0
+        index = max(0, min(len(levels) - 1, index + (1 if delta > 0 else -1)))
+        CommandReq.build(levels[index], self.state.tmcc_id, scope=self.state.scope).send()
+        return True
+
     def supports_action(self, action: CabAction | str) -> bool:
         if isinstance(action, str):
             action = cab_action(action)
@@ -234,12 +254,7 @@ class PyTrainCabCommandAdapter:
             CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
             return True
         if action.command_kind == "smoke":
-            if self.state.is_legacy:
-                effect_name = "SMOKE_OFF" if action.command == "SMOKE_OFF" else "SMOKE_HIGH"
-                command = TMCC2EffectsControl.by_name(effect_name, raise_exception=True)
-                CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
-                return True
-            return self.send_named(action.command)
+            return self._step_smoke(1 if action.command == "SMOKE_ON" else -1)
         return self.send_named(action.command)
 
     def send_named(self, name: str) -> bool:
