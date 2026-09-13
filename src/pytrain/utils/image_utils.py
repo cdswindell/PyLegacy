@@ -10,6 +10,13 @@
 from PIL import ImageDraw, ImageFont, ImageTk
 
 
+def _load_font(size: int):
+    try:
+        return ImageFont.truetype("DejaVuSans.ttf", size)
+    except OSError:
+        return ImageFont.load_default(size=size)
+
+
 def center_text_on_image(
     photo: ImageTk.PhotoImage, text: str, font_size: int = 24, styled: bool = True
 ) -> ImageTk.PhotoImage:
@@ -28,8 +35,8 @@ def center_text_on_image(
     draw = ImageDraw.Draw(pil_img)
 
     # Fonts
-    font_big = ImageFont.truetype("DejaVuSans.ttf", font_size)
-    font_small = ImageFont.truetype("DejaVuSans.ttf", max(font_size - 6, 1))
+    font_big = _load_font(font_size)
+    font_small = _load_font(max(font_size - 6, 1))
 
     # Uppercase in styled mode
     display_text = text.upper() if styled else text
