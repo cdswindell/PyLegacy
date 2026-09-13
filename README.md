@@ -200,6 +200,33 @@ its command-line interface, **PyTrain**:
 * logs all activity
 * and much more!
 
+#### Standalone Route Builder
+
+Use `pyroutes` to edit existing routes or build a new route in its own window:
+
+```bash
+pyroutes -client
+pyroutes -server 192.168.1.100
+pyroutes -base 192.168.1.124
+```
+
+Run one of these commands to discover a PyTrain server, select a server, or connect
+directly to a Base 3, respectively. From a source checkout, use
+`python cli/pyroutes.py` with the same options.
+
+The front page lists routes after synchronization. Select a route and click **Edit**,
+or click **New**, enter an unused TMCC ID from 1 to 99, and click **Create**.
+**Save Route** writes the route to the Base 3 and returns to the list; **Cancel**
+returns without saving and asks before discarding changes. Hold **Clear** for three
+seconds to delete an existing route from the Base 3. Editing does not fire a route.
+
+On macOS and Windows, the window supports physical-keyboard entry, keyboard list
+navigation, mouse-wheel/trackpad scrolling, and double-clicking a route to edit it.
+Double-clicking a component in the editor adds it and returns to the route page.
+Touch controls and on-screen editors remain available on Linux/Pi.
+Window options are `-width`, `-height`, `-scale_by`, and `-full_screen`;
+the default window is 640 × 800 pixels. Use `pyroutes --help` for all options.
+
 #### Command-line Options
 
 **PyTrain** has several startup switches that control what it does:
