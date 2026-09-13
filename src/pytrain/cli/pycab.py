@@ -250,7 +250,7 @@ class PyCabPanelGui(EngineGui):
         """True: a panel that will not fit may have the ID/road-name row's height.
 
         The admin panel is the one that asks -- 787px of the 720 this window leaves below that
-        row, where the Pi's screen leaves it 941 for the 931 it asks there. Wat it lost
+        row, where the Pi's screen leaves it 941 for the 931 it asks there. What it lost
         was its Close button, clipped to 3px of the 58 it wanted. The row names whatever the
         pane had selected, which is nothing the admin panel is about. See
         PopupManager._make_room_for, which hides it only for a panel that really does not fit.
