@@ -392,20 +392,37 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: root.shortLayout ? 38 : 46
+            Layout.preferredHeight: root.shortLayout ? 42 : 50
             radius: 8
             color: "#23272e"
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                Label { text: "RPM " + cab.rpm; color: "#d9dde3"; font.pixelSize: root.shortLayout ? 12 : 14 }
-                Item { Layout.fillWidth: true }
-                Label { text: "Labor " + cab.labor; color: "#d9dde3"; font.pixelSize: root.shortLayout ? 12 : 14 }
-                Item { Layout.fillWidth: true }
-                Label { text: "Momentum " + cab.momentum; color: "#d9dde3"; font.pixelSize: root.shortLayout ? 12 : 14 }
-                Item { Layout.fillWidth: true }
-                Label { text: "Smoke " + cab.smoke; color: "#d9dde3"; font.pixelSize: root.shortLayout ? 12 : 14 }
+                anchors.leftMargin: 6
+                anchors.rightMargin: 6
+                spacing: 4
+                Repeater {
+                    model: cab.infoModel
+                    ColumnLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: -2
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.label
+                            color: "#9ea6b0"
+                            horizontalAlignment: Text.AlignHCenter
+                            font.pixelSize: root.shortLayout ? 9 : 10
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.value
+                            color: "#d9dde3"
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            font.pixelSize: root.shortLayout ? 11 : 13
+                        }
+                    }
+                }
             }
         }
     }
