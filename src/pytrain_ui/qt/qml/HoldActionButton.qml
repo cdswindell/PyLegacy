@@ -32,9 +32,7 @@ Button {
     }
 
     Timer {
-        // ControllerView uses 300 ms for Boost/Brake. Keep explicit callers for
-        // other controls (for example the 100 ms horn cadence) unchanged.
-        interval: (root.text === "Brake" || root.text === "Boost") ? 300 : root.repeatInterval
+        interval: root.repeatInterval
         repeat: true
         running: root.repeatWhileHeld && root.pressed
         onTriggered: root.heldAction()
