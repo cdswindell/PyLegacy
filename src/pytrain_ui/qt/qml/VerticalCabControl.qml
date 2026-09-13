@@ -9,6 +9,7 @@ Item {
     property int pendingValue: value
     property bool springReturn: false
     readonly property bool dragging: dragHandler.active
+    readonly property int tickCount: maximumValue <= 7 ? maximumValue + 1 : 5
 
     signal valueMoved(int value)
     signal valueCommitted(int value)
@@ -58,14 +59,14 @@ Item {
     }
 
     Repeater {
-        model: root.maximumValue <= 7 ? root.maximumValue + 1 : 5
+        model: root.tickCount
 
         Rectangle {
             required property int index
-            width: index === 0 || index === parent.count - 1 ? 16 : 10
+            width: index === 0 || index === root.tickCount - 1 ? 16 : 10
             height: 1
             x: rail.x + rail.width + 5
-            y: rail.y + index * (rail.height - height) / Math.max(1, parent.count - 1)
+            y: rail.y + index * (rail.height - height) / Math.max(1, root.tickCount - 1)
             color: "#8b949f"
         }
     }
