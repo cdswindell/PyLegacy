@@ -19,6 +19,20 @@ def test_cab_action_lookup_and_assets() -> None:
     assert cab_action("does_not_exist") is None
 
 
+def test_primary_controls_are_behavior_driven() -> None:
+    primary = cab_actions("primary")
+    assert [action.key for action in primary] == ["bell", "horn", "brake", "boost"]
+    assert all(action.scope_tag == "*" for action in primary)
+    assert all(action_applies_to_type(action, "d") for action in primary)
+    assert all(action_applies_to_type(action, "p") for action in primary)
+
+    bell, horn, brake, boost = primary
+    assert (bell.hold_kind, bell.hold_target) == ("panel", "bell_horn")
+    assert (horn.hold_kind, horn.hold_target, horn.hold_legacy_only) == ("analog", "Horn", True)
+    assert (brake.repeat, brake.repeat_interval_ms) == (True, 300)
+    assert (boost.repeat, boost.repeat_interval_ms) == (True, 300)
+
+
 def test_startup_and_shutdown_match_controller_view_long_holds() -> None:
     startup = cab_action("startup")
     shutdown = cab_action("shutdown")
