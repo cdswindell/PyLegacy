@@ -24,7 +24,7 @@ def run_cab(state_port, command_port, args: list[str] | None = None) -> int:
 
     cab = CabController(state_port, command_port)
     engine = QQmlApplicationEngine()
-    engine.rootContext().setContextProperty("cab", cab)
+    engine.rootContext().setContextProperty("cabController", cab)
     qml = files("pytrain_ui.qt.qml").joinpath("Main.qml")
     with as_file(qml) as qml_path:
         engine.load(QUrl.fromLocalFile(str(qml_path)))
