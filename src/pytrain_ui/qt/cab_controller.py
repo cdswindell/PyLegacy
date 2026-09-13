@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
 
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
@@ -94,6 +97,18 @@ class CabController(QObject):
                     state = head
         return state
 
+    def _custom_artwork(self, state) -> str | None:
+        """Return the existing EngineGui custom-cache image for the artwork engine."""
+        if state is None:
+            return None
+        tmcc_id = int(getattr(state, "tmcc_id", 0) or 0)
+        if not tmcc_id:
+            return None
+        return find_file(
+            f"{tmcc_id}.jpg",
+            places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR),
+        )
+
     @Property(list, notify=rosterChanged)
     def targetLabels(self) -> list[str]:
         return self._target_labels
@@ -138,11 +153,17 @@ class CabController(QObject):
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
         state = self._artwork_state()
-        engine_type = getattr(state, "engine_type_enum", None)
-        name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
-        filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
-        path = find_file(filename)
+        path = self._custom_artwork(state)
+        if path is None:
+            engine_type = getattr(state, "engine_type_enum", None)
+            name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
+            filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
+            path = find_file(filename)
         return QUrl.fromLocalFile(str(path)).toString() if path else ""
+
+    @Property(bool, notify=stateChanged)
+    def hasCustomArtwork(self) -> bool:
+        return self._custom_artwork(self._artwork_state()) is not None
 
     @Property(int, notify=stateChanged)
     def speed(self) -> int:
@@ -211,3 +232,51 @@ class CabController(QObject):
     @Slot()
     def reset(self) -> None:
         self._command_port.reset()
+
+    @Slot()
+    def startup(self) -> None:
+        self._command_port.startup()
+
+    @Slot()
+    def shutdown(self) -> None:
+        self._command_port.shutdown()
+
+    @Slot()
+    def frontCoupler(self) -> None:
+        self._command_port.front_coupler()
+
+    @Slot()
+    def rearCoupler(self) -> None:
+        self._command_port.rear_coupler()
+
+    @Slot()
+    def smokeUp(self) -> None:
+        self._command_port.smoke_up()
+
+    @Slot()
+    def smokeDown(self) -> None:
+        self._command_port.smoke_down()
+
+    @Slot()
+    def volumeUp(self) -> None:
+        self._command_port.volume_up()
+
+    @Slot()
+    def volumeDown(self) -> None:
+        self._command_port.volume_down()
+
+    @Slot()
+    def rpmUp(self) -> None:
+        self._command_port.rpm_up()
+
+    @Slot()
+    def rpmDown(self) -> None:
+        self._command_port.rpm_down()
+
+    @Slot()
+    def engineerChatter(self) -> None:
+        self._command_port.engineer_chatter()
+
+    @Slot()
+    def towerChatter(self) -> None:
+        self._command_port.tower_chatter()
