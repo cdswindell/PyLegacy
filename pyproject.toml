@@ -47,6 +47,11 @@ dependencies = [
     "spidev >= 3.8.0; platform_system == 'Linux'"
 ]
 
+[project.optional-dependencies]
+qt-gui = [
+    "PySide6 >= 6.10, < 7",
+]
+
 keywords = [
     "automation",
     "interactive",
@@ -84,11 +89,12 @@ where = ["src"]
 install = ["*.template", "*.jpg", "*.png", "*.ttf"]
 "pytrain.gui" = ["fonts/**/*.ttf"]
 "pytrain.gui.controller" = ["*.json"]
-
+"pytrain_ui.qt.qml" = ["*.qml"]
 
 [project.scripts]
 pytrain = "pytrain:main"
 pycab = "pytrain.cli.pycab:main"
+pycab-qt = "pytrain_ui.qt.app:main"
 configure = "pytrain.cli.configure:main"
 lcs = "pytrain.cli.lcs:main"
 make_gui = "pytrain.cli.make_gui:main"
