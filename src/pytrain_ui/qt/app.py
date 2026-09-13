@@ -6,8 +6,8 @@ import sys
 from importlib.resources import as_file, files
 
 
-def run_cab(state_port, command_port, args: list[str] | None = None) -> int:
-    """Run the Qt cab for already-initialized PyTrain state and command ports."""
+def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
+    """Run the Qt cab for an already-initialized PyTrain runtime."""
     try:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QGuiApplication
@@ -22,7 +22,7 @@ def run_cab(state_port, command_port, args: list[str] | None = None) -> int:
     app.setApplicationName("PyTrain")
     app.setOrganizationName("PyTrain")
 
-    cab = CabController(state_port, command_port)
+    cab = CabController(scope, tmcc_id)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("cabController", cab)
     qml = files("pytrain_ui.qt.qml").joinpath("Main.qml")
