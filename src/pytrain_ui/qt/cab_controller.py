@@ -245,6 +245,16 @@ class CabController(QObject):
     def hasCustomArtwork(self) -> bool:
         return self.artworkKind == "custom"
 
+    @Property(bool, notify=stateChanged)
+    def isLegacy(self) -> bool:
+        state = self._state_port.state if self._state_port is not None else None
+        return bool(state is not None and getattr(state, "is_legacy", False))
+
+    @Property(bool, notify=stateChanged)
+    def hasThrottle(self) -> bool:
+        state = self._state_port.state if self._state_port is not None else None
+        return bool(state is not None and getattr(state, "has_throttle", False))
+
     @Property(int, notify=stateChanged)
     def speed(self) -> int:
         return self._snapshot.speed
@@ -277,6 +287,10 @@ class CabController(QObject):
         return self._snapshot.momentum
 
     @Property(int, notify=stateChanged)
+    def trainBrake(self) -> int:
+        return self._snapshot.train_brake
+
+    @Property(int, notify=stateChanged)
     def smoke(self) -> int:
         return self._snapshot.smoke
 
@@ -299,6 +313,14 @@ class CabController(QObject):
     @Slot(int)
     def setMomentum(self, value: int) -> None:
         self._command_port.set_momentum(value)
+
+    @Slot(int)
+    def setTrainBrake(self, value: int) -> None:
+        self._command_port.set_train_brake(value)
+
+    @Slot(int)
+    def setQuillingHorn(self, value: int) -> None:
+        self._command_port.set_quilling_horn(value)
 
     @Slot(int)
     def setSpeedLimit(self, value: int) -> None:
