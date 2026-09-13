@@ -845,12 +845,9 @@ def _tk_calls_on(name: str, method: str) -> list[ast.Call]:
 
 
 def test_the_extra_column_holds_its_place_when_its_keys_hide() -> None:
-    """Every key in the column is an engine key, so all five hide together.
+    """The transformer hides the effort keys, but the column must keep its full size.
 
-    A keypad column never empties -- each cell position stacks one variant per engine type and
-    something is always showing -- but this one does, on any freight or passenger car. Left to
-    track its content the box would collapse to nothing there and slide the sliders across the
-    row, then back again on the next engine. The sliders column is pinned for the same reason.
+    Pinning the column prevents changes in its contents from shifting the sliders beside it.
     """
     calls = _tk_calls_on("extra_functions", "grid_propagate")
 
@@ -888,12 +885,77 @@ def test_every_button_in_the_extra_column_is_an_alias_of_a_real_command() -> Non
 
     for row in mod.EXTRA_FUNCTIONS_WIDE:
         for cell in row:
-            for command, image, _label, _title, scope in cell:
+            for command, image, _label, _title, scope, *_additional_scopes in cell:
                 assert command in mod.COMMAND_ALIASES, command
                 real = mod.COMMAND_ALIASES[command]
                 assert real not in mod.COMMAND_ALIASES, f"{command} resolves to another alias"
-                assert scope == "e", "the column follows the same show/hide rules as the ops keys"
+                assert scope == "e", "the primary scope preserves the command and hold lookup keys"
                 assert find_file(image), image
+
+
+_CONTROLLER_TYPES = ["a", "d", "f", "l", "p", "s", "r", "t"]
+_WIDE_EFFORT_COMMANDS = {"LABOR_EFFECT_UP_WIDE", "LABOR_EFFECT_DOWN_WIDE"}
+_WIDE_COMMANDS = _WIDE_EFFORT_COMMANDS | {
+    "SPEED_ROLL_WIDE",
+    "START_UP_IMMEDIATE_WIDE",
+    "SHUTDOWN_IMMEDIATE_WIDE",
+}
+
+
+class _VisibilityCell:
+    def __init__(self) -> None:
+        self.visible = True
+
+    def show(self) -> None:
+        self.visible = True
+
+    def hide(self) -> None:
+        self.visible = False
+
+
+def _keypad_visibility(*, wide: bool = True):
+    view = mod.ControllerView(SimpleNamespace(engine_ops_cells={}))
+    cells = {}
+    layouts = [mod.ENGINE_OPS_LAYOUT]
+    if wide:
+        layouts.append(mod.EXTRA_FUNCTIONS_WIDE)
+    for layout in layouts:
+        for row in layout:
+            for entry in row:
+                for op in [entry] if isinstance(entry, tuple) else entry or []:
+                    cell = _VisibilityCell()
+                    cells[(op[0], op[4])] = cell
+                    view.scope_key(cell, _OpsButton(), op[0], op)
+    view.regen_engine_keys_map()
+    return view, cells
+
+
+# noinspection PyProtectedMember
+@pytest.mark.parametrize("previous_type", [None, *_CONTROLLER_TYPES])
+@pytest.mark.parametrize("engine_type", _CONTROLLER_TYPES)
+def test_extra_column_visibility_for_each_equipment_type(previous_type, engine_type) -> None:
+    view, cells = _keypad_visibility()
+    if previous_type is not None:
+        view._show_keys_for_type(previous_type)
+
+    view._show_keys_for_type(engine_type)
+
+    expected = _WIDE_COMMANDS - _WIDE_EFFORT_COMMANDS if engine_type == "t" else _WIDE_COMMANDS
+    visible = {command for command in _WIDE_COMMANDS if cells[(command, "e")].visible}
+    assert visible == expected
+
+
+# noinspection PyProtectedMember
+@pytest.mark.parametrize("engine_type", _CONTROLLER_TYPES)
+def test_extra_column_does_not_change_main_keypad_visibility(engine_type) -> None:
+    narrow_view, narrow_cells = _keypad_visibility(wide=False)
+    wide_view, wide_cells = _keypad_visibility()
+
+    narrow_view._show_keys_for_type(engine_type)
+    wide_view._show_keys_for_type(engine_type)
+
+    for key, cell in narrow_cells.items():
+        assert wide_cells[key].visible == cell.visible, key
 
 
 # noinspection PyProtectedMember
