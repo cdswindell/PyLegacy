@@ -45,6 +45,7 @@ Rectangle {
                 }
 
                 delegate: ItemDelegate {
+                    required property int index
                     required property var modelData
                     width: targetPicker.width
                     height: 46
