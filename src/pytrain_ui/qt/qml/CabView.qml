@@ -255,7 +255,25 @@ Rectangle {
                     }
                 }
 
-                Item { Layout.fillHeight: true }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 150
+                    radius: 12
+                    color: "#101317"
+                    border.width: 1
+                    border.color: "#343a43"
+                    clip: true
+
+                    Image {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        source: cab.artworkSource
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: true
+                    }
+                }
 
                 RowLayout {
                     Layout.fillWidth: true
