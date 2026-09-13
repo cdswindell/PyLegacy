@@ -13,6 +13,7 @@ from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
+from pytrain_ui.actions import cab_actions
 from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.contracts import EngineViewState
 
@@ -157,6 +158,25 @@ class CabController(QObject):
         filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
         return find_file(filename), "generic"
 
+    def _action_model(self) -> list[dict]:
+        if self._command_port is None:
+            return []
+        model: list[dict] = []
+        for action in cab_actions():
+            if not self._command_port.supports_action(action):
+                continue
+            icon_path = find_file(action.icon) if action.icon else None
+            model.append(
+                {
+                    "key": action.key,
+                    "label": action.label,
+                    "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
+                    "hold": action.hold,
+                    "repeat": action.repeat,
+                }
+            )
+        return model
+
     @Property(list, notify=rosterChanged)
     def targetLabels(self) -> list[str]:
         return self._target_labels
@@ -197,6 +217,10 @@ class CabController(QObject):
     @Property(str, notify=stateChanged)
     def roadNumber(self) -> str:
         return self._snapshot.road_number
+
+    @Property(list, notify=stateChanged)
+    def actionModel(self) -> list[dict]:
+        return self._action_model()
 
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
@@ -256,6 +280,10 @@ class CabController(QObject):
     def setDirection(self, direction: str) -> None:
         self._command_port.set_direction(direction)
 
+    @Slot(str)
+    def triggerAction(self, key: str) -> None:
+        self._command_port.perform(key)
+
     @Slot()
     def bell(self) -> None:
         self._command_port.bell()
@@ -280,6 +308,8 @@ class CabController(QObject):
     def reset(self) -> None:
         self._command_port.reset()
 
+    # Transitional compatibility slots. QML now uses triggerAction() for the operations
+    # grid, but keeping these means controller/gamepad code can migrate independently.
     @Slot()
     def startup(self) -> None:
         self._command_port.startup()
