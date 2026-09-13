@@ -29,12 +29,14 @@ Item {
     function valueToY(v) {
         const span = Math.max(1, maximumValue - minimumValue)
         const frac = (clamp(v) - minimumValue) / span
-        return rail.y + (1.0 - frac) * (rail.height - handle.height)
+        const normalized = springReturn ? frac : 1.0 - frac
+        return rail.y + normalized * (rail.height - handle.height)
     }
 
     function yToValue(y) {
         const travel = Math.max(1, rail.height - handle.height)
-        const frac = 1.0 - Math.max(0, Math.min(1, (y - rail.y) / travel))
+        const position = Math.max(0, Math.min(1, (y - rail.y) / travel))
+        const frac = springReturn ? position : 1.0 - position
         return Math.round(minimumValue + frac * (maximumValue - minimumValue))
     }
 
