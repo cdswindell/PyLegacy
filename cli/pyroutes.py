@@ -9,11 +9,6 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
-#
-#
-#
 import sys
 from pathlib import Path
 
