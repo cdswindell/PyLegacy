@@ -16,9 +16,12 @@ class CabAction:
     group: str = "operations"
     hold: bool = False
     repeat: bool = False
+    command_kind: str = "engine"
+    legacy_only: bool = False
+    engine_types: tuple[str, ...] = ()
 
 
-# These deliberately mirror the high-value controls already exposed by EngineGui.  The
+# These deliberately mirror the high-value controls already exposed by EngineGui. The
 # command name belongs to the adapter layer; presentation code only sees key/label/icon.
 # Keeping the artwork filename here also gives us one place to review or replace icons as
 # the Qt visual language evolves.
@@ -33,8 +36,26 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     CabAction("volume_up", "Volume +", "VOLUME_UP", "vol-up.jpg"),
     CabAction("rpm_down", "RPM −", "RPM_DOWN", "rpm-down.jpg"),
     CabAction("rpm_up", "RPM +", "RPM_UP", "rpm-up.jpg"),
+    CabAction("labor_down", "Labor −", "LABOR_EFFECT_DOWN", "effort-down.jpg", command_kind="sequence", legacy_only=True),
+    CabAction("labor_up", "Labor +", "LABOR_EFFECT_UP", "effort-up.jpg", command_kind="sequence", legacy_only=True),
     CabAction("engineer_chatter", "Crew", "ENGINEER_CHATTER", "walkie_talkie.jpg"),
     CabAction("tower_chatter", "Tower", "TOWER_CHATTER", "tower.jpg"),
+    CabAction(
+        "pantograph_down",
+        "Pantograph Down",
+        "PANTO_BOTH_DOWN",
+        "panto-down-a.jpg",
+        legacy_only=True,
+        engine_types=("ELECTRIC", "ALSTOM"),
+    ),
+    CabAction(
+        "pantograph_up",
+        "Pantograph Up",
+        "PANTO_BOTH_UP",
+        "panto-up-a.jpg",
+        legacy_only=True,
+        engine_types=("ELECTRIC", "ALSTOM"),
+    ),
 )
 
 CAB_ACTIONS_BY_KEY = {action.key: action for action in CAB_ACTIONS}
