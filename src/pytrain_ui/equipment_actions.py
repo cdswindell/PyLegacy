@@ -1,8 +1,8 @@
 """Type-specific cab operations extracted from ENGINE_OPS_LAYOUT.
 
-This module contains semantic actions only: command, label, icon, applicability,
-and interaction behavior. Grid coordinates and GuiZero widget details remain
-presentation concerns.
+This module contains semantic actions only: command, label, icon, and applicability
+tag. Grid coordinates and GuiZero widget details intentionally remain presentation
+concerns.
 """
 
 from __future__ import annotations
@@ -18,22 +18,12 @@ class EquipmentAction:
     icon: str
     scope_tag: str
     command_kind: str = "engine"
-    group: str = "operations"
-    repeat_interval_ms: int = 0
 
 
 EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     # Steam-specific controls.
-    EquipmentAction("let_off", "Let Off", "LET_OFF_LONG", "let-off.jpg", "s", "generic", repeat_interval_ms=200),
-    EquipmentAction(
-        "water_injector",
-        "Water Injector",
-        "WATER_INJECTOR",
-        "water-inject.jpg",
-        "s",
-        "generic",
-        repeat_interval_ms=200,
-    ),
+    EquipmentAction("let_off", "Let Off", "LET_OFF_LONG", "let-off.jpg", "s", "generic"),
+    EquipmentAction("water_injector", "Water Injector", "WATER_INJECTOR", "water-inject.jpg", "s", "generic"),
     # Passenger/freight common operations (ENGINE_OPS_LAYOUT tag "pf").
     EquipmentAction("sound_on", "Sounds On", "NUMBER_3", "sound-on.jpg", "pf"),
     EquipmentAction("sound_off", "Sounds Off", "NUMBER_5", "sound-off.jpg", "pf"),
@@ -53,14 +43,4 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("flat_wheel", "Wheel Sounds", "STOCK_WHEEL_ON", "flat-wheel-on.jpg", "f", "effects"),
     EquipmentAction("freight_lights_on", "Lights On", "NUMBER_9", "lights-on.jpg", "f"),
     EquipmentAction("freight_lights_off", "Lights Off", "NUMBER_8", "lights-off.jpg", "f"),
-    # Aux keys are present for passenger/freight, Acela, and crane layouts too;
-    # only the standard engine variant carries the special long-hold panels.
-    EquipmentAction("car_aux1", "Aux1", "AUX1_OPTION_ONE", "", "pf", group="secondary", repeat_interval_ms=200),
-    EquipmentAction("car_aux2", "Aux2", "AUX2_OPTION_ONE", "", "pf", group="secondary"),
-    EquipmentAction("car_aux3", "Aux3", "AUX3_OPTION_ONE", "", "pf", group="secondary"),
-    EquipmentAction("acela_aux2", "Aux2", "AUX2_OPTION_ONE", "", "a", group="secondary"),
-    EquipmentAction("acela_aux3", "Aux3 · Arcing", "AUX3_OPTION_ONE", "", "a", group="secondary"),
-    EquipmentAction("crane_aux1", "Aux1", "AUX1_OPTION_ONE", "", "r", group="secondary", repeat_interval_ms=200),
-    EquipmentAction("crane_aux2", "Aux2", "AUX2_OPTION_ONE", "", "r", group="secondary"),
-    EquipmentAction("crane_aux3", "Aux3", "AUX3_OPTION_ONE", "", "r", group="secondary"),
 )
