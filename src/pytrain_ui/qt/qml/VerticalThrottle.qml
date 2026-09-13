@@ -7,6 +7,7 @@ Item {
     property int minimumValue: 0
     property int maximumValue: 199
     property int value: 0
+    property int pendingValue: value
     signal valueCommitted(int value)
 
     implicitWidth: 170
@@ -14,6 +15,10 @@ Item {
 
     function clamp(v) {
         return Math.max(minimumValue, Math.min(maximumValue, v))
+    }
+
+    function displayValue() {
+        return dragHandler.active ? pendingValue : value
     }
 
     function valueToY(v) {
@@ -26,6 +31,11 @@ Item {
         const travel = Math.max(1, rail.height - handle.height)
         const frac = 1.0 - Math.max(0, Math.min(1, (y - rail.y) / travel))
         return Math.round(minimumValue + frac * (maximumValue - minimumValue))
+    }
+
+    onValueChanged: {
+        if (!dragHandler.active)
+            pendingValue = value
     }
 
     Rectangle {
@@ -67,7 +77,7 @@ Item {
         height: 66
         radius: 13
         x: (root.width - width) / 2
-        y: root.valueToY(root.value)
+        y: root.valueToY(root.displayValue())
         color: dragHandler.active ? "#f7f9fb" : "#e1e5ea"
         border.width: 3
         border.color: dragHandler.active ? "#5fb7f2" : "#9aa2ad"
@@ -84,7 +94,7 @@ Item {
         Text {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -18
-            text: root.value
+            text: root.displayValue()
             font.pixelSize: 22
             font.bold: true
             color: "#171a1f"
@@ -98,15 +108,17 @@ Item {
             property real startY: 0
 
             onActiveChanged: {
-                if (active)
+                if (active) {
+                    pendingValue = root.value
                     startY = root.valueToY(root.value)
-                else
-                    root.valueCommitted(root.value)
+                } else {
+                    root.valueCommitted(root.pendingValue)
+                }
             }
 
             onTranslationChanged: {
                 if (active)
-                    root.value = root.yToValue(startY + translation.y)
+                    root.pendingValue = root.yToValue(startY + translation.y)
             }
         }
     }
@@ -114,8 +126,9 @@ Item {
     TapHandler {
         acceptedButtons: Qt.LeftButton
         onTapped: function(eventPoint) {
-            root.value = root.yToValue(eventPoint.position.y - handle.height / 2)
-            root.valueCommitted(root.value)
+            const tappedValue = root.yToValue(eventPoint.position.y - handle.height / 2)
+            root.pendingValue = tappedValue
+            root.valueCommitted(tappedValue)
         }
     }
 }
