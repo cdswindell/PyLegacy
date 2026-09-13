@@ -143,12 +143,15 @@ class CabController(QObject):
     def _action_model(self, group: str) -> list[dict]:
         if self._command_port is None:
             return []
+        profile = self._command_port.control_profile
         model: list[dict] = []
         for action in cab_actions(group):
             if not self._command_port.supports_action(action):
                 continue
             icon_path = find_file(action.icon) if action.icon else None
-            hold_enabled = action.hold and not (action.hold_legacy_only and not self.isLegacy)
+            hold_enabled = action.hold and not (action.hold_legacy_only and not profile.is_legacy)
+            if hold_enabled and action.hold_kind == "analog":
+                hold_enabled = action.hold_target in profile.analog_modes
             model.append(
                 {
                     "key": action.key,
@@ -235,15 +238,47 @@ class CabController(QObject):
     def hasCustomArtwork(self) -> bool:
         return self.artworkKind == "custom"
 
+    @Property(str, notify=stateChanged)
+    def engineType(self) -> str:
+        if self._command_port is None:
+            return "UNKNOWN"
+        return self._command_port.control_profile.engine_type
+
+    @Property(str, notify=stateChanged)
+    def controlType(self) -> str:
+        if self._command_port is None:
+            return "NA"
+        return self._command_port.control_profile.control_type
+
+    @Property(list, notify=stateChanged)
+    def analogModes(self) -> list[str]:
+        if self._command_port is None:
+            return []
+        return list(self._command_port.control_profile.analog_modes)
+
+    @Property(bool, notify=stateChanged)
+    def supportsMomentum(self) -> bool:
+        return bool(self._command_port is not None and self._command_port.control_profile.supports_momentum)
+
+    @Property(bool, notify=stateChanged)
+    def supportsTrainBrake(self) -> bool:
+        return bool(self._command_port is not None and self._command_port.control_profile.supports_train_brake)
+
+    @Property(bool, notify=stateChanged)
+    def supportsQuillingHorn(self) -> bool:
+        return bool(self._command_port is not None and self._command_port.control_profile.supports_quilling_horn)
+
+    @Property(bool, notify=stateChanged)
+    def supportsSpeedLimit(self) -> bool:
+        return bool(self._command_port is not None and self._command_port.control_profile.supports_speed_limit)
+
     @Property(bool, notify=stateChanged)
     def isLegacy(self) -> bool:
-        state = self._state_port.state if self._state_port is not None else None
-        return bool(state is not None and getattr(state, "is_legacy", False))
+        return bool(self._command_port is not None and self._command_port.control_profile.is_legacy)
 
     @Property(bool, notify=stateChanged)
     def hasThrottle(self) -> bool:
-        state = self._state_port.state if self._state_port is not None else None
-        return bool(state is not None and getattr(state, "has_throttle", False))
+        return bool(self._command_port is not None and self._command_port.control_profile.has_throttle)
 
     @Property(int, notify=stateChanged)
     def speed(self) -> int:
