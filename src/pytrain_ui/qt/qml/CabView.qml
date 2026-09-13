@@ -261,18 +261,17 @@ Rectangle {
                     columnSpacing: 8
                     rowSpacing: 7
 
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Start Up"; font.pixelSize: 15; onClicked: cab.startup() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Shut Down"; font.pixelSize: 15; onClicked: cab.shutdown() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Rear Coupler"; font.pixelSize: 14; onClicked: cab.rearCoupler() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Front Coupler"; font.pixelSize: 14; onClicked: cab.frontCoupler() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Smoke −"; font.pixelSize: 15; onClicked: cab.smokeDown() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Smoke +"; font.pixelSize: 15; onClicked: cab.smokeUp() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Volume −"; font.pixelSize: 15; onClicked: cab.volumeDown() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Volume +"; font.pixelSize: 15; onClicked: cab.volumeUp() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "RPM −"; font.pixelSize: 15; onClicked: cab.rpmDown() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "RPM +"; font.pixelSize: 15; onClicked: cab.rpmUp() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Crew"; font.pixelSize: 15; onClicked: cab.engineerChatter() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Tower"; font.pixelSize: 15; onClicked: cab.towerChatter() }
+                    Repeater {
+                        model: cab.actionModel
+                        FunctionButton {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 58
+                            text: modelData.label
+                            iconSource: modelData.iconSource
+                            onClicked: cab.triggerAction(modelData.key)
+                        }
+                    }
                 }
 
                 Rectangle {
