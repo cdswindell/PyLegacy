@@ -47,11 +47,6 @@ dependencies = [
     "spidev >= 3.8.0; platform_system == 'Linux'"
 ]
 
-[project.optional-dependencies]
-qt-gui = [
-    "PySide6 >= 6.10, < 7",
-]
-
 keywords = [
     "automation",
     "interactive",
@@ -64,6 +59,11 @@ keywords = [
     "raspberry pi",
     "tmcc",
     "trains",
+]
+
+[project.optional-dependencies]
+qt-gui = [
+    "PySide6 >= 6.10, < 7",
 ]
 
 # Definition of the Steam Deck variant of this package. It is built from this very same
