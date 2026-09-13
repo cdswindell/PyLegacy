@@ -292,23 +292,25 @@ Rectangle {
                         onClicked: cab.horn(true)
                         onHeld: if (cab.isLegacy) analogMode.currentIndex = 2
                     }
-                    HoldActionButton {
+                    FunctionButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.compactButtonHeight
+                        compact: true
                         text: "Brake"
                         font.pixelSize: root.shortLayout ? 13 : 15
                         repeatWhileHeld: true
                         repeatInterval: 300
-                        onHeldAction: cab.brake(true)
+                        onClicked: cab.brake(true)
                     }
-                    HoldActionButton {
+                    FunctionButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.compactButtonHeight
+                        compact: true
                         text: "Boost"
                         font.pixelSize: root.shortLayout ? 13 : 15
                         repeatWhileHeld: true
                         repeatInterval: 300
-                        onHeldAction: cab.boost(true)
+                        onClicked: cab.boost(true)
                     }
                 }
 
@@ -330,6 +332,8 @@ Rectangle {
                             iconSource: modelData.iconSource
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold
+                            repeatWhileHeld: modelData.repeat
+                            repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
                             onClicked: cab.triggerAction(modelData.key)
                             onHeld: root.handleModelHold(modelData)
                         }
@@ -353,7 +357,7 @@ Rectangle {
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold
                             repeatWhileHeld: modelData.repeat
-                            repeatInterval: 200
+                            repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
                             onClicked: cab.triggerAction(modelData.key)
                             onHeld: root.handleModelHold(modelData)
                         }
@@ -394,7 +398,14 @@ Rectangle {
                         pressedColor: "#b43b42"
                         onClicked: cab.stop()
                     }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.shortLayout ? 46 : 56; text: "Reset"; onClicked: cab.reset() }
+                    CabButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.shortLayout ? 46 : 56
+                        text: "Reset"
+                        repeatWhileHeld: true
+                        repeatInterval: 100
+                        onClicked: cab.reset()
+                    }
                 }
             }
         }
