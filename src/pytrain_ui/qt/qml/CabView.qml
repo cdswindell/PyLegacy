@@ -218,7 +218,7 @@ Rectangle {
                         id: analogMode
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.veryShortLayout ? 28 : 32
-                        model: cab.isLegacy ? ["Brake", "Momentum", "Horn"] : ["Momentum"]
+                        model: cab.analogModes
                         font.pixelSize: root.shortLayout ? 10 : 11
                         contentItem: Text {
                             leftPadding: 5
