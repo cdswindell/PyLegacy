@@ -6,9 +6,6 @@ Rectangle {
     id: root
     required property var cab
 
-    // One cab must fit both portrait Raspberry Pi panels and the much shorter
-    // landscape Steam Deck. Width controls the number of operation columns;
-    // height controls how aggressively chrome and button heights are reduced.
     readonly property bool shortLayout: height < 1000
     readonly property bool veryShortLayout: height < 850
     readonly property bool narrowLayout: width < 650
@@ -183,9 +180,6 @@ Rectangle {
             Layout.fillHeight: true
             spacing: root.shortLayout ? 10 : 14
 
-            // The original ControllerView shares one vertical-control location among
-            // train brake, momentum and quilling horn. Keep the same density here:
-            // throttle remains permanent, the adjacent analog slot switches function.
             RowLayout {
                 Layout.preferredWidth: root.narrowLayout ? 176 : (root.shortLayout ? 205 : 225)
                 Layout.fillHeight: true
@@ -304,7 +298,6 @@ Rectangle {
                 Layout.fillHeight: true
                 spacing: root.shortLayout ? 4 : 6
 
-                // Driving controls stay one-touch but consume only two rows.
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 3
@@ -347,7 +340,7 @@ Rectangle {
                         text: "Brake"
                         font.pixelSize: root.shortLayout ? 13 : 15
                         repeatWhileHeld: true
-                        repeatInterval: 250
+                        repeatInterval: 300
                         onHeldAction: cab.brake(true)
                     }
                     HoldActionButton {
@@ -356,7 +349,7 @@ Rectangle {
                         text: "Boost"
                         font.pixelSize: root.shortLayout ? 13 : 15
                         repeatWhileHeld: true
-                        repeatInterval: 250
+                        repeatInterval: 300
                         onHeldAction: cab.boost(true)
                     }
                 }
@@ -385,12 +378,14 @@ Rectangle {
                             compact: true
                             text: modelData.label
                             iconSource: modelData.iconSource
+                            deferForHold: modelData.hold
+                            holdThreshold: modelData.holdThreshold
                             onClicked: cab.triggerAction(modelData.key)
+                            onHeld: cab.triggerHoldAction(modelData.key)
                         }
                     }
                 }
 
-                // Sequence/Lights/More plus speed-limit fit in one compact row.
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 4
@@ -418,7 +413,6 @@ Rectangle {
                     }
                 }
 
-                // Artwork is a first-class control surface: never intentionally collapse it.
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
