@@ -50,6 +50,10 @@ class CabController(QObject):
     def targetSpeed(self) -> int:
         return self._snapshot.target_speed
 
+    @Property(int, notify=stateChanged)
+    def speedMax(self) -> int:
+        return self._snapshot.speed_max
+
     @Property(str, notify=stateChanged)
     def direction(self) -> str:
         return self._snapshot.direction
@@ -81,3 +85,27 @@ class CabController(QObject):
     @Slot(str)
     def setDirection(self, direction: str) -> None:
         self._command_port.set_direction(direction)
+
+    @Slot()
+    def bell(self) -> None:
+        self._command_port.bell()
+
+    @Slot(bool)
+    def horn(self, active: bool) -> None:
+        self._command_port.horn(active)
+
+    @Slot(bool)
+    def boost(self, active: bool) -> None:
+        self._command_port.boost(active)
+
+    @Slot(bool)
+    def brake(self, active: bool) -> None:
+        self._command_port.brake(active)
+
+    @Slot()
+    def stop(self) -> None:
+        self._command_port.stop()
+
+    @Slot()
+    def reset(self) -> None:
+        self._command_port.reset()
