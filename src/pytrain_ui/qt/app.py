@@ -12,10 +12,16 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtQml import QQmlApplicationEngine
+        from PySide6.QtQuickControls2 import QQuickStyle
     except ImportError as exc:
         raise SystemExit("The Qt UI is not installed. Install PyTrain with the 'qt-gui' extra.") from exc
 
     from .cab_controller import CabController
+
+    # PyTrain supplies custom backgrounds/content for its controls. The native macOS
+    # style intentionally rejects those delegates, so use a customizable style on every
+    # platform for deterministic rendering on macOS, Raspberry Pi, and Steam Deck.
+    QQuickStyle.setStyle("Basic")
 
     argv = sys.argv if args is None else [sys.argv[0], *args]
     app = QGuiApplication(argv)
