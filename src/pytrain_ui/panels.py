@@ -1,8 +1,4 @@
-"""Toolkit-neutral specs for cab panels opened by long-hold actions.
-
-These are presentation descriptions only; they intentionally contain no Qt or
-GuiZero dependencies.  The command names mirror the panels used by ControllerView.
-"""
+"""Toolkit-neutral specs for cab panels opened by long-hold actions."""
 
 from __future__ import annotations
 
@@ -22,9 +18,11 @@ _PANEL_TITLES = {
     "crew": "Engineer & Crew Dialogs",
     "tower": "Tower Dialogs",
     "bell_horn": "Bell/Horn Options",
+    "conductor": "Conductor Actions",
+    "steward": "Steward Dialogs",
+    "station": "Station Dialogs",
 }
 
-# BellHornPanel is small enough to mirror exactly here.
 _BELL_HORN = (
     PanelAction("Bell", "Cycle Tone", "CYCLE_BELL_TONE"),
     PanelAction("Bell", "Ring / Pause", "RING_BELL"),
@@ -35,9 +33,6 @@ _BELL_HORN = (
     PanelAction("Horn", "Grade Crossing", "GRADE_CROSSING_SEQ"),
 )
 
-# The existing LightingPanel contains many locomotive-specific choices.  Start
-# with the controls common enough to be useful on the cab; unsupported commands
-# are filtered by the command adapter before they are exposed to QML.
 _LIGHTS = (
     PanelAction("Cab", "Auto", "CAB_AUTO"),
     PanelAction("Cab", "On", "CAB_ON"),
@@ -85,12 +80,36 @@ _MORE = (
     PanelAction("Motion", "Speed Roll", "SPEED_ROLL"),
 )
 
+_CONDUCTOR = (
+    PanelAction("Dialogs", "All Aboard", "CONDUCTOR_ALL_ABOARD"),
+    PanelAction("Dialogs", "Next Stop", "CONDUCTOR_NEXT_STOP"),
+    PanelAction("Dialogs", "Premature Stop", "CONDUCTOR_PREMATURE_STOP"),
+    PanelAction("Dialogs", "Tickets Please", "CONDUCTOR_TICKETS_PLEASE"),
+)
+
+_STEWARD = (
+    PanelAction("Dialogs", "Welcome Aboard", "STEWARD_WELCOME_ABOARD"),
+    PanelAction("Dialogs", "Lounge Car Open", "STEWARD_LOUNGE_CAR_OPEN"),
+    PanelAction("Dialogs", "First Seating", "STEWARD_FIRST_SEATING"),
+    PanelAction("Dialogs", "Second Seating", "STEWARD_SECOND_SEATING"),
+)
+
+_STATION = (
+    PanelAction("Dialogs", "Arriving", "STATION_ARRIVING"),
+    PanelAction("Dialogs", "Arrived", "STATION_ARRIVED"),
+    PanelAction("Dialogs", "Boarding", "STATION_BOARDING"),
+    PanelAction("Dialogs", "Departing", "STATION_DEPARTING"),
+)
+
 _PANEL_ACTIONS = {
     "bell_horn": _BELL_HORN,
     "lights": _LIGHTS,
     "crew": _CREW,
     "tower": _TOWER,
     "more": _MORE,
+    "conductor": _CONDUCTOR,
+    "steward": _STEWARD,
+    "station": _STATION,
 }
 
 
