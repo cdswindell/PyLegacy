@@ -183,34 +183,119 @@ Rectangle {
             Layout.fillHeight: true
             spacing: root.shortLayout ? 10 : 14
 
-            ColumnLayout {
-                Layout.preferredWidth: root.narrowLayout ? 112 : (root.shortLayout ? 135 : 155)
+            // The original ControllerView shares one vertical-control location among
+            // train brake, momentum and quilling horn. Keep the same density here:
+            // throttle remains permanent, the adjacent analog slot switches function.
+            RowLayout {
+                Layout.preferredWidth: root.narrowLayout ? 176 : (root.shortLayout ? 205 : 225)
                 Layout.fillHeight: true
-                spacing: 2
+                spacing: root.shortLayout ? 3 : 5
 
-                Label {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: "THROTTLE  " + cab.speedMax
-                    color: "#b9c0c9"
-                    font.pixelSize: root.shortLayout ? 12 : 14
-                }
-
-                VerticalThrottle {
-                    id: throttle
-                    Layout.alignment: Qt.AlignHCenter
+                ColumnLayout {
+                    Layout.preferredWidth: root.narrowLayout ? 100 : (root.shortLayout ? 120 : 140)
                     Layout.fillHeight: true
-                    Layout.preferredWidth: root.narrowLayout ? 105 : (root.shortLayout ? 125 : 145)
-                    minimumValue: 0
-                    maximumValue: Math.max(1, cab.speedMax)
-                    value: cab.targetSpeed
-                    onValueCommitted: function(v) { cab.setSpeed(v) }
+                    spacing: 2
+
+                    Label {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "THROTTLE  " + cab.speedMax
+                        color: "#b9c0c9"
+                        font.pixelSize: root.shortLayout ? 12 : 14
+                    }
+
+                    VerticalThrottle {
+                        id: throttle
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.preferredWidth: root.narrowLayout ? 96 : (root.shortLayout ? 115 : 135)
+                        minimumValue: 0
+                        maximumValue: Math.max(1, cab.speedMax)
+                        value: cab.targetSpeed
+                        onValueCommitted: function(v) { cab.setSpeed(v) }
+                    }
+
+                    Label {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "0"
+                        color: "#b9c0c9"
+                        font.pixelSize: root.shortLayout ? 12 : 14
+                    }
                 }
 
-                Label {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: "0"
-                    color: "#b9c0c9"
-                    font.pixelSize: root.shortLayout ? 12 : 14
+                ColumnLayout {
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: root.narrowLayout ? 70 : 78
+                    spacing: 2
+                    visible: cab.hasThrottle
+
+                    ComboBox {
+                        id: analogMode
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.veryShortLayout ? 28 : 32
+                        model: cab.isLegacy ? ["Brake", "Momentum", "Horn"] : ["Momentum"]
+                        font.pixelSize: root.shortLayout ? 10 : 11
+
+                        contentItem: Text {
+                            leftPadding: 5
+                            rightPadding: 18
+                            text: analogMode.displayText
+                            font: analogMode.font
+                            color: "#e9edf2"
+                            verticalAlignment: Text.AlignVCenter
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                        }
+
+                        background: Rectangle {
+                            radius: 6
+                            color: "#292e36"
+                            border.width: 1
+                            border.color: "#626b78"
+                        }
+                    }
+
+                    VerticalCabControl {
+                        id: analogControl
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        minimumValue: 0
+                        maximumValue: analogMode.currentText === "Horn" ? 15 : 7
+                        springReturn: analogMode.currentText === "Horn"
+                        value: analogMode.currentText === "Brake" ? cab.trainBrake
+                               : analogMode.currentText === "Momentum" ? cab.momentum
+                               : 0
+
+                        onValueMoved: function(v) {
+                            if (analogMode.currentText === "Brake")
+                                cab.setTrainBrake(v)
+                            else if (analogMode.currentText === "Horn")
+                                cab.setQuillingHorn(v)
+                        }
+
+                        onValueCommitted: function(v) {
+                            if (analogMode.currentText === "Momentum")
+                                cab.setMomentum(v)
+                            else if (analogMode.currentText === "Brake")
+                                cab.setTrainBrake(v)
+                            else if (analogMode.currentText === "Horn")
+                                cab.setQuillingHorn(v)
+                        }
+                    }
+
+                    Label {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
+                        color: "#b9c0c9"
+                        font.pixelSize: root.shortLayout ? 10 : 11
+                    }
+
+                    Timer {
+                        id: quillRepeat
+                        interval: 500
+                        repeat: true
+                        running: analogMode.currentText === "Horn" && analogControl.dragging && analogControl.pendingValue > 0
+                        onTriggered: cab.setQuillingHorn(analogControl.pendingValue)
+                    }
                 }
             }
 
@@ -305,12 +390,12 @@ Rectangle {
                     }
                 }
 
+                // Sequence/Lights/More plus speed-limit fit in one compact row.
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: 3
+                    columns: 4
                     columnSpacing: 5
                     rowSpacing: 4
-                    visible: cab.secondaryActionModel.length > 0
 
                     Repeater {
                         model: cab.secondaryActionModel
@@ -319,27 +404,7 @@ Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.veryShortLayout ? 32 : 36
                             text: modelData.label
-                            font.pixelSize: root.shortLayout ? 11 : 12
-                            onClicked: cab.triggerAction(modelData.key)
-                        }
-                    }
-                }
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 4
-                    columnSpacing: 5
-                    rowSpacing: 4
-                    visible: cab.tuningActionModel.length > 0
-
-                    Repeater {
-                        model: cab.tuningActionModel
-                        CabButton {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.veryShortLayout ? 32 : 36
-                            text: modelData.label
-                            font.pixelSize: 11
+                            font.pixelSize: root.shortLayout ? 10 : 11
                             onClicked: cab.triggerAction(modelData.key)
                         }
                     }
