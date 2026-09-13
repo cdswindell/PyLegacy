@@ -158,6 +158,7 @@ class CabController(QObject):
                     "holdKind": action.hold_kind,
                     "holdTarget": action.hold_target,
                     "repeat": action.repeat,
+                    "repeatInterval": action.repeat_interval_ms,
                     "group": action.group,
                 }
             )
