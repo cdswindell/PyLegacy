@@ -274,10 +274,58 @@ Rectangle {
                     }
                 }
 
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 3
+                    columnSpacing: 6
+                    rowSpacing: 6
+                    visible: cab.secondaryActionModel.length > 0
+
+                    Repeater {
+                        model: cab.secondaryActionModel
+                        CabButton {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 48
+                            text: modelData.label
+                            font.pixelSize: 13
+                            onClicked: cab.triggerAction(modelData.key)
+                        }
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 4
+                    columnSpacing: 6
+                    rowSpacing: 6
+                    visible: cab.tuningActionModel.length > 0
+
+                    Repeater {
+                        model: cab.tuningActionModel
+                        CabButton {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 46
+                            text: modelData.label
+                            font.pixelSize: 12
+                            onClicked: cab.triggerAction(modelData.key)
+                        }
+                    }
+
+                    CabButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 46
+                        text: cab.speedLimit > 0 ? "Limit " + cab.speedLimit : "Speed Limit"
+                        font.pixelSize: 12
+                        onClicked: speedLimitPopup.open()
+                    }
+                }
+
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 120
+                    Layout.minimumHeight: 135
                     radius: 12
                     color: "#e8ebef"
                     border.width: 1
@@ -348,6 +396,81 @@ Rectangle {
                 Label { text: "Momentum  " + cab.momentum; color: "#d9dde3"; font.pixelSize: 15 }
                 Item { Layout.fillWidth: true }
                 Label { text: "Smoke  " + cab.smoke; color: "#d9dde3"; font.pixelSize: 15 }
+            }
+        }
+    }
+
+    Popup {
+        id: speedLimitPopup
+        x: Math.round((root.width - width) / 2)
+        y: Math.round((root.height - height) / 2)
+        width: Math.min(440, root.width - 48)
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 18
+        onOpened: limitSpin.value = cab.speedLimit > 0 ? cab.speedLimit : Math.max(1, cab.targetSpeed)
+
+        background: Rectangle {
+            radius: 12
+            color: "#252a31"
+            border.width: 1
+            border.color: "#697382"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 14
+
+            Label {
+                Layout.fillWidth: true
+                text: "Speed Limit"
+                color: "white"
+                font.pixelSize: 22
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: cab.speedLimit > 0 ? "Current limit: " + cab.speedLimit : "No speed limit set"
+                color: "#c8ced6"
+                font.pixelSize: 15
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            SpinBox {
+                id: limitSpin
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 180
+                from: 1
+                to: cab.commandSpeedMax
+                editable: true
+                font.pixelSize: 20
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                CabButton {
+                    Layout.fillWidth: true
+                    text: "Clear"
+                    enabled: cab.speedLimit > 0
+                    onClicked: {
+                        cab.clearSpeedLimit()
+                        speedLimitPopup.close()
+                    }
+                }
+
+                CabButton {
+                    Layout.fillWidth: true
+                    text: "Set"
+                    selected: true
+                    onClicked: {
+                        cab.setSpeedLimit(limitSpin.value)
+                        speedLimitPopup.close()
+                    }
+                }
             }
         }
     }
