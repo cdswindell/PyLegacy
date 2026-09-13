@@ -47,6 +47,12 @@ class PyTrainCabCommandAdapter:
         if active:
             self._send_named("BRAKE_SPEED")
 
+    def stop(self) -> None:
+        self._send_named("STOP_IMMEDIATE")
+
+    def reset(self) -> None:
+        self._send_named("RESET")
+
     def _send_named(self, name: str) -> None:
         enum_type = TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
         command = enum_type.by_name(name, raise_exception=True)
