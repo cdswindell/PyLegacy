@@ -13,9 +13,10 @@ from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
-from pytrain_ui.actions import cab_actions
+from pytrain_ui.actions import cab_action, cab_actions
 from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.contracts import EngineViewState
+from pytrain_ui.panels import panel_actions, panel_title
 
 _ENGINE_ARTWORK = {
     "ACELA": "acela.jpg",
@@ -79,10 +80,7 @@ class CabController(QObject):
         self._command_port = PyTrainCabCommandAdapter(self._state_port)
         self._snapshot = self._state_port.current()
         self._unsubscribe = self._state_port.subscribe(self._on_state)
-        self._target_index = next(
-            (i for i, item in enumerate(self._targets) if item[0] == scope and item[1] == tmcc_id),
-            -1,
-        )
+        self._target_index = next((i for i, item in enumerate(self._targets) if item[0] == scope and item[1] == tmcc_id), -1)
         self.stateChanged.emit()
         self.rosterChanged.emit()
 
@@ -104,9 +102,7 @@ class CabController(QObject):
         if state is None:
             return None
         tmcc_id = int(getattr(state, "tmcc_id", 0) or 0)
-        if not tmcc_id:
-            return None
-        return find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
+        return find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR)) if tmcc_id else None
 
     def _product_artwork(self, state) -> str | None:
         if state is None:
@@ -121,14 +117,10 @@ class CabController(QObject):
             with open(info_file, "r", encoding="utf-8") as handle:
                 product = json.load(handle)
             image_url = str(product.get("imageUrl", "") or "")
-            if not image_url:
-                return None
-            filename = PurePosixPath(urlparse(image_url).path).name
+            filename = PurePosixPath(urlparse(image_url).path).name if image_url else ""
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return None
-        if not filename:
-            return None
-        return find_file(filename, places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
+        return find_file(filename, places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR)) if filename else None
 
     def _resolved_artwork(self, state) -> tuple[str | None, str]:
         path = self._custom_artwork(state)
@@ -139,8 +131,7 @@ class CabController(QObject):
             return path, "product"
         engine_type = getattr(state, "engine_type_enum", None)
         name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
-        filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
-        return find_file(filename), "generic"
+        return find_file(_ENGINE_ARTWORK.get(name, "generic_diesel.jpg")), "generic"
 
     def _action_model(self, group: str) -> list[dict]:
         if self._command_port is None:
@@ -150,26 +141,24 @@ class CabController(QObject):
             if not self._command_port.supports_action(action):
                 continue
             icon_path = find_file(action.icon) if action.icon else None
-            model.append(
-                {
-                    "key": action.key,
-                    "label": action.label,
-                    "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
-                    "hold": action.hold,
-                    "holdThreshold": action.hold_threshold_ms,
-                    "repeat": action.repeat,
-                    "group": action.group,
-                }
-            )
+            model.append({
+                "key": action.key,
+                "label": action.label,
+                "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
+                "hold": action.hold,
+                "holdThreshold": action.hold_threshold_ms,
+                "holdKind": action.hold_kind,
+                "holdTarget": action.hold_target,
+                "repeat": action.repeat,
+                "group": action.group,
+            })
         return model
 
     @Property(list, notify=rosterChanged)
-    def targetLabels(self) -> list[str]:
-        return self._target_labels
+    def targetLabels(self) -> list[str]: return self._target_labels
 
     @Property(int, notify=rosterChanged)
-    def targetIndex(self) -> int:
-        return self._target_index
+    def targetIndex(self) -> int: return self._target_index
 
     @Slot(int)
     def selectTarget(self, index: int) -> None:
@@ -179,222 +168,144 @@ class CabController(QObject):
 
     @Slot()
     def refreshRoster(self) -> None:
-        current_scope = CommandScope[self.scope]
-        current_id = self.tmccId
+        current_scope, current_id = CommandScope[self.scope], self.tmccId
         self._reload_roster()
-        self._target_index = next(
-            (i for i, item in enumerate(self._targets) if item[0] == current_scope and item[1] == current_id),
-            -1,
-        )
+        self._target_index = next((i for i, item in enumerate(self._targets) if item[0] == current_scope and item[1] == current_id), -1)
         self.rosterChanged.emit()
 
     @Property(str, notify=stateChanged)
-    def scope(self) -> str:
-        return self._snapshot.scope
-
+    def scope(self) -> str: return self._snapshot.scope
     @Property(int, notify=stateChanged)
-    def tmccId(self) -> int:
-        return self._snapshot.tmcc_id
-
+    def tmccId(self) -> int: return self._snapshot.tmcc_id
     @Property(str, notify=stateChanged)
-    def roadName(self) -> str:
-        return self._snapshot.road_name
-
+    def roadName(self) -> str: return self._snapshot.road_name
     @Property(str, notify=stateChanged)
-    def roadNumber(self) -> str:
-        return self._snapshot.road_number
-
+    def roadNumber(self) -> str: return self._snapshot.road_number
     @Property(list, notify=stateChanged)
-    def actionModel(self) -> list[dict]:
-        return self._action_model("operations")
-
+    def actionModel(self) -> list[dict]: return self._action_model("operations")
     @Property(list, notify=stateChanged)
-    def secondaryActionModel(self) -> list[dict]:
-        return self._action_model("secondary")
-
+    def secondaryActionModel(self) -> list[dict]: return self._action_model("secondary")
     @Property(list, notify=stateChanged)
-    def tuningActionModel(self) -> list[dict]:
-        return self._action_model("tuning")
+    def tuningActionModel(self) -> list[dict]: return self._action_model("tuning")
 
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
         path, _ = self._resolved_artwork(self._artwork_state())
         return QUrl.fromLocalFile(str(path)).toString() if path else ""
-
     @Property(str, notify=stateChanged)
-    def artworkKind(self) -> str:
-        _, kind = self._resolved_artwork(self._artwork_state())
-        return kind
-
+    def artworkKind(self) -> str: return self._resolved_artwork(self._artwork_state())[1]
     @Property(bool, notify=stateChanged)
-    def hasCustomArtwork(self) -> bool:
-        return self.artworkKind == "custom"
-
+    def hasCustomArtwork(self) -> bool: return self.artworkKind == "custom"
     @Property(bool, notify=stateChanged)
     def isLegacy(self) -> bool:
         state = self._state_port.state if self._state_port is not None else None
         return bool(state is not None and getattr(state, "is_legacy", False))
-
     @Property(bool, notify=stateChanged)
     def hasThrottle(self) -> bool:
         state = self._state_port.state if self._state_port is not None else None
         return bool(state is not None and getattr(state, "has_throttle", False))
-
     @Property(int, notify=stateChanged)
-    def speed(self) -> int:
-        return self._snapshot.speed
-
+    def speed(self) -> int: return self._snapshot.speed
     @Property(int, notify=stateChanged)
-    def targetSpeed(self) -> int:
-        return self._snapshot.target_speed
-
+    def targetSpeed(self) -> int: return self._snapshot.target_speed
     @Property(int, notify=stateChanged)
-    def speedMax(self) -> int:
-        return self._snapshot.speed_max
-
+    def speedMax(self) -> int: return self._snapshot.speed_max
     @Property(int, notify=stateChanged)
     def commandSpeedMax(self) -> int:
         state = self._state_port.state if self._state_port is not None else None
         return 199 if state is not None and bool(getattr(state, "is_legacy", False)) else 31
-
     @Property(int, notify=stateChanged)
     def speedLimit(self) -> int:
         state = self._state_port.state if self._state_port is not None else None
-        value = getattr(state, "speed_limit", None) if state is not None else None
-        return int(value or 0)
-
+        return int((getattr(state, "speed_limit", None) if state is not None else None) or 0)
     @Property(str, notify=stateChanged)
-    def direction(self) -> str:
-        return self._snapshot.direction
-
+    def direction(self) -> str: return self._snapshot.direction
     @Property(int, notify=stateChanged)
-    def momentum(self) -> int:
-        return self._snapshot.momentum
-
+    def momentum(self) -> int: return self._snapshot.momentum
     @Property(int, notify=stateChanged)
-    def trainBrake(self) -> int:
-        return self._snapshot.train_brake
-
+    def trainBrake(self) -> int: return self._snapshot.train_brake
     @Property(int, notify=stateChanged)
-    def smoke(self) -> int:
-        return self._snapshot.smoke
-
+    def smoke(self) -> int: return self._snapshot.smoke
     @Property(int, notify=stateChanged)
-    def labor(self) -> int:
-        return self._snapshot.labor
-
+    def labor(self) -> int: return self._snapshot.labor
     @Property(int, notify=stateChanged)
-    def rpm(self) -> int:
-        return self._snapshot.rpm
+    def rpm(self) -> int: return self._snapshot.rpm
+
+    @Slot(str, result=str)
+    def panelTitle(self, key: str) -> str:
+        return panel_title(key)
+
+    @Slot(str, result=list)
+    def panelModel(self, key: str) -> list[dict]:
+        if self._command_port is None:
+            return []
+        return [
+            {"section": item.section, "label": item.label, "command": item.command}
+            for item in panel_actions(key)
+            if self._command_port.supports_panel_command(item.command)
+        ]
+
+    @Slot(str)
+    def triggerPanelCommand(self, command: str) -> None:
+        if self._command_port is not None:
+            self._command_port.send_panel_command(command)
 
     @Slot(int)
-    def setSpeed(self, speed: int) -> None:
-        self._command_port.set_speed(speed)
-
+    def setSpeed(self, speed: int) -> None: self._command_port.set_speed(speed)
     @Slot(int)
-    def changeSpeed(self, delta: int) -> None:
-        self._command_port.change_speed(delta)
-
+    def changeSpeed(self, delta: int) -> None: self._command_port.change_speed(delta)
     @Slot(int)
-    def setMomentum(self, value: int) -> None:
-        self._command_port.set_momentum(value)
-
+    def setMomentum(self, value: int) -> None: self._command_port.set_momentum(value)
     @Slot(int)
-    def setTrainBrake(self, value: int) -> None:
-        self._command_port.set_train_brake(value)
-
+    def setTrainBrake(self, value: int) -> None: self._command_port.set_train_brake(value)
     @Slot(int)
-    def setQuillingHorn(self, value: int) -> None:
-        self._command_port.set_quilling_horn(value)
-
+    def setQuillingHorn(self, value: int) -> None: self._command_port.set_quilling_horn(value)
     @Slot(int)
-    def setSpeedLimit(self, value: int) -> None:
-        self._command_port.set_speed_limit(value)
-
+    def setSpeedLimit(self, value: int) -> None: self._command_port.set_speed_limit(value)
     @Slot()
-    def clearSpeedLimit(self) -> None:
-        self._command_port.set_speed_limit(None)
-
+    def clearSpeedLimit(self) -> None: self._command_port.set_speed_limit(None)
     @Slot(str)
-    def setDirection(self, direction: str) -> None:
-        self._command_port.set_direction(direction)
-
+    def setDirection(self, direction: str) -> None: self._command_port.set_direction(direction)
     @Slot(str)
-    def triggerAction(self, key: str) -> None:
-        self._command_port.perform(key)
-
+    def triggerAction(self, key: str) -> None: self._command_port.perform(key)
     @Slot(str)
     def triggerHoldAction(self, key: str) -> None:
-        self._command_port.perform_hold(key)
-
+        action = cab_action(key)
+        if action is not None and action.hold_kind == "command":
+            self._command_port.perform_hold(action)
     @Slot()
-    def bell(self) -> None:
-        self._command_port.bell()
-
+    def bell(self) -> None: self._command_port.bell()
     @Slot(bool)
-    def horn(self, active: bool) -> None:
-        self._command_port.horn(active)
-
+    def horn(self, active: bool) -> None: self._command_port.horn(active)
     @Slot(bool)
-    def boost(self, active: bool) -> None:
-        self._command_port.boost(active)
-
+    def boost(self, active: bool) -> None: self._command_port.boost(active)
     @Slot(bool)
-    def brake(self, active: bool) -> None:
-        self._command_port.brake(active)
-
+    def brake(self, active: bool) -> None: self._command_port.brake(active)
     @Slot()
-    def stop(self) -> None:
-        self._command_port.stop()
-
+    def stop(self) -> None: self._command_port.stop()
     @Slot()
-    def reset(self) -> None:
-        self._command_port.reset()
-
+    def reset(self) -> None: self._command_port.reset()
     @Slot()
-    def startup(self) -> None:
-        self._command_port.startup()
-
+    def startup(self) -> None: self._command_port.startup()
     @Slot()
-    def shutdown(self) -> None:
-        self._command_port.shutdown()
-
+    def shutdown(self) -> None: self._command_port.shutdown()
     @Slot()
-    def frontCoupler(self) -> None:
-        self._command_port.front_coupler()
-
+    def frontCoupler(self) -> None: self._command_port.front_coupler()
     @Slot()
-    def rearCoupler(self) -> None:
-        self._command_port.rear_coupler()
-
+    def rearCoupler(self) -> None: self._command_port.rear_coupler()
     @Slot()
-    def smokeUp(self) -> None:
-        self._command_port.smoke_up()
-
+    def smokeUp(self) -> None: self._command_port.smoke_up()
     @Slot()
-    def smokeDown(self) -> None:
-        self._command_port.smoke_down()
-
+    def smokeDown(self) -> None: self._command_port.smoke_down()
     @Slot()
-    def volumeUp(self) -> None:
-        self._command_port.volume_up()
-
+    def volumeUp(self) -> None: self._command_port.volume_up()
     @Slot()
-    def volumeDown(self) -> None:
-        self._command_port.volume_down()
-
+    def volumeDown(self) -> None: self._command_port.volume_down()
     @Slot()
-    def rpmUp(self) -> None:
-        self._command_port.rpm_up()
-
+    def rpmUp(self) -> None: self._command_port.rpm_up()
     @Slot()
-    def rpmDown(self) -> None:
-        self._command_port.rpm_down()
-
+    def rpmDown(self) -> None: self._command_port.rpm_down()
     @Slot()
-    def engineerChatter(self) -> None:
-        self._command_port.engineer_chatter()
-
+    def engineerChatter(self) -> None: self._command_port.engineer_chatter()
     @Slot()
-    def towerChatter(self) -> None:
-        self._command_port.tower_chatter()
+    def towerChatter(self) -> None: self._command_port.tower_chatter()
