@@ -17,6 +17,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         raise SystemExit("The Qt UI is not installed. Install PyTrain with the 'qt-gui' extra.") from exc
 
     from .cab_controller import CabController
+    from .gamepad import QtGamepadInput
 
     # PyTrain supplies custom backgrounds/content for its controls. The native macOS
     # style intentionally rejects those delegates, so use a customizable style on every
@@ -29,6 +30,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     app.setOrganizationName("PyTrain")
 
     cab = CabController(scope, tmcc_id)
+    gamepad = QtGamepadInput(cab, cab)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("cabController", cab)
     qml = files("pytrain_ui.qt.qml").joinpath("Main.qml")
@@ -36,11 +38,13 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         engine.load(QUrl.fromLocalFile(str(qml_path)))
 
     if not engine.rootObjects():
+        gamepad.close()
         cab.close()
         return 1
     try:
         return app.exec()
     finally:
+        gamepad.close()
         cab.close()
 
 
