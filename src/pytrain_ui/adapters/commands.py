@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pytrain.protocol.command_req import CommandReq
+from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -114,6 +115,15 @@ class PyTrainCabCommandAdapter:
             return False
         return True
 
+    def supports_effect(self, name: str) -> bool:
+        if not bool(self.state.is_legacy):
+            return False
+        try:
+            TMCC2EffectsControl.by_name(name, raise_exception=True)
+        except (KeyError, ValueError):
+            return False
+        return True
+
     def supports_action(self, action: CabAction | str) -> bool:
         if isinstance(action, str):
             action = cab_action(action)
@@ -125,6 +135,8 @@ class PyTrainCabCommandAdapter:
             return False
         if action.command_kind == "sequence":
             return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and bool(self.state.is_legacy)
+        if action.command_kind == "effects":
+            return self.supports_effect(action.command)
         return self.supports_named(action.command)
 
     def perform(self, action: CabAction | str) -> bool:
@@ -140,6 +152,10 @@ class PyTrainCabCommandAdapter:
                 LaborEffectDownReq(self.state.tmcc_id, scope=self.state.scope).send()
                 return True
             return False
+        if action.command_kind == "effects":
+            command = TMCC2EffectsControl.by_name(action.command, raise_exception=True)
+            CommandReq(command, self.state.tmcc_id, scope=self.state.scope).send()
+            return True
         return self.send_named(action.command)
 
     def send_named(self, name: str) -> bool:
