@@ -166,7 +166,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 390
+            Layout.minimumHeight: 500
             spacing: 18
 
             ColumnLayout {
@@ -203,21 +203,13 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 10
+                spacing: 8
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 10
-                    CabButton {
-                        Layout.fillWidth: true
-                        text: "−5"
-                        onClicked: cab.changeSpeed(-5)
-                    }
-                    CabButton {
-                        Layout.fillWidth: true
-                        text: "+5"
-                        onClicked: cab.changeSpeed(5)
-                    }
+                    spacing: 8
+                    CabButton { Layout.fillWidth: true; text: "−5"; onClicked: cab.changeSpeed(-5) }
+                    CabButton { Layout.fillWidth: true; text: "+5"; onClicked: cab.changeSpeed(5) }
                 }
 
                 CabButton {
@@ -236,8 +228,7 @@ Rectangle {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 10
-
+                    spacing: 8
                     HoldActionButton {
                         Layout.fillWidth: true
                         text: "Brake"
@@ -245,7 +236,6 @@ Rectangle {
                         repeatInterval: 250
                         onHeldAction: cab.brake(true)
                     }
-
                     HoldActionButton {
                         Layout.fillWidth: true
                         text: "Boost"
@@ -255,33 +245,73 @@ Rectangle {
                     }
                 }
 
+                Label {
+                    Layout.fillWidth: true
+                    text: "OPERATIONS"
+                    color: "#9ea6b0"
+                    font.pixelSize: 13
+                    font.bold: true
+                    leftPadding: 2
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 7
+
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Start Up"; font.pixelSize: 15; onClicked: cab.startup() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Shut Down"; font.pixelSize: 15; onClicked: cab.shutdown() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Rear Coupler"; font.pixelSize: 14; onClicked: cab.rearCoupler() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Front Coupler"; font.pixelSize: 14; onClicked: cab.frontCoupler() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Smoke −"; font.pixelSize: 15; onClicked: cab.smokeDown() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Smoke +"; font.pixelSize: 15; onClicked: cab.smokeUp() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Volume −"; font.pixelSize: 15; onClicked: cab.volumeDown() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Volume +"; font.pixelSize: 15; onClicked: cab.volumeUp() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "RPM −"; font.pixelSize: 15; onClicked: cab.rpmDown() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "RPM +"; font.pixelSize: 15; onClicked: cab.rpmUp() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Crew"; font.pixelSize: 15; onClicked: cab.engineerChatter() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: 48; text: "Tower"; font.pixelSize: 15; onClicked: cab.towerChatter() }
+                }
+
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 150
+                    Layout.minimumHeight: 120
                     radius: 12
                     color: "#101317"
                     border.width: 1
-                    border.color: "#343a43"
+                    border.color: cab.hasCustomArtwork ? "#3c8dbc" : "#343a43"
                     clip: true
 
                     Image {
                         anchors.fill: parent
-                        anchors.margins: 10
+                        anchors.margins: 8
                         source: cab.artworkSource
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
-                        cache: true
+                        cache: false
+                    }
+
+                    Label {
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 8
+                        visible: cab.hasCustomArtwork
+                        text: "CUSTOM"
+                        color: "#8fd3ff"
+                        font.pixelSize: 11
+                        font.bold: true
                     }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: 8
 
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 68
+                        Layout.preferredHeight: 66
                         text: "STOP"
                         font.pixelSize: 22
                         font.bold: true
@@ -292,7 +322,7 @@ Rectangle {
 
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 68
+                        Layout.preferredHeight: 66
                         text: "Reset"
                         onClicked: cab.reset()
                     }
