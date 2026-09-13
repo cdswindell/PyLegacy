@@ -12,6 +12,7 @@ from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum
 
 from pytrain_ui.actions import CabAction, action_applies_to_type, cab_action
+from pytrain_ui.profiles import EngineControlProfile, resolve_engine_control_profile
 
 from .state import PyTrainCabStateAdapter
 
@@ -50,6 +51,14 @@ class PyTrainCabCommandAdapter:
         if getattr(state, "is_transformer", False):
             return "t"
         return "d"
+
+    @property
+    def control_profile(self) -> EngineControlProfile:
+        return resolve_engine_control_profile(
+            self.state,
+            type_key=self.controller_type_key,
+            quilling_horn_supported=self.supports_named("QUILLING_HORN"),
+        )
 
     def set_speed(self, speed: int) -> None:
         maximum = 199 if self.state.is_legacy else 31
