@@ -19,6 +19,7 @@ class EngineViewState:
     speed_max: int = 199
     direction: str = ""
     momentum: int = 0
+    train_brake: int = 0
     smoke: int = 0
     labor: int = 0
     rpm: int = 0
@@ -44,6 +45,12 @@ class CabCommandPort(Protocol):
     def set_speed(self, speed: int) -> None: ...
 
     def change_speed(self, delta: int) -> None: ...
+
+    def set_momentum(self, value: int) -> None: ...
+
+    def set_train_brake(self, value: int) -> None: ...
+
+    def set_quilling_horn(self, value: int) -> None: ...
 
     def set_direction(self, direction: str) -> None: ...
 
