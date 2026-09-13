@@ -212,7 +212,7 @@ Rectangle {
                     Layout.fillHeight: true
                     Layout.preferredWidth: root.narrowLayout ? 70 : 78
                     spacing: 2
-                    visible: cab.hasThrottle
+                    visible: cab.analogModes.length > 0
 
                     ComboBox {
                         id: analogMode
