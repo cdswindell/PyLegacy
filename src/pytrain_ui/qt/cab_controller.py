@@ -101,32 +101,22 @@ class CabController(QObject):
         return state
 
     def _custom_artwork(self, state) -> str | None:
-        """Return the manually supplied <tmcc_id>.jpg image, matching EngineGui precedence."""
         if state is None:
             return None
         tmcc_id = int(getattr(state, "tmcc_id", 0) or 0)
         if not tmcc_id:
             return None
-        return find_file(
-            f"{tmcc_id}.jpg",
-            places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR),
-        )
+        return find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
 
     def _product_artwork(self, state) -> str | None:
-        """Resolve an already-cached Lionel product image without blocking the Qt thread on I/O."""
         if state is None:
             return None
         bt_id = str(getattr(state, "bt_id", "") or "").strip()
         if not bt_id:
             return None
-
-        info_file = find_file(
-            f"{bt_id}.json",
-            places=(Path.cwd(), ENGINE_INFO_CACHE_DIR),
-        )
+        info_file = find_file(f"{bt_id}.json", places=(Path.cwd(), ENGINE_INFO_CACHE_DIR))
         if not info_file or not Path(info_file).is_file():
             return None
-
         try:
             with open(info_file, "r", encoding="utf-8") as handle:
                 product = json.load(handle)
@@ -136,23 +126,17 @@ class CabController(QObject):
             filename = PurePosixPath(urlparse(image_url).path).name
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return None
-
         if not filename:
             return None
-        return find_file(
-            filename,
-            places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR),
-        )
+        return find_file(filename, places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
 
     def _resolved_artwork(self, state) -> tuple[str | None, str]:
         path = self._custom_artwork(state)
         if path:
             return path, "custom"
-
         path = self._product_artwork(state)
         if path:
             return path, "product"
-
         engine_type = getattr(state, "engine_type_enum", None)
         name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
         filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
@@ -172,6 +156,7 @@ class CabController(QObject):
                     "label": action.label,
                     "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
                     "hold": action.hold,
+                    "holdThreshold": action.hold_threshold_ms,
                     "repeat": action.repeat,
                     "group": action.group,
                 }
@@ -338,6 +323,10 @@ class CabController(QObject):
     def triggerAction(self, key: str) -> None:
         self._command_port.perform(key)
 
+    @Slot(str)
+    def triggerHoldAction(self, key: str) -> None:
+        self._command_port.perform_hold(key)
+
     @Slot()
     def bell(self) -> None:
         self._command_port.bell()
@@ -362,8 +351,6 @@ class CabController(QObject):
     def reset(self) -> None:
         self._command_port.reset()
 
-    # Transitional compatibility slots. QML now uses triggerAction() for the operations
-    # grid, but keeping these means controller/gamepad code can migrate independently.
     @Slot()
     def startup(self) -> None:
         self._command_port.startup()
