@@ -28,6 +28,7 @@ class CabAction:
     hold_kind: str = "command"
     hold_target: str = ""
     hold_threshold_ms: int = 1000
+    hold_legacy_only: bool = False
 
     def __post_init__(self) -> None:
         if self.repeat and self.repeat_interval_ms <= 0:
@@ -37,7 +38,7 @@ class CabAction:
         if self.hold_threshold_ms <= 0:
             raise ValueError(f"Action {self.key!r} requires a positive hold threshold")
         if not self.hold:
-            if self.hold_command or self.hold_target:
+            if self.hold_command or self.hold_target or self.hold_legacy_only:
                 raise ValueError(f"Action {self.key!r} defines hold behavior but hold is disabled")
             return
         if self.hold_kind == "command":
@@ -63,10 +64,49 @@ _TYPE_TAGS: dict[str, frozenset[str]] = {
 
 
 def action_applies_to_type(action: CabAction, type_key: str) -> bool:
-    return action.scope_tag in _TYPE_TAGS.get(type_key, frozenset())
+    return action.scope_tag == "*" or action.scope_tag in _TYPE_TAGS.get(type_key, frozenset())
 
 
 CAB_ACTIONS: tuple[CabAction, ...] = (
+    CabAction(
+        "bell",
+        "Bell",
+        "RING_BELL",
+        scope_tag="*",
+        group="primary",
+        hold=True,
+        hold_kind="panel",
+        hold_target="bell_horn",
+    ),
+    CabAction(
+        "horn",
+        "Horn",
+        "BLOW_HORN_ONE",
+        scope_tag="*",
+        group="primary",
+        hold=True,
+        hold_kind="analog",
+        hold_target="Horn",
+        hold_legacy_only=True,
+    ),
+    CabAction(
+        "brake",
+        "Brake",
+        "BRAKE_SPEED",
+        scope_tag="*",
+        group="primary",
+        repeat=True,
+        repeat_interval_ms=300,
+    ),
+    CabAction(
+        "boost",
+        "Boost",
+        "BOOST_SPEED",
+        scope_tag="*",
+        group="primary",
+        repeat=True,
+        repeat_interval_ms=300,
+    ),
     CabAction(
         "startup",
         "Start Up",
