@@ -1,9 +1,8 @@
 """Resolved, toolkit-neutral control profiles for PyTrain cab targets.
 
 A profile describes what controls the presentation layer should expose for one
-specific engine or train. Resolution intentionally uses explicit PyTrain state
-only; product-info metadata and engine family are not used as authorities for
-protocol-level cab capabilities.
+specific engine or train. Protocol-level analog controls are determined by the
+TMCC generation, not by engine family or product metadata.
 """
 
 from __future__ import annotations
@@ -29,14 +28,20 @@ def resolve_engine_control_profile(
     state,
     *,
     type_key: str,
+    momentum_supported: bool = False,
+    train_brake_supported: bool = False,
+    quilling_horn_supported: bool = False,
 ) -> EngineControlProfile:
     """Resolve presentation capabilities from explicit per-target state.
 
-    Train-brake and quilling-horn sliders are protocol-generation capabilities:
-    expose them for TMCC2/Legacy targets and hide them for TMCC1 targets. Do not
-    infer their usefulness from engine family or whether the target has a
-    throttle; non-motive Legacy equipment can assign meaningful behavior to the
-    same TMCC2 command data.
+    Train-brake and quilling-horn sliders are TMCC-generation capabilities:
+    expose both for TMCC2/Legacy targets and neither for TMCC1 targets. Engine
+    family, throttle presence, and the semantic meaning a particular product
+    assigns to quill levels do not affect their visibility.
+
+    The *_supported arguments remain accepted while the command adapter is being
+    simplified, but train-brake and quilling-horn visibility intentionally does
+    not depend on them.
     """
 
     if state is None:
@@ -59,7 +64,7 @@ def resolve_engine_control_profile(
     is_legacy = bool(getattr(state, "is_legacy", False))
     has_throttle = bool(getattr(state, "has_throttle", False))
 
-    supports_momentum = has_throttle
+    supports_momentum = has_throttle and momentum_supported
     supports_train_brake = is_legacy
     supports_quilling_horn = is_legacy
     supports_speed_limit = has_throttle
