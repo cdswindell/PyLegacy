@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pytrain.protocol.command_req import CommandReq
+from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
@@ -15,8 +16,8 @@ from .state import PyTrainCabStateAdapter
 class PyTrainCabCommandAdapter:
     """Translate presentation-level cab actions into PyTrain commands.
 
-    Keep command names here rather than in QML so the presentation layer does not
-    need to know which TMCC enum implements an operation.
+    Keep command names and equipment capability rules here rather than in QML so the
+    presentation layer only renders actions it is handed.
     """
 
     def __init__(self, state_adapter: PyTrainCabStateAdapter) -> None:
@@ -29,6 +30,11 @@ class PyTrainCabCommandAdapter:
     @property
     def _enum_type(self):
         return TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
+
+    @property
+    def engine_type_name(self) -> str:
+        engine_type = getattr(self.state, "engine_type_enum", None)
+        return str(getattr(engine_type, "name", "") or "")
 
     def set_speed(self, speed: int) -> None:
         maximum = 199 if self.state.is_legacy else 31
@@ -111,22 +117,33 @@ class PyTrainCabCommandAdapter:
     def supports_action(self, action: CabAction | str) -> bool:
         if isinstance(action, str):
             action = cab_action(action)
-        return action is not None and self.supports_named(action.command)
+        if action is None:
+            return False
+        if action.legacy_only and not bool(self.state.is_legacy):
+            return False
+        if action.engine_types and self.engine_type_name not in action.engine_types:
+            return False
+        if action.command_kind == "sequence":
+            return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and bool(self.state.is_legacy)
+        return self.supports_named(action.command)
 
     def perform(self, action: CabAction | str) -> bool:
         if isinstance(action, str):
             action = cab_action(action)
-        if action is None:
+        if action is None or not self.supports_action(action):
+            return False
+        if action.command_kind == "sequence":
+            if action.command == "LABOR_EFFECT_UP":
+                LaborEffectUpReq(self.state.tmcc_id, scope=self.state.scope).send()
+                return True
+            if action.command == "LABOR_EFFECT_DOWN":
+                LaborEffectDownReq(self.state.tmcc_id, scope=self.state.scope).send()
+                return True
             return False
         return self.send_named(action.command)
 
     def send_named(self, name: str) -> bool:
-        """Send a named engine/train command when the active control type supports it.
-
-        A few EngineGui operations are generation-specific. Returning False lets the
-        Qt layer remain usable with older TMCC equipment without turning an unsupported
-        convenience button into a UI exception.
-        """
+        """Send a named engine/train command when the active control type supports it."""
         try:
             command = self._enum_type.by_name(name, raise_exception=True)
         except (KeyError, ValueError):
