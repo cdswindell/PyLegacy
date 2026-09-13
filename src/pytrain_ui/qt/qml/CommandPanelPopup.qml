@@ -17,9 +17,10 @@ Popup {
         open()
     }
 
-    anchors.centerIn: Overlay.overlay
     width: Math.min(560, (parent ? parent.width : 620) - 40)
     height: Math.min(620, Math.max(220, contentColumn.implicitHeight + 36))
+    x: parent ? Math.round((parent.width - width) / 2) : 0
+    y: parent ? Math.round((parent.height - height) / 2) : 0
     modal: true
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -58,7 +59,6 @@ Popup {
 
                 Repeater {
                     model: root.actionModel
-
                     FunctionButton {
                         required property var modelData
                         Layout.fillWidth: true
