@@ -1,13 +1,16 @@
 """Toolkit-neutral description of cab actions exposed by presentation layers.
 
-The fifth field in EngineGui's ENGINE_OPS_LAYOUT is the source of truth for which
-controller types see an operation. The Qt UI mirrors those scope tags instead of
-trying to infer capabilities from command-enum membership.
+The semantic tags extracted from EngineGui's ENGINE_OPS_LAYOUT are the source of
+truth for which controller types see an operation. Presentation layers consume
+these actions without depending on GuiZero layout definitions.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from pytrain_ui.capabilities import operation_tag_applies
+from pytrain_ui.equipment_actions import EQUIPMENT_ACTIONS
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,20 +54,8 @@ class CabAction:
             raise ValueError(f"Action {self.key!r} has unsupported hold kind {self.hold_kind!r}")
 
 
-_TYPE_TAGS: dict[str, frozenset[str]] = {
-    "a": frozenset({"vo", "e", "bs", "d", "a"}),
-    "d": frozenset({"c", "vo", "cp", "e", "bs", "sm", "d"}),
-    "f": frozenset({"c", "vo", "cp", "pf", "f"}),
-    "l": frozenset({"c", "vo", "cp", "e", "l"}),
-    "p": frozenset({"c", "vo", "cp", "pf", "p"}),
-    "s": frozenset({"c", "vo", "cp", "e", "bs", "sm", "s"}),
-    "r": frozenset({"c", "vo", "cp", "r"}),
-    "t": frozenset({"t"}),
-}
-
-
 def action_applies_to_type(action: CabAction, type_key: str) -> bool:
-    return action.scope_tag == "*" or action.scope_tag in _TYPE_TAGS.get(type_key, frozenset())
+    return operation_tag_applies(action.scope_tag, type_key)
 
 
 CAB_ACTIONS: tuple[CabAction, ...] = (
@@ -171,8 +162,6 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold_kind="panel",
         hold_target="tower",
     ),
-    # Passenger variants are separate entries because ControllerView assigns
-    # different long-hold destinations to the same underlying commands.
     CabAction(
         "conductor",
         "Conductor",
@@ -260,6 +249,14 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         command_kind="effects",
         legacy_only=True,
     ),
+    *(CabAction(
+        action.key,
+        action.label,
+        action.command,
+        action.icon,
+        action.scope_tag,
+        command_kind=action.command_kind,
+    ) for action in EQUIPMENT_ACTIONS),
     CabAction(
         "sequence",
         "Aux1 · Sequence",
