@@ -268,12 +268,9 @@ Rectangle {
 
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: 3
+                    columns: root.narrowLayout ? 2 : 4
                     columnSpacing: 5
                     rowSpacing: 5
-
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.compactButtonHeight; text: "−5"; font.pixelSize: root.shortLayout ? 13 : 15; onClicked: cab.changeSpeed(-5) }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.compactButtonHeight; text: "+5"; font.pixelSize: root.shortLayout ? 13 : 15; onClicked: cab.changeSpeed(5) }
 
                     Repeater {
                         model: cab.primaryActionModel
@@ -405,12 +402,14 @@ Rectangle {
                     ColumnLayout {
                         required property var modelData
                         Layout.fillWidth: true
+                        Layout.preferredWidth: 0
                         spacing: -2
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.label
+                            text: modelData.label === "Speed Lim" ? "Speed\nLimit" : modelData.label
                             color: "#9ea6b0"
                             horizontalAlignment: Text.AlignHCenter
+                            lineHeight: 0.85
                             font.pixelSize: root.shortLayout ? 9 : 10
                         }
                         Label {
