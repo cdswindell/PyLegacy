@@ -2,225 +2,243 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ColumnLayout {
+Rectangle {
     id: root
     required property var cab
-    spacing: 14
 
-    Label {
-        Layout.fillWidth: true
-        text: (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
-        horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
-        font.pixelSize: 32
-        font.bold: true
-    }
+    color: "#171a1f"
+    radius: 18
 
-    Label {
-        Layout.fillWidth: true
-        text: cab.scope + " " + cab.tmccId + "   " + (cab.direction || "—")
-        horizontalAlignment: Text.AlignHCenter
-        font.pixelSize: 18
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 12
-
-        Label {
-            text: "Speed\n" + cab.speed
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 26
-        }
-
-        Item { Layout.fillWidth: true }
-
-        Label {
-            text: "Target\n" + cab.targetSpeed
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 26
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 10
-
-        Button {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 58
-            text: "Reverse"
-            font.pixelSize: 20
-            font.bold: cab.direction.indexOf("REVERSE") >= 0
-            onClicked: cab.setDirection("REVERSE")
-        }
-
-        Button {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 58
-            text: "Forward"
-            font.pixelSize: 20
-            font.bold: cab.direction.indexOf("FORWARD") >= 0
-            onClicked: cab.setDirection("FORWARD")
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        Layout.minimumHeight: 370
-        spacing: 18
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 22
+        spacing: 14
 
         ColumnLayout {
-            Layout.alignment: Qt.AlignVCenter
+            Layout.fillWidth: true
+            spacing: 2
+
+            Label {
+                Layout.fillWidth: true
+                text: (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
+                color: "#f4f6f8"
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                font.pixelSize: 31
+                font.bold: true
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: cab.scope + " " + cab.tmccId + "   " + (cab.direction || "—")
+                color: "#aeb5bf"
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 17
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
             spacing: 12
 
-            Label {
-                text: cab.speedMax
-                horizontalAlignment: Text.AlignHCenter
-                Layout.preferredWidth: 54
-                font.pixelSize: 18
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 78
+                radius: 12
+                color: "#23272e"
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 0
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: "SPEED"; color: "#9ea6b0"; font.pixelSize: 13 }
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.speed; color: "white"; font.pixelSize: 31; font.bold: true }
+                }
             }
-            Item { Layout.fillHeight: true }
-            Label {
-                text: Math.round(cab.speedMax / 2)
-                horizontalAlignment: Text.AlignHCenter
-                Layout.preferredWidth: 54
-                font.pixelSize: 18
-            }
-            Item { Layout.fillHeight: true }
-            Label {
-                text: "0"
-                horizontalAlignment: Text.AlignHCenter
-                Layout.preferredWidth: 54
-                font.pixelSize: 18
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 78
+                radius: 12
+                color: "#23272e"
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 0
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: "TARGET"; color: "#9ea6b0"; font.pixelSize: 13 }
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.targetSpeed; color: "white"; font.pixelSize: 31; font.bold: true }
+                }
             }
         }
 
-        Slider {
-            id: throttle
-            Layout.preferredWidth: 80
-            Layout.fillHeight: true
-            orientation: Qt.Vertical
-            from: 0
-            to: Math.max(1, cab.speedMax)
-            stepSize: 1
-            snapMode: Slider.SnapAlways
-            value: cab.targetSpeed
-            onPressedChanged: {
-                if (!pressed)
-                    cab.setSpeed(Math.round(value))
-            }
-        }
-
-        ColumnLayout {
+        RowLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             spacing: 10
 
-            RowLayout {
-                Layout.fillWidth: true
-                Button {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    text: "-5"
-                    font.pixelSize: 20
-                    onClicked: cab.changeSpeed(-5)
-                }
-                Button {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    text: "+5"
-                    font.pixelSize: 20
-                    onClicked: cab.changeSpeed(5)
-                }
-            }
-
             Button {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                text: "Bell"
-                font.pixelSize: 20
-                onClicked: cab.bell()
-            }
-
-            Button {
-                id: hornButton
                 Layout.fillWidth: true
                 Layout.preferredHeight: 62
-                text: "Horn"
+                text: "Reverse"
                 font.pixelSize: 20
-                onPressedChanged: cab.horn(pressed)
+                font.bold: cab.direction.indexOf("REVERSE") >= 0
+                onClicked: cab.setDirection("REVERSE")
             }
 
-            RowLayout {
+            Button {
                 Layout.fillWidth: true
-                Button {
-                    id: brakeButton
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 62
-                    text: "Brake"
-                    font.pixelSize: 20
-                    onPressedChanged: cab.brake(pressed)
+                Layout.preferredHeight: 62
+                text: "Forward"
+                font.pixelSize: 20
+                font.bold: cab.direction.indexOf("FORWARD") >= 0
+                onClicked: cab.setDirection("FORWARD")
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 410
+            spacing: 22
+
+            ColumnLayout {
+                Layout.preferredWidth: 180
+                Layout.fillHeight: true
+                spacing: 4
+
+                Label {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: cab.speedMax
+                    color: "#b9c0c9"
+                    font.pixelSize: 16
                 }
-                Button {
-                    id: boostButton
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 62
-                    text: "Boost"
-                    font.pixelSize: 20
-                    onPressedChanged: cab.boost(pressed)
+
+                VerticalThrottle {
+                    id: throttle
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 160
+                    minimumValue: 0
+                    maximumValue: Math.max(1, cab.speedMax)
+                    value: cab.targetSpeed
+                    onValueCommitted: function(v) { cab.setSpeed(v) }
+                }
+
+                Label {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "0"
+                    color: "#b9c0c9"
+                    font.pixelSize: 16
                 }
             }
 
-            Item { Layout.fillHeight: true }
-
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                Button {
+                Layout.fillHeight: true
+                spacing: 10
+
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 62
-                    text: "STOP"
-                    font.pixelSize: 21
-                    font.bold: true
-                    onClicked: cab.stop()
+                    spacing: 10
+                    Button {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 58
+                        text: "−5"
+                        font.pixelSize: 21
+                        onClicked: cab.changeSpeed(-5)
+                    }
+                    Button {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 58
+                        text: "+5"
+                        font.pixelSize: 21
+                        onClicked: cab.changeSpeed(5)
+                    }
                 }
+
                 Button {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 62
-                    text: "Reset"
+                    text: "Bell"
                     font.pixelSize: 20
-                    onClicked: cab.reset()
+                    onClicked: cab.bell()
+                }
+
+                HoldActionButton {
+                    Layout.fillWidth: true
+                    text: "Horn"
+                    repeatWhileHeld: true
+                    repeatInterval: 100
+                    font.bold: pressed
+                    onHeldAction: cab.horn(true)
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    HoldActionButton {
+                        Layout.fillWidth: true
+                        text: "Brake"
+                        repeatWhileHeld: true
+                        repeatInterval: 250
+                        font.bold: pressed
+                        onHeldAction: cab.brake(true)
+                    }
+
+                    HoldActionButton {
+                        Layout.fillWidth: true
+                        text: "Boost"
+                        repeatWhileHeld: true
+                        repeatInterval: 250
+                        font.bold: pressed
+                        onHeldAction: cab.boost(true)
+                    }
+                }
+
+                Item { Layout.fillHeight: true }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Button {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 68
+                        text: "STOP"
+                        font.pixelSize: 22
+                        font.bold: true
+                        onClicked: cab.stop()
+                    }
+
+                    Button {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 68
+                        text: "Reset"
+                        font.pixelSize: 20
+                        onClicked: cab.reset()
+                    }
                 }
             }
         }
-    }
 
-    Label {
-        Layout.fillWidth: true
-        text: "RPM " + cab.rpm + "   Labor " + cab.labor + "   Momentum " + cab.momentum + "   Smoke " + cab.smoke
-        horizontalAlignment: Text.AlignHCenter
-        font.pixelSize: 17
-    }
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 56
+            radius: 10
+            color: "#23272e"
 
-    Timer {
-        interval: 100
-        repeat: true
-        running: hornButton.pressed
-        onTriggered: cab.horn(true)
-    }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
 
-    Timer {
-        interval: 250
-        repeat: true
-        running: boostButton.pressed
-        onTriggered: cab.boost(true)
-    }
-
-    Timer {
-        interval: 250
-        repeat: true
-        running: brakeButton.pressed
-        onTriggered: cab.brake(true)
+                Label { text: "RPM  " + cab.rpm; color: "#d9dde3"; font.pixelSize: 16 }
+                Item { Layout.fillWidth: true }
+                Label { text: "Labor  " + cab.labor; color: "#d9dde3"; font.pixelSize: 16 }
+                Item { Layout.fillWidth: true }
+                Label { text: "Momentum  " + cab.momentum; color: "#d9dde3"; font.pixelSize: 16 }
+                Item { Layout.fillWidth: true }
+                Label { text: "Smoke  " + cab.smoke; color: "#d9dde3"; font.pixelSize: 16 }
+            }
+        }
     }
 }
