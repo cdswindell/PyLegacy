@@ -158,11 +158,11 @@ class CabController(QObject):
         filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
         return find_file(filename), "generic"
 
-    def _action_model(self) -> list[dict]:
+    def _action_model(self, group: str) -> list[dict]:
         if self._command_port is None:
             return []
         model: list[dict] = []
-        for action in cab_actions():
+        for action in cab_actions(group):
             if not self._command_port.supports_action(action):
                 continue
             icon_path = find_file(action.icon) if action.icon else None
@@ -173,6 +173,7 @@ class CabController(QObject):
                     "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
                     "hold": action.hold,
                     "repeat": action.repeat,
+                    "group": action.group,
                 }
             )
         return model
@@ -220,7 +221,15 @@ class CabController(QObject):
 
     @Property(list, notify=stateChanged)
     def actionModel(self) -> list[dict]:
-        return self._action_model()
+        return self._action_model("operations")
+
+    @Property(list, notify=stateChanged)
+    def secondaryActionModel(self) -> list[dict]:
+        return self._action_model("secondary")
+
+    @Property(list, notify=stateChanged)
+    def tuningActionModel(self) -> list[dict]:
+        return self._action_model("tuning")
 
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
@@ -247,6 +256,17 @@ class CabController(QObject):
     @Property(int, notify=stateChanged)
     def speedMax(self) -> int:
         return self._snapshot.speed_max
+
+    @Property(int, notify=stateChanged)
+    def commandSpeedMax(self) -> int:
+        state = self._state_port.state if self._state_port is not None else None
+        return 199 if state is not None and bool(getattr(state, "is_legacy", False)) else 31
+
+    @Property(int, notify=stateChanged)
+    def speedLimit(self) -> int:
+        state = self._state_port.state if self._state_port is not None else None
+        value = getattr(state, "speed_limit", None) if state is not None else None
+        return int(value or 0)
 
     @Property(str, notify=stateChanged)
     def direction(self) -> str:
@@ -275,6 +295,18 @@ class CabController(QObject):
     @Slot(int)
     def changeSpeed(self, delta: int) -> None:
         self._command_port.change_speed(delta)
+
+    @Slot(int)
+    def setMomentum(self, value: int) -> None:
+        self._command_port.set_momentum(value)
+
+    @Slot(int)
+    def setSpeedLimit(self, value: int) -> None:
+        self._command_port.set_speed_limit(value)
+
+    @Slot()
+    def clearSpeedLimit(self) -> None:
+        self._command_port.set_speed_limit(None)
 
     @Slot(str)
     def setDirection(self, direction: str) -> None:
