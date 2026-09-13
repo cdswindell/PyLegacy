@@ -256,6 +256,36 @@ class CabController(QObject):
             return []
         return list(self._command_port.control_profile.analog_modes)
 
+    @Property(list, notify=stateChanged)
+    def infoModel(self) -> list[dict]:
+        """Mirror ControllerView's six-field state summary without GuiZero dependencies."""
+        state = self._state_port.state if self._state_port is not None else None
+        if state is None:
+            return []
+
+        speeds = getattr(state, "speeds", (None, None, None, None))
+        speed_limit = speeds[2] if len(speeds) > 2 else None
+        momentum = str(getattr(state, "momentum_text", "") or self._snapshot.momentum)
+        labor = getattr(state, "labor", None)
+
+        if bool(getattr(state, "is_legacy", False)):
+            train_brake = getattr(state, "train_brake", None)
+            brake = str(train_brake) if train_brake else "Off"
+            smoke = str(getattr(state, "smoke_text", "") or "")
+        else:
+            brake = "NA"
+            smoke = "NA"
+
+        rpm = getattr(state, "rpm", None) if bool(getattr(state, "is_rpm", False)) else None
+        return [
+            {"label": "Mom", "value": momentum},
+            {"label": "Brake", "value": brake},
+            {"label": "Smoke", "value": smoke},
+            {"label": "Speed Lim", "value": "" if speed_limit is None else str(speed_limit)},
+            {"label": "Effort", "value": "" if labor is None else str(labor)},
+            {"label": "RPM", "value": "NA" if rpm is None else str(rpm)},
+        ]
+
     @Property(bool, notify=stateChanged)
     def supportsMomentum(self) -> bool:
         return bool(self._command_port is not None and self._command_port.control_profile.supports_momentum)
