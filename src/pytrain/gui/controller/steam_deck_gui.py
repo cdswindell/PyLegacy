@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from tkinter import messagebox, TclError
+from tkinter import TclError
 from typing import Any, Callable, Literal
 
 from guizero import Box, PushButton, Text
@@ -457,7 +457,7 @@ class SteamDeckGui(GuiZeroBase):
         return True
 
     def _confirm_panel_replace(self, message: str) -> bool:
-        return bool(messagebox.askyesno("Replace controller?", message, parent=self.app.tk))
+        return self.app.yesno("Replace controller?", message)
 
     @staticmethod
     def on_halt() -> None:

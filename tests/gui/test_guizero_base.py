@@ -90,7 +90,7 @@ class DummyGui(mod.GuiZeroBase):
 @pytest.fixture(autouse=True)
 def _patch_runtime(monkeypatch):
     DummyApp.last_instance = None
-    monkeypatch.setattr(mod, "App", DummyApp, raising=True)
+    monkeypatch.setattr(mod, "PyCabApp", DummyApp, raising=True)
     monkeypatch.setattr(
         mod.CommandDispatcher,
         "get",

@@ -49,6 +49,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from .components.hold_button import HoldButton
 from .controller.engine_gui_conf import FONT_SIZE_EXCEPTIONS
+from .pycab_app import PyCabApp
 
 log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
@@ -510,7 +511,7 @@ class GuiZeroBase(Thread, ABC):
         self._ev.clear()
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
-        self._app = app = App(title=self.title, width=self.width, height=self.height)
+        self._app = app = PyCabApp(title=self.title, width=self.width, height=self.height)
         tk_scaling = os.getenv("PYTRAIN_TK_SCALING")
         if tk_scaling:
             app.tk.call("tk", "scaling", float(tk_scaling))

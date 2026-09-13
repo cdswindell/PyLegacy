@@ -10,6 +10,7 @@ import importlib.util
 import os
 import sys
 import tomllib
+from fnmatch import fnmatch
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -63,6 +64,15 @@ def test_pyproject_declares_the_deck_distribution(config) -> None:
     assert deck["name"] == PROGRAM_PACKAGE_DECK
     assert config["project"]["name"] == PROGRAM_PACKAGE
     assert deck["exclude-dependencies"]
+
+
+def test_both_distributions_package_pycab_confirmation_images(config, build_deck) -> None:
+    deck_config = tomllib.loads(build_deck.deck_pyproject()[0])
+    for distribution in (config, deck_config):
+        patterns = distribution["tool"]["setuptools"]["package-data"]["pytrain.gui.images"]
+        for name in ("en-US_pycab_small.png", "en-US_pycab_large.png"):
+            assert any(fnmatch(name, pattern) for pattern in patterns)
+            assert (ROOT / "src" / "pytrain" / "gui" / "images" / name).is_file()
 
 
 def test_the_excluded_requirements_are_the_gpio_only_ones(config) -> None:

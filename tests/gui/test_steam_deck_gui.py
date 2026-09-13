@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from threading import Event
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -320,6 +321,14 @@ def test_controller_input_tells_the_provider_which_panel_acts_on_the_squeeze(mon
 
     assert captured["fires_on_press"] is router.fires_on_press
     assert captured["fires_on_press"]("left") is True
+
+
+@pytest.mark.parametrize("result", [False, True])
+def test_panel_replacement_uses_shared_pycab_confirmation(result) -> None:
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
+    gui._app = SimpleNamespace(yesno=Mock(return_value=result))
+    assert gui._confirm_panel_replace("Replace with Sound Car?") is result
+    gui.app.yesno.assert_called_once_with("Replace controller?", "Replace with Sound Car?")
 
 
 def test_linked_car_transfer_uses_other_panel_and_confirms_occupied_target() -> None:
