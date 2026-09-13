@@ -148,15 +148,16 @@ class CabController(QObject):
             if not self._command_port.supports_action(action):
                 continue
             icon_path = find_file(action.icon) if action.icon else None
+            hold_enabled = action.hold and not (action.hold_legacy_only and not self.isLegacy)
             model.append(
                 {
                     "key": action.key,
                     "label": action.label,
                     "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
-                    "hold": action.hold,
+                    "hold": hold_enabled,
                     "holdThreshold": action.hold_threshold_ms,
-                    "holdKind": action.hold_kind,
-                    "holdTarget": action.hold_target,
+                    "holdKind": action.hold_kind if hold_enabled else "",
+                    "holdTarget": action.hold_target if hold_enabled else "",
                     "repeat": action.repeat,
                     "repeatInterval": action.repeat_interval_ms,
                     "group": action.group,
@@ -204,6 +205,10 @@ class CabController(QObject):
     @Property(str, notify=stateChanged)
     def roadNumber(self) -> str:
         return self._snapshot.road_number
+
+    @Property(list, notify=stateChanged)
+    def primaryActionModel(self) -> list[dict]:
+        return self._action_model("primary")
 
     @Property(list, notify=stateChanged)
     def actionModel(self) -> list[dict]:
