@@ -9,7 +9,7 @@ from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
-from pytrain_ui.actions import CabAction, cab_action
+from pytrain_ui.actions import CabAction, action_applies_to_type, cab_action
 
 from .state import PyTrainCabStateAdapter
 
@@ -17,8 +17,8 @@ from .state import PyTrainCabStateAdapter
 class PyTrainCabCommandAdapter:
     """Translate presentation-level cab actions into PyTrain commands.
 
-    Keep command names and equipment capability rules here rather than in QML so the
-    presentation layer only renders actions it is handed.
+    Engine-type visibility mirrors ControllerView.apply_engine_type() and the scope tags
+    in ENGINE_OPS_LAYOUT; QML only renders the resulting action list.
     """
 
     def __init__(self, state_adapter: PyTrainCabStateAdapter) -> None:
@@ -33,9 +33,26 @@ class PyTrainCabCommandAdapter:
         return TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
 
     @property
-    def engine_type_name(self) -> str:
-        engine_type = getattr(self.state, "engine_type_enum", None)
-        return str(getattr(engine_type, "name", "") or "")
+    def controller_type_key(self) -> str:
+        """Return the same type key ControllerView.apply_engine_type() uses."""
+        state = self.state
+        if getattr(state, "is_diesel", False):
+            return "d"
+        if getattr(state, "is_steam", False):
+            return "s"
+        if getattr(state, "is_passenger", False):
+            return "p"
+        if getattr(state, "is_freight", False):
+            return "f"
+        if getattr(state, "is_acela", False):
+            return "a"
+        if getattr(state, "is_electric", False):
+            return "l"
+        if getattr(state, "is_crane", False):
+            return "r"
+        if getattr(state, "is_transformer", False):
+            return "t"
+        return "d"
 
     def set_speed(self, speed: int) -> None:
         maximum = 199 if self.state.is_legacy else 31
@@ -129,9 +146,9 @@ class PyTrainCabCommandAdapter:
             action = cab_action(action)
         if action is None:
             return False
-        if action.legacy_only and not bool(self.state.is_legacy):
+        if not action_applies_to_type(action, self.controller_type_key):
             return False
-        if action.engine_types and self.engine_type_name not in action.engine_types:
+        if action.legacy_only and not bool(self.state.is_legacy):
             return False
         if action.command_kind == "sequence":
             return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and bool(self.state.is_legacy)
