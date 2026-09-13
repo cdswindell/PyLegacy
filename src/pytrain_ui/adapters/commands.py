@@ -74,7 +74,6 @@ class PyTrainCabCommandAdapter:
                 scope=self.state.scope,
             ).send()
             return
-        # TMCC1 only exposes the three traditional presets. Match the current GUI's bands.
         name = "MOMENTUM_LOW" if value <= 1 else "MOMENTUM_MEDIUM" if value <= 4 else "MOMENTUM_HIGH"
         self.send_named(name)
 
@@ -106,8 +105,6 @@ class PyTrainCabCommandAdapter:
             self.horn(True)
 
     def set_speed_limit(self, value: int | None) -> None:
-        # EngineGui uses the Base 3 roster field for speed limits rather than a
-        # track command. 255 is the established clear/no-limit value.
         if value is None:
             speed_limit = 255
         else:
@@ -257,14 +254,27 @@ class PyTrainCabCommandAdapter:
             return self._step_smoke(1 if action.command == "SMOKE_ON" else -1)
         return self.send_named(action.command)
 
+    def perform_hold(self, action: CabAction | str) -> bool:
+        """Execute the alternate command assigned to a long hold in ControllerView."""
+        if isinstance(action, str):
+            action = cab_action(action)
+        if action is None or not action.hold or not action.hold_command:
+            return False
+        if not self.supports_action(action):
+            return False
+        if action.hold_command_kind == "effects":
+            if not self.supports_effect(action.hold_command):
+                return False
+            command = TMCC2EffectsControl.by_name(action.hold_command, raise_exception=True)
+            CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
+            return True
+        return self.send_named(action.hold_command)
+
     def send_named(self, name: str) -> bool:
         """Send a named engine/train command when the active control type supports it."""
         try:
             command = self._enum_type.by_name(name, raise_exception=True)
         except (KeyError, ValueError):
             return False
-        # Use the factory rather than CommandReq(...) directly. The factory is the
-        # canonical PyTrain dispatch path and correctly creates ordinary, multibyte,
-        # and sequence request subclasses.
         CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
         return True
