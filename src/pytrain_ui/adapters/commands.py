@@ -54,9 +54,14 @@ class PyTrainCabCommandAdapter:
 
     @property
     def control_profile(self) -> EngineControlProfile:
+        momentum_supported = self.supports_named("MOMENTUM") or all(
+            self.supports_named(name) for name in ("MOMENTUM_LOW", "MOMENTUM_MEDIUM", "MOMENTUM_HIGH")
+        )
         return resolve_engine_control_profile(
             self.state,
             type_key=self.controller_type_key,
+            momentum_supported=momentum_supported,
+            train_brake_supported=self.supports_named("TRAIN_BRAKE"),
             quilling_horn_supported=self.supports_named("QUILLING_HORN"),
         )
 
@@ -70,9 +75,10 @@ class PyTrainCabCommandAdapter:
 
     def set_momentum(self, value: int) -> None:
         value = max(0, min(7, int(value)))
-        if self.state.is_legacy:
+        if self.supports_named("MOMENTUM"):
+            command = self._enum_type.by_name("MOMENTUM", raise_exception=True)
             CommandReq.build(
-                TMCC2EngineCommandEnum.MOMENTUM,
+                command,
                 self.state.tmcc_id,
                 data=value,
                 scope=self.state.scope,
@@ -82,11 +88,12 @@ class PyTrainCabCommandAdapter:
         self.send_named(name)
 
     def set_train_brake(self, value: int) -> None:
-        if not self.state.is_legacy:
+        if not self.supports_named("TRAIN_BRAKE"):
             return
         value = max(0, min(7, int(value)))
+        command = self._enum_type.by_name("TRAIN_BRAKE", raise_exception=True)
         CommandReq.build(
-            TMCC2EngineCommandEnum.TRAIN_BRAKE,
+            command,
             self.state.tmcc_id,
             data=value,
             scope=self.state.scope,
@@ -96,9 +103,10 @@ class PyTrainCabCommandAdapter:
         value = max(0, min(15, int(value)))
         if value <= 0:
             return
-        if self.state.is_legacy and self.supports_named("QUILLING_HORN"):
+        if self.supports_named("QUILLING_HORN"):
+            command = self._enum_type.by_name("QUILLING_HORN", raise_exception=True)
             CommandReq.build(
-                TMCC2EngineCommandEnum.QUILLING_HORN,
+                command,
                 self.state.tmcc_id,
                 data=value,
                 scope=self.state.scope,
