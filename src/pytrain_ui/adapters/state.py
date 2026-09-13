@@ -38,6 +38,7 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
         speed_max=speed_max,
         direction=_enum_name(getattr(state, "direction", None)),
         momentum=_int_value(getattr(state, "momentum", 0)),
+        train_brake=_int_value(getattr(state, "train_brake", 0)),
         smoke=_int_value(getattr(state, "smoke", 0)),
         labor=_int_value(getattr(state, "labor", 0)),
         rpm=_int_value(getattr(state, "rpm", 0)),
