@@ -23,12 +23,28 @@ def test_startup_and_shutdown_match_controller_view_long_holds() -> None:
     assert startup is not None and shutdown is not None
     assert startup.command == "START_UP_IMMEDIATE"
     assert startup.hold is True
+    assert startup.hold_kind == "command"
     assert startup.hold_command == "START_UP_DELAYED"
     assert startup.hold_threshold_ms == 1000
     assert shutdown.command == "SHUTDOWN_IMMEDIATE"
     assert shutdown.hold is True
+    assert shutdown.hold_kind == "command"
     assert shutdown.hold_command == "SHUTDOWN_DELAYED"
     assert shutdown.hold_threshold_ms == 1000
+
+
+def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
+    crew = cab_action("engineer_chatter")
+    tower = cab_action("tower_chatter")
+    lights = cab_action("lights")
+    more = cab_action("more")
+    sequence = cab_action("sequence")
+
+    assert crew is not None and (crew.hold, crew.hold_kind, crew.hold_target) == (True, "panel", "crew")
+    assert tower is not None and (tower.hold, tower.hold_kind, tower.hold_target) == (True, "panel", "tower")
+    assert lights is not None and (lights.hold, lights.hold_kind, lights.hold_target) == (True, "panel", "lights")
+    assert more is not None and (more.hold, more.hold_kind, more.hold_target) == (True, "panel", "more")
+    assert sequence is not None and sequence.repeat is True
 
 
 def test_specialized_actions_mirror_engine_gui_scope_tags() -> None:
