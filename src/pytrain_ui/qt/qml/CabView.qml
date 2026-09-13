@@ -14,10 +14,15 @@ Rectangle {
     readonly property int operationButtonHeight: veryShortLayout ? 38 : (shortLayout ? 42 : 46)
 
     function handleModelHold(modelData) {
-        if (modelData.holdKind === "panel")
+        if (modelData.holdKind === "panel") {
             commandPanel.openFor(modelData.holdTarget)
-        else
+        } else if (modelData.holdKind === "analog") {
+            const index = analogMode.find(modelData.holdTarget)
+            if (index >= 0)
+                analogMode.currentIndex = index
+        } else {
             cab.triggerHoldAction(modelData.key)
+        }
     }
 
     color: "#171a1f"
@@ -270,47 +275,22 @@ Rectangle {
                     CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.compactButtonHeight; text: "−5"; font.pixelSize: root.shortLayout ? 13 : 15; onClicked: cab.changeSpeed(-5) }
                     CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.compactButtonHeight; text: "+5"; font.pixelSize: root.shortLayout ? 13 : 15; onClicked: cab.changeSpeed(5) }
 
-                    FunctionButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.compactButtonHeight
-                        compact: true
-                        text: "Bell"
-                        font.pixelSize: root.shortLayout ? 13 : 15
-                        deferForHold: true
-                        holdThreshold: 1000
-                        onClicked: cab.bell()
-                        onHeld: commandPanel.openFor("bell_horn")
-                    }
-                    FunctionButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.compactButtonHeight
-                        compact: true
-                        text: "Horn"
-                        font.pixelSize: root.shortLayout ? 13 : 15
-                        deferForHold: true
-                        holdThreshold: 1000
-                        onClicked: cab.horn(true)
-                        onHeld: if (cab.isLegacy) analogMode.currentIndex = 2
-                    }
-                    FunctionButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.compactButtonHeight
-                        compact: true
-                        text: "Brake"
-                        font.pixelSize: root.shortLayout ? 13 : 15
-                        repeatWhileHeld: true
-                        repeatInterval: 300
-                        onClicked: cab.brake(true)
-                    }
-                    FunctionButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.compactButtonHeight
-                        compact: true
-                        text: "Boost"
-                        font.pixelSize: root.shortLayout ? 13 : 15
-                        repeatWhileHeld: true
-                        repeatInterval: 300
-                        onClicked: cab.boost(true)
+                    Repeater {
+                        model: cab.primaryActionModel
+                        FunctionButton {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: root.compactButtonHeight
+                            compact: true
+                            text: modelData.label
+                            font.pixelSize: root.shortLayout ? 13 : 15
+                            deferForHold: modelData.hold
+                            holdThreshold: modelData.holdThreshold
+                            repeatWhileHeld: modelData.repeat
+                            repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
+                            onClicked: cab.triggerAction(modelData.key)
+                            onHeld: root.handleModelHold(modelData)
+                        }
                     }
                 }
 
