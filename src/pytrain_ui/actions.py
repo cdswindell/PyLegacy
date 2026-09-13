@@ -24,6 +24,9 @@ class CabAction:
     repeat: bool = False
     command_kind: str = "engine"
     legacy_only: bool = False
+    hold_command: str = ""
+    hold_command_kind: str = "engine"
+    hold_threshold_ms: int = 1000
 
 
 # These tags intentionally match ControllerView.scope_key()/regen_engine_keys_map().
@@ -51,8 +54,27 @@ def action_applies_to_type(action: CabAction, type_key: str) -> bool:
 # Tk keypad. Scope tags and command choices still come directly from
 # ENGINE_OPS_LAYOUT / EXTRA_FUNCTIONS.
 CAB_ACTIONS: tuple[CabAction, ...] = (
-    CabAction("startup", "Start Up", "START_UP_IMMEDIATE", "on_button.jpg", "e"),
-    CabAction("shutdown", "Shut Down", "SHUTDOWN_IMMEDIATE", "off_button.jpg", "e"),
+    # ControllerView assigns the delayed variants as HoldButton.on_hold callbacks.
+    # A short press sends the immediate request; a one-second hold sends the
+    # delayed/dialog variant instead.
+    CabAction(
+        "startup",
+        "Start Up",
+        "START_UP_IMMEDIATE",
+        "on_button.jpg",
+        "e",
+        hold=True,
+        hold_command="START_UP_DELAYED",
+    ),
+    CabAction(
+        "shutdown",
+        "Shut Down",
+        "SHUTDOWN_IMMEDIATE",
+        "off_button.jpg",
+        "e",
+        hold=True,
+        hold_command="SHUTDOWN_DELAYED",
+    ),
     CabAction("rear_coupler", "Rear Coupler", "REAR_COUPLER", "rear-coupler.jpg", "cp"),
     CabAction("front_coupler", "Front Coupler", "FRONT_COUPLER", "front-coupler.jpg", "cp"),
     CabAction("smoke_down", "Smoke −", "SMOKE_OFF", "smoke-down.jpg", "sm", command_kind="smoke"),
