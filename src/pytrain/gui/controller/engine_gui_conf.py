@@ -285,30 +285,31 @@ EXTRA_FUNCTIONS = [
     ],
 ]
 
+# Additional scopes show the wide copies for cars, cranes, and transformers; effort excludes transformers.
 EXTRA_FUNCTIONS_WIDE = [
     [
         [
-            ("LABOR_EFFECT_UP_WIDE", "effort-up.jpg", "", "", "e"),
+            ("LABOR_EFFECT_UP_WIDE", "effort-up.jpg", "", "", "e", "f", "p", "r"),
         ],
     ],
     [
         [
-            ("LABOR_EFFECT_DOWN_WIDE", "effort-down.jpg", "", "", "e"),
+            ("LABOR_EFFECT_DOWN_WIDE", "effort-down.jpg", "", "", "e", "f", "p", "r"),
         ],
     ],
     [
         [
-            ("SPEED_ROLL_WIDE", "roll-speed.jpg", "", "", "e"),
+            ("SPEED_ROLL_WIDE", "roll-speed.jpg", "", "", "e", "f", "p", "r", "t"),
         ],
     ],
     [
         [
-            ("START_UP_IMMEDIATE_WIDE", "on_button.jpg", "", "", "e"),
+            ("START_UP_IMMEDIATE_WIDE", "on_button.jpg", "", "", "e", "f", "p", "r", "t"),
         ],
     ],
     [
         [
-            ("SHUTDOWN_IMMEDIATE_WIDE", "off_button.jpg", "", "", "e"),
+            ("SHUTDOWN_IMMEDIATE_WIDE", "off_button.jpg", "", "", "e", "f", "p", "r", "t"),
         ],
     ],
 ]

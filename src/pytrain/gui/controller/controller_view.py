@@ -663,7 +663,7 @@ class ControllerView:
         }
         host._freight_sounds_bell_horn_box.hide()
 
-        # Buttons for the wide screen format: one more column of engine functions beside the
+        # Buttons for the wide screen format: one more column of controller functions beside the
         # sliders, but only on a row with room for a whole one. The keypad's own grid says what a
         # column costs, and the sliders' measured width is what is already spoken for, so this can
         # only be asked here -- after both. Where the answer is no, the box created above is hidden
@@ -673,11 +673,8 @@ class ControllerView:
         if extra_column_fits(host.width, keypad_keys.tk.winfo_reqwidth(), target_sliders_width, keypad_cell_width):
             self.populate_keypad(EXTRA_FUNCTIONS_WIDE, extra_functions)
             # Pinned to the size it asks for while full, the way the sliders column above is.
-            # Every key here is an engine key, so unlike a keypad column -- where each cell
-            # position holds one variant per engine type and something is always showing -- this
-            # one empties completely on a freight or passenger car. Left to track its content the
-            # box would collapse to nothing there and slide the sliders across the row and back
-            # again on the next engine.
+            # Transformers hide the effort keys, but the column should keep its full size so
+            # changing equipment types cannot shift the sliders beside it.
             host.app.tk.update_idletasks()
             column_width = extra_functions.tk.winfo_reqwidth()
             column_height = extra_functions.tk.winfo_reqheight()
@@ -1034,37 +1031,38 @@ class ControllerView:
     def scope_key(self, cell: TitleBox | Box, nb: HoldButton, cmd: str, op: tuple):
         host = self._host
         if len(op) > 4 and op[4]:
-            btn_scope = op[4]
-            if btn_scope == "e":
-                self._engine_btns.add(cell)
-            elif btn_scope == "c":
-                self._common_btns.add(cell)
-            elif btn_scope == "a":
-                self._acela_btns.add(cell)
-            elif btn_scope == "d":
-                self._diesel_btns.add(cell)
-            elif btn_scope == "f":
-                self._freight_btns.add(cell)
-            elif btn_scope == "l":
-                self._electric_btns.add(cell)
-            elif btn_scope == "p":
-                self._passenger_btns.add(cell)
-            elif btn_scope == "pf":
-                self._passenger_freight_btns.add(cell)
-            elif btn_scope == "r":
-                self._crane_btns.add(cell)
-            elif btn_scope == "s":
-                self._steam_btns.add(cell)
-            elif btn_scope == "t":
-                self._transformer_btns.add(cell)
-            elif btn_scope == "vo":
-                self._vol_btns.add(cell)
-            elif btn_scope == "sm":
-                self._smoke_btns.add(cell)
-            elif btn_scope == "cp":
-                self._cplr_btns.add(cell)
-            elif btn_scope == "bs":
-                self._bos_brk_btns.add(cell)
+            # Additional scopes extend visibility; the first still identifies the command key.
+            for btn_scope in op[4:]:
+                if btn_scope == "e":
+                    self._engine_btns.add(cell)
+                elif btn_scope == "c":
+                    self._common_btns.add(cell)
+                elif btn_scope == "a":
+                    self._acela_btns.add(cell)
+                elif btn_scope == "d":
+                    self._diesel_btns.add(cell)
+                elif btn_scope == "f":
+                    self._freight_btns.add(cell)
+                elif btn_scope == "l":
+                    self._electric_btns.add(cell)
+                elif btn_scope == "p":
+                    self._passenger_btns.add(cell)
+                elif btn_scope == "pf":
+                    self._passenger_freight_btns.add(cell)
+                elif btn_scope == "r":
+                    self._crane_btns.add(cell)
+                elif btn_scope == "s":
+                    self._steam_btns.add(cell)
+                elif btn_scope == "t":
+                    self._transformer_btns.add(cell)
+                elif btn_scope == "vo":
+                    self._vol_btns.add(cell)
+                elif btn_scope == "sm":
+                    self._smoke_btns.add(cell)
+                elif btn_scope == "cp":
+                    self._cplr_btns.add(cell)
+                elif btn_scope == "bs":
+                    self._bos_brk_btns.add(cell)
             key = (cmd, op[4])
         else:
             key = cmd
