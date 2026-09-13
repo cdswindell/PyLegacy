@@ -11,6 +11,12 @@ from .state import PyTrainCabStateAdapter
 
 
 class PyTrainCabCommandAdapter:
+    """Translate presentation-level cab actions into PyTrain commands.
+
+    Keep command names here rather than in QML so the presentation layer does not
+    need to know which TMCC enum implements an operation.
+    """
+
     def __init__(self, state_adapter: PyTrainCabStateAdapter) -> None:
         self._state_adapter = state_adapter
 
@@ -30,30 +36,76 @@ class PyTrainCabCommandAdapter:
         normalized = direction.strip().upper()
         if normalized not in {"FORWARD", "REVERSE"}:
             raise ValueError("direction must be FORWARD or REVERSE")
-        self._send_named(f"{normalized}_DIRECTION")
+        self.send_named(f"{normalized}_DIRECTION")
 
     def bell(self) -> None:
-        self._send_named("RING_BELL")
+        self.send_named("RING_BELL")
 
     def horn(self, active: bool) -> None:
         if active:
-            self._send_named("BLOW_HORN_ONE")
+            self.send_named("BLOW_HORN_ONE")
 
     def boost(self, active: bool) -> None:
         if active:
-            self._send_named("BOOST_SPEED")
+            self.send_named("BOOST_SPEED")
 
     def brake(self, active: bool) -> None:
         if active:
-            self._send_named("BRAKE_SPEED")
+            self.send_named("BRAKE_SPEED")
 
     def stop(self) -> None:
-        self._send_named("STOP_IMMEDIATE")
+        self.send_named("STOP_IMMEDIATE")
 
     def reset(self) -> None:
-        self._send_named("RESET")
+        self.send_named("RESET")
 
-    def _send_named(self, name: str) -> None:
+    def startup(self) -> None:
+        self.send_named("START_UP_IMMEDIATE")
+
+    def shutdown(self) -> None:
+        self.send_named("SHUTDOWN_IMMEDIATE")
+
+    def front_coupler(self) -> None:
+        self.send_named("FRONT_COUPLER")
+
+    def rear_coupler(self) -> None:
+        self.send_named("REAR_COUPLER")
+
+    def smoke_up(self) -> None:
+        self.send_named("SMOKE_ON")
+
+    def smoke_down(self) -> None:
+        self.send_named("SMOKE_OFF")
+
+    def volume_up(self) -> None:
+        self.send_named("VOLUME_UP")
+
+    def volume_down(self) -> None:
+        self.send_named("VOLUME_DOWN")
+
+    def rpm_up(self) -> None:
+        self.send_named("RPM_UP")
+
+    def rpm_down(self) -> None:
+        self.send_named("RPM_DOWN")
+
+    def engineer_chatter(self) -> None:
+        self.send_named("ENGINEER_CHATTER")
+
+    def tower_chatter(self) -> None:
+        self.send_named("TOWER_CHATTER")
+
+    def send_named(self, name: str) -> bool:
+        """Send a named engine/train command when the active control type supports it.
+
+        A few EngineGui operations are generation-specific. Returning False lets the
+        Qt layer remain usable with older TMCC equipment without turning an unsupported
+        convenience button into a UI exception.
+        """
         enum_type = TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
-        command = enum_type.by_name(name, raise_exception=True)
+        try:
+            command = enum_type.by_name(name, raise_exception=True)
+        except (KeyError, ValueError):
+            return False
         CommandReq(command, self.state.tmcc_id, scope=self.state.scope).send()
+        return True
