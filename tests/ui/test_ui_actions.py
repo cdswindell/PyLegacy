@@ -17,6 +17,20 @@ def test_cab_action_lookup_and_assets() -> None:
     assert cab_action("does_not_exist") is None
 
 
+def test_startup_and_shutdown_match_controller_view_long_holds() -> None:
+    startup = cab_action("startup")
+    shutdown = cab_action("shutdown")
+    assert startup is not None and shutdown is not None
+    assert startup.command == "START_UP_IMMEDIATE"
+    assert startup.hold is True
+    assert startup.hold_command == "START_UP_DELAYED"
+    assert startup.hold_threshold_ms == 1000
+    assert shutdown.command == "SHUTDOWN_IMMEDIATE"
+    assert shutdown.hold is True
+    assert shutdown.hold_command == "SHUTDOWN_DELAYED"
+    assert shutdown.hold_threshold_ms == 1000
+
+
 def test_specialized_actions_mirror_engine_gui_scope_tags() -> None:
     labor = cab_action("labor_up")
     assert labor is not None
