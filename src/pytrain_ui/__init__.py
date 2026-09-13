@@ -6,5 +6,13 @@ this package. Concrete GUI implementations live in subpackages such as
 """
 
 from .contracts import CabCommandPort, CabStatePort, EngineViewState, StateListener
+from .profiles import EngineControlProfile, resolve_engine_control_profile
 
-__all__ = ["CabCommandPort", "CabStatePort", "EngineViewState", "StateListener"]
+__all__ = [
+    "CabCommandPort",
+    "CabStatePort",
+    "EngineControlProfile",
+    "EngineViewState",
+    "StateListener",
+    "resolve_engine_control_profile",
+]
