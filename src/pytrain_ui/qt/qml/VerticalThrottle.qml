@@ -9,7 +9,7 @@ Item {
     property int value: 0
     signal valueCommitted(int value)
 
-    implicitWidth: 150
+    implicitWidth: 170
     implicitHeight: 520
 
     function clamp(v) {
@@ -19,54 +19,75 @@ Item {
     function valueToY(v) {
         const span = Math.max(1, maximumValue - minimumValue)
         const frac = (clamp(v) - minimumValue) / span
-        return track.y + (1.0 - frac) * (track.height - handle.height)
+        return rail.y + (1.0 - frac) * (rail.height - handle.height)
     }
 
     function yToValue(y) {
-        const travel = Math.max(1, track.height - handle.height)
-        const frac = 1.0 - Math.max(0, Math.min(1, (y - track.y) / travel))
+        const travel = Math.max(1, rail.height - handle.height)
+        const frac = 1.0 - Math.max(0, Math.min(1, (y - rail.y) / travel))
         return Math.round(minimumValue + frac * (maximumValue - minimumValue))
     }
 
     Rectangle {
-        id: track
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 34
-        radius: 17
-        color: "#2f343b"
+        anchors.horizontalCenter: rail.horizontalCenter
+        anchors.top: rail.top
+        anchors.bottom: rail.bottom
+        width: 72
+        radius: 18
+        color: "#20242a"
         border.width: 1
-        border.color: "#666c75"
+        border.color: "#4e5662"
+    }
 
+    Repeater {
+        model: 7
         Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: Math.max(0, handle.y + handle.height / 2 - track.y)
-            radius: 17
-            color: "#3d78a8"
-            opacity: 0.8
+            required property int index
+            width: index === 0 || index === 6 ? 28 : 18
+            height: 2
+            x: rail.x + rail.width + 10
+            y: rail.y + index * (rail.height - height) / 6
+            color: "#8b949f"
         }
     }
 
     Rectangle {
+        id: rail
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 14
+        radius: 7
+        color: "#737b86"
+    }
+
+    Rectangle {
         id: handle
-        width: 116
-        height: 62
-        radius: 16
+        width: 126
+        height: 66
+        radius: 13
         x: (root.width - width) / 2
         y: root.valueToY(root.value)
-        color: dragHandler.active ? "#f2f4f7" : "#d8dce2"
-        border.width: 2
-        border.color: "#7d848d"
+        color: dragHandler.active ? "#f7f9fb" : "#e1e5ea"
+        border.width: 3
+        border.color: dragHandler.active ? "#5fb7f2" : "#9aa2ad"
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            width: 52
+            height: 5
+            radius: 2
+            color: "#6b737e"
+        }
 
         Text {
             anchors.centerIn: parent
+            anchors.verticalCenterOffset: -18
             text: root.value
-            font.pixelSize: 24
+            font.pixelSize: 22
             font.bold: true
-            color: "#20242a"
+            color: "#171a1f"
         }
 
         DragHandler {
@@ -77,11 +98,10 @@ Item {
             property real startY: 0
 
             onActiveChanged: {
-                if (active) {
+                if (active)
                     startY = root.valueToY(root.value)
-                } else {
+                else
                     root.valueCommitted(root.value)
-                }
             }
 
             onTranslationChanged: {
