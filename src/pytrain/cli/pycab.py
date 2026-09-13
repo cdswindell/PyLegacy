@@ -236,8 +236,8 @@ class PyCabPanelGui(EngineGui):
     def fit_popup_title_height(self, measured_height: int, required_height: int) -> int:
         """Whichever is larger: a title row built from the key size, or the title in it.
 
-        The two are the same number on a panel drawn as it was laid out, and this window is
-        not -- its keys are smaller than the Pi's while its fonts are only smaller in
+        The two are the same number on a panel drawn as it was laid out. This window is
+        not; its keys are smaller than the Pi's while its fonts are only smaller in
         proportion to the window, so a row of button_size // 3 per line came out 52px for a
         70px two-line title and cut the version off the admin panel's heading. Costing the
         panel below it the difference, which is why it is the row's height rather than the
@@ -250,7 +250,7 @@ class PyCabPanelGui(EngineGui):
         """True: a panel that will not fit may have the ID/road-name row's height.
 
         The admin panel is the one that asks -- 787px of the 720 this window leaves below that
-        row, where the Pi's screen leaves it 941 for the 931 it asks there -- and what it lost
+        row, where the Pi's screen leaves it 941 for the 931 it asks there. What it lost
         was its Close button, clipped to 3px of the 58 it wanted. The row names whatever the
         pane had selected, which is nothing the admin panel is about. See
         PopupManager._make_room_for, which hides it only for a panel that really does not fit.

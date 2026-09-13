@@ -2295,8 +2295,10 @@ def test_desktop_cancel_uses_new_wording_in_native_dialog(desktop_panel):
 
 def test_discard_dialog_has_large_message_and_buttons_with_safe_default(monkeypatch):
     frame, label = Mock(), Mock()
+    logo = Mock()
     keep, discard = Mock(), Mock()
     button = Mock(side_effect=[keep, discard])
+    monkeypatch.setattr(mod, "add_pycab_logo", logo)
     monkeypatch.setattr(mod.tk, "Frame", frame)
     monkeypatch.setattr(mod.tk, "Label", label)
     monkeypatch.setattr(mod.tk, "Button", button)
@@ -2305,8 +2307,10 @@ def test_discard_dialog_has_large_message_and_buttons_with_safe_default(monkeypa
     dialog.bind = Mock()
     dialog.body("body")
     frame.assert_called_with("body", width=540, height=128)
+    logo.assert_called_once_with(frame.return_value)
     assert label.call_args.kwargs["text"] == "Discard unsaved route changes?"
     assert label.call_args.kwargs["font"] == ("Helvetica", 18)
+    assert label.call_args.kwargs["wraplength"] == 368
     dialog.buttonbox()
     frame.assert_called_with(dialog, width=540, height=64)
     assert button.call_args_list[0].kwargs["text"] == "Keep Editing"
