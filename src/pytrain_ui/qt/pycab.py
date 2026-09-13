@@ -10,8 +10,6 @@ from pytrain.protocol.command_base import CommandBase
 from pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from pytrain.utils.argument_parser import PyTrainArgumentParser
 
-from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
-
 from .app import run_cab
 
 
@@ -43,12 +41,9 @@ class QtCabCommand(CommandBase):
         server: str = None,
     ):
         self.wait_for_sync()
-        state_port = PyTrainCabStateAdapter(self._cli.scope, self._cli.tmcc_id)
-        command_port = PyTrainCabCommandAdapter(state_port)
         try:
-            return run_cab(state_port, command_port, [])
+            return run_cab(self._cli.scope, self._cli.tmcc_id, [])
         finally:
-            state_port.shutdown()
             if self.pytrain is not None:
                 self.pytrain.shutdown()
 
@@ -71,12 +66,12 @@ class QtCabCli(CliBase):
             nargs="?",
             type=int,
             default=1,
-            help="Engine or train TMCC ID (default: 1)",
+            help="Initial engine or train TMCC ID (default: 1); target can be changed in the UI",
         )
         parser.add_argument(
             "-train",
             action="store_true",
-            help="Control a train instead of an engine",
+            help="Start on a train instead of an engine",
         )
         return PyTrainArgumentParser("Qt cab options", parents=[parser, cls.cli_parser()])
 
