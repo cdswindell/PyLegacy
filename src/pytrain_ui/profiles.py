@@ -2,7 +2,8 @@
 
 A profile describes what controls the presentation layer should expose for one
 specific engine or train. Resolution intentionally uses explicit PyTrain state
-only; product-info metadata is not used as an authority for cab capabilities.
+and command capabilities only; product-info metadata is not used as an
+authority for cab capabilities.
 """
 
 from __future__ import annotations
@@ -28,14 +29,17 @@ def resolve_engine_control_profile(
     state,
     *,
     type_key: str,
+    momentum_supported: bool = False,
+    train_brake_supported: bool = False,
     quilling_horn_supported: bool = False,
 ) -> EngineControlProfile:
     """Resolve presentation capabilities from explicit per-target state.
 
-    The inputs deliberately preserve separate factors rather than collapsing
-    them into a single engine-class lookup: exact EngineType, control generation,
-    ControllerView family, and state-level throttle support all contribute.
-    Additional explicit per-engine overrides can be layered here later without
+    Exact EngineType, control generation, ControllerView family, and state-level
+    throttle support are retained in the profile. Actual command capabilities
+    are supplied by the command adapter from the active TMCC1/TMCC2 engine enum;
+    the resolver does not infer protocol support from motive type or Legacy
+    status. Explicit per-engine overrides can be layered here later without
     teaching QML about Lionel-specific distinctions.
     """
 
@@ -59,14 +63,9 @@ def resolve_engine_control_profile(
     is_legacy = bool(getattr(state, "is_legacy", False))
     has_throttle = bool(getattr(state, "has_throttle", False))
 
-    supports_momentum = has_throttle
-    supports_train_brake = is_legacy and has_throttle
-    supports_quilling_horn = (
-        is_legacy
-        and has_throttle
-        and type_key in {"d", "s", "l"}
-        and quilling_horn_supported
-    )
+    supports_momentum = has_throttle and momentum_supported
+    supports_train_brake = has_throttle and train_brake_supported
+    supports_quilling_horn = has_throttle and quilling_horn_supported
     supports_speed_limit = has_throttle
 
     analog_modes: list[str] = []
