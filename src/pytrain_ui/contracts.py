@@ -16,6 +16,7 @@ class EngineViewState:
     road_number: str = ""
     speed: int = 0
     target_speed: int = 0
+    speed_max: int = 199
     direction: str = ""
     momentum: int = 0
     smoke: int = 0
