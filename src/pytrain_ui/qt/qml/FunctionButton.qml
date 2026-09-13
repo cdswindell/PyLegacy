@@ -11,6 +11,8 @@ Control {
     property bool compact: false
     property bool deferForHold: false
     property int holdThreshold: 1000
+    property bool repeatWhileHeld: false
+    property int repeatInterval: 250
     property color normalColor: "#303640"
     property color selectedColor: "#176fa8"
     property color pressedColor: "#48515e"
@@ -98,6 +100,13 @@ Control {
         onRunningChanged: if (!running) elapsed = 0
     }
 
+    Timer {
+        interval: root.repeatInterval
+        repeat: true
+        running: root.repeatWhileHeld && !root.deferForHold && tapHandler.pressed
+        onTriggered: root.clicked()
+    }
+
     TapHandler {
         id: tapHandler
         enabled: root.enabled
@@ -121,8 +130,6 @@ Control {
         if (!root.enabled || event.isAutoRepeat)
             return
         if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            // Keyboard activation remains a short action. Physical controller
-            // long-press timing is handled by the controller input layer.
             root.clicked()
             event.accepted = true
         }
