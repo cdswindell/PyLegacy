@@ -6,15 +6,12 @@ Control {
 
     property string text: ""
     property bool selected: false
+    property bool repeatWhileHeld: false
+    property int repeatInterval: 250
     property color normalColor: "#343a44"
     property color selectedColor: "#246aa0"
     property color pressedColor: "#4d5968"
     readonly property bool pressed: tapHandler.pressed
-
-    // These two repeat behaviors are hard-coded in the existing GUI as well:
-    // Reset repeats every 100 ms and Aux1 every 200 ms while held.
-    readonly property bool autoRepeat: root.text === "Reset" || root.text.indexOf("Aux1") === 0
-    readonly property int autoRepeatInterval: root.text === "Reset" ? 100 : 200
 
     signal clicked()
 
@@ -50,9 +47,9 @@ Control {
     }
 
     Timer {
-        interval: root.autoRepeatInterval
+        interval: root.repeatInterval
         repeat: true
-        running: root.enabled && root.autoRepeat && root.pressed
+        running: root.enabled && root.repeatWhileHeld && root.pressed
         onTriggered: root.clicked()
     }
 
