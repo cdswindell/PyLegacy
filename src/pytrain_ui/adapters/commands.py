@@ -33,28 +33,19 @@ class PyTrainCabCommandAdapter:
     @property
     def controller_type_key(self) -> str:
         state = self.state
-        if getattr(state, "is_diesel", False):
-            return "d"
-        if getattr(state, "is_steam", False):
-            return "s"
-        if getattr(state, "is_passenger", False):
-            return "p"
-        if getattr(state, "is_freight", False):
-            return "f"
-        if getattr(state, "is_acela", False):
-            return "a"
-        if getattr(state, "is_electric", False):
-            return "l"
-        if getattr(state, "is_crane", False):
-            return "r"
-        if getattr(state, "is_transformer", False):
-            return "t"
+        if getattr(state, "is_diesel", False): return "d"
+        if getattr(state, "is_steam", False): return "s"
+        if getattr(state, "is_passenger", False): return "p"
+        if getattr(state, "is_freight", False): return "f"
+        if getattr(state, "is_acela", False): return "a"
+        if getattr(state, "is_electric", False): return "l"
+        if getattr(state, "is_crane", False): return "r"
+        if getattr(state, "is_transformer", False): return "t"
         return "d"
 
     def set_speed(self, speed: int) -> None:
         maximum = 199 if self.state.is_legacy else 31
-        speed = max(0, min(maximum, int(speed)))
-        RampSpeedReq(self.state.tmcc_id, speed, self.state.scope).send()
+        RampSpeedReq(self.state.tmcc_id, max(0, min(maximum, int(speed))), self.state.scope).send()
 
     def change_speed(self, delta: int) -> None:
         self.set_speed(self._state_adapter.current().target_speed + int(delta))
@@ -63,15 +54,12 @@ class PyTrainCabCommandAdapter:
         value = max(0, min(7, int(value)))
         if self.state.is_legacy:
             CommandReq.build(TMCC2EngineCommandEnum.MOMENTUM, self.state.tmcc_id, data=value, scope=self.state.scope).send()
-            return
-        name = "MOMENTUM_LOW" if value <= 1 else "MOMENTUM_MEDIUM" if value <= 4 else "MOMENTUM_HIGH"
-        self.send_named(name)
+        else:
+            self.send_named("MOMENTUM_LOW" if value <= 1 else "MOMENTUM_MEDIUM" if value <= 4 else "MOMENTUM_HIGH")
 
     def set_train_brake(self, value: int) -> None:
-        if not bool(self.state.is_legacy):
-            return
-        value = max(0, min(7, int(value)))
-        CommandReq.build(TMCC2EngineCommandEnum.TRAIN_BRAKE, self.state.tmcc_id, data=value, scope=self.state.scope).send()
+        if self.state.is_legacy:
+            CommandReq.build(TMCC2EngineCommandEnum.TRAIN_BRAKE, self.state.tmcc_id, data=max(0, min(7, int(value))), scope=self.state.scope).send()
 
     def set_quilling_horn(self, value: int) -> None:
         value = max(0, min(15, int(value)))
@@ -92,27 +80,15 @@ class PyTrainCabCommandAdapter:
             raise ValueError("direction must be FORWARD or REVERSE")
         self.send_named(f"{normalized}_DIRECTION")
 
-    def bell(self) -> None:
-        self.send_named("RING_BELL")
-
+    def bell(self) -> None: self.send_named("RING_BELL")
     def horn(self, active: bool) -> None:
-        if active:
-            self.send_named("BLOW_HORN_ONE")
-
+        if active: self.send_named("BLOW_HORN_ONE")
     def boost(self, active: bool) -> None:
-        if active:
-            self.send_named("BOOST_SPEED")
-
+        if active: self.send_named("BOOST_SPEED")
     def brake(self, active: bool) -> None:
-        if active:
-            self.send_named("BRAKE_SPEED")
-
-    def stop(self) -> None:
-        self.send_named("STOP_IMMEDIATE")
-
-    def reset(self) -> None:
-        self.send_named("RESET")
-
+        if active: self.send_named("BRAKE_SPEED")
+    def stop(self) -> None: self.send_named("STOP_IMMEDIATE")
+    def reset(self) -> None: self.send_named("RESET")
     def startup(self) -> None: self.perform("startup")
     def shutdown(self) -> None: self.perform("shutdown")
     def front_coupler(self) -> None: self.perform("front_coupler")
@@ -134,7 +110,7 @@ class PyTrainCabCommandAdapter:
         return True
 
     def supports_effect(self, name: str) -> bool:
-        if not bool(self.state.is_legacy):
+        if not self.state.is_legacy:
             return False
         try:
             TMCC2EffectsControl.by_name(name, raise_exception=True)
@@ -143,18 +119,14 @@ class PyTrainCabCommandAdapter:
         return True
 
     def supports_smoke(self) -> bool:
-        if self.state.is_legacy:
-            return self.supports_effect("SMOKE_OFF") and self.supports_effect("SMOKE_HIGH")
-        return self.supports_named("SMOKE_OFF") and self.supports_named("SMOKE_ON")
+        return (self.supports_effect("SMOKE_OFF") and self.supports_effect("SMOKE_HIGH")) if self.state.is_legacy else (self.supports_named("SMOKE_OFF") and self.supports_named("SMOKE_ON"))
 
     def _step_smoke(self, delta: int) -> bool:
         if not self.state.is_legacy:
             return self.send_named("SMOKE_ON" if delta > 0 else "SMOKE_OFF")
-        levels = (TMCC2EffectsControl.SMOKE_OFF, TMCC2EffectsControl.SMOKE_LOW,
-                  TMCC2EffectsControl.SMOKE_MEDIUM, TMCC2EffectsControl.SMOKE_HIGH)
-        current = getattr(self.state, "smoke_level", None)
+        levels = (TMCC2EffectsControl.SMOKE_OFF, TMCC2EffectsControl.SMOKE_LOW, TMCC2EffectsControl.SMOKE_MEDIUM, TMCC2EffectsControl.SMOKE_HIGH)
         try:
-            index = levels.index(current)
+            index = levels.index(getattr(self.state, "smoke_level", None))
         except ValueError:
             index = 0
         index = max(0, min(len(levels) - 1, index + (1 if delta > 0 else -1)))
@@ -166,10 +138,12 @@ class PyTrainCabCommandAdapter:
             action = cab_action(action)
         if action is None or not action_applies_to_type(action, self.controller_type_key):
             return False
-        if action.legacy_only and not bool(self.state.is_legacy):
+        if action.legacy_only and not self.state.is_legacy:
             return False
         if action.command_kind == "sequence":
-            return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and bool(self.state.is_legacy)
+            return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and self.state.is_legacy
+        if action.command_kind == "generic":
+            return self.supports_panel_command(action.command)
         if action.command_kind == "effects":
             return self.supports_effect(action.command)
         if action.command_kind == "smoke":
@@ -187,6 +161,8 @@ class PyTrainCabCommandAdapter:
             if action.command == "LABOR_EFFECT_DOWN":
                 LaborEffectDownReq(self.state.tmcc_id, scope=self.state.scope).send(); return True
             return False
+        if action.command_kind == "generic":
+            return self.send_panel_command(action.command)
         if action.command_kind == "effects":
             command = TMCC2EffectsControl.by_name(action.command, raise_exception=True)
             CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send(); return True
@@ -197,9 +173,7 @@ class PyTrainCabCommandAdapter:
     def perform_hold(self, action: CabAction | str) -> bool:
         if isinstance(action, str):
             action = cab_action(action)
-        if action is None or not action.hold or action.hold_kind != "command" or not action.hold_command:
-            return False
-        if not self.supports_action(action):
+        if action is None or not action.hold or action.hold_kind != "command" or not action.hold_command or not self.supports_action(action):
             return False
         if action.hold_command_kind == "effects":
             if not self.supports_effect(action.hold_command):
@@ -209,18 +183,14 @@ class PyTrainCabCommandAdapter:
         return self.send_named(action.hold_command)
 
     def supports_panel_command(self, name: str) -> bool:
-        """Return whether a panel command can be resolved for the active control type."""
         if not self.state.is_legacy:
             return self.supports_named(name)
         return TMCC2EngineOpsEnum.look_up(name) is not None or SequenceCommandEnum.by_name(name) is not None
 
     def send_panel_command(self, name: str) -> bool:
-        """Resolve commands exactly like EngineGui.on_engine_command does for Legacy engines."""
         if not self.state.is_legacy:
             return self.send_named(name)
-        command = TMCC2EngineOpsEnum.look_up(name)
-        if command is None:
-            command = SequenceCommandEnum.by_name(name)
+        command = TMCC2EngineOpsEnum.look_up(name) or SequenceCommandEnum.by_name(name)
         if command is None:
             return False
         CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
