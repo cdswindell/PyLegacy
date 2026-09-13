@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from pytrain_ui.adapters.commands import PyTrainCabCommandAdapter
 from pytrain_ui.contracts import EngineViewState
 
@@ -21,6 +22,7 @@ class _State:
     is_electric: bool = False
     is_crane: bool = False
     is_transformer: bool = False
+    smoke_level: object = TMCC2EffectsControl.SMOKE_OFF
 
 
 class _StateAdapter:
@@ -51,13 +53,33 @@ def _capture_build(monkeypatch):
     return built, sends
 
 
-def test_legacy_smoke_uses_multibyte_factory(monkeypatch) -> None:
+def test_legacy_smoke_up_steps_from_current_level(monkeypatch) -> None:
     built, sends = _capture_build(monkeypatch)
-    adapter = PyTrainCabCommandAdapter(_StateAdapter(_State()))
+    state = _State(smoke_level=TMCC2EffectsControl.SMOKE_MEDIUM)
+    adapter = PyTrainCabCommandAdapter(_StateAdapter(state))
 
     assert adapter.perform("smoke_up") is True
-    assert built[0][0].name == "SMOKE_HIGH"
+    assert built[0][0] == TMCC2EffectsControl.SMOKE_HIGH
     assert built[0][1:] == (12, 0, CommandScope.ENGINE)
+    assert sends == [True]
+
+
+def test_legacy_smoke_down_steps_from_current_level(monkeypatch) -> None:
+    built, sends = _capture_build(monkeypatch)
+    state = _State(smoke_level=TMCC2EffectsControl.SMOKE_MEDIUM)
+    adapter = PyTrainCabCommandAdapter(_StateAdapter(state))
+
+    assert adapter.perform("smoke_down") is True
+    assert built[0][0] == TMCC2EffectsControl.SMOKE_LOW
+    assert sends == [True]
+
+
+def test_legacy_smoke_step_clamps_at_ends(monkeypatch) -> None:
+    built, sends = _capture_build(monkeypatch)
+    adapter = PyTrainCabCommandAdapter(_StateAdapter(_State(smoke_level=TMCC2EffectsControl.SMOKE_HIGH)))
+
+    assert adapter.perform("smoke_up") is True
+    assert built[0][0] == TMCC2EffectsControl.SMOKE_HIGH
     assert sends == [True]
 
 
