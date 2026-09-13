@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Button {
     id: root
@@ -13,16 +14,13 @@ Button {
     implicitHeight: 58
     font.pixelSize: 14
 
-    contentItem: Row {
+    contentItem: RowLayout {
         spacing: 8
-        anchors.centerIn: parent
-        width: Math.min(implicitWidth, root.width - 14)
 
         Image {
-            id: operationIcon
-            anchors.verticalCenter: parent.verticalCenter
-            width: 36
-            height: 36
+            Layout.preferredWidth: 36
+            Layout.preferredHeight: 36
+            Layout.alignment: Qt.AlignVCenter
             source: root.iconSource
             visible: root.iconSource.toString().length > 0
             fillMode: Image.PreserveAspectFit
@@ -31,8 +29,8 @@ Button {
         }
 
         Text {
-            anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(0, parent.width - (operationIcon.visible ? operationIcon.width + parent.spacing : 0))
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
             text: root.text
             color: root.enabled ? "#f5f7fa" : "#858c96"
             font: root.font
