@@ -47,6 +47,17 @@ def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
     assert sequence is not None and sequence.repeat is True
 
 
+def test_passenger_holds_match_controller_view_destinations() -> None:
+    conductor = cab_action("conductor")
+    steward = cab_action("steward")
+    station = cab_action("station")
+    assert conductor is not None and conductor.scope_tag == "p" and conductor.hold_target == "conductor"
+    assert steward is not None and steward.scope_tag == "p" and steward.hold_target == "steward"
+    assert station is not None and station.scope_tag == "p" and station.hold_target == "station"
+    assert all(action_applies_to_type(a, "p") for a in (conductor, steward, station))
+    assert all(not action_applies_to_type(a, "d") for a in (conductor, steward, station))
+
+
 def test_specialized_actions_mirror_engine_gui_scope_tags() -> None:
     labor = cab_action("labor_up")
     assert labor is not None
