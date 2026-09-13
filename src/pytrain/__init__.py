@@ -1,11 +1,11 @@
 #
-#
 # PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
 #
 # Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
 #
 # SPDX-License-Identifier: LPGL
 
+import importlib
 import importlib.metadata
 import sys
 from importlib.metadata import PackageNotFoundError
@@ -46,28 +46,6 @@ from .gpio.route import Route  # noqa: F401
 from .gpio.smoke_fluid_loader import SmokeFluidLoader  # noqa: F401
 from .gpio.switch import Switch  # noqa: F401
 from .gpio.sys_admin import SystemAdmin  # noqa: F401
-from .gui.accessories.accessory_gui import AccessoryGui  # noqa: F401
-from .gui.accessories.construction_gui import ConstructionGui  # noqa: F401
-from .gui.accessories.control_tower_gui import ControlTowerGui  # noqa: F401
-from .gui.accessories.culvert_gui import CulvertGui  # noqa: F401
-from .gui.accessories.fire_station_gui import FireStationGui  # noqa: F401
-from .gui.accessories.gas_station_gui import GasStationGui  # noqa: F401
-from .gui.accessories.hobby_shop_gui import HobbyShopGui  # noqa: F401
-from .gui.accessories.milk_loader_gui import MilkLoaderGui  # noqa: F401
-from .gui.accessories.playground_gui import PlaygroundGui  # noqa: F401
-from .gui.accessories.smoke_fluid_loader_gui import SmokeFluidLoaderGui  # noqa: F401
-from .gui.accessories.station_gui import StationGui  # noqa: F401
-from .gui.accessories_gui import AccessoriesGui  # noqa: F401
-from .gui.component_state_gui import ComponentStateGui  # noqa: F401
-from .gui.controller.engine_gui import EngineGui  # noqa: F401
-from .gui.controller.steam_deck_gui import SteamDeckGui  # noqa: F401
-from .gui.launch_gui import LaunchGui  # noqa: F401
-from .gui.motors_gui import MotorsGui  # noqa: F401
-from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
-from .gui.routes_gui import RoutesGui  # noqa: F401
-from .gui.switches_gui import SwitchesGui  # noqa: F401
-from .gui.systems_gui import SystemsGui  # noqa: F401
-from .gui.wide_component_state_gui import WideComponentStateGui  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401
 from .protocol.constants import (
@@ -92,9 +70,7 @@ from .protocol.sequence.cycle_tone_req import (
     CycleBellToneReq,  # noqa: F401
     CycleHornToneReq,  # noqa: F401
 )
-from .protocol.sequence.grade_crossing_req import (
-    GradeCrossingReq,  # noqa: F401
-)
+from .protocol.sequence.grade_crossing_req import GradeCrossingReq  # noqa: F401
 from .protocol.sequence.labor_effect import (
     LaborEffectDownReq,  # noqa: F401
     LaborEffectUpReq,  # noqa: F401
@@ -107,19 +83,10 @@ from .protocol.sequence.ramped_speed_req import (
     RampedSpeedDialogReq,  # noqa: F401
     RampedSpeedReq,  # noqa: F401
 )
-from .protocol.sequence.sequence_constants import (
-    SequenceCommandEnum,  # noqa: F401  # noqa: F401
-)
-from .protocol.sequence.sequence_req import (
-    SequenceReq,  # noqa: F401
-    SequencedReq,  # noqa: F401
-)
-from .protocol.sequence.set_speed_req import (
-    SetSpeedReq,  # noqa: F401
-)
-from .protocol.sequence.steward_chatter_req import (
-    StewardChatterReq,  # noqa: F401
-)
+from .protocol.sequence.sequence_constants import SequenceCommandEnum  # noqa: F401
+from .protocol.sequence.sequence_req import SequenceReq, SequencedReq  # noqa: F401
+from .protocol.sequence.set_speed_req import SetSpeedReq  # noqa: F401
+from .protocol.sequence.steward_chatter_req import StewardChatterReq  # noqa: F401
 from .protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,  # noqa: F401
     TMCC1EngineCommandEnum,  # noqa: F401
@@ -136,19 +103,46 @@ from .protocol.tmcc2.tmcc2_constants import (
     TMCC2RouteCommandEnum,  # noqa: F401
 )
 from .utils.host_info import is_linux  # noqa: F401
-from .utils.path_utils import (
-    find_dir,  # noqa: F401
-    find_file,  # noqa: F401
-)
+from .utils.path_utils import find_dir, find_file  # noqa: F401
 
 PROGRAM_PACKAGE = "pytrain-ogr"
 PROGRAM_PACKAGE_DECK = "pytrain-ogr-deck"
-
-# The distributions that install this package, most specific first. pytrain-ogr targets
-# the Raspberry Pi and requires rpi-lgpio and spidev; pytrain-ogr-deck is the same
-# release built without them, because neither is installable on the Steam Deck. Both
-# provide the identical code and console scripts, so only one is ever installed.
 PROGRAM_PACKAGES = (PROGRAM_PACKAGE, PROGRAM_PACKAGE_DECK)
+
+_LEGACY_GUI_EXPORTS = {
+    "AccessoryGui": ("pytrain.gui.accessories.accessory_gui", "AccessoryGui"),
+    "ConstructionGui": ("pytrain.gui.accessories.construction_gui", "ConstructionGui"),
+    "ControlTowerGui": ("pytrain.gui.accessories.control_tower_gui", "ControlTowerGui"),
+    "CulvertGui": ("pytrain.gui.accessories.culvert_gui", "CulvertGui"),
+    "FireStationGui": ("pytrain.gui.accessories.fire_station_gui", "FireStationGui"),
+    "GasStationGui": ("pytrain.gui.accessories.gas_station_gui", "GasStationGui"),
+    "HobbyShopGui": ("pytrain.gui.accessories.hobby_shop_gui", "HobbyShopGui"),
+    "MilkLoaderGui": ("pytrain.gui.accessories.milk_loader_gui", "MilkLoaderGui"),
+    "PlaygroundGui": ("pytrain.gui.accessories.playground_gui", "PlaygroundGui"),
+    "SmokeFluidLoaderGui": ("pytrain.gui.accessories.smoke_fluid_loader_gui", "SmokeFluidLoaderGui"),
+    "StationGui": ("pytrain.gui.accessories.station_gui", "StationGui"),
+    "AccessoriesGui": ("pytrain.gui.accessories_gui", "AccessoriesGui"),
+    "ComponentStateGui": ("pytrain.gui.component_state_gui", "ComponentStateGui"),
+    "EngineGui": ("pytrain.gui.controller.engine_gui", "EngineGui"),
+    "SteamDeckGui": ("pytrain.gui.controller.steam_deck_gui", "SteamDeckGui"),
+    "LaunchGui": ("pytrain.gui.launch_gui", "LaunchGui"),
+    "MotorsGui": ("pytrain.gui.motors_gui", "MotorsGui"),
+    "PowerDistrictsGui": ("pytrain.gui.power_district_gui", "PowerDistrictsGui"),
+    "RoutesGui": ("pytrain.gui.routes_gui", "RoutesGui"),
+    "SwitchesGui": ("pytrain.gui.switches_gui", "SwitchesGui"),
+    "SystemsGui": ("pytrain.gui.systems_gui", "SystemsGui"),
+    "WideComponentStateGui": ("pytrain.gui.wide_component_state_gui", "WideComponentStateGui"),
+}
+
+
+def __getattr__(name: str):
+    legacy_gui = _LEGACY_GUI_EXPORTS.get(name)
+    if legacy_gui is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attribute_name = legacy_gui
+    value = getattr(importlib.import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
 
 
 def main(args: list[str] | None = None) -> int:
@@ -158,15 +152,10 @@ def main(args: list[str] | None = None) -> int:
         PyTrain(args)
         return 0
     except Exception as e:
-        # Output anything else nicely formatted on stderr and exit code 1
         sys.exit(f"{PROGRAM_NAME}: error: {e}\n")
 
 
 def installed_package() -> str | None:
-    #
-    # which of the PyTrain distributions are we running from, if any? this is what
-    # tells a Steam Deck install to update itself rather than the Pi package...
-    #
     for package in PROGRAM_PACKAGES:
         try:
             importlib.metadata.version(package)
@@ -177,25 +166,15 @@ def installed_package() -> str | None:
 
 
 def is_package() -> bool:
-    # production version
     return installed_package() is not None
 
 
 def get_version() -> str:
-    #
-    # this should be easier, but it is what it is.
-    # we handle the two major cases; we're running from
-    # the PyTrain pypi package, or we're running from
-    # source retrieved from git...
-    #
-    # we try the package path first...
     version = None
     package = installed_package()
     if package is not None:
-        # production version
         version = importlib.metadata.version(package)
 
-    # finally, call the method to read it from git
     if version is None:
         from setuptools_scm import get_version as get_git_version
 
@@ -209,11 +188,9 @@ def get_version() -> str:
 
 
 def get_version_tuple() -> tuple[int, int, int]:
-    version = get_version()
-    version = version.replace("v", "")
+    version = get_version().replace("v", "")
     if "+" in version:
-        plus_pos = version.find("+")
-        version = version[0:plus_pos]
+        version = version[: version.find("+")]
     version = version.split(".")
     return int(version[0]), int(version[1]), int(version[2])
 
