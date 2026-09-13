@@ -202,7 +202,7 @@ class DummyWatcher:
 @pytest.fixture(autouse=True)
 def patch_guizero_and_system(monkeypatch):
     # Replace guizero widgets with mock objects
-    monkeypatch.setattr(base_mod, "App", DummyApp, raising=True)
+    monkeypatch.setattr(base_mod, "PyCabApp", DummyApp, raising=True)
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
     monkeypatch.setattr(mod, "Text", DummyText, raising=True)
     monkeypatch.setattr(mod, "PushButton", DummyPushButton, raising=True)

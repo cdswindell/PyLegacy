@@ -34,6 +34,7 @@ from ..components.hold_button import HoldButton
 from ..components.scroll_box import BAR_ACTIVE_COLOR, BAR_COLOR, BAR_EDGE_COLOR, BAR_EDGE_PX, BAR_TROUGH_COLOR
 from ..components.scroll_input import ScrollAccumulator
 from ..components.touch_scrollbar import TouchScrollbar
+from ..pycab_app import add_pycab_logo
 from ...db.component_state import RouteState
 from ...pdi.base_req import BaseReq
 from ...protocol.constants import CommandScope
@@ -64,11 +65,12 @@ class RouteDiscardDialog(simpledialog.Dialog):
         message = tk.Frame(master, width=self._width, height=self._button_height * 2)
         message.pack_propagate(False)
         message.pack()
+        logo = add_pycab_logo(message)
         tk.Label(
             message,
             text="Discard unsaved route changes?",
             font=("Helvetica", self._text_size),
-            wraplength=self._width - 32,
+            wraplength=self._width - (172 if logo is not None else 32),
             justify="center",
         ).pack(fill="both", expand=True, padx=16, pady=16)
 
