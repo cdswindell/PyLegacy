@@ -6,13 +6,8 @@ import sys
 from importlib.resources import as_file, files
 
 
-def main(args: list[str] | None = None) -> int:
-    """Launch the Qt Quick presentation shell.
-
-    PySide6 is intentionally imported lazily so installing or importing the PyTrain
-    core does not require Qt during the migration from GuiZero.
-    """
-
+def run_cab(state_port, command_port, args: list[str] | None = None) -> int:
+    """Run the Qt cab for already-initialized PyTrain state and command ports."""
     try:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QGuiApplication
@@ -20,19 +15,31 @@ def main(args: list[str] | None = None) -> int:
     except ImportError as exc:
         raise SystemExit("The Qt UI is not installed. Install PyTrain with the 'qt-gui' extra.") from exc
 
+    from .cab_controller import CabController
+
     argv = sys.argv if args is None else [sys.argv[0], *args]
     app = QGuiApplication(argv)
     app.setApplicationName("PyTrain")
     app.setOrganizationName("PyTrain")
 
+    cab = CabController(state_port, command_port)
     engine = QQmlApplicationEngine()
+    engine.rootContext().setContextProperty("cab", cab)
     qml = files("pytrain_ui.qt.qml").joinpath("Main.qml")
     with as_file(qml) as qml_path:
         engine.load(QUrl.fromLocalFile(str(qml_path)))
 
     if not engine.rootObjects():
+        cab.close()
         return 1
-    return app.exec()
+    try:
+        return app.exec()
+    finally:
+        cab.close()
+
+
+def main(args: list[str] | None = None) -> int:
+    raise SystemExit("Use the pycab-qt launcher so PyTrain state is synchronized before the Qt UI starts.")
 
 
 if __name__ == "__main__":
