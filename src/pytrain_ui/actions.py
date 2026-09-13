@@ -20,6 +20,7 @@ class CabAction:
     group: str = "operations"
     hold: bool = False
     repeat: bool = False
+    repeat_interval_ms: int = 0
     command_kind: str = "engine"
     legacy_only: bool = False
     hold_command: str = ""
@@ -161,7 +162,15 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         command_kind="effects",
         legacy_only=True,
     ),
-    CabAction("sequence", "Aux1 · Sequence", "AUX1_OPTION_ONE", scope_tag="e", group="secondary", repeat=True),
+    CabAction(
+        "sequence",
+        "Aux1 · Sequence",
+        "AUX1_OPTION_ONE",
+        scope_tag="e",
+        group="secondary",
+        repeat=True,
+        repeat_interval_ms=200,
+    ),
     CabAction(
         "lights",
         "Aux2 · Lights",
