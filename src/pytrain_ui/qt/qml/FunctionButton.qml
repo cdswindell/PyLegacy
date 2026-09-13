@@ -10,12 +10,15 @@ Control {
     property bool selected: false
     property bool compact: false
     property bool deferForHold: false
+    property int holdThreshold: 1000
     property color normalColor: "#303640"
     property color selectedColor: "#176fa8"
     property color pressedColor: "#48515e"
+    property bool holdTriggered: false
     readonly property bool pressed: tapHandler.pressed
 
     signal clicked()
+    signal held()
 
     implicitHeight: compact ? 44 : 58
     font.pixelSize: compact ? 12 : 14
@@ -61,6 +64,38 @@ Control {
         color: !root.enabled ? "#242930" : root.pressed ? root.pressedColor : root.selected ? root.selectedColor : root.normalColor
         border.width: 1
         border.color: root.selected ? "#78c9ff" : "#626b78"
+
+        Rectangle {
+            visible: root.deferForHold && root.pressed && !root.holdTriggered
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            height: 3
+            width: parent.width * Math.min(1, holdProgress.elapsed / Math.max(1, root.holdThreshold))
+            color: "#78c9ff"
+            radius: 2
+        }
+    }
+
+    Timer {
+        id: holdTimer
+        interval: root.holdThreshold
+        repeat: false
+        onTriggered: {
+            if (tapHandler.pressed && root.deferForHold) {
+                root.holdTriggered = true
+                root.held()
+            }
+        }
+    }
+
+    Timer {
+        id: holdProgress
+        property int elapsed: 0
+        interval: 25
+        repeat: true
+        running: root.deferForHold && tapHandler.pressed && !root.holdTriggered
+        onTriggered: elapsed += interval
+        onRunningChanged: if (!running) elapsed = 0
     }
 
     TapHandler {
@@ -68,10 +103,17 @@ Control {
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
         onPressedChanged: {
-            if (pressed && !root.deferForHold)
-                root.clicked()
-            else if (!pressed && root.deferForHold)
-                root.clicked()
+            if (pressed) {
+                root.holdTriggered = false
+                if (root.deferForHold)
+                    holdTimer.restart()
+                else
+                    root.clicked()
+            } else {
+                holdTimer.stop()
+                if (root.deferForHold && !root.holdTriggered)
+                    root.clicked()
+            }
         }
     }
 
@@ -79,6 +121,8 @@ Control {
         if (!root.enabled || event.isAutoRepeat)
             return
         if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            // Keyboard activation remains a short action. Physical controller
+            // long-press timing is handled by the controller input layer.
             root.clicked()
             event.accepted = true
         }
