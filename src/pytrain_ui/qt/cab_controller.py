@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import json
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
 
 from pytrain.db.component_state_store import ComponentStateStore
-from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR
+from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
@@ -98,7 +100,7 @@ class CabController(QObject):
         return state
 
     def _custom_artwork(self, state) -> str | None:
-        """Return the existing EngineGui custom-cache image for the artwork engine."""
+        """Return the manually supplied <tmcc_id>.jpg image, matching EngineGui precedence."""
         if state is None:
             return None
         tmcc_id = int(getattr(state, "tmcc_id", 0) or 0)
@@ -108,6 +110,52 @@ class CabController(QObject):
             f"{tmcc_id}.jpg",
             places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR),
         )
+
+    def _product_artwork(self, state) -> str | None:
+        """Resolve an already-cached Lionel product image without blocking the Qt thread on I/O."""
+        if state is None:
+            return None
+        bt_id = str(getattr(state, "bt_id", "") or "").strip()
+        if not bt_id:
+            return None
+
+        info_file = find_file(
+            f"{bt_id}.json",
+            places=(Path.cwd(), ENGINE_INFO_CACHE_DIR),
+        )
+        if not info_file or not Path(info_file).is_file():
+            return None
+
+        try:
+            with open(info_file, "r", encoding="utf-8") as handle:
+                product = json.load(handle)
+            image_url = str(product.get("imageUrl", "") or "")
+            if not image_url:
+                return None
+            filename = PurePosixPath(urlparse(image_url).path).name
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return None
+
+        if not filename:
+            return None
+        return find_file(
+            filename,
+            places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR),
+        )
+
+    def _resolved_artwork(self, state) -> tuple[str | None, str]:
+        path = self._custom_artwork(state)
+        if path:
+            return path, "custom"
+
+        path = self._product_artwork(state)
+        if path:
+            return path, "product"
+
+        engine_type = getattr(state, "engine_type_enum", None)
+        name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
+        filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
+        return find_file(filename), "generic"
 
     @Property(list, notify=rosterChanged)
     def targetLabels(self) -> list[str]:
@@ -152,18 +200,17 @@ class CabController(QObject):
 
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
-        state = self._artwork_state()
-        path = self._custom_artwork(state)
-        if path is None:
-            engine_type = getattr(state, "engine_type_enum", None)
-            name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
-            filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
-            path = find_file(filename)
+        path, _ = self._resolved_artwork(self._artwork_state())
         return QUrl.fromLocalFile(str(path)).toString() if path else ""
+
+    @Property(str, notify=stateChanged)
+    def artworkKind(self) -> str:
+        _, kind = self._resolved_artwork(self._artwork_state())
+        return kind
 
     @Property(bool, notify=stateChanged)
     def hasCustomArtwork(self) -> bool:
-        return self._custom_artwork(self._artwork_state()) is not None
+        return self.artworkKind == "custom"
 
     @Property(int, notify=stateChanged)
     def speed(self) -> int:
