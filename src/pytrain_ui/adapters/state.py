@@ -26,6 +26,8 @@ def _int_value(value: object | None) -> int:
 
 
 def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
+    default_speed_max = 199 if state.is_legacy else 31
+    speed_max = _int_value(getattr(state, "speed_max", default_speed_max)) or default_speed_max
     return EngineViewState(
         scope=state.scope.name,
         tmcc_id=state.tmcc_id,
@@ -33,6 +35,7 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
         road_number=str(getattr(state, "road_number", "") or ""),
         speed=_int_value(getattr(state, "speed", 0)),
         target_speed=_int_value(getattr(state, "target_speed", 0)),
+        speed_max=speed_max,
         direction=_enum_name(getattr(state, "direction", None)),
         momentum=_int_value(getattr(state, "momentum", 0)),
         smoke=_int_value(getattr(state, "smoke", 0)),
