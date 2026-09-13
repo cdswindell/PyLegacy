@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
 
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.protocol.constants import CommandScope
+from pytrain.utils.path_utils import find_file
 
 from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.contracts import EngineViewState
+
+_ENGINE_ARTWORK = {
+    "ACELA": "acela.jpg",
+    "CRANE": "generic_crane_car.jpg",
+    "DIESEL": "generic_diesel.jpg",
+    "DIESEL_PULLMOR": "generic_diesel.jpg",
+    "DIESEL_SWITCHER": "generic_diesel_switcher.jpg",
+    "ELECTRIC": "generic_electric.jpg",
+    "STEAM": "generic_steam.jpg",
+}
 
 
 class CabController(QObject):
@@ -73,6 +84,16 @@ class CabController(QObject):
         self._snapshot = snapshot
         self.stateChanged.emit()
 
+    def _artwork_state(self):
+        state = self._state_port.state if self._state_port is not None else None
+        if state is not None and state.scope == CommandScope.TRAIN:
+            head_id = int(getattr(state, "head_tmcc_id", 0) or 0)
+            if head_id:
+                head = ComponentStateStore.get_state(CommandScope.ENGINE, head_id, create=False)
+                if head is not None:
+                    state = head
+        return state
+
     @Property(list, notify=rosterChanged)
     def targetLabels(self) -> list[str]:
         return self._target_labels
@@ -113,6 +134,15 @@ class CabController(QObject):
     @Property(str, notify=stateChanged)
     def roadNumber(self) -> str:
         return self._snapshot.road_number
+
+    @Property(str, notify=stateChanged)
+    def artworkSource(self) -> str:
+        state = self._artwork_state()
+        engine_type = getattr(state, "engine_type_enum", None)
+        name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
+        filename = _ENGINE_ARTWORK.get(name, "generic_diesel.jpg")
+        path = find_file(filename)
+        return QUrl.fromLocalFile(str(path)).toString() if path else ""
 
     @Property(int, notify=stateChanged)
     def speed(self) -> int:
