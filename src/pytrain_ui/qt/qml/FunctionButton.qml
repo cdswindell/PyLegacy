@@ -17,15 +17,24 @@ Button {
     contentItem: RowLayout {
         spacing: 8
 
-        Image {
-            Layout.preferredWidth: 36
-            Layout.preferredHeight: 36
+        Rectangle {
+            Layout.preferredWidth: 42
+            Layout.preferredHeight: 42
             Layout.alignment: Qt.AlignVCenter
-            source: root.iconSource
             visible: root.iconSource.toString().length > 0
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            mipmap: true
+            radius: 6
+            color: "#e8ebef"
+            border.width: 1
+            border.color: "#c6cbd2"
+
+            Image {
+                anchors.fill: parent
+                anchors.margins: 3
+                source: root.iconSource
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+            }
         }
 
         Text {
