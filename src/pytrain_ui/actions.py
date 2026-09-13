@@ -29,6 +29,26 @@ class CabAction:
     hold_target: str = ""
     hold_threshold_ms: int = 1000
 
+    def __post_init__(self) -> None:
+        if self.repeat and self.repeat_interval_ms <= 0:
+            raise ValueError(f"Repeating action {self.key!r} requires a positive repeat interval")
+        if not self.repeat and self.repeat_interval_ms != 0:
+            raise ValueError(f"Non-repeating action {self.key!r} cannot define a repeat interval")
+        if self.hold_threshold_ms <= 0:
+            raise ValueError(f"Action {self.key!r} requires a positive hold threshold")
+        if not self.hold:
+            if self.hold_command or self.hold_target:
+                raise ValueError(f"Action {self.key!r} defines hold behavior but hold is disabled")
+            return
+        if self.hold_kind == "command":
+            if not self.hold_command:
+                raise ValueError(f"Hold action {self.key!r} requires a hold command")
+        elif self.hold_kind in {"panel", "analog"}:
+            if not self.hold_target:
+                raise ValueError(f"Hold action {self.key!r} requires a hold target")
+        else:
+            raise ValueError(f"Action {self.key!r} has unsupported hold kind {self.hold_kind!r}")
+
 
 _TYPE_TAGS: dict[str, frozenset[str]] = {
     "a": frozenset({"vo", "e", "bs", "d", "a"}),
@@ -48,10 +68,22 @@ def action_applies_to_type(action: CabAction, type_key: str) -> bool:
 
 CAB_ACTIONS: tuple[CabAction, ...] = (
     CabAction(
-        "startup", "Start Up", "START_UP_IMMEDIATE", "on_button.jpg", "e", hold=True, hold_command="START_UP_DELAYED"
+        "startup",
+        "Start Up",
+        "START_UP_IMMEDIATE",
+        "on_button.jpg",
+        "e",
+        hold=True,
+        hold_command="START_UP_DELAYED",
     ),
     CabAction(
-        "shutdown", "Shut Down", "SHUTDOWN_IMMEDIATE", "off_button.jpg", "e", hold=True, hold_command="SHUTDOWN_DELAYED"
+        "shutdown",
+        "Shut Down",
+        "SHUTDOWN_IMMEDIATE",
+        "off_button.jpg",
+        "e",
+        hold=True,
+        hold_command="SHUTDOWN_DELAYED",
     ),
     CabAction("rear_coupler", "Rear Coupler", "REAR_COUPLER", "rear-coupler.jpg", "cp"),
     CabAction("front_coupler", "Front Coupler", "FRONT_COUPLER", "front-coupler.jpg", "cp"),
@@ -62,10 +94,22 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     CabAction("rpm_down", "RPM −", "RPM_DOWN", "rpm-down.jpg", "d"),
     CabAction("rpm_up", "RPM +", "RPM_UP", "rpm-up.jpg", "d"),
     CabAction(
-        "labor_down", "Labor −", "LABOR_EFFECT_DOWN", "effort-down.jpg", "e", command_kind="sequence", legacy_only=True
+        "labor_down",
+        "Labor −",
+        "LABOR_EFFECT_DOWN",
+        "effort-down.jpg",
+        "e",
+        command_kind="sequence",
+        legacy_only=True,
     ),
     CabAction(
-        "labor_up", "Labor +", "LABOR_EFFECT_UP", "effort-up.jpg", "e", command_kind="sequence", legacy_only=True
+        "labor_up",
+        "Labor +",
+        "LABOR_EFFECT_UP",
+        "effort-up.jpg",
+        "e",
+        command_kind="sequence",
+        legacy_only=True,
     ),
     CabAction(
         "engineer_chatter",
@@ -78,7 +122,14 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold_target="crew",
     ),
     CabAction(
-        "tower_chatter", "Tower", "TOWER_CHATTER", "tower.jpg", "e", hold=True, hold_kind="panel", hold_target="tower"
+        "tower_chatter",
+        "Tower",
+        "TOWER_CHATTER",
+        "tower.jpg",
+        "e",
+        hold=True,
+        hold_kind="panel",
+        hold_target="tower",
     ),
     # Passenger variants are separate entries because ControllerView assigns
     # different long-hold destinations to the same underlying commands.
@@ -93,7 +144,14 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold_target="conductor",
     ),
     CabAction(
-        "station", "Station", "TOWER_CHATTER", "station.jpg", "p", hold=True, hold_kind="panel", hold_target="station"
+        "station",
+        "Station",
+        "TOWER_CHATTER",
+        "station.jpg",
+        "p",
+        hold=True,
+        hold_kind="panel",
+        hold_target="station",
     ),
     CabAction(
         "steward",
