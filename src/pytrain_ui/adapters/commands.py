@@ -7,6 +7,8 @@ from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
+from pytrain_ui.actions import CabAction, cab_action
+
 from .state import PyTrainCabStateAdapter
 
 
@@ -23,6 +25,10 @@ class PyTrainCabCommandAdapter:
     @property
     def state(self):
         return self._state_adapter.state
+
+    @property
+    def _enum_type(self):
+        return TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
 
     def set_speed(self, speed: int) -> None:
         maximum = 199 if self.state.is_legacy else 31
@@ -60,40 +66,59 @@ class PyTrainCabCommandAdapter:
         self.send_named("RESET")
 
     def startup(self) -> None:
-        self.send_named("START_UP_IMMEDIATE")
+        self.perform("startup")
 
     def shutdown(self) -> None:
-        self.send_named("SHUTDOWN_IMMEDIATE")
+        self.perform("shutdown")
 
     def front_coupler(self) -> None:
-        self.send_named("FRONT_COUPLER")
+        self.perform("front_coupler")
 
     def rear_coupler(self) -> None:
-        self.send_named("REAR_COUPLER")
+        self.perform("rear_coupler")
 
     def smoke_up(self) -> None:
-        self.send_named("SMOKE_ON")
+        self.perform("smoke_up")
 
     def smoke_down(self) -> None:
-        self.send_named("SMOKE_OFF")
+        self.perform("smoke_down")
 
     def volume_up(self) -> None:
-        self.send_named("VOLUME_UP")
+        self.perform("volume_up")
 
     def volume_down(self) -> None:
-        self.send_named("VOLUME_DOWN")
+        self.perform("volume_down")
 
     def rpm_up(self) -> None:
-        self.send_named("RPM_UP")
+        self.perform("rpm_up")
 
     def rpm_down(self) -> None:
-        self.send_named("RPM_DOWN")
+        self.perform("rpm_down")
 
     def engineer_chatter(self) -> None:
-        self.send_named("ENGINEER_CHATTER")
+        self.perform("engineer_chatter")
 
     def tower_chatter(self) -> None:
-        self.send_named("TOWER_CHATTER")
+        self.perform("tower_chatter")
+
+    def supports_named(self, name: str) -> bool:
+        try:
+            self._enum_type.by_name(name, raise_exception=True)
+        except (KeyError, ValueError):
+            return False
+        return True
+
+    def supports_action(self, action: CabAction | str) -> bool:
+        if isinstance(action, str):
+            action = cab_action(action)
+        return action is not None and self.supports_named(action.command)
+
+    def perform(self, action: CabAction | str) -> bool:
+        if isinstance(action, str):
+            action = cab_action(action)
+        if action is None:
+            return False
+        return self.send_named(action.command)
 
     def send_named(self, name: str) -> bool:
         """Send a named engine/train command when the active control type supports it.
@@ -102,9 +127,8 @@ class PyTrainCabCommandAdapter:
         Qt layer remain usable with older TMCC equipment without turning an unsupported
         convenience button into a UI exception.
         """
-        enum_type = TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
         try:
-            command = enum_type.by_name(name, raise_exception=True)
+            command = self._enum_type.by_name(name, raise_exception=True)
         except (KeyError, ValueError):
             return False
         CommandReq(command, self.state.tmcc_id, scope=self.state.scope).send()
