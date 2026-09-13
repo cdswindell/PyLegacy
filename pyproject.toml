@@ -94,7 +94,7 @@ install = ["*.template", "*.jpg", "*.png", "*.ttf"]
 [project.scripts]
 pytrain = "pytrain:main"
 pycab = "pytrain.cli.pycab:main"
-pycab-qt = "pytrain_ui.qt.app:main"
+pycab-qt = "pytrain_ui.qt.pycab:main"
 configure = "pytrain.cli.configure:main"
 lcs = "pytrain.cli.lcs:main"
 make_gui = "pytrain.cli.make_gui:main"
