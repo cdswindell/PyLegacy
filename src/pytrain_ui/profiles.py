@@ -1,0 +1,91 @@
+"""Resolved, toolkit-neutral control profiles for PyTrain cab targets.
+
+A profile describes what controls the presentation layer should expose for one
+specific engine or train. Resolution intentionally uses explicit PyTrain state
+only; product-info metadata is not used as an authority for cab capabilities.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class EngineControlProfile:
+    engine_type: str
+    control_type: str
+    type_key: str
+    is_legacy: bool
+    has_throttle: bool
+    supports_momentum: bool
+    supports_train_brake: bool
+    supports_quilling_horn: bool
+    supports_speed_limit: bool
+    analog_modes: tuple[str, ...]
+
+
+def resolve_engine_control_profile(
+    state,
+    *,
+    type_key: str,
+    quilling_horn_supported: bool = False,
+) -> EngineControlProfile:
+    """Resolve presentation capabilities from explicit per-target state.
+
+    The inputs deliberately preserve separate factors rather than collapsing
+    them into a single engine-class lookup: exact EngineType, control generation,
+    ControllerView family, and state-level throttle support all contribute.
+    Additional explicit per-engine overrides can be layered here later without
+    teaching QML about Lionel-specific distinctions.
+    """
+
+    if state is None:
+        return EngineControlProfile(
+            engine_type="UNKNOWN",
+            control_type="NA",
+            type_key=type_key,
+            is_legacy=False,
+            has_throttle=False,
+            supports_momentum=False,
+            supports_train_brake=False,
+            supports_quilling_horn=False,
+            supports_speed_limit=False,
+            analog_modes=(),
+        )
+
+    engine_type_enum = getattr(state, "engine_type_enum", None)
+    engine_type = str(getattr(engine_type_enum, "name", "UNKNOWN") or "UNKNOWN")
+    control_type = str(getattr(state, "control_type_label", "NA") or "NA")
+    is_legacy = bool(getattr(state, "is_legacy", False))
+    has_throttle = bool(getattr(state, "has_throttle", False))
+
+    supports_momentum = has_throttle
+    supports_train_brake = is_legacy and has_throttle
+    supports_quilling_horn = (
+        is_legacy
+        and has_throttle
+        and type_key in {"d", "s", "l"}
+        and quilling_horn_supported
+    )
+    supports_speed_limit = has_throttle
+
+    analog_modes: list[str] = []
+    if supports_train_brake:
+        analog_modes.append("Brake")
+    if supports_momentum:
+        analog_modes.append("Momentum")
+    if supports_quilling_horn:
+        analog_modes.append("Horn")
+
+    return EngineControlProfile(
+        engine_type=engine_type,
+        control_type=control_type,
+        type_key=type_key,
+        is_legacy=is_legacy,
+        has_throttle=has_throttle,
+        supports_momentum=supports_momentum,
+        supports_train_brake=supports_train_brake,
+        supports_quilling_horn=supports_quilling_horn,
+        supports_speed_limit=supports_speed_limit,
+        analog_modes=tuple(analog_modes),
+    )
