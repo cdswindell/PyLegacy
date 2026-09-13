@@ -11,12 +11,90 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 22
-        spacing: 14
+        anchors.margins: 20
+        spacing: 12
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+
+            ComboBox {
+                id: targetPicker
+                Layout.fillWidth: true
+                Layout.preferredHeight: 54
+                model: cab.targetLabels
+                currentIndex: cab.targetIndex
+                font.pixelSize: 17
+                onActivated: cab.selectTarget(currentIndex)
+
+                contentItem: Text {
+                    leftPadding: 14
+                    rightPadding: 34
+                    text: targetPicker.displayText
+                    font: targetPicker.font
+                    color: "#ffffff"
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+
+                background: Rectangle {
+                    radius: 9
+                    color: "#292e36"
+                    border.width: 1
+                    border.color: targetPicker.activeFocus ? "#78bff0" : "#626b78"
+                }
+
+                delegate: ItemDelegate {
+                    required property var modelData
+                    width: targetPicker.width
+                    height: 46
+                    text: modelData
+                    font.pixelSize: 16
+                    highlighted: targetPicker.highlightedIndex === index
+                    contentItem: Text {
+                        text: parent.text
+                        font: parent.font
+                        color: "#ffffff"
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    background: Rectangle {
+                        color: parent.highlighted ? "#246aa0" : "#292e36"
+                    }
+                }
+
+                popup: Popup {
+                    y: targetPicker.height
+                    width: targetPicker.width
+                    implicitHeight: Math.min(contentItem.implicitHeight, 420)
+                    padding: 1
+                    contentItem: ListView {
+                        clip: true
+                        implicitHeight: contentHeight
+                        model: targetPicker.popup.visible ? targetPicker.delegateModel : null
+                        currentIndex: targetPicker.highlightedIndex
+                        ScrollIndicator.vertical: ScrollIndicator { }
+                    }
+                    background: Rectangle {
+                        color: "#20242a"
+                        border.color: "#626b78"
+                        radius: 8
+                    }
+                }
+            }
+
+            CabButton {
+                Layout.preferredWidth: 108
+                Layout.preferredHeight: 54
+                text: "Refresh"
+                font.pixelSize: 16
+                onClicked: cab.refreshRoster()
+            }
+        }
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 2
+            spacing: 1
 
             Label {
                 Layout.fillWidth: true
@@ -24,7 +102,7 @@ Rectangle {
                 color: "#f4f6f8"
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
-                font.pixelSize: 31
+                font.pixelSize: 29
                 font.bold: true
             }
 
@@ -33,7 +111,7 @@ Rectangle {
                 text: cab.scope + " " + cab.tmccId + "   " + (cab.direction || "—")
                 color: "#aeb5bf"
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: 17
+                font.pixelSize: 16
             }
         }
 
@@ -43,29 +121,25 @@ Rectangle {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 78
+                Layout.preferredHeight: 72
                 radius: 12
                 color: "#23272e"
-
                 Column {
                     anchors.centerIn: parent
-                    spacing: 0
                     Label { anchors.horizontalCenter: parent.horizontalCenter; text: "SPEED"; color: "#9ea6b0"; font.pixelSize: 13 }
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.speed; color: "white"; font.pixelSize: 31; font.bold: true }
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.speed; color: "white"; font.pixelSize: 30; font.bold: true }
                 }
             }
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 78
+                Layout.preferredHeight: 72
                 radius: 12
                 color: "#23272e"
-
                 Column {
                     anchors.centerIn: parent
-                    spacing: 0
                     Label { anchors.horizontalCenter: parent.horizontalCenter; text: "TARGET"; color: "#9ea6b0"; font.pixelSize: 13 }
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.targetSpeed; color: "white"; font.pixelSize: 31; font.bold: true }
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.targetSpeed; color: "white"; font.pixelSize: 30; font.bold: true }
                 }
             }
         }
@@ -74,21 +148,17 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 10
 
-            Button {
+            CabButton {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 62
                 text: "Reverse"
-                font.pixelSize: 20
-                font.bold: cab.direction.indexOf("REVERSE") >= 0
+                selected: cab.direction.indexOf("REVERSE") >= 0
                 onClicked: cab.setDirection("REVERSE")
             }
 
-            Button {
+            CabButton {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 62
                 text: "Forward"
-                font.pixelSize: 20
-                font.bold: cab.direction.indexOf("FORWARD") >= 0
+                selected: cab.direction.indexOf("FORWARD") >= 0
                 onClicked: cab.setDirection("FORWARD")
             }
         }
@@ -96,26 +166,26 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 410
-            spacing: 22
+            Layout.minimumHeight: 390
+            spacing: 18
 
             ColumnLayout {
-                Layout.preferredWidth: 180
+                Layout.preferredWidth: 190
                 Layout.fillHeight: true
                 spacing: 4
 
                 Label {
                     Layout.alignment: Qt.AlignHCenter
-                    text: cab.speedMax
+                    text: "THROTTLE   " + cab.speedMax
                     color: "#b9c0c9"
-                    font.pixelSize: 16
+                    font.pixelSize: 15
                 }
 
                 VerticalThrottle {
                     id: throttle
                     Layout.alignment: Qt.AlignHCenter
                     Layout.fillHeight: true
-                    Layout.preferredWidth: 160
+                    Layout.preferredWidth: 170
                     minimumValue: 0
                     maximumValue: Math.max(1, cab.speedMax)
                     value: cab.targetSpeed
@@ -126,7 +196,7 @@ Rectangle {
                     Layout.alignment: Qt.AlignHCenter
                     text: "0"
                     color: "#b9c0c9"
-                    font.pixelSize: 16
+                    font.pixelSize: 15
                 }
             }
 
@@ -138,27 +208,21 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    Button {
+                    CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 58
                         text: "−5"
-                        font.pixelSize: 21
                         onClicked: cab.changeSpeed(-5)
                     }
-                    Button {
+                    CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 58
                         text: "+5"
-                        font.pixelSize: 21
                         onClicked: cab.changeSpeed(5)
                     }
                 }
 
-                Button {
+                CabButton {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 62
                     text: "Bell"
-                    font.pixelSize: 20
                     onClicked: cab.bell()
                 }
 
@@ -167,7 +231,6 @@ Rectangle {
                     text: "Horn"
                     repeatWhileHeld: true
                     repeatInterval: 100
-                    font.bold: pressed
                     onHeldAction: cab.horn(true)
                 }
 
@@ -180,7 +243,6 @@ Rectangle {
                         text: "Brake"
                         repeatWhileHeld: true
                         repeatInterval: 250
-                        font.bold: pressed
                         onHeldAction: cab.brake(true)
                     }
 
@@ -189,7 +251,6 @@ Rectangle {
                         text: "Boost"
                         repeatWhileHeld: true
                         repeatInterval: 250
-                        font.bold: pressed
                         onHeldAction: cab.boost(true)
                     }
                 }
@@ -200,20 +261,21 @@ Rectangle {
                     Layout.fillWidth: true
                     spacing: 10
 
-                    Button {
+                    CabButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 68
                         text: "STOP"
                         font.pixelSize: 22
                         font.bold: true
+                        normalColor: "#8b2d32"
+                        pressedColor: "#b43b42"
                         onClicked: cab.stop()
                     }
 
-                    Button {
+                    CabButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 68
                         text: "Reset"
-                        font.pixelSize: 20
                         onClicked: cab.reset()
                     }
                 }
@@ -222,22 +284,22 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 56
+            Layout.preferredHeight: 54
             radius: 10
             color: "#23272e"
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
 
-                Label { text: "RPM  " + cab.rpm; color: "#d9dde3"; font.pixelSize: 16 }
+                Label { text: "RPM  " + cab.rpm; color: "#d9dde3"; font.pixelSize: 15 }
                 Item { Layout.fillWidth: true }
-                Label { text: "Labor  " + cab.labor; color: "#d9dde3"; font.pixelSize: 16 }
+                Label { text: "Labor  " + cab.labor; color: "#d9dde3"; font.pixelSize: 15 }
                 Item { Layout.fillWidth: true }
-                Label { text: "Momentum  " + cab.momentum; color: "#d9dde3"; font.pixelSize: 16 }
+                Label { text: "Momentum  " + cab.momentum; color: "#d9dde3"; font.pixelSize: 15 }
                 Item { Layout.fillWidth: true }
-                Label { text: "Smoke  " + cab.smoke; color: "#d9dde3"; font.pixelSize: 16 }
+                Label { text: "Smoke  " + cab.smoke; color: "#d9dde3"; font.pixelSize: 15 }
             }
         }
     }
