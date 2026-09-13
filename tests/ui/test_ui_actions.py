@@ -1,4 +1,6 @@
-from pytrain_ui.actions import CAB_ACTIONS, action_applies_to_type, cab_action, cab_actions
+import pytest
+
+from pytrain_ui.actions import CAB_ACTIONS, CabAction, action_applies_to_type, cab_action, cab_actions
 
 
 def test_cab_actions_have_stable_unique_keys() -> None:
@@ -46,6 +48,20 @@ def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
     assert more is not None and (more.hold, more.hold_kind, more.hold_target) == (True, "panel", "more")
     assert sequence is not None and sequence.repeat is True
     assert sequence.repeat_interval_ms == 200
+
+
+def test_invalid_action_behavior_metadata_is_rejected() -> None:
+    with pytest.raises(ValueError, match="positive repeat interval"):
+        CabAction("repeat", "Repeat", "AUX1_OPTION_ONE", repeat=True)
+
+    with pytest.raises(ValueError, match="cannot define a repeat interval"):
+        CabAction("not_repeat", "No Repeat", "AUX1_OPTION_ONE", repeat_interval_ms=200)
+
+    with pytest.raises(ValueError, match="requires a hold command"):
+        CabAction("hold_command", "Hold", "AUX1_OPTION_ONE", hold=True)
+
+    with pytest.raises(ValueError, match="requires a hold target"):
+        CabAction("hold_panel", "Hold", "AUX1_OPTION_ONE", hold=True, hold_kind="panel")
 
 
 def test_passenger_holds_match_controller_view_destinations() -> None:
