@@ -73,7 +73,7 @@ class CabController(QObject):
         self._snapshot = snapshot
         self.stateChanged.emit()
 
-    @Property("QStringList", notify=rosterChanged)
+    @Property(list, notify=rosterChanged)
     def targetLabels(self) -> list[str]:
         return self._target_labels
 
