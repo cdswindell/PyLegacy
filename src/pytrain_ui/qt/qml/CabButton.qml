@@ -9,6 +9,12 @@ Button {
     property color selectedColor: "#246aa0"
     property color pressedColor: "#4d5968"
 
+    // These two repeat behaviors are hard-coded in the existing GUI as well:
+    // Reset repeats every 100 ms and Aux1 every 200 ms while held.
+    autoRepeat: root.text === "Reset" || root.text.indexOf("Aux1") === 0
+    autoRepeatDelay: root.text === "Reset" ? 100 : 200
+    autoRepeatInterval: root.text === "Reset" ? 100 : 200
+
     implicitHeight: 62
     font.pixelSize: 20
     font.bold: selected
