@@ -8,6 +8,7 @@ Item {
     property int maximumValue: 199
     property int value: 0
     property int pendingValue: value
+    property bool awaitingConfirmation: false
     signal valueCommitted(int value)
 
     implicitWidth: 170
@@ -18,7 +19,14 @@ Item {
     }
 
     function displayValue() {
-        return dragHandler.active ? pendingValue : value
+        return (dragHandler.active || awaitingConfirmation) ? pendingValue : value
+    }
+
+    function commit(v) {
+        pendingValue = clamp(v)
+        awaitingConfirmation = true
+        confirmationTimer.restart()
+        valueCommitted(pendingValue)
     }
 
     function valueToY(v) {
@@ -34,8 +42,26 @@ Item {
     }
 
     onValueChanged: {
-        if (!dragHandler.active)
-            pendingValue = value
+        if (dragHandler.active)
+            return
+        if (awaitingConfirmation) {
+            if (value === pendingValue) {
+                awaitingConfirmation = false
+                confirmationTimer.stop()
+            }
+            return
+        }
+        pendingValue = value
+    }
+
+    Timer {
+        id: confirmationTimer
+        interval: 900
+        repeat: false
+        onTriggered: {
+            root.awaitingConfirmation = false
+            root.pendingValue = root.value
+        }
     }
 
     Rectangle {
@@ -109,10 +135,12 @@ Item {
 
             onActiveChanged: {
                 if (active) {
-                    pendingValue = root.value
+                    confirmationTimer.stop()
+                    root.awaitingConfirmation = false
+                    root.pendingValue = root.value
                     startY = root.valueToY(root.value)
                 } else {
-                    root.valueCommitted(root.pendingValue)
+                    root.commit(root.pendingValue)
                 }
             }
 
@@ -126,9 +154,7 @@ Item {
     TapHandler {
         acceptedButtons: Qt.LeftButton
         onTapped: function(eventPoint) {
-            const tappedValue = root.yToValue(eventPoint.position.y - handle.height / 2)
-            root.pendingValue = tappedValue
-            root.valueCommitted(tappedValue)
+            root.commit(root.yToValue(eventPoint.position.y - handle.height / 2))
         }
     }
 }
