@@ -4,27 +4,99 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.protocol.constants import CommandScope
+
+from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.contracts import EngineViewState
 
 
 class CabController(QObject):
     stateChanged = Signal()
+    rosterChanged = Signal()
 
-    def __init__(self, state_port, command_port, parent: QObject | None = None) -> None:
+    def __init__(self, scope: CommandScope, tmcc_id: int, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._state_port = state_port
-        self._command_port = command_port
-        self._snapshot = state_port.current()
-        self._unsubscribe = state_port.subscribe(self._on_state)
+        self._state_port = None
+        self._command_port = None
+        self._unsubscribe = None
+        self._snapshot = EngineViewState(scope=scope.name, tmcc_id=tmcc_id)
+        self._targets: list[tuple[CommandScope, int, str]] = []
+        self._target_labels: list[str] = []
+        self._target_index = -1
+        self._reload_roster()
+        self._switch_target(scope, tmcc_id)
 
     def close(self) -> None:
+        self._release_target()
+
+    def _release_target(self) -> None:
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
+        if self._state_port is not None:
+            self._state_port.shutdown()
+            self._state_port = None
+        self._command_port = None
+
+    def _reload_roster(self) -> None:
+        store = ComponentStateStore.get()
+        targets: list[tuple[CommandScope, int, str]] = []
+        for scope in (CommandScope.ENGINE, CommandScope.TRAIN):
+            for state in store.get_all(scope):
+                road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
+                road_number = str(getattr(state, "road_number", "") or "").strip()
+                detail = " ".join(part for part in (road_name, road_number) if part)
+                label = f"{scope.label.title()} {state.tmcc_id}"
+                if detail:
+                    label += f" — {detail}"
+                targets.append((scope, state.tmcc_id, label))
+        targets.sort(key=lambda item: (0 if item[0] == CommandScope.ENGINE else 1, item[1]))
+        self._targets = targets
+        self._target_labels = [item[2] for item in targets]
+        self.rosterChanged.emit()
+
+    def _switch_target(self, scope: CommandScope, tmcc_id: int) -> None:
+        self._release_target()
+        self._state_port = PyTrainCabStateAdapter(scope, tmcc_id)
+        self._command_port = PyTrainCabCommandAdapter(self._state_port)
+        self._snapshot = self._state_port.current()
+        self._unsubscribe = self._state_port.subscribe(self._on_state)
+        self._target_index = next(
+            (i for i, item in enumerate(self._targets) if item[0] == scope and item[1] == tmcc_id),
+            -1,
+        )
+        self.stateChanged.emit()
+        self.rosterChanged.emit()
 
     def _on_state(self, snapshot: EngineViewState) -> None:
         self._snapshot = snapshot
         self.stateChanged.emit()
+
+    @Property("QStringList", notify=rosterChanged)
+    def targetLabels(self) -> list[str]:
+        return self._target_labels
+
+    @Property(int, notify=rosterChanged)
+    def targetIndex(self) -> int:
+        return self._target_index
+
+    @Slot(int)
+    def selectTarget(self, index: int) -> None:
+        if 0 <= index < len(self._targets) and index != self._target_index:
+            scope, tmcc_id, _ = self._targets[index]
+            self._switch_target(scope, tmcc_id)
+
+    @Slot()
+    def refreshRoster(self) -> None:
+        current_scope = CommandScope[self.scope]
+        current_id = self.tmccId
+        self._reload_roster()
+        self._target_index = next(
+            (i for i, item in enumerate(self._targets) if item[0] == current_scope and item[1] == current_id),
+            -1,
+        )
+        self.rosterChanged.emit()
 
     @Property(str, notify=stateChanged)
     def scope(self) -> str:
