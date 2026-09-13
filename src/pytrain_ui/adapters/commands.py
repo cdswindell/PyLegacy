@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
@@ -61,6 +62,30 @@ class PyTrainCabCommandAdapter:
 
     def change_speed(self, delta: int) -> None:
         self.set_speed(self._state_adapter.current().target_speed + int(delta))
+
+    def set_momentum(self, value: int) -> None:
+        value = max(0, min(7, int(value)))
+        if self.state.is_legacy:
+            CommandReq(
+                TMCC2EngineCommandEnum.MOMENTUM,
+                self.state.tmcc_id,
+                data=value,
+                scope=self.state.scope,
+            ).send()
+            return
+        # TMCC1 only exposes the three traditional presets.
+        name = "MOMENTUM_LOW" if value <= 1 else "MOMENTUM_MEDIUM" if value <= 5 else "MOMENTUM_HIGH"
+        self.send_named(name)
+
+    def set_speed_limit(self, value: int | None) -> None:
+        # EngineGui uses the Base 3 roster field for speed limits rather than a
+        # track command. 255 is the established clear/no-limit value.
+        if value is None:
+            speed_limit = 255
+        else:
+            maximum = 199 if self.state.is_legacy else 31
+            speed_limit = max(1, min(maximum, int(value)))
+        BaseReq.do_update_field("SPEED_LIMIT", speed_limit, self.state, True)
 
     def set_direction(self, direction: str) -> None:
         normalized = direction.strip().upper()
@@ -141,6 +166,11 @@ class PyTrainCabCommandAdapter:
             return False
         return True
 
+    def supports_smoke(self) -> bool:
+        if self.state.is_legacy:
+            return self.supports_effect("SMOKE_OFF") and self.supports_effect("SMOKE_HIGH")
+        return self.supports_named("SMOKE_OFF") and self.supports_named("SMOKE_ON")
+
     def supports_action(self, action: CabAction | str) -> bool:
         if isinstance(action, str):
             action = cab_action(action)
@@ -154,6 +184,8 @@ class PyTrainCabCommandAdapter:
             return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and bool(self.state.is_legacy)
         if action.command_kind == "effects":
             return self.supports_effect(action.command)
+        if action.command_kind == "smoke":
+            return self.supports_smoke()
         return self.supports_named(action.command)
 
     def perform(self, action: CabAction | str) -> bool:
@@ -173,6 +205,13 @@ class PyTrainCabCommandAdapter:
             command = TMCC2EffectsControl.by_name(action.command, raise_exception=True)
             CommandReq(command, self.state.tmcc_id, scope=self.state.scope).send()
             return True
+        if action.command_kind == "smoke":
+            if self.state.is_legacy:
+                effect_name = "SMOKE_OFF" if action.command == "SMOKE_OFF" else "SMOKE_HIGH"
+                command = TMCC2EffectsControl.by_name(effect_name, raise_exception=True)
+                CommandReq(command, self.state.tmcc_id, scope=self.state.scope).send()
+                return True
+            return self.send_named(action.command)
         return self.send_named(action.command)
 
     def send_named(self, name: str) -> bool:
