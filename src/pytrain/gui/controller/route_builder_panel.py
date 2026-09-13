@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from functools import partial
 from sys import platform
 from tkinter import font as tkfont
@@ -100,8 +101,10 @@ class RouteDiscardDialog(simpledialog.Dialog):
 
 
 class RouteBuilderPanel(OverlayPanel):
-    def __init__(self, gui: EngineGui):
+    def __init__(self, gui: EngineGui, *, post_close: Callable = None, on_saved: Callable = None):
         super().__init__(gui, "Route Builder", post_close=self._on_closed)
+        self._after_close = post_close
+        self._on_saved = on_saved
         self.draft: RouteDraft | None = None
         self._state: RouteState | None = None
         self._tmcc_id = 0
@@ -1242,6 +1245,8 @@ class RouteBuilderPanel(OverlayPanel):
         self._end_inline_edits()
         self._picking = False
         self._gesture = None
+        if self._after_close is not None:
+            self._after_close(_overlay)
 
     def clear_route(self) -> None:
         if self.draft is None or self._picking:
@@ -1290,6 +1295,9 @@ class RouteBuilderPanel(OverlayPanel):
         self.draft.mark_saved()
         self._state = state
         self._close()
+        if self._on_saved is not None:
+            self._on_saved(state)
+            return
         # noinspection protected-member
         self.gui._scope_tmcc_ids[CommandScope.ROUTE] = self._tmcc_id
         self.gui.ops_mode(update_info=True, state=state)
