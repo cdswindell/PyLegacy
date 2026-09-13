@@ -74,15 +74,19 @@ Item {
             target: null
             xAxis.enabled: false
             yAxis.enabled: true
+            property real startY: 0
+
             onActiveChanged: {
-                if (!active)
+                if (active) {
+                    startY = root.valueToY(root.value)
+                } else {
                     root.valueCommitted(root.value)
+                }
             }
+
             onTranslationChanged: {
-                if (!active)
-                    return
-                const centerY = handle.y + translation.y
-                root.value = root.yToValue(centerY)
+                if (active)
+                    root.value = root.yToValue(startY + translation.y)
             }
         }
     }
