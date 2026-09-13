@@ -279,9 +279,9 @@ Rectangle {
                     Layout.fillHeight: true
                     Layout.minimumHeight: 120
                     radius: 12
-                    color: "#101317"
+                    color: "#e8ebef"
                     border.width: 1
-                    border.color: cab.hasCustomArtwork ? "#3c8dbc" : "#343a43"
+                    border.color: cab.hasCustomArtwork ? "#3c8dbc" : "#aeb5bf"
                     clip: true
 
                     Image {
@@ -299,7 +299,7 @@ Rectangle {
                         anchors.margins: 8
                         visible: cab.hasCustomArtwork
                         text: "CUSTOM"
-                        color: "#8fd3ff"
+                        color: "#176fa8"
                         font.pixelSize: 11
                         font.bold: true
                     }
