@@ -39,21 +39,6 @@ Popup {
         return sections
     }
 
-    function holdCommandFor(command) {
-        switch (command) {
-        case "START_UP_IMMEDIATE":
-            return "START_UP_DELAYED"
-        case "SHUTDOWN_IMMEDIATE":
-            return "SHUTDOWN_DELAYED"
-        case "ENGINEER_FUEL_LEVEL":
-            return "ENGINEER_FUEL_REFILLED"
-        case "ENGINEER_WATER_LEVEL":
-            return "ENGINEER_WATER_REFILLED"
-        default:
-            return ""
-        }
-    }
-
     width: Math.min(620, (parent ? parent.width : 680) - 32)
     height: Math.min(700, Math.max(240, (parent ? parent.height : 740) - 48))
     x: parent ? Math.round((parent.width - width) / 2) : 0
@@ -192,12 +177,13 @@ Popup {
 
                                     FunctionButton {
                                         required property var modelData
-                                        readonly property string holdCommand: root.holdCommandFor(modelData.command)
+                                        readonly property string holdCommand: modelData.holdCommand || ""
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 44
                                         compact: true
                                         text: modelData.label
                                         deferForHold: holdCommand.length > 0
+                                        holdThreshold: modelData.holdThreshold || 1000
                                         onClicked: root.cab.triggerPanelCommand(modelData.command)
                                         onHeld: root.cab.triggerPanelCommand(holdCommand)
                                     }
