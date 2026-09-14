@@ -21,11 +21,6 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
             cab: cabController
-
-            // Mirror only CabView's top-level horizontal composition. CabView
-            // explicitly restores left-to-right ordering for its internal rows.
-            LayoutMirroring.enabled: true
-            LayoutMirroring.childrenInherit: true
         }
 
         ScopeBar {
