@@ -61,8 +61,6 @@ class PyTrainCabCommandAdapter:
             self.state,
             type_key=self.controller_type_key,
             momentum_supported=momentum_supported,
-            train_brake_supported=self.supports_named("TRAIN_BRAKE"),
-            quilling_horn_supported=self.supports_named("QUILLING_HORN"),
         )
 
     def set_speed(self, speed: int) -> None:
