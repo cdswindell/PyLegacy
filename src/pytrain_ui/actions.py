@@ -62,9 +62,11 @@ def _equipment_action(action: EquipmentAction) -> CabAction:
         action.icon,
         action.scope_tag,
         group=action.group,
+        hold=bool(action.hold_command),
         repeat=action.repeat_interval_ms > 0,
         repeat_interval_ms=action.repeat_interval_ms,
         command_kind=action.command_kind,
+        hold_command=action.hold_command,
     )
 
 
