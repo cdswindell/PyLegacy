@@ -1027,6 +1027,10 @@ class ControllerView:
             "r": self._common_btns | self._crane_btns,
             "t": self._transformer_btns,
         }
+        # Acela already has on/off keys in its main keypad; hide only the wide duplicates.
+        self._engine_type_key_map["a"] -= {
+            cell for cell in self._engine_btns if cell.bi[0] in {"START_UP_IMMEDIATE_WIDE", "SHUTDOWN_IMMEDIATE_WIDE"}
+        }
 
     def scope_key(self, cell: TitleBox | Box, nb: HoldButton, cmd: str, op: tuple):
         host = self._host
@@ -1118,6 +1122,8 @@ class ControllerView:
             (("STEWARD_CHATTER", "p"), host.on_steward_dialogs),
             (("TOWER_CHATTER", "e"), host.on_tower_dialog),
             (("TOWER_CHATTER", "p"), host.on_station_dialogs),
+            (("START_UP_IMMEDIATE", "a"), (host.on_engine_command, [["START_UP_DELAYED", "START_UP_IMMEDIATE"]])),
+            (("SHUTDOWN_IMMEDIATE", "a"), (host.on_engine_command, [["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"]])),
             (("START_UP_IMMEDIATE", "e"), (host.on_engine_command, [["START_UP_DELAYED", "START_UP_IMMEDIATE"]])),
             (("SHUTDOWN_IMMEDIATE", "e"), (host.on_engine_command, [["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"]])),
         ]

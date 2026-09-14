@@ -914,9 +914,11 @@ class _VisibilityCell:
 
 
 def _keypad_visibility(*, wide: bool = True):
+    from src.pytrain.gui.controller.engine_gui_conf import EXTRA_FUNCTIONS
+
     view = mod.ControllerView(SimpleNamespace(engine_ops_cells={}))
     cells = {}
-    layouts = [mod.ENGINE_OPS_LAYOUT]
+    layouts = [mod.ENGINE_OPS_LAYOUT, EXTRA_FUNCTIONS]
     if wide:
         layouts.append(mod.EXTRA_FUNCTIONS_WIDE)
     for layout in layouts:
@@ -924,6 +926,7 @@ def _keypad_visibility(*, wide: bool = True):
             for entry in row:
                 for op in [entry] if isinstance(entry, tuple) else entry or []:
                     cell = _VisibilityCell()
+                    cell.bi = op
                     cells[(op[0], op[4])] = cell
                     view.scope_key(cell, _OpsButton(), op[0], op)
     view.regen_engine_keys_map()
@@ -940,9 +943,26 @@ def test_extra_column_visibility_for_each_equipment_type(previous_type, engine_t
 
     view._show_keys_for_type(engine_type)
 
-    expected = _WIDE_COMMANDS - _WIDE_EFFORT_COMMANDS if engine_type == "t" else _WIDE_COMMANDS
+    if engine_type == "a":
+        expected = _WIDE_EFFORT_COMMANDS | {"SPEED_ROLL_WIDE"}
+    elif engine_type == "t":
+        expected = _WIDE_COMMANDS - _WIDE_EFFORT_COMMANDS
+    else:
+        expected = _WIDE_COMMANDS
     visible = {command for command in _WIDE_COMMANDS if cells[(command, "e")].visible}
     assert visible == expected
+
+
+# noinspection PyProtectedMember
+@pytest.mark.parametrize("wide", [False, True])
+@pytest.mark.parametrize("command", ["START_UP_IMMEDIATE", "SHUTDOWN_IMMEDIATE"])
+def test_acela_retains_main_keypad_and_popup_power_keys(wide, command) -> None:
+    view, cells = _keypad_visibility(wide=wide)
+
+    view._show_keys_for_type("a")
+
+    for scope in ("a", "e"):
+        assert cells[(command, scope)].visible
 
 
 # noinspection PyProtectedMember
