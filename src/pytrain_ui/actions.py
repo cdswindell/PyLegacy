@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pytrain_ui.capabilities import operation_tag_applies
 from pytrain_ui.equipment_actions import EQUIPMENT_ACTIONS, EquipmentAction
@@ -27,6 +27,7 @@ class CabAction:
     hold_target: str = ""
     hold_threshold_ms: int = 1000
     hold_legacy_only: bool = False
+    excluded_type_keys: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         if self.repeat and self.repeat_interval_ms <= 0:
@@ -50,7 +51,7 @@ class CabAction:
 
 
 def action_applies_to_type(action: CabAction, type_key: str) -> bool:
-    return operation_tag_applies(action.scope_tag, type_key)
+    return type_key not in action.excluded_type_keys and operation_tag_applies(action.scope_tag, type_key)
 
 
 def _equipment_action(action: EquipmentAction) -> CabAction:
@@ -86,11 +87,11 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "startup", "Start Up", "START_UP_IMMEDIATE", "on_button.jpg", "e", hold=True,
-        hold_command="START_UP_DELAYED",
+        hold_command="START_UP_DELAYED", excluded_type_keys=frozenset({"a"}),
     ),
     CabAction(
         "shutdown", "Shut Down", "SHUTDOWN_IMMEDIATE", "off_button.jpg", "e", hold=True,
-        hold_command="SHUTDOWN_DELAYED",
+        hold_command="SHUTDOWN_DELAYED", excluded_type_keys=frozenset({"a"}),
     ),
     CabAction("rear_coupler", "Rear Coupler", "REAR_COUPLER", "rear-coupler.jpg", "cp"),
     CabAction("front_coupler", "Front Coupler", "FRONT_COUPLER", "front-coupler.jpg", "cp"),
@@ -161,11 +162,11 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "lights", "Aux2 · Lights", "AUX2_OPTION_ONE", scope_tag="e", group="secondary",
-        hold=True, hold_kind="panel", hold_target="lights",
+        hold=True, hold_kind="panel", hold_target="lights", excluded_type_keys=frozenset({"a"}),
     ),
     CabAction(
         "more", "Aux3 · More", "AUX3_OPTION_ONE", scope_tag="e", group="secondary",
-        hold=True, hold_kind="panel", hold_target="more",
+        hold=True, hold_kind="panel", hold_target="more", excluded_type_keys=frozenset({"a"}),
     ),
     CabAction("momentum_low", "Mom Low", "MOMENTUM_LOW", scope_tag="e", group="tuning"),
     CabAction("momentum_medium", "Mom Med", "MOMENTUM_MEDIUM", scope_tag="e", group="tuning"),
