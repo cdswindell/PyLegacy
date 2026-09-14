@@ -6,12 +6,15 @@ Rectangle {
     id: root
     required property var cab
 
+    readonly property bool piLayout: width <= 720
     readonly property bool shortLayout: height < 1000
     readonly property bool veryShortLayout: height < 850
     readonly property bool narrowLayout: width < 650
     readonly property int operationColumns: width >= 1050 ? 4 : (width >= 600 ? 3 : 2)
-    readonly property int compactButtonHeight: veryShortLayout ? 36 : (shortLayout ? 40 : 44)
-    readonly property int operationButtonHeight: veryShortLayout ? 38 : (shortLayout ? 42 : 46)
+    readonly property int compactButtonHeight: piLayout ? 40 : (veryShortLayout ? 36 : (shortLayout ? 40 : 44))
+    readonly property int operationButtonHeight: piLayout ? 42 : (veryShortLayout ? 38 : (shortLayout ? 42 : 46))
+    readonly property int controlHeaderHeight: 32
+    readonly property int controlFooterHeight: 20
 
     function handleModelHold(modelData) {
         if (modelData.holdKind === "panel") {
@@ -26,28 +29,28 @@ Rectangle {
     }
 
     color: "#171a1f"
-    radius: 18
+    radius: root.piLayout ? 14 : 18
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: root.shortLayout ? 12 : 18
-        spacing: root.shortLayout ? 6 : 9
+        anchors.margins: root.piLayout ? 10 : (root.shortLayout ? 12 : 18)
+        spacing: root.piLayout ? 5 : (root.shortLayout ? 6 : 9)
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: root.piLayout ? 6 : 8
 
             ComboBox {
                 id: targetPicker
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.shortLayout ? 44 : 50
+                Layout.preferredHeight: root.piLayout ? 40 : (root.shortLayout ? 44 : 50)
                 model: cab.targetLabels
                 currentIndex: cab.targetIndex
-                font.pixelSize: root.shortLayout ? 15 : 17
+                font.pixelSize: root.piLayout ? 14 : (root.shortLayout ? 15 : 17)
                 onActivated: cab.selectTarget(currentIndex)
 
                 contentItem: Text {
-                    leftPadding: 12
+                    leftPadding: root.piLayout ? 10 : 12
                     rightPadding: 30
                     text: targetPicker.displayText
                     font: targetPicker.font
@@ -98,10 +101,10 @@ Rectangle {
             }
 
             CabButton {
-                Layout.preferredWidth: root.shortLayout ? 88 : 104
-                Layout.preferredHeight: root.shortLayout ? 44 : 50
+                Layout.preferredWidth: root.piLayout ? 92 : (root.shortLayout ? 88 : 104)
+                Layout.preferredHeight: root.piLayout ? 40 : (root.shortLayout ? 44 : 50)
                 text: "Refresh"
-                font.pixelSize: root.shortLayout ? 14 : 16
+                font.pixelSize: root.piLayout ? 14 : (root.shortLayout ? 14 : 16)
                 onClicked: cab.refreshRoster()
             }
         }
@@ -115,7 +118,7 @@ Rectangle {
                 color: "#f4f6f8"
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
-                font.pixelSize: root.shortLayout ? 23 : 27
+                font.pixelSize: root.piLayout ? 22 : (root.shortLayout ? 23 : 27)
                 font.bold: true
             }
             Label {
@@ -123,53 +126,77 @@ Rectangle {
                 text: cab.scope + " " + cab.tmccId + "   " + (cab.direction || "—")
                 color: "#aeb5bf"
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: root.shortLayout ? 13 : 15
+                font.pixelSize: root.piLayout ? 12 : (root.shortLayout ? 13 : 15)
             }
         }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: root.piLayout ? 6 : 8
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.shortLayout ? 54 : 64
-                radius: 10
+                Layout.preferredHeight: root.piLayout ? 48 : (root.shortLayout ? 54 : 64)
+                radius: 9
                 color: "#23272e"
                 Column {
                     anchors.centerIn: parent
                     spacing: -1
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: "SPEED"; color: "#9ea6b0"; font.pixelSize: root.shortLayout ? 11 : 12 }
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.speed; color: "white"; font.pixelSize: root.shortLayout ? 24 : 28; font.bold: true }
+                    Label {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "SPEED"
+                        color: "#9ea6b0"
+                        font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 11 : 12)
+                    }
+                    Label {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: cab.speed
+                        color: "white"
+                        font.pixelSize: root.piLayout ? 22 : (root.shortLayout ? 24 : 28)
+                        font.bold: true
+                    }
                 }
             }
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.shortLayout ? 54 : 64
-                radius: 10
+                Layout.preferredHeight: root.piLayout ? 48 : (root.shortLayout ? 54 : 64)
+                radius: 9
                 color: "#23272e"
                 Column {
                     anchors.centerIn: parent
                     spacing: -1
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: "TARGET"; color: "#9ea6b0"; font.pixelSize: root.shortLayout ? 11 : 12 }
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.targetSpeed; color: "white"; font.pixelSize: root.shortLayout ? 24 : 28; font.bold: true }
+                    Label {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "TARGET"
+                        color: "#9ea6b0"
+                        font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 11 : 12)
+                    }
+                    Label {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: cab.targetSpeed
+                        color: "white"
+                        font.pixelSize: root.piLayout ? 22 : (root.shortLayout ? 24 : 28)
+                        font.bold: true
+                    }
                 }
             }
         }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: root.piLayout ? 6 : 8
             CabButton {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.shortLayout ? 44 : 50
+                Layout.preferredHeight: root.piLayout ? 42 : (root.shortLayout ? 44 : 50)
                 text: "Reverse"
+                font.pixelSize: root.piLayout ? 16 : 20
                 selected: cab.direction.indexOf("REVERSE") >= 0
                 onClicked: cab.setDirection("REVERSE")
             }
             CabButton {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.shortLayout ? 44 : 50
+                Layout.preferredHeight: root.piLayout ? 42 : (root.shortLayout ? 44 : 50)
                 text: "Forward"
+                font.pixelSize: root.piLayout ? 16 : 20
                 selected: cab.direction.indexOf("FORWARD") >= 0
                 onClicked: cab.setDirection("FORWARD")
             }
@@ -178,48 +205,26 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: root.shortLayout ? 10 : 14
+            spacing: root.piLayout ? 8 : (root.shortLayout ? 10 : 14)
 
             RowLayout {
-                Layout.preferredWidth: root.narrowLayout ? 176 : (root.shortLayout ? 205 : 225)
+                Layout.preferredWidth: root.piLayout ? 188 : (root.narrowLayout ? 176 : (root.shortLayout ? 205 : 225))
                 Layout.fillHeight: true
-                spacing: root.shortLayout ? 3 : 5
+                spacing: root.piLayout ? 4 : (root.shortLayout ? 3 : 5)
 
                 ColumnLayout {
-                    Layout.preferredWidth: root.narrowLayout ? 100 : (root.shortLayout ? 120 : 140)
+                    Layout.preferredWidth: root.piLayout ? 70 : (root.narrowLayout ? 70 : 78)
                     Layout.fillHeight: true
-                    spacing: 2
-                    Label {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: "THROTTLE  " + cab.speedMax
-                        color: "#b9c0c9"
-                        font.pixelSize: root.shortLayout ? 12 : 14
-                    }
-                    VerticalThrottle {
-                        id: throttle
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.fillHeight: true
-                        Layout.preferredWidth: root.narrowLayout ? 96 : (root.shortLayout ? 115 : 135)
-                        minimumValue: 0
-                        maximumValue: Math.max(1, cab.speedMax)
-                        value: cab.targetSpeed
-                        onValueCommitted: function(v) { cab.setSpeed(v) }
-                    }
-                    Label { Layout.alignment: Qt.AlignHCenter; text: "0"; color: "#b9c0c9"; font.pixelSize: root.shortLayout ? 12 : 14 }
-                }
-
-                ColumnLayout {
-                    Layout.fillHeight: true
-                    Layout.preferredWidth: root.narrowLayout ? 70 : 78
                     spacing: 2
                     visible: cab.analogModes.length > 0
 
                     ComboBox {
                         id: analogMode
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.veryShortLayout ? 28 : 32
+                        Layout.preferredHeight: root.controlHeaderHeight
+                        Layout.maximumHeight: root.controlHeaderHeight
                         model: cab.analogModes
-                        font.pixelSize: root.shortLayout ? 10 : 11
+                        font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 10 : 11)
                         contentItem: Text {
                             leftPadding: 5
                             rightPadding: 18
@@ -230,7 +235,12 @@ Rectangle {
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                         }
-                        background: Rectangle { radius: 6; color: "#292e36"; border.width: 1; border.color: "#626b78" }
+                        background: Rectangle {
+                            radius: 6
+                            color: "#292e36"
+                            border.width: 1
+                            border.color: "#626b78"
+                        }
                     }
 
                     VerticalCabControl {
@@ -251,7 +261,18 @@ Rectangle {
                             else if (analogMode.currentText === "Horn") cab.setQuillingHorn(v)
                         }
                     }
-                    Label { Layout.alignment: Qt.AlignHCenter; text: analogMode.currentText === "Horn" ? "0–15" : "0–7"; color: "#b9c0c9"; font.pixelSize: root.shortLayout ? 10 : 11 }
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.controlFooterHeight
+                        Layout.maximumHeight: root.controlFooterHeight
+                        text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
+                        color: "#b9c0c9"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: root.piLayout ? 9 : (root.shortLayout ? 10 : 11)
+                    }
+
                     Timer {
                         interval: 500
                         repeat: true
@@ -259,12 +280,50 @@ Rectangle {
                         onTriggered: cab.setQuillingHorn(analogControl.pendingValue)
                     }
                 }
+
+                ColumnLayout {
+                    Layout.preferredWidth: root.piLayout ? 112 : (root.narrowLayout ? 100 : (root.shortLayout ? 120 : 140))
+                    Layout.fillHeight: true
+                    spacing: 2
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.controlHeaderHeight
+                        Layout.maximumHeight: root.controlHeaderHeight
+                        text: "THROTTLE  " + cab.speedMax
+                        color: "#b9c0c9"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: root.piLayout ? 11 : (root.shortLayout ? 12 : 14)
+                    }
+
+                    VerticalThrottle {
+                        id: throttle
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        minimumValue: 0
+                        maximumValue: Math.max(1, cab.speedMax)
+                        value: cab.targetSpeed
+                        onValueCommitted: function(v) { cab.setSpeed(v) }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.controlFooterHeight
+                        Layout.maximumHeight: root.controlFooterHeight
+                        text: "0"
+                        color: "#b9c0c9"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 12 : 14)
+                    }
+                }
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: root.shortLayout ? 4 : 6
+                spacing: root.piLayout ? 4 : (root.shortLayout ? 4 : 6)
 
                 GridLayout {
                     Layout.fillWidth: true
@@ -280,7 +339,7 @@ Rectangle {
                             Layout.preferredHeight: root.compactButtonHeight
                             compact: true
                             text: modelData.label
-                            font.pixelSize: root.shortLayout ? 13 : 15
+                            font.pixelSize: root.piLayout ? 13 : (root.shortLayout ? 13 : 15)
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold
                             repeatWhileHeld: modelData.repeat
@@ -291,7 +350,14 @@ Rectangle {
                     }
                 }
 
-                Label { Layout.fillWidth: true; text: "OPERATIONS"; color: "#9ea6b0"; font.pixelSize: root.shortLayout ? 11 : 12; font.bold: true; leftPadding: 2 }
+                Label {
+                    Layout.fillWidth: true
+                    text: "OPERATIONS"
+                    color: "#9ea6b0"
+                    font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 11 : 12)
+                    font.bold: true
+                    leftPadding: 2
+                }
 
                 GridLayout {
                     Layout.fillWidth: true
@@ -327,10 +393,10 @@ Rectangle {
                         FunctionButton {
                             required property var modelData
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.veryShortLayout ? 32 : 36
+                            Layout.preferredHeight: root.piLayout ? 32 : (root.veryShortLayout ? 32 : 36)
                             compact: true
                             text: modelData.label
-                            font.pixelSize: root.shortLayout ? 10 : 11
+                            font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 10 : 11)
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold
                             repeatWhileHeld: modelData.repeat
@@ -341,9 +407,9 @@ Rectangle {
                     }
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.veryShortLayout ? 32 : 36
+                        Layout.preferredHeight: root.piLayout ? 32 : (root.veryShortLayout ? 32 : 36)
                         text: cab.speedLimit > 0 ? "Limit " + cab.speedLimit : "Limit"
-                        font.pixelSize: 11
+                        font.pixelSize: 10
                         onClicked: speedLimitPopup.open()
                     }
                 }
@@ -351,15 +417,31 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: root.veryShortLayout ? 80 : (root.shortLayout ? 95 : 120)
-                    Layout.preferredHeight: root.shortLayout ? 110 : 145
-                    radius: 10
+                    Layout.minimumHeight: root.piLayout ? 120 : (root.veryShortLayout ? 80 : (root.shortLayout ? 95 : 120))
+                    Layout.preferredHeight: root.piLayout ? 170 : (root.shortLayout ? 110 : 145)
+                    radius: 9
                     color: "#e8ebef"
                     border.width: 1
                     border.color: cab.hasCustomArtwork ? "#3c8dbc" : "#aeb5bf"
                     clip: true
-                    Image { anchors.fill: parent; anchors.margins: 6; source: cab.artworkSource; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false }
-                    Label { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6; visible: cab.hasCustomArtwork; text: "CUSTOM"; color: "#176fa8"; font.pixelSize: 10; font.bold: true }
+                    Image {
+                        anchors.fill: parent
+                        anchors.margins: root.piLayout ? 4 : 6
+                        source: cab.artworkSource
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: false
+                    }
+                    Label {
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 6
+                        visible: cab.hasCustomArtwork
+                        text: "CUSTOM"
+                        color: "#176fa8"
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
                 }
 
                 RowLayout {
@@ -367,9 +449,9 @@ Rectangle {
                     spacing: 6
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.shortLayout ? 46 : 56
+                        Layout.preferredHeight: root.piLayout ? 48 : (root.shortLayout ? 46 : 56)
                         text: "STOP"
-                        font.pixelSize: root.shortLayout ? 18 : 21
+                        font.pixelSize: root.piLayout ? 18 : (root.shortLayout ? 18 : 21)
                         font.bold: true
                         normalColor: "#8b2d32"
                         pressedColor: "#b43b42"
@@ -377,8 +459,9 @@ Rectangle {
                     }
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.shortLayout ? 46 : 56
+                        Layout.preferredHeight: root.piLayout ? 48 : (root.shortLayout ? 46 : 56)
                         text: "Reset"
+                        font.pixelSize: root.piLayout ? 16 : 20
                         repeatWhileHeld: true
                         repeatInterval: 100
                         onClicked: cab.reset()
@@ -389,7 +472,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: root.shortLayout ? 42 : 50
+            Layout.preferredHeight: root.piLayout ? 44 : (root.shortLayout ? 42 : 50)
             radius: 8
             color: "#23272e"
             RowLayout {
@@ -410,7 +493,7 @@ Rectangle {
                             color: "#9ea6b0"
                             horizontalAlignment: Text.AlignHCenter
                             lineHeight: 0.85
-                            font.pixelSize: root.shortLayout ? 9 : 10
+                            font.pixelSize: root.piLayout ? 9 : (root.shortLayout ? 9 : 10)
                         }
                         Label {
                             Layout.fillWidth: true
@@ -418,7 +501,7 @@ Rectangle {
                             color: "#d9dde3"
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
-                            font.pixelSize: root.shortLayout ? 11 : 13
+                            font.pixelSize: root.piLayout ? 11 : (root.shortLayout ? 11 : 13)
                         }
                     }
                 }
@@ -441,14 +524,51 @@ Rectangle {
         background: Rectangle { radius: 12; color: "#252a31"; border.width: 1; border.color: "#697382" }
         contentItem: ColumnLayout {
             spacing: 14
-            Label { Layout.fillWidth: true; text: "Speed Limit"; color: "white"; font.pixelSize: 22; font.bold: true; horizontalAlignment: Text.AlignHCenter }
-            Label { Layout.fillWidth: true; text: cab.speedLimit > 0 ? "Current limit: " + cab.speedLimit : "No speed limit set"; color: "#c8ced6"; font.pixelSize: 15; horizontalAlignment: Text.AlignHCenter }
-            SpinBox { id: limitSpin; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 180; from: 1; to: cab.commandSpeedMax; editable: true; font.pixelSize: 20 }
+            Label {
+                Layout.fillWidth: true
+                text: "Speed Limit"
+                color: "white"
+                font.pixelSize: 22
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Label {
+                Layout.fillWidth: true
+                text: cab.speedLimit > 0 ? "Current limit: " + cab.speedLimit : "No speed limit set"
+                color: "#c8ced6"
+                font.pixelSize: 15
+                horizontalAlignment: Text.AlignHCenter
+            }
+            SpinBox {
+                id: limitSpin
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 180
+                from: 1
+                to: cab.commandSpeedMax
+                editable: true
+                font.pixelSize: 20
+            }
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                CabButton { Layout.fillWidth: true; text: "Clear"; enabled: cab.speedLimit > 0; onClicked: { cab.clearSpeedLimit(); speedLimitPopup.close() } }
-                CabButton { Layout.fillWidth: true; text: "Set"; selected: true; onClicked: { cab.setSpeedLimit(limitSpin.value); speedLimitPopup.close() } }
+                CabButton {
+                    Layout.fillWidth: true
+                    text: "Clear"
+                    enabled: cab.speedLimit > 0
+                    onClicked: {
+                        cab.clearSpeedLimit()
+                        speedLimitPopup.close()
+                    }
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    text: "Set"
+                    selected: true
+                    onClicked: {
+                        cab.setSpeedLimit(limitSpin.value)
+                        speedLimitPopup.close()
+                    }
+                }
             }
         }
     }
