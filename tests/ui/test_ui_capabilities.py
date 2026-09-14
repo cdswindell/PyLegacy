@@ -87,14 +87,25 @@ def test_acela_uses_specific_variants_where_layout_overrides_engine_cells() -> N
     for key in ("rpm_up", "rpm_down", "labor_up", "labor_down", "sequence"):
         assert action_applies_to_type(CAB_ACTIONS_BY_KEY[key], "a") is True
 
-    # But startup/shutdown and Aux2/Aux3 have dedicated "a" variants in
-    # ENGINE_OPS_LAYOUT, so they must not inherit the engine hold behavior.
+    # Startup/shutdown and Aux2/Aux3 have dedicated "a" variants in
+    # ENGINE_OPS_LAYOUT. The dedicated startup/shutdown variants still use the
+    # same immediate/delayed hold behavior as other Legacy engines, while the
+    # Acela Aux2/Aux3 keys remain plain buttons.
     assert action_applies_to_type(CAB_ACTIONS_BY_KEY["startup"], "a") is False
     assert action_applies_to_type(CAB_ACTIONS_BY_KEY["shutdown"], "a") is False
     assert action_applies_to_type(CAB_ACTIONS_BY_KEY["lights"], "a") is False
     assert action_applies_to_type(CAB_ACTIONS_BY_KEY["more"], "a") is False
 
-    for key in ("acela_startup", "acela_shutdown", "acela_aux2", "acela_aux3"):
+    acela_startup = CAB_ACTIONS_BY_KEY["acela_startup"]
+    acela_shutdown = CAB_ACTIONS_BY_KEY["acela_shutdown"]
+    assert action_applies_to_type(acela_startup, "a") is True
+    assert action_applies_to_type(acela_shutdown, "a") is True
+    assert acela_startup.hold is True
+    assert acela_startup.hold_command == "START_UP_DELAYED"
+    assert acela_shutdown.hold is True
+    assert acela_shutdown.hold_command == "SHUTDOWN_DELAYED"
+
+    for key in ("acela_aux2", "acela_aux3"):
         action = CAB_ACTIONS_BY_KEY[key]
         assert action_applies_to_type(action, "a") is True
         assert action.hold is False
