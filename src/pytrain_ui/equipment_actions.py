@@ -54,6 +54,8 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("freight_lights_on", "Lights On", "NUMBER_9", "lights-on.jpg", "f"),
     EquipmentAction("freight_lights_off", "Lights Off", "NUMBER_8", "lights-off.jpg", "f"),
     # Crane operations.
+    EquipmentAction("crane_sound_on", "Sounds On", "NUMBER_9", "sound-on.jpg", "r"),
+    EquipmentAction("crane_sound_off", "Sounds Off", "NUMBER_8", "sound-off.jpg", "r"),
     EquipmentAction("crane_radio", "Radio", "NUMBER_7", "walkie_talkie.jpg", "r"),
     EquipmentAction("crane_boom", "Boom/Cab", "NUMBER_1", "boom.jpg", "r"),
     EquipmentAction("crane_outriggers", "Outriggers", "NUMBER_6", "outriggers.jpg", "r"),
@@ -62,7 +64,8 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("crane_aux_hook", "Aux/Hook", "NUMBER_3", "aux-hook.jpg", "r"),
     EquipmentAction("crane_rear_lamp", "Rear Lamp", "NUMBER_5", "rear-lamp.jpg", "r"),
     EquipmentAction("crane_toggle", "Direction", "TOGGLE_DIRECTION", "toggle.jpg", "r"),
-    # Transformer/PowerMaster operations.
+    # Transformer/PowerMaster operations. Brake/boost are already represented by
+    # the primary cab controls, so only transformer-specific operation keys live here.
     EquipmentAction("transformer_horn", "Horn", "BLOW_HORN_ONE", "horn.jpg", "t"),
     EquipmentAction("transformer_bell", "Bell", "RING_BELL", "bell.jpg", "t"),
     EquipmentAction("transformer_front_coupler", "Front Coupler", "FRONT_COUPLER", "front-coupler.jpg", "t"),
