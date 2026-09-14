@@ -46,6 +46,8 @@ _BELL_HORN = (
 
 _DIESEL_LIGHT_TYPES = frozenset({"a", "d", "l"})
 _STEAM_LIGHT_TYPES = frozenset({"s"})
+_FUEL_TYPES = frozenset({"d", "s"})
+_WATER_TYPES = frozenset({"s"})
 
 _LIGHTS = (
     # DIESEL_LIGHTS
@@ -163,8 +165,20 @@ _TOWER = (
 _MORE = (
     PanelAction("Engine", "Start Up", "START_UP_IMMEDIATE", hold_command="START_UP_DELAYED"),
     PanelAction("Engine", "Shut Down", "SHUTDOWN_IMMEDIATE", hold_command="SHUTDOWN_DELAYED"),
-    PanelAction("Engine", "Fuel", "ENGINEER_FUEL_LEVEL", hold_command="ENGINEER_FUEL_REFILLED"),
-    PanelAction("Engine", "Water", "ENGINEER_WATER_LEVEL", hold_command="ENGINEER_WATER_REFILLED"),
+    PanelAction(
+        "Engine",
+        "Fuel",
+        "ENGINEER_FUEL_LEVEL",
+        _FUEL_TYPES,
+        hold_command="ENGINEER_FUEL_REFILLED",
+    ),
+    PanelAction(
+        "Engine",
+        "Water",
+        "ENGINEER_WATER_LEVEL",
+        _WATER_TYPES,
+        hold_command="ENGINEER_WATER_REFILLED",
+    ),
     PanelAction("Motion", "Speed Roll", "SPEED_ROLL"),
     PanelAction("Sound", "Master Volume +", "VOLUME_UP"),
     PanelAction("Sound", "Master Volume −", "VOLUME_DOWN"),
