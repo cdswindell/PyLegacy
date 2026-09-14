@@ -82,14 +82,25 @@ def test_transformer_operations_match_transformer_layout_family() -> None:
         assert action_applies_to_type(action, "d") is False
 
 
-def test_acela_inherits_engine_controls_and_keeps_acela_aux_variants() -> None:
-    for key in ("startup", "shutdown", "rpm_up", "rpm_down", "labor_up", "labor_down", "sequence"):
+def test_acela_uses_specific_variants_where_layout_overrides_engine_cells() -> None:
+    # Acela shares ordinary engine RPM/labor/Aux1 cells.
+    for key in ("rpm_up", "rpm_down", "labor_up", "labor_down", "sequence"):
         assert action_applies_to_type(CAB_ACTIONS_BY_KEY[key], "a") is True
+
+    # But startup/shutdown and Aux2/Aux3 have dedicated "a" variants in
+    # ENGINE_OPS_LAYOUT, so they must not inherit the engine hold behavior.
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["startup"], "a") is False
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["shutdown"], "a") is False
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["lights"], "a") is False
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["more"], "a") is False
+
+    for key in ("acela_startup", "acela_shutdown", "acela_aux2", "acela_aux3"):
+        action = CAB_ACTIONS_BY_KEY[key]
+        assert action_applies_to_type(action, "a") is True
+        assert action.hold is False
 
     assert action_applies_to_type(CAB_ACTIONS_BY_KEY["pantograph_both_down"], "a") is True
     assert action_applies_to_type(CAB_ACTIONS_BY_KEY["pantograph_both_up"], "a") is True
-    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["acela_aux2"], "a") is True
-    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["acela_aux3"], "a") is True
 
 
 def test_non_engine_aux_variants_keep_plain_button_semantics() -> None:
