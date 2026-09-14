@@ -11,7 +11,7 @@ Item {
     property bool awaitingConfirmation: false
     signal valueCommitted(int value)
 
-    implicitWidth: 170
+    implicitWidth: 112
     implicitHeight: 520
 
     function clamp(v) {
@@ -68,8 +68,8 @@ Item {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         anchors.bottom: rail.bottom
-        width: 72
-        radius: 18
+        width: 58
+        radius: 15
         color: "#20242a"
         border.width: 1
         border.color: "#4e5662"
@@ -79,9 +79,9 @@ Item {
         model: 7
         Rectangle {
             required property int index
-            width: index === 0 || index === 6 ? 28 : 18
+            width: index === 0 || index === 6 ? 24 : 16
             height: 2
-            x: rail.x + rail.width + 10
+            x: rail.x + rail.width + 8
             y: rail.y + index * (rail.height - height) / 6
             color: "#8b949f"
         }
@@ -92,36 +92,37 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 14
-        radius: 7
+        width: 12
+        radius: 6
         color: "#737b86"
     }
 
     Rectangle {
         id: handle
-        width: 126
-        height: 66
-        radius: 13
+        width: Math.min(96, root.width - 8)
+        height: 54
+        radius: 11
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
         color: dragHandler.active ? "#f7f9fb" : "#e1e5ea"
-        border.width: 3
+        border.width: 2
         border.color: dragHandler.active ? "#5fb7f2" : "#9aa2ad"
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: 52
-            height: 5
+            anchors.verticalCenterOffset: 8
+            width: 46
+            height: 4
             radius: 2
             color: "#6b737e"
         }
 
         Text {
             anchors.centerIn: parent
-            anchors.verticalCenterOffset: -18
+            anchors.verticalCenterOffset: -11
             text: root.displayValue()
-            font.pixelSize: 22
+            font.pixelSize: 20
             font.bold: true
             color: "#171a1f"
         }
