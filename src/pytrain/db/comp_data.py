@@ -488,7 +488,8 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", encode_target_speed),
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
-    "TARGET_SPEED": [("target_speed", encode_target_speed)],
+    # Explicit targets must reach the Base 3 even while intermediate ramp steps cannot change them.
+    "TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],

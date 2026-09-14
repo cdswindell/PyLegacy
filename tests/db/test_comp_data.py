@@ -27,17 +27,27 @@ from src.pytrain.db.comp_data import (
 )
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import RouteComponent
+from src.pytrain.db.engine_state import EngineState
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2EngineCommandEnumEx
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 CLEAR_ROAD_NAME_NUMBER_DATA = b"\x00" + (b"\xff" * 31) + b"\x00" + (b"\xff" * 4)
+
+
+@pytest.fixture
+def isolated_state_store(monkeypatch):
+    # Packet construction can initialize the store; restore its cached references after the test.
+    monkeypatch.setattr(ComponentStateStore, "_instance", None)
+    for cls in (CompData, EngineData, TrainData):
+        monkeypatch.setattr(cls, "_state_store", None)
 
 
 def road_number_update_data(road_number_text: str | None) -> bytes:
@@ -317,6 +327,79 @@ class TestCompData:
         assert pkgs[0].offset == 0x69
         assert pkgs[0].length == 1
         assert pkgs[0].data_bytes == expected
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("is_ramping", [False, True])
+    @pytest.mark.parametrize(
+        "command, address, speed, expected",
+        [
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, 51, b"\x33"),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 3180, 51, b"\x33"),
+            (TMCC1EngineCommandEnum.TARGET_SPEED, 7, 7, b"\x2d"),
+        ],
+    )
+    def test_explicit_target_speed_updates_are_not_suppressed(
+        self, monkeypatch, scope, is_ramping, command, address, speed, expected
+    ):
+        state = EngineState(scope)
+        state.initialize(scope, address)
+        state._address = address
+        state._d4_rec_no = 4
+        state.is_ramping = is_ramping
+        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(lambda *_a, **_kw: state))
+        req = CommandReq.build(command, address, data=speed, scope=scope)
+
+        for pkgs in (
+            CompData.request_to_updates(req),
+            CompData.field_to_updates("target_speed", address, scope, speed, command.is_legacy),
+        ):
+            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == [
+                ("target_speed", 0x08, 1, expected)
+            ]
+
+        updates = BaseReq.update_eng(req)
+        assert len(updates) == 2
+        update = updates[0]
+        assert update.scope == scope
+        assert update.start == 0x08
+        if address > 99:
+            assert isinstance(update, D4Req)
+            assert update.action == D4Action.UPDATE
+            assert update.record_no == 4
+            assert update._data_bytes == expected
+        else:
+            assert isinstance(update, BaseReq)
+            assert update.pdi_command == PdiCommand.BASE_MEMORY
+            assert update.tmcc_id == address
+            assert update.data_bytes == expected
+        assert updates[1] is state
+        assert state.is_ramping is is_ramping
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("is_ramping", [False, True])
+    @pytest.mark.parametrize(
+        "command, speed, expected",
+        [
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 18, b"\x12"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, b"\x2d"),
+        ],
+    )
+    def test_absolute_speed_updates_preserve_the_target_only_while_ramping(
+        self, monkeypatch, scope, is_ramping, command, speed, expected
+    ):
+        state = EngineState(scope)
+        state.is_ramping = is_ramping
+        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(lambda *_a, **_kw: state))
+
+        pkgs = CompData.request_to_updates(CommandReq.build(command, 7, data=speed, scope=scope))
+
+        expected_updates = [("speed", 0x07, expected)]
+        if not is_ramping:
+            expected_updates.append(("target_speed", 0x08, expected))
+        assert [(pkg.field, pkg.offset, pkg.data_bytes) for pkg in pkgs] == expected_updates
+        assert state.is_ramping is is_ramping
 
     def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
