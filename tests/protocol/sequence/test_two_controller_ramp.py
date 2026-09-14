@@ -29,7 +29,8 @@ from src.pytrain.db.engine_state import EngineState
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
-from src.pytrain.protocol.sequence.speed_ramp import DEFAULT_LABOR, RampRegistry, SpeedRamp
+from src.pytrain.protocol.sequence import speed_ramp
+from src.pytrain.protocol.sequence.speed_ramp import DEFAULT_LABOR, ECHO_TTL, RampRegistry, RampStep, SpeedRamp
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 from ...test_base import TestBase
@@ -166,6 +167,35 @@ class TestTwoControllerRamp(TestBase):
         assert second_ramp.requested_speed == 60
         # both intentions were announced layout-wide, in the order they were asked for
         assert first.layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == [120, 60]
+
+    @pytest.mark.parametrize("takeover_speed", [30, 37])
+    def test_delayed_echoes_keep_ramping_until_a_backward_or_unsent_speed(self, monkeypatch, takeover_speed):
+        clock = [100.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
+        state = legacy_engine()
+        sent = []
+        ramp = SpeedRamp(state, 120, sender=lambda *args: sent.append(args))
+        state._ramp = ramp
+        state.update_target_speed(120)
+        for speed in (10, 20, 30, 40, 50):
+            ramp._send_step(RampStep(speed, None, None, 0.2))
+            clock[0] += ECHO_TTL / 20
+        clock[0] = 100.0 + ECHO_TTL * 0.8
+        for speed in (20, 20, 40, 40):
+            state.update(CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ENGINE_ID, speed))
+            assert state.ramp is ramp
+            assert ramp.is_active is True
+            assert ramp.commanded_speed == 50
+            assert state.target_speed == 120
+        assert [args[2] for args in sent] == [10, 20, 30, 40, 50]
+
+        state.update(CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ENGINE_ID, takeover_speed))
+        assert state.ramp is None
+        assert ramp.is_active is False
+        assert ramp.abort_reason == "foreign ABSOLUTE_SPEED"
+        assert state.speed == takeover_speed
+        assert state.target_speed == takeover_speed
+        assert sent[-1][2] == takeover_speed
 
     def test_the_loser_drives_the_engine_no_further(self):
         first, _second, _first_ramp, _second_ramp = self._handed_off()

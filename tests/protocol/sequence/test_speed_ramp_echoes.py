@@ -61,22 +61,57 @@ class TestEchoLedger(TestBase):
         assert ledger.claim(EchoFamily.SPEED, None) is False
 
     def test_a_step_echo_out_of_sequence_is_not_ours(self):
-        # a command that reached the Base 3 is always echoed, and always in the order it
-        # was sent, so a value arriving ahead of three that have not come back yet was
-        # issued by something other than this ramp
+        # Missing reports can be skipped, but a later report cannot go backward.
         ledger = EchoLedger()
         for speed in (10, 20, 30, 40):
             ledger.record(EchoFamily.SPEED, speed)
-        assert ledger.claim(EchoFamily.SPEED, 40) is False
-        assert ledger.pending[EchoFamily.SPEED] == (10, 20, 30, 40)
+        assert ledger.claim(EchoFamily.SPEED, 40) is True
+        assert ledger.claim(EchoFamily.SPEED, 30) is False
+        assert ledger.pending[EchoFamily.SPEED] == ()
+        assert ledger.claimed[EchoFamily.SPEED] == (40,)
 
     def test_step_echoes_are_claimed_strictly_in_send_order(self):
         ledger = EchoLedger()
         ledger.record(EchoFamily.SPEED, 32)
         ledger.record(EchoFamily.SPEED, 34)
-        assert ledger.claim(EchoFamily.SPEED, 34) is False
-        assert ledger.claim(EchoFamily.SPEED, 32) is True
         assert ledger.claim(EchoFamily.SPEED, 34) is True
+        assert ledger.claim(EchoFamily.SPEED, 32) is False
+        assert ledger.claim(EchoFamily.SPEED, 34) is True
+
+    @pytest.mark.parametrize("speeds", [(10, 20, 30, 40, 50), (50, 40, 30, 20, 10)])
+    def test_delayed_speed_reports_can_skip_steps_but_not_go_backward(self, monkeypatch, speeds):
+        clock = [100.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
+        ledger = EchoLedger()
+        for speed in speeds:
+            ledger.record(EchoFamily.SPEED, speed)
+            clock[0] += ECHO_TTL / 20
+        clock[0] = 100.0 + ECHO_TTL * 0.8
+        assert ledger.claim(EchoFamily.SPEED, speeds[1]) is True
+        assert ledger.claim(EchoFamily.SPEED, speeds[1]) is True
+        assert ledger.claim(EchoFamily.SPEED, speeds[3]) is True
+        assert ledger.pending[EchoFamily.SPEED] == (speeds[4],)
+        assert ledger.claim(EchoFamily.SPEED, speeds[2]) is False
+        assert ledger.claim(EchoFamily.SPEED, speeds[3] + 1) is False
+        assert ledger.claim(EchoFamily.SPEED, speeds[4]) is True
+        clock[0] += ECHO_TTL
+        assert ledger.claim(EchoFamily.SPEED, speeds[4]) is False
+
+    def test_speed_reports_follow_send_order_across_a_reversal(self):
+        ledger = EchoLedger()
+        for speed in (10, 20, 30, 20, 10):
+            ledger.record(EchoFamily.SPEED, speed)
+        for speed in (20, 30, 20, 10):
+            assert ledger.claim(EchoFamily.SPEED, speed) is True
+        assert ledger.claim(EchoFamily.SPEED, 20) is False
+
+    @pytest.mark.parametrize("family", [EchoFamily.RPM, EchoFamily.EFFORT])
+    def test_sound_and_effort_still_require_the_next_pending_echo(self, family):
+        ledger = EchoLedger()
+        ledger.record(family, 3)
+        ledger.record(family, 4)
+        assert ledger.claim(family, 4) is False
+        assert ledger.pending[family] == (3, 4)
 
     def test_only_the_value_just_matched_is_still_claimable(self):
         # the Lionel ecosystem sends a command two or three times; a repeat is not out of
@@ -122,12 +157,12 @@ class TestEchoLedger(TestBase):
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         ledger = EchoLedger()
         ledger.record(EchoFamily.TARGET, 120)
-        clock[0] = 103.0
+        clock[0] = 100.0 + ECHO_TTL * 0.5
         ledger.record(EchoFamily.TARGET, 49)
         assert ledger.claim(EchoFamily.TARGET, 49) is True
         assert ledger.claim(EchoFamily.TARGET, 120) is True
         assert ledger.claimed[EchoFamily.TARGET] == (49, 120)
-        clock[0] = 100.0 + ECHO_TTL + 1.5
+        clock[0] = 100.0 + ECHO_TTL * 1.25
         ledger.purge()
         assert ledger.claimed[EchoFamily.TARGET] == (49,)
 
@@ -210,12 +245,30 @@ class TestEchoLedger(TestBase):
         assert ledger.pending[EchoFamily.SPEED] == ()
         assert ledger.claimed[EchoFamily.SPEED] == ()
 
-    def test_an_echo_inside_the_ttl_survives_a_purge(self):
+    def test_an_echo_inside_the_ttl_survives_a_purge(self, monkeypatch):
+        clock = [0.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         ledger = EchoLedger()
         ledger.record(EchoFamily.SPEED, 10)
+        clock[0] = ECHO_TTL * 0.99
         ledger.purge()
         assert ledger.pending[EchoFamily.SPEED] == (10,)
-        assert ECHO_TTL >= 5.0
+        assert ledger.claim(EchoFamily.SPEED, 10) is True
+
+    @pytest.mark.parametrize("claimed", [False, True])
+    @pytest.mark.parametrize("age", [1.0, 1.01])
+    def test_echoes_expire_at_the_configured_ttl(self, monkeypatch, claimed, age):
+        clock = [0.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
+        ledger = EchoLedger()
+        ledger.record(EchoFamily.SPEED, 10)
+        if claimed:
+            clock[0] = ECHO_TTL * 0.5
+            assert ledger.claim(EchoFamily.SPEED, 10) is True
+        clock[0] = ECHO_TTL * age
+        assert ledger.claim(EchoFamily.SPEED, 10) is False
+        assert ledger.pending[EchoFamily.SPEED] == ()
+        assert ledger.claimed[EchoFamily.SPEED] == ()
 
     def test_the_claimed_ring_is_bounded(self):
         ledger = EchoLedger()
@@ -374,9 +427,14 @@ class TestRampArbitration(TestBase):
     def test_the_commanded_speed_is_always_ours(self):
         state, recorder, ramp = self.ramp()
         ramp.run()
-        # the ledger has been drained by hand, so only the commanded fallback is left
-        ramp.echo_ledger.purge(ttl=0.0)
         assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ramp.commanded_speed)) is True
+        # Even the current speed must have been sent inside the lag budget.
+        ramp.echo_ledger.purge(ttl=0.0)
+        assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ramp.commanded_speed)) is False
+
+    def test_an_initial_speed_that_was_never_sent_is_foreign(self):
+        _, _, ramp = self.ramp(speed=12)
+        assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 12)) is False
 
     def test_an_echo_past_the_ttl_looks_foreign(self):
         state, recorder, ramp = self.ramp()

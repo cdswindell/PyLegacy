@@ -92,10 +92,9 @@ DEFAULT_RAMP_LINGER: float = 0.250
 # the effort value an engine that has never reported one is assumed to be at
 DEFAULT_LABOR: int = 12
 
-# how long a step the ramp issued stays claimable. A command that reached the Base 3 is
-# always echoed back, but the round trip can take a while and a client sees it only
-# after the server has broadcast it, so the budget is generous
-ECHO_TTL: float = 5.000
+# how long, in seconds, a step issued by the ramp stays claimable. Tune this window
+# to allow for the Base 3 round trip and, on clients, the server broadcast delay
+ECHO_TTL: float = 2.000
 
 # how many already matched values are remembered. Only the most recent one is ever
 # accepted again - a command sent two or three times, as the Lionel ecosystem does, is
@@ -186,11 +185,14 @@ class EchoLedger:
     own reflection from another controller taking the engine.
 
     Both a client, through the server broadcast, and a server, through base3_send and
-    the dispatcher, see their own commands come back. A command that reaches the Base 3
-    is *always* echoed, and always in the order it was sent, so for the railed families
-    the queue is strict: the only value that can be this ramp's own is the next echo it
-    is waiting for, and anything else arrived out of sequence, which means it came from
-    another controller.
+    the dispatcher, see their own commands come back. Speed reports may lag or skip
+    intermediate steps, so any pending speed inside the lag budget can match. A match
+    advances past all earlier steps: subsequent reports must move monotonically through
+    send order, or repeat the last match. This also follows a deliberate ramp reversal
+    without mistaking its decreasing speeds for another controller.
+
+    RPM and effort still require the next pending echo; a deviation there is absorbed
+    as a trim rather than stopping the ramp.
 
     The one documented exception - an LCS Ser2 re-echoing the Base 3's commands seconds
     late and out of order (see CommandDispatcher.run) - cannot reach a ramp: those
@@ -223,12 +225,9 @@ class EchoLedger:
         """
         Try to account for an inbound value as one of this ramp's own commands.
 
-        For a family that travels over the wire, only the head of the queue can be ours.
-        Echoes come back in the order they were sent, so a value that is not the one we
-        are waiting for arrived out of sequence, and a value the ramp never issued is not
-        in the queue at all: both mean another controller. Matching anywhere in the queue
-        is what let a foreign speed be taken for a step this ramp had swept through
-        seconds earlier.
+        A speed may match anywhere in the pending queue, retiring both the matched
+        entry and any skipped steps ahead of it. An older report can no longer match,
+        even if it is still inside the lag budget. RPM and effort only match the head.
 
         The single concession there is an exact repeat of the value just matched. The
         Lionel ecosystem sends a command two or three times, and a repeat is not out of
@@ -244,7 +243,14 @@ class EchoLedger:
             self.purge()
             queue = self._pending[family]
             if family in ORDERED_FAMILIES:
-                if queue and abs(queue[0].data - data) <= tolerance:
+                if family is EchoFamily.SPEED:
+                    for index, entry in enumerate(queue):
+                        if abs(entry.data - data) <= tolerance:
+                            for _ in range(index + 1):
+                                queue.popleft()
+                            self._claimed[family].append(entry)
+                            return True
+                elif queue and abs(queue[0].data - data) <= tolerance:
                     self._claimed[family].append(queue.popleft())
                     return True
                 claimed = self._claimed[family]
@@ -771,13 +777,11 @@ class SpeedRamp(Thread):
         data = command.data
         is_speed = family in SPEED_FAMILIES
         tolerance = self.speed_echo_tolerance if is_speed else 0
-        # the ledger goes first, so an echo consumes the entry it belongs to and the
-        # queue drains as the ramp runs. Asking the commanded speed first left every
-        # step pending for the whole lag budget, and any foreign speed inside that
-        # trailing band was then taken for one of them
+        # Speed ownership comes only from recent sends in monotonic send order, not
+        # from the current commanded value, which may be unsent or outside the budget.
         if self._ledger.claim(family, data, tolerance=tolerance) is True:
             return EchoOutcome.MINE
-        if is_speed and data is not None:
+        if family is EchoFamily.TARGET and data is not None:
             with self._lock:
                 commanded = self._commanded_speed
             # the one genuinely ambiguous case: another controller asking for exactly the
@@ -790,7 +794,7 @@ class SpeedRamp(Thread):
     def on_state_command(self, command: CommandReq) -> bool:
         """
         Arbitrate one command that reached engine state. Returns True when the ramp must
-        *not* be cancelled: its own echo, however late or out of order, and every RPM or
+        *not* be cancelled: its own recent, ordered speed echo, and every RPM or
         effort command, foreign or not - a sound trim is not a throttle takeover.
         """
         outcome = self.arbitrate(command)

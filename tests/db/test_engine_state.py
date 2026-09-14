@@ -488,6 +488,7 @@ class TestEngineStateRampArbitration:
 
     def test_self_echo_does_not_cancel(self):
         state, ramp = self._ramping_engine()
+        ramp.echo_ledger.record(EchoFamily.SPEED, ramp.commanded_speed)
         echo = CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=ramp.commanded_speed)
 
         self._update(state, echo)
@@ -585,16 +586,16 @@ class TestEngineStateRampArbitration:
     # duplicate suppression must not hide a takeover
     #
     def test_a_suppressed_duplicate_still_reaches_the_ramp(self):
-        # another controller asks for exactly the speed the ramp is sitting at, which is
-        # genuinely ambiguous, so the first copy is accepted. By the time their second
-        # copy arrives the ramp has stepped on and it is provably not ours - but it is
-        # also an exact repeat of the last command, which is what used to drop it unseen
+        # A recently sent speed is accepted, but after its send history expires a
+        # repeat is foreign, even when engine state would suppress it as a duplicate.
         state, ramp = self._ramping_engine(speed=30)
+        ramp.echo_ledger.record(EchoFamily.SPEED, 30)
         foreign = CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=30)
 
         state.update(foreign)
         assert ramp.aborts == []
 
+        ramp.echo_ledger.purge(ttl=0.0)
         ramp._commanded_speed = 33
         ramp.echo_ledger.record(EchoFamily.SPEED, 33)
         state.update(foreign)
