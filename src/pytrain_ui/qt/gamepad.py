@@ -12,6 +12,28 @@ from pytrain_ui.input import CabInputSink, RateThrottle, RepeatGate
 log = logging.getLogger(__name__)
 
 
+class QtCabInputSink:
+    """Adapt CabController's Qt slots to the toolkit-neutral input contract."""
+
+    def __init__(self, cab) -> None:
+        self._cab = cab
+
+    def change_speed(self, delta: int) -> None:
+        self._cab.changeSpeed(delta)
+
+    def bell(self) -> None:
+        self._cab.bell()
+
+    def horn(self, active: bool) -> None:
+        self._cab.horn(active)
+
+    def boost(self, active: bool) -> None:
+        self._cab.boost(active)
+
+    def brake(self, active: bool) -> None:
+        self._cab.brake(active)
+
+
 class QtGamepadInput(QObject):
     """Poll a single SDL gamepad and translate it into semantic cab actions.
 
