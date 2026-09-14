@@ -7,7 +7,7 @@ import time
 
 from PySide6.QtCore import QObject, QTimer
 
-from pytrain_ui.input import RateThrottle, RepeatGate
+from pytrain_ui.input import CabInputSink, RateThrottle, RepeatGate
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class QtGamepadInput(QObject):
     HORN_REPEAT_SECONDS = 0.10
     DPAD_REPEAT_SECONDS = 0.22
 
-    def __init__(self, cab, parent: QObject | None = None) -> None:
+    def __init__(self, cab: CabInputSink, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._cab = cab
         self._pygame = None
@@ -152,7 +152,7 @@ class QtGamepadInput(QObject):
             self._throttle_repeat.reset()
             return
         if self._throttle_repeat.ready(now):
-            self._cab.changeSpeed(delta)
+            self._cab.change_speed(delta)
 
     def _poll_horn(self, now: float) -> None:
         if self._horn_down and self._horn_repeat.ready(now):
