@@ -87,6 +87,7 @@ def test_non_throttle_tmcc2_target_still_exposes_protocol_analog_controls() -> N
         momentum_supported=True,
     )
 
+    assert profile.has_throttle is False
     assert profile.supports_momentum is False
     assert profile.supports_train_brake is True
     assert profile.supports_quilling_horn is True
