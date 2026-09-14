@@ -17,6 +17,7 @@ class EngineViewState:
     speed: int = 0
     target_speed: int = 0
     speed_max: int = 199
+    speed_limit: int = 0
     direction: str = ""
     momentum: int = 0
     train_brake: int = 0
