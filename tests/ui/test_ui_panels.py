@@ -1,4 +1,4 @@
-from pytrain_ui.panels import panel_actions, panel_title
+from pytrain_ui.panels import PanelAction, panel_actions, panel_title
 
 
 def test_bell_horn_panel_matches_existing_controller_commands() -> None:
@@ -111,6 +111,30 @@ def test_more_panel_covers_command_driven_extra_functions() -> None:
         "LABOR_EFFECT_UP",
         "LABOR_EFFECT_DOWN",
     } <= commands
+
+
+def test_more_panel_describes_short_and_long_press_behavior() -> None:
+    actions = {action.command: action for action in panel_actions("more")}
+
+    assert actions["START_UP_IMMEDIATE"].hold_command == "START_UP_DELAYED"
+    assert actions["SHUTDOWN_IMMEDIATE"].hold_command == "SHUTDOWN_DELAYED"
+    assert actions["ENGINEER_FUEL_LEVEL"].hold_command == "ENGINEER_FUEL_REFILLED"
+    assert actions["ENGINEER_WATER_LEVEL"].hold_command == "ENGINEER_WATER_REFILLED"
+    assert all(actions[command].hold_threshold_ms == 1000 for command in (
+        "START_UP_IMMEDIATE",
+        "SHUTDOWN_IMMEDIATE",
+        "ENGINEER_FUEL_LEVEL",
+        "ENGINEER_WATER_LEVEL",
+    ))
+
+
+def test_panel_action_rejects_non_positive_hold_threshold() -> None:
+    try:
+        PanelAction("Engine", "Start Up", "START_UP_IMMEDIATE", hold_threshold_ms=0)
+    except ValueError as exc:
+        assert "positive hold threshold" in str(exc)
+    else:
+        raise AssertionError("PanelAction accepted a non-positive hold threshold")
 
 
 def test_panel_specs_do_not_import_a_gui_toolkit() -> None:
