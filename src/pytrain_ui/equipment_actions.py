@@ -20,6 +20,7 @@ class EquipmentAction:
     command_kind: str = "engine"
     group: str = "operations"
     repeat_interval_ms: int = 0
+    hold_command: str = ""
 
 
 EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
@@ -54,10 +55,24 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("freight_lights_on", "Lights On", "NUMBER_9", "lights-on.jpg", "f"),
     EquipmentAction("freight_lights_off", "Lights Off", "NUMBER_8", "lights-off.jpg", "f"),
     # Acela-specific variants from cells that also contain ordinary engine variants.
-    # The Acela startup/shutdown keys are immediate-only in ControllerView; Aux2 and
-    # Aux3 likewise do not inherit the engine Lights/More long-hold behavior.
-    EquipmentAction("acela_startup", "Start Up", "START_UP_IMMEDIATE", "on_button.jpg", "a"),
-    EquipmentAction("acela_shutdown", "Shut Down", "SHUTDOWN_IMMEDIATE", "off_button.jpg", "a"),
+    # Acela uses the same immediate/delayed startup and shutdown interaction as other
+    # Legacy engines, but keeps its own Aux2/Aux3 behavior.
+    EquipmentAction(
+        "acela_startup",
+        "Start Up",
+        "START_UP_IMMEDIATE",
+        "on_button.jpg",
+        "a",
+        hold_command="START_UP_DELAYED",
+    ),
+    EquipmentAction(
+        "acela_shutdown",
+        "Shut Down",
+        "SHUTDOWN_IMMEDIATE",
+        "off_button.jpg",
+        "a",
+        hold_command="SHUTDOWN_DELAYED",
+    ),
     # Crane operations.
     EquipmentAction("crane_sound_on", "Sounds On", "NUMBER_9", "sound-on.jpg", "r"),
     EquipmentAction("crane_sound_off", "Sounds Off", "NUMBER_8", "sound-off.jpg", "r"),
