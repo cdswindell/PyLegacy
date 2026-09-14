@@ -115,6 +115,13 @@ def test_more_panel_covers_command_driven_extra_functions() -> None:
     } <= commands
 
 
+def test_more_panel_scopes_fuel_and_water_like_controller_view() -> None:
+    actions = {action.command: action for action in panel_actions("more")}
+
+    assert actions["ENGINEER_FUEL_LEVEL"].type_keys == frozenset({"d", "s"})
+    assert actions["ENGINEER_WATER_LEVEL"].type_keys == frozenset({"s"})
+
+
 def test_more_panel_describes_short_and_long_press_behavior() -> None:
     actions = {action.command: action for action in panel_actions("more")}
 
