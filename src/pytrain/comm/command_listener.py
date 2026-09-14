@@ -23,6 +23,7 @@ from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
+from ..pdi.pdi_req import TmccReq
 from ..protocol.command_def import CommandDef, CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
 from ..protocol.constants import (
@@ -627,6 +628,13 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if port is None:
                 port = DEFAULT_SERVER_PORT
             clients = {(client, port)}
+        if isinstance(command, CommandReq) and command.is_tmcc_rx:
+            # Bare TMCC bytes discard the source flag and merge delayed RX echoes
+            # with immediate server feedback on clients that own a ramp.
+            pdi_command = PdiCommand.TMCC4_RX if command.address > 99 else PdiCommand.TMCC_RX
+            payload = TmccReq(command, pdi_command).as_bytes
+        else:
+            payload = command.as_bytes
         # noinspection PyTypeChecker
         for client, port in clients:
             if client in self._server_ips and port == self._server_port:
@@ -636,7 +644,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 with self._client_lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))
-                        s.sendall(command.as_bytes)
+                        s.sendall(payload)
                         _ = s.recv(32)
                     self._client_lock.notify_all()
             except ConnectionRefusedError:

@@ -10,6 +10,7 @@
 
 import re
 import types
+from unittest.mock import Mock
 
 import pytest
 
@@ -330,76 +331,70 @@ class TestCompData:
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
-    @pytest.mark.parametrize("is_ramping", [False, True])
     @pytest.mark.parametrize(
-        "command, address, speed, expected",
+        "command, address, speed",
         [
-            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, 51, b"\x33"),
-            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 3180, 51, b"\x33"),
-            (TMCC1EngineCommandEnum.TARGET_SPEED, 7, 7, b"\x2d"),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, 51),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 3180, 51),
+            (TMCC1EngineCommandEnum.TARGET_SPEED, 7, 7),
         ],
     )
-    def test_explicit_target_speed_updates_are_not_suppressed(
-        self, monkeypatch, scope, is_ramping, command, address, speed, expected
-    ):
-        state = EngineState(scope)
-        state.initialize(scope, address)
-        state._address = address
-        state._d4_rec_no = 4
-        state.is_ramping = is_ramping
-        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(lambda *_a, **_kw: state))
+    def test_retired_target_command_has_no_db_updates(self, scope, command, address, speed):
         req = CommandReq.build(command, address, data=speed, scope=scope)
-
-        for pkgs in (
-            CompData.request_to_updates(req),
-            CompData.field_to_updates("target_speed", address, scope, speed, command.is_legacy),
-        ):
-            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == [
-                ("target_speed", 0x08, 1, expected)
-            ]
-
-        updates = BaseReq.update_eng(req)
-        assert len(updates) == 2
-        update = updates[0]
-        assert update.scope == scope
-        assert update.start == 0x08
-        if address > 99:
-            assert isinstance(update, D4Req)
-            assert update.action == D4Action.UPDATE
-            assert update.record_no == 4
-            assert update._data_bytes == expected
-        else:
-            assert isinstance(update, BaseReq)
-            assert update.pdi_command == PdiCommand.BASE_MEMORY
-            assert update.tmcc_id == address
-            assert update.data_bytes == expected
-        assert updates[1] is state
-        assert state.is_ramping is is_ramping
+        assert CompData.request_to_updates(req) == []
+        assert CompData.field_to_updates("target_speed", address, scope, speed, command.is_legacy) == []
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
-    @pytest.mark.parametrize("is_ramping", [False, True])
+    @pytest.mark.parametrize("is_ramping", [False, True, None])
     @pytest.mark.parametrize(
-        "command, speed, expected",
+        "command, address, speed, expected",
         [
-            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 18, b"\x12"),
-            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, b"\x2d"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 18, b"\x12"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 3180, 51, b"\x33"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 199, b"\xc7"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 7, b"\x2d"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 31, b"\xc7"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 0, b"\x00"),
         ],
     )
-    def test_absolute_speed_updates_preserve_the_target_only_while_ramping(
-        self, monkeypatch, scope, is_ramping, command, speed, expected
+    def test_absolute_speed_always_encodes_both_db_speed_fields(
+        self, monkeypatch, scope, is_ramping, command, address, speed, expected
     ):
-        state = EngineState(scope)
-        state.is_ramping = is_ramping
-        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(lambda *_a, **_kw: state))
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping)
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, address, data=speed, scope=scope)
 
-        pkgs = CompData.request_to_updates(CommandReq.build(command, 7, data=speed, scope=scope))
-
-        expected_updates = [("speed", 0x07, expected)]
-        if not is_ramping:
-            expected_updates.append(("target_speed", 0x08, expected))
-        assert [(pkg.field, pkg.offset, pkg.data_bytes) for pkg in pkgs] == expected_updates
-        assert state.is_ramping is is_ramping
+        expected_fields = [
+            ("speed", 0x07, 1, expected),
+            ("target_speed", 0x08, 1, expected),
+        ]
+        expected_request_fields = expected_fields.copy()
+        if command == TMCC1EngineCommandEnum.ABSOLUTE_SPEED and speed == 0:
+            assert req.command_alias == TMCC1EngineCommandEnum.EMERGENCY_STOP
+            expected_request_fields.extend(expected_fields)
+            expected_request_fields.append(("rpm_labor", 0x0C, 1, b"\x00"))
+        for pkgs, expected_pkgs in (
+            (CompData.request_to_updates(req), expected_request_fields),
+            (CompData.field_to_updates("absolute_speed", address, scope, speed, command.is_legacy), expected_fields),
+        ):
+            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == expected_pkgs
+            for pkg in pkgs:
+                update = pkg.as_request(address, scope, 4)
+                assert update.scope == scope
+                assert update.start == pkg.offset
+                if address > 99:
+                    assert isinstance(update, D4Req)
+                    assert update.action == D4Action.UPDATE
+                    assert update.record_no == 4
+                    assert update._data_bytes == expected
+                else:
+                    assert isinstance(update, BaseReq)
+                    assert update.pdi_command == PdiCommand.BASE_MEMORY
+                    assert update.tmcc_id == address
+                    assert update.data_bytes == expected
+        get_state.assert_not_called()
 
     def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)

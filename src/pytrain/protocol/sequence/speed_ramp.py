@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Callable
 from .ramped_speed_req import labor_delta
 from ..command_def import CommandDefEnum
 from ..constants import CommandScope, PROGRAM_NAME
-from ..multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 
@@ -40,7 +39,6 @@ __all__ = [
     "LEGACY_SPEED_MAX",
     "MAX_RPM",
     "MAX_RPM_BIAS",
-    "ORDERED_FAMILIES",
     "TMCC1_ECHO_TOLERANCE",
     "TMCC1_SPEED_MAX",
     "UNSET_MAX_SPEED",
@@ -50,7 +48,6 @@ __all__ = [
     "PendingEcho",
     "RampRegistry",
     "RampStep",
-    "SPEED_FAMILIES",
     "Sender",
     "SpeedRamp",
     "biased_rpm",
@@ -118,19 +115,11 @@ Sender = Callable[[CommandDefEnum, int, int, CommandScope], None]
 
 class EchoFamily(Enum):
     """
-    The command families a ramp issues. Echoes of the four interleave arbitrarily,
+    The command families a ramp issues. Echoes of the three interleave arbitrarily,
     but each family's own order is preserved on the wire, so each gets its own queue.
-
-    SPEED and TARGET both carry a speed, and are deliberately kept apart: TARGET_SPEED
-    is declared noop, so CommBuffer never puts it on the rails and the dispatcher hands
-    it back in microseconds, while an ABSOLUTE_SPEED makes a real round trip through the
-    Base 3 and comes back hundreds of milliseconds later. Two paths that far apart are
-    not one ordered stream: sharing a queue let a target announcement overtake a step
-    still in flight, and the ramp then took its own echo for another controller's.
     """
 
     SPEED = auto()  # ABSOLUTE_SPEED, both generations: a Base 3 round trip
-    TARGET = auto()  # TARGET_SPEED, both generations: announced in process, never railed
     RPM = auto()  # DIESEL_RPM
     EFFORT = auto()  # ENGINE_LABOR / ENGINE_LABOR_DEFAULT
 
@@ -145,25 +134,11 @@ class EchoOutcome(Enum):
 
 ECHO_FAMILIES: dict[CommandDefEnum, EchoFamily] = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED: EchoFamily.SPEED,
-    TMCC1EngineCommandEnum.TARGET_SPEED: EchoFamily.TARGET,
     TMCC2EngineCommandEnum.ABSOLUTE_SPEED: EchoFamily.SPEED,
-    TMCC2EngineCommandEnumEx.TARGET_SPEED: EchoFamily.TARGET,
     TMCC2EngineCommandEnum.DIESEL_RPM: EchoFamily.RPM,
     TMCC2EngineCommandEnum.ENGINE_LABOR: EchoFamily.EFFORT,
     TMCC2EngineCommandEnum.ENGINE_LABOR_DEFAULT: EchoFamily.EFFORT,
 }
-
-# the two families that carry a throttle setting: matched with the generation's speed
-# tolerance, and a deviation in either is another controller taking the engine
-SPEED_FAMILIES: frozenset[EchoFamily] = frozenset({EchoFamily.SPEED, EchoFamily.TARGET})
-
-# the families whose commands travel over the wire and are echoed back in the order they
-# were sent, so a value arriving out of that order came from somewhere else. TARGET is
-# deliberately not one of them: a TARGET_SPEED is declared noop, never reaches the rails,
-# and is handed straight back by the dispatcher, so its reflection has no ordering
-# relationship to anything - any target this ramp announced inside the lag budget is its
-# own, whichever order they come back in
-ORDERED_FAMILIES: frozenset[EchoFamily] = frozenset({EchoFamily.SPEED, EchoFamily.RPM, EchoFamily.EFFORT})
 
 
 def echo_family(command: CommandDefEnum) -> EchoFamily | None:
@@ -181,12 +156,13 @@ class PendingEcho:
 
 class EchoLedger:
     """
-    An ordered record of the commands a ramp has issued, so that the ramp can tell its
-    own reflection from another controller taking the engine.
+    An ordered record of the commands a ramp has issued, for one feedback stream, so
+    that the ramp can tell its own reflection from another controller taking the engine.
 
     Both a client, through the server broadcast, and a server, through base3_send and
-    the dispatcher, see their own commands come back. Speed reports may lag or skip
-    intermediate steps, so any pending speed inside the lag budget can match. A match
+    the dispatcher, see their own commands come back. Base RX echoes have a separate
+    ledger: an immediate local report must not retire a delayed RX echo. Reports may lag
+    or skip intermediate steps, so any pending speed inside the lag budget can match. A match
     advances past all earlier steps: subsequent reports must move monotonically through
     send order, or repeat the last match. This also follows a deliberate ramp reversal
     without mistaking its decreasing speeds for another controller.
@@ -199,9 +175,6 @@ class EchoLedger:
     commands are all declared `filtered`, and ComponentStateStore drops filtered
     commands outright on the one configuration where the replay happens, a layout
     listening to both a Base 3 and a Ser2.
-
-    TARGET_SPEED never travels that path at all, so its queue is matched by membership
-    rather than by order; see ORDERED_FAMILIES.
     """
 
     def __init__(self, ttl: float = ECHO_TTL, history: int = CLAIMED_HISTORY) -> None:
@@ -233,34 +206,24 @@ class EchoLedger:
         Lionel ecosystem sends a command two or three times, and a repeat is not out of
         sequence - nothing newer has been seen since - so it is accepted without
         consuming the entry behind it.
-
-        A family that is never railed has no order to be out of, so any value it issued
-        inside the lag budget is its own.
         """
         if data is None:
             return False
         with self._lock:
             self.purge()
             queue = self._pending[family]
-            if family in ORDERED_FAMILIES:
-                if family is EchoFamily.SPEED:
-                    for index, entry in enumerate(queue):
-                        if abs(entry.data - data) <= tolerance:
-                            for _ in range(index + 1):
-                                queue.popleft()
-                            self._claimed[family].append(entry)
-                            return True
-                elif queue and abs(queue[0].data - data) <= tolerance:
-                    self._claimed[family].append(queue.popleft())
-                    return True
-                claimed = self._claimed[family]
-                return bool(claimed) and abs(claimed[-1].data - data) <= tolerance
-            for index, entry in enumerate(queue):
-                if abs(entry.data - data) <= tolerance:
-                    del queue[index]
-                    self._claimed[family].append(entry)
-                    return True
-            return any(abs(entry.data - data) <= tolerance for entry in self._claimed[family])
+            if family is EchoFamily.SPEED:
+                for index, entry in enumerate(queue):
+                    if abs(entry.data - data) <= tolerance:
+                        for _ in range(index + 1):
+                            queue.popleft()
+                        self._claimed[family].append(entry)
+                        return True
+            elif queue and abs(queue[0].data - data) <= tolerance:
+                self._claimed[family].append(queue.popleft())
+                return True
+            claimed = self._claimed[family]
+            return bool(claimed) and abs(claimed[-1].data - data) <= tolerance
 
     def purge(self, ttl: float = None) -> None:
         """Drop entries older than the lag budget, claimed or not."""
@@ -554,15 +517,10 @@ class SpeedRamp(Thread):
         self._last_rpm: int | None = state.rpm if state.is_rpm is True else None
         self._decelerating = False
 
-        # the ordered record of what this ramp has issued, so its own lagged echoes
-        # cannot be mistaken for another controller's throttle command
+        # Independent send-order cursors for local/broadcast feedback and Base RX echoes.
+        # Either stream can advance before the other reports an earlier step.
         self._ledger = EchoLedger()
-        self._ledger.record(EchoFamily.TARGET, self._requested_target)
-
-        # whether the Base 3 has ever reported this ramp's own target back to us; until
-        # it has, a record still carrying the engine's previous target is stale news
-        # rather than evidence of another controller
-        self._target_confirmed = False
+        self._rx_ledger = EchoLedger()
 
     @property
     def state(self) -> EngineState:
@@ -631,11 +589,6 @@ class SpeedRamp(Thread):
         return self._ledger
 
     @property
-    def is_target_confirmed(self) -> bool:
-        """Whether the Base 3 has yet reported this ramp's own target speed back to us."""
-        return self._target_confirmed
-
-    @property
     def speed_echo_tolerance(self) -> int:
         return 0 if self.is_legacy is True else TMCC1_ECHO_TOLERANCE
 
@@ -648,12 +601,6 @@ class SpeedRamp(Thread):
             self._requested_target = speed
             if dialog is True:
                 self._dialog = True
-        # a target delivered through the ramp itself is not foreign: note it before the
-        # façade's TARGET_SPEED reaches the wire, so its echo is claimed rather than
-        # taken for another controller grabbing the throttle. It goes in the TARGET
-        # queue, never among the steps: a target announcement is handed back in process
-        # and would otherwise overtake a step still on its way to the Base 3
-        self._ledger.record(EchoFamily.TARGET, speed)
         self._wake.set()
 
     def abort(
@@ -693,9 +640,6 @@ class SpeedRamp(Thread):
             self._is_running = False
             self._abort_reason = reason
             settled = self._commanded_speed if target_speed is None else target_speed
-        # every abort path must clear is_ramping, or encode_target_speed keeps returning
-        # None and the engine's target speed stops resyncing with the Base 3. It is also
-        # what lets the target speed below be recorded at all
         self._set_ramping(False)
         self._sync_target_speed(settled)
         # the two sends below are made under the send gate, so a step already under way
@@ -724,13 +668,14 @@ class SpeedRamp(Thread):
         word on the wire is ours and the engine ends up at our step rather than where it
         was told to go - moving, when it was told to stop.
 
-        The ledger is what makes that visible: a step still awaiting its echo was sent
+        The ledgers make that visible: a step still awaiting an echo on both streams was sent
         after their command was created, so their command is not the latest thing the
-        engine heard. Re-asserting it once is the only way it is honored. It also squares
-        the Base 3's own target byte, because `is_ramping` is already clear by the time
-        this goes out and `sync_state` is free to write the target again.
+        engine heard. Re-asserting it once is the only way it is honored, and updates
+        both speed fields in the Base 3 database.
         """
-        if yield_speed is None or not self._ledger.pending[EchoFamily.SPEED]:
+        if yield_speed is None or not all(
+            ledger.pending[EchoFamily.SPEED] for ledger in (self._ledger, self._rx_ledger)
+        ):
             return
         with self._lock:
             self._commanded_speed = yield_speed
@@ -775,20 +720,13 @@ class SpeedRamp(Thread):
         if family is None:
             return EchoOutcome.MINE
         data = command.data
-        is_speed = family in SPEED_FAMILIES
+        is_speed = family is EchoFamily.SPEED
         tolerance = self.speed_echo_tolerance if is_speed else 0
-        # Speed ownership comes only from recent sends in monotonic send order, not
-        # from the current commanded value, which may be unsent or outside the budget.
-        if self._ledger.claim(family, data, tolerance=tolerance) is True:
+        ledger = self._rx_ledger if command.is_tmcc_rx else self._ledger
+        # Each stream must follow recent sends in monotonic send order. A failed claim
+        # cannot fall back to the other stream, whose cursor may legitimately lag.
+        if ledger.claim(family, data, tolerance=tolerance) is True:
             return EchoOutcome.MINE
-        if family is EchoFamily.TARGET and data is not None:
-            with self._lock:
-                commanded = self._commanded_speed
-            # the one genuinely ambiguous case: another controller asking for exactly the
-            # speed this ramp is sitting at is indistinguishable from a repeat of our own
-            # step, and harmless either way - the engine is already where it wants it
-            if commanded is not None and abs(commanded - data) <= tolerance:
-                return EchoOutcome.MINE
         return EchoOutcome.FOREIGN if is_speed else EchoOutcome.ABSORB
 
     def on_state_command(self, command: CommandReq) -> bool:
@@ -804,12 +742,13 @@ class SpeedRamp(Thread):
         if outcome is EchoOutcome.FOREIGN:
             # everything needed to tell an out of sequence echo from a value this ramp
             # never issued: what it is waiting for, what it last matched, and where it is
+            ledger = self._rx_ledger if command.is_tmcc_rx else self._ledger
             log.info(
                 f"Speed ramp {self._scope.title} {self._address} aborting: out of sequence speed "
                 f"{command.data}, commanded {self.commanded_speed}, "
-                f"pending steps {self._ledger.pending[EchoFamily.SPEED]}, "
-                f"pending targets {self._ledger.pending[EchoFamily.TARGET]}, "
-                f"last matched {self._ledger.claimed[family][-1:]}"
+                f"source {'RX' if command.is_tmcc_rx else 'TX/broadcast'}, "
+                f"pending steps {ledger.pending[EchoFamily.SPEED]}, "
+                f"last matched {ledger.claimed[family][-1:]}"
             )
             return False
         if family is EchoFamily.RPM:
@@ -817,42 +756,6 @@ class SpeedRamp(Thread):
         else:
             self._absorb_labor(command.data)
         return True
-
-    def owns_target_speed(self, target_speed: int | None) -> bool:
-        """
-        Whether a target speed reported back through engine state is one this ramp asked
-        for: the target it is chasing, that target clamped to the engine's live ceiling,
-        or any target it announced inside the echo lag budget - a Base 3 record queried
-        before a retarget went out can still be in flight when the new target lands.
-        """
-        if target_speed is None:
-            return False
-        with self._lock:
-            requested = self._requested_target
-            if target_speed == requested or target_speed == effective_target(requested, self._state):
-                return True
-        announced = self._ledger.pending[EchoFamily.TARGET] + self._ledger.claimed[EchoFamily.TARGET]
-        return target_speed in announced
-
-    def on_reported_target_speed(self, target_speed: int | None) -> bool:
-        """
-        Arbitrate the target speed a Base 3 memory record hands back. Returns True when
-        the ramp must *not* be cancelled.
-
-        A second PyTrain instance driving this engine directly leaves no TMCC command on
-        our wire: it writes the base's own target byte, and the change reaches us only in
-        the next record. That record is the sole evidence of the takeover, so it has to
-        count as one.
-
-        Nothing is judged until the base has reported this ramp's own target at least
-        once. A record queried before the ramp's announcement reached the base still
-        carries the engine's previous target, and aborting on one of those would kill a
-        ramp within a refresh cycle of starting it.
-        """
-        if self.owns_target_speed(target_speed) is True:
-            self._target_confirmed = True
-            return True
-        return self._target_confirmed is False
 
     def _absorb_rpm(self, rpm: int | None) -> None:
         """
@@ -879,9 +782,6 @@ class SpeedRamp(Thread):
         state = self._state
         try:
             self._set_ramping(True)
-            # give the façade's TARGET_SPEED announcement time to reach the wire first
-            if self._pause(ramp_delay(state, self.is_legacy)):
-                return
             while self._is_running is True:
                 with self._lock:
                     requested = self._requested_target
@@ -900,6 +800,7 @@ class SpeedRamp(Thread):
                     return
         finally:
             self._is_running = False
+            self._set_ramping(False)
 
     def _pause(self, delay: float) -> bool:
         """
@@ -1037,10 +938,14 @@ class SpeedRamp(Thread):
         family = echo_family(command)
         if family is not None:
             self._ledger.record(family, data)
+            self._rx_ledger.record(family, data)
         self._sender(command, self._address, data, self._scope)
 
     def _set_ramping(self, value: bool) -> None:
         try:
+            owner = getattr(self._state, "ramp", None)
+            if owner is not None and owner is not self:
+                return
             self._state.is_ramping = value
         except AttributeError:  # pragma: no cover
             pass
@@ -1109,10 +1014,13 @@ class RampRegistry:
             self._reap()
             ramp = self._ramps.get(key)
             if ramp is not None and ramp.is_active is True:
+                state._ramp = ramp
                 ramp.retarget(speed, dialog=dialog)
                 return ramp
             ramp = SpeedRamp(state, speed, dialog=dialog, sender=sender, **kwargs)
             self._ramps[key] = ramp
+            # Install ownership before the first speed can be sent or echoed back.
+            state._ramp = ramp
             # started under the lock so that a concurrent reap cannot mistake a ramp
             # that has not run yet for one that has already finished
             ramp.start()

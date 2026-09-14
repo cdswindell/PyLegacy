@@ -2,6 +2,7 @@ import threading
 from collections import defaultdict
 from queue import Queue
 from typing import Any
+from unittest.mock import patch
 
 # noinspection PyPackageRequirements
 import pytest
@@ -9,9 +10,12 @@ import pytest
 # noinspection PyProtectedMember
 from src.pytrain.comm.command_listener import Channel, CommandDispatcher, CommandListener, Message
 from src.pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
+from src.pytrain.pdi.constants import PDI_SOP, PdiCommand
+from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_TOPIC, DEFAULT_QUEUE_SIZE, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
+    TMCC1EngineCommandEnum,
     TMCC1HaltCommandEnum,
     TMCC1SwitchCommandEnum,
     TMCC1SyncCommandEnum,
@@ -362,6 +366,45 @@ class TestCommandDispatcher(TestBase):
         assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandEnum.RING_BELL)] == [sys_halt_req]
+
+    @pytest.mark.parametrize("is_rx", [False, True])
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize(
+        "command,address",
+        [
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 60),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 3180),
+            (TMCC2EngineCommandEnum.DIESEL_RPM, 60),
+            (TMCC2EngineCommandEnum.ENGINE_LABOR, 60),
+        ],
+    )
+    def test_client_broadcast_preserves_echo_source(self, is_rx, scope, command, address):
+        dispatcher = CommandDispatcher(ser2_receiver=False, base3_receiver=True)
+        request = CommandReq.build(command, address, data=3, scope=scope)
+        request = CommandReq.from_bytes(request.as_bytes, from_tmcc_rx=is_rx)
+        with patch("src.pytrain.comm.command_listener.socket.socket") as socket_class:
+            connection = socket_class.return_value.__enter__.return_value
+            dispatcher.update_client_state(request, client="10.0.0.5", port=5110)
+
+        connection.connect.assert_called_once_with(("10.0.0.5", 5110))
+        connection.sendall.assert_called_once()
+        payload = connection.sendall.call_args.args[0]
+        if payload[0] == PDI_SOP:
+            packet = PdiReq.from_bytes(payload)
+            assert packet.pdi_command is (PdiCommand.TMCC4_RX if address > 99 else PdiCommand.TMCC_RX)
+            received = packet.tmcc_command
+        else:
+            received = CommandReq.from_bytes(payload)
+
+        assert received.is_tmcc_rx is is_rx
+        assert received.command is command
+        assert received.address == address
+        assert received.scope is scope
+        assert received.data == 3
+        assert request.is_tmcc_rx is is_rx
+        if not is_rx:
+            assert payload == request.as_bytes
 
     def test_update_client_state_skips_when_proxy_receiver_not_built(self) -> None:
         dispatcher = CommandDispatcher(ser2_receiver=True)

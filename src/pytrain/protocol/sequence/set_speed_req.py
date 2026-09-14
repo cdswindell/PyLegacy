@@ -5,7 +5,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-from ...db.comp_data import CompData
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
@@ -24,7 +23,6 @@ class SetSpeedReq(SequenceReq):
     ) -> None:
         super().__init__(SequenceCommandEnum.SET_SPEED_RPM, address, scope)
         self._target_speed = data
-        self.add(CompData.generate_update_req("target_speed", data, self.state))
         if address == DEFAULT_ADDRESS:
             self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
             self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, data, scope)
@@ -55,12 +53,7 @@ class SetSpeedReq(SequenceReq):
 
     def _on_before_send(self) -> None:
         if self.state:
-            from ...comm.comm_buffer import CommBuffer
-            from .ramped_speed_req import CANCELABLE_REQUESTS
-
-            CommBuffer.cancel_delayed_requests(self.state, requests=CANCELABLE_REQUESTS)
-            self.state.comp_data.target_speed = self._target_speed
-            self.state.is_ramping = False
+            self.state.cancel_ramps()
 
 
 SequenceCommandEnum.SET_SPEED_RPM.value.register_cmd_class(SetSpeedReq)

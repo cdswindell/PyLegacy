@@ -15,7 +15,6 @@ from abc import ABC, ABCMeta
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope, DEFAULT_ADDRESS
-from ..multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from ...db.engine_state import EngineState
@@ -30,9 +29,8 @@ class RampSpeedReqBase(SequenceReq, ABC):
     Base class for the threaded speed ramper.
 
     Unlike ``RampedSpeedReq``, this request expands no steps and schedules nothing;
-    it emits the generation-appropriate ``TARGET_SPEED`` announcement (plus the tower
-    and engineer dialogs, when asked) and hands the target to the engine's ramp
-    thread in ``_on_before_send``.
+    it hands the destination to the engine's local ramp thread in ``_on_before_send``.
+    Only the tower and engineer dialogs, when asked, are added to the request.
     """
 
     __metaclass__ = ABCMeta
@@ -86,10 +84,6 @@ class RampSpeedReqBase(SequenceReq, ABC):
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
         else:
             self._is_ramp = True
-            target_enum = (
-                TMCC2EngineCommandEnumEx.TARGET_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.TARGET_SPEED
-            )
-            self.add(target_enum, self.address, self._target_speed, self.scope)
             # issue tower dialog, if requested
             if tower and dialog:
                 self.add(tower, address, scope=scope)
@@ -107,8 +101,6 @@ class RampSpeedReqBase(SequenceReq, ABC):
         return self._is_ramp
 
     def _on_before_send(self) -> None:
-        # start or retarget the ramp *before* the TARGET_SPEED bytes go out, so the
-        # echo of our own announcement is recognized as the ramp's own
         if self._is_ramp and isinstance(self.state, EngineState):
             self.state.ramp_to(self._target_speed, dialog=self._dialog)
 

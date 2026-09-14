@@ -132,6 +132,65 @@ class TestSpeedRamp(TestBase):
         assert recorder.speeds[-1] == 12
         assert state.is_ramping is False
 
+    def test_run_owns_the_ramping_flag_until_completion(self):
+        state = RampEngineState(speed=0)
+        ownership = []
+
+        def hook(_rec: Recorder, _count: int) -> None:
+            ownership.append(state.is_ramping)
+            command, address, data, scope = _rec.sent[-1]
+            assert ramp.on_state_command(CommandReq.build(command, address, data, scope)) is True
+            assert state.is_ramping is True
+            assert ramp.requested_speed == 12
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 12, recorder)
+        assert state.is_ramping is False
+
+        ramp.run()
+
+        assert ownership and all(ownership)
+        assert recorder.speeds[-1] == 12
+        assert set(recorder.commands) == {
+            TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+            TMCC2EngineCommandEnum.DIESEL_RPM,
+            TMCC2EngineCommandEnum.ENGINE_LABOR,
+        }
+        assert state.is_ramping is False
+
+    def test_run_sends_a_step_before_its_first_pause(self, monkeypatch):
+        state = RampEngineState(speed=0)
+        recorder = Recorder()
+        ramp = build_ramp(state, 12, recorder)
+        pauses = []
+
+        def pause(_delay) -> None:
+            pauses.append(list(recorder.speeds))
+            assert recorder.speeds
+
+        monkeypatch.setattr(ramp, "_pause", pause)
+        ramp.run()
+
+        assert pauses
+        assert pauses[0] == [3]
+        assert recorder.speeds[-1] == 12
+        assert state.is_ramping is False
+
+    def test_a_sender_exception_releases_local_ramp_ownership(self):
+        state = RampEngineState(speed=0)
+
+        def hook(_rec: Recorder, _count: int) -> None:
+            assert state.is_ramping is True
+            raise RuntimeError("sender failed")
+
+        ramp = build_ramp(state, 12, Recorder(hook))
+
+        with pytest.raises(RuntimeError, match="sender failed"):
+            ramp.run()
+
+        assert state.is_ramping is False
+        assert ramp.is_active is False
+
     #
     # ramp up and down
     #
@@ -161,12 +220,38 @@ class TestSpeedRamp(TestBase):
     #
     # retarget
     #
+    def test_retarget_changes_only_the_local_request(self):
+        state = RampEngineState(speed=15)
+        state.target_speed = 15
+        recorder = Recorder()
+        ramp = build_ramp(state, 30, recorder)
+
+        assert ramp.requested_speed == 30
+        assert state.target_speed == 15
+        assert state.is_ramping is False
+        assert recorder.sent == []
+
+        for target in (60, 0, 15):
+            ramp.retarget(target)
+
+            assert ramp.requested_speed == target
+            assert state.speed == 15
+            assert state.target_speed == 15
+            assert state.is_ramping is False
+            assert recorder.sent == []
+
     def test_retarget_up_to_up_continues_from_the_commanded_speed(self):
         state = RampEngineState(speed=0)
 
         def hook(_rec: Recorder, count: int) -> None:
             if count == 1:
+                sent = list(_rec.sent)
+                target = state.target_speed
                 ramp.retarget(60)
+                assert _rec.sent == sent
+                assert state.target_speed == target
+                assert state.is_ramping is True
+                assert ramp.requested_speed == 60
 
         recorder = Recorder(hook)
         ramp = build_ramp(state, 12, recorder)

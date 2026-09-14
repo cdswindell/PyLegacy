@@ -36,15 +36,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
 CAB_1_THROTTLE_REPEAT_MS = 200
 
-# How long the Speed slider keeps standing on a speed that was asked for while the engine
-# has yet to say it heard it. The ramp does not write comp_data.target_speed itself -- that
-# byte is the echo path's -- so for a few frames after a commit the state still advertises
-# the previous target, and a refresh in that window would drop the handle back to it.
-#
-# Comfortably longer than a Base 3 round trip and far shorter than a gesture, so in practice
-# the hold always ends by agreement: the deadline is the safety net for a command that never
-# lands -- a HALT, another controller taking the throttle, a dropped connection -- rather
-# than a timer anything waits on.
+# How long the Speed slider protects a pending direct command from lagging reported speed.
+# A local ramp takes over this protection as soon as it accepts the requested speed; its
+# destination is local intent, never a database target awaiting acknowledgment.
 THROTTLE_COMMIT_GRACE: float = 1.5
 
 
@@ -351,12 +345,10 @@ class ControllerView:
         self._speed_limit_panel = None
         # The throttle lever: a pending target speed, in speed steps, that the Speed slider
         # displays and that is only sent on demand. None means no lever is held, so the
-        # slider goes back to tracking the engine's announced target.
+        # slider tracks the local ramp destination or the engine's reported speed.
         self._throttle_intent: float | None = None
-        # The commit latch: the speed last asked for and when it was asked for. It outlives
-        # the lever so the handle stays on what the operator selected until the engine
-        # advertises it, rather than falling back to the target it is about to stop
-        # announcing. None means the state owns the handle.
+        # A pending commit outlives the lever until a local ramp accepts it or the reported
+        # speed catches up. None means the state owns the handle.
         self._throttle_committed: int | None = None
         self._throttle_committed_at: float | None = None
 
@@ -789,11 +781,12 @@ class ControllerView:
                         else:
                             host._rr_speed_btn.on_hold = self.on_speed_limit_panel
 
-                # don't fight the user while dragging, nor the lever while it is held, nor a
-                # commit the engine has not yet been heard to acknowledge
+                ramp_speed = self._local_ramp_speed(throttle_state)
+                commit_holds = self._commit_latch_holds(throttle_state)
+                # Don't fight a touch drag, a held lever, or a pending direct command.
                 if host.throttle.tk.focus_displayof() != host.throttle.tk and not self.throttle_intent_active:
-                    if not self._commit_latch_holds(throttle_state):
-                        host.throttle.value = throttle_state.target_speed
+                    if not commit_holds:
+                        host.throttle.value = ramp_speed if ramp_speed is not None else throttle_state.speed
 
                 if throttle_state.is_cab1:
                     self._set_cab1_speed()
@@ -802,8 +795,8 @@ class ControllerView:
                 else:
                     host.speed.value = f"{throttle_state.speed:03d}"
 
-                # trough color indicates actual vs. target
-                if throttle_state.speed != throttle_state.target_speed:
+                # Only a local ramp has a destination to approach.
+                if ramp_speed is not None and throttle_state.speed != ramp_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
@@ -1408,16 +1401,26 @@ class ControllerView:
         if self._throttle_intent is None and host.throttle.value != value:
             with self.__updating():
                 host.throttle.value = value
-        # Latched even when nothing goes on the wire: it is still what was asked for, and the
-        # handle is to stand on it either way.
+        # Protect the selection until a ramp accepts it or reported speed catches up.
         self._throttle_committed = value
         self._throttle_committed_at = monotonic()
-        if state.speed != value:
+        ramp_speed = self._local_ramp_speed(state)
+        if state.speed != value or (ramp_speed is not None and ramp_speed != value):
             host.on_speed_command(value)
+        # A synchronous ramp may finish or be canceled before the next display refresh.
+        # Once it accepts this commit, no pending protection should outlive it.
+        self._commit_latch_holds(state)
 
     # -----------------------------
     # Throttle lever (pending target speed)
     # -----------------------------
+    @staticmethod
+    def _local_ramp_speed(state) -> int | None:
+        ramp = getattr(state, "ramp", None)
+        if ramp is not None and getattr(ramp, "is_active", False):
+            return ramp.requested_speed
+        return None
+
     @property
     def throttle_intent_active(self) -> bool:
         """Whether a lever is being held, so the state refresh must leave the slider alone."""
@@ -1431,19 +1434,17 @@ class ControllerView:
         return int(round(self._throttle_intent))
 
     def throttle_intent_base(self) -> int:
-        """Where a lever starts: the speed last asked for, else the engine's announced
-        target, else its speed.
+        """Start from a pending commit, an active local ramp, or reported speed.
 
-        The latch comes first because the state's target is the slower of the two: for a few
-        frames after a commit it still advertises the previous one, and a gesture begun in
-        that window would seed from a speed nobody selected and jump on its first nudge.
+        A direct command may still be in flight when the next gesture starts. Preserve that
+        selection briefly, but never seed a gesture from a stale database target.
         """
-        if self._throttle_committed is not None:
-            return self._throttle_committed
         state = self._host.throttle_state
         if not isinstance(state, EngineState):
             return 0
-        base = state.target_speed
+        if self._commit_latch_holds(state):
+            return self._throttle_committed
+        base = self._local_ramp_speed(state)
         if base is None:
             base = state.speed
         return int(base or 0)
@@ -1482,8 +1483,7 @@ class ControllerView:
     def clear_throttle_intent(self) -> None:
         """Drop the lever without sending; the slider resumes tracking state.
 
-        The ordinary end of a gesture, so the latch is deliberately kept: the handle is to go
-        on standing on the speed just asked for until the engine says it heard it.
+        Keep pending direct-command protection through the ordinary end of a gesture.
         """
         self._throttle_intent = None
 
@@ -1497,11 +1497,14 @@ class ControllerView:
         self._throttle_committed_at = None
 
     def _commit_latch_holds(self, throttle_state) -> bool:
-        """Whether the handle is still standing on a commit the engine has not confirmed."""
+        """Protect a pending command, not a database target acknowledgment."""
         if self._throttle_committed is None:
             return False
-        if getattr(throttle_state, "target_speed", None) == self._throttle_committed:
-            # Agreed: the state can have the handle back.
+        ramp_speed = self._local_ramp_speed(throttle_state)
+        if ramp_speed == self._throttle_committed or (
+            ramp_speed is None and throttle_state.speed == self._throttle_committed
+        ):
+            # The local ramp or reported speed now owns the handle, including its release.
             self.clear_throttle_commit()
             return False
         if monotonic() - (self._throttle_committed_at or 0.0) >= THROTTLE_COMMIT_GRACE:

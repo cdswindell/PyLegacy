@@ -464,8 +464,7 @@ class TestEngineStateRampArbitration:
         ramp = _LiveRamp(state, target)
         state._ramp = ramp
         state.is_ramping = True
-        # the façade's TARGET_SPEED announcement, as _update_state would have recorded it
-        state.comp_data.target_speed = encode_tmcc_speed(target, True)
+        state.comp_data.target_speed = state.comp_data.speed
         return state, ramp
 
     @staticmethod
@@ -479,12 +478,17 @@ class TestEngineStateRampArbitration:
         assert state.ramp is None
         assert ramp.aborts == ["done"]
 
-    def test_notify_ramp_without_ramp_preserves_legacy_answer(self):
+    def test_nonowner_does_not_arbitrate_incoming_commands(self):
         state, _ = self._ramping_engine()
         state._ramp = None
-        assert state.notify_ramp(CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=50)) is False
+        state.is_ramping = False
         assert state.notify_ramp(CommandReq.build(TMCC2.DIESEL_RPM, 7, data=5)) is True
         assert state.notify_ramp(CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=50)) is True
+        for speed in (33, 12, 90):
+            state.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=speed))
+            assert state.speed == state.target_speed == speed
+            assert state.ramp is None
+            assert state.is_ramping is False
 
     def test_self_echo_does_not_cancel(self):
         state, ramp = self._ramping_engine()
@@ -497,33 +501,56 @@ class TestEngineStateRampArbitration:
         assert state.ramp is ramp
         assert state.is_ramping is True
 
-    def test_own_target_echo_does_not_cancel(self):
+    def test_absolute_echo_updates_both_database_fields_but_not_local_destination(self):
         state, ramp = self._ramping_engine()
-        echo = CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=ramp.requested_speed)
+        ramp.echo_ledger.record(EchoFamily.SPEED, 33)
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=33))
+
+        assert state.speed == state.target_speed == 33
+        assert ramp.requested_speed == 80
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+
+    def test_retired_target_command_does_not_create_ownership(self):
+        state, _ = self._ramping_engine()
+        state._ramp = None
+        state.is_ramping = False
+        state.comp_data.target_speed = state.comp_data.speed
+
+        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
+
+        assert state.speed == state.target_speed == 30
+        assert state.ramp is None
+        assert state.is_ramping is False
+
+    def test_retired_target_does_not_change_active_ramp_or_database(self):
+        state, ramp = self._ramping_engine()
+        echo = CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150)
 
         self._update(state, echo)
 
         assert ramp.aborts == []
         assert state.is_ramping is True
+        assert ramp.requested_speed == 80
+        assert state.speed == state.target_speed == 30
 
     def test_a_retarget_does_not_strand_the_step_in_flight(self):
-        # the reported defect, through the real arbitration path: a step is still on its
-        # way to the Base 3 when the slider retargets, so its echo arrives *after* the
-        # TARGET_SPEED announcement, which is noop and comes back in process at once
+        # A speed step is still on its way back when the slider retargets locally.
         state, ramp = self._ramping_engine()
         ramp.echo_ledger.record(EchoFamily.SPEED, 34)
         ramp._commanded_speed = 36
         ramp.echo_ledger.record(EchoFamily.SPEED, 36)
         ramp.retarget(49)
 
-        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=49))
         self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=34))
 
-        # both are this ramp's own work, so it keeps driving the engine
+        # The echo updates the database without replacing local intent.
         assert ramp.aborts == []
         assert state.ramp is ramp
         assert state.is_ramping is True
         assert ramp.requested_speed == 49
+        assert state.speed == state.target_speed == 34
 
     def test_foreign_absolute_speed_cancels(self):
         state, ramp = self._ramping_engine()
@@ -540,7 +567,8 @@ class TestEngineStateRampArbitration:
         # when the other controller's ABSOLUTE_SPEED 30 came back to us
         state, ramp = self._ramping_engine(speed=32)
         for speed in (30, 32, 34):
-            ramp.echo_ledger.record(EchoFamily.SPEED, speed)
+            ramp._send(TMCC2.ABSOLUTE_SPEED, speed)
+        ramp.sent.clear()
         ramp._commanded_speed = 34
         ramp._last_speed = 34
         ramp._last_labor = 27
@@ -561,7 +589,8 @@ class TestEngineStateRampArbitration:
 
     def test_a_takeover_nothing_overtook_is_not_re_asserted(self):
         state, ramp = self._ramping_engine(speed=32)
-        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._send(TMCC2.ABSOLUTE_SPEED, 34)
+        ramp.sent.clear()
         ramp._commanded_speed = 34
         assert ramp.echo_ledger.claim(EchoFamily.SPEED, 34) is True
 
@@ -571,16 +600,6 @@ class TestEngineStateRampArbitration:
         # wire: the yield is offered and declined
         assert ramp.abort_yields == [30]
         assert [cmd for cmd, _ in ramp.sent if cmd == TMCC2.ABSOLUTE_SPEED] == []
-
-    def test_foreign_target_speed_cancels(self):
-        state, ramp = self._ramping_engine()
-
-        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
-
-        assert ramp.aborts == ["foreign TARGET_SPEED"]
-        assert state.ramp is None
-        # is_ramping is then re-established from the foreign target itself, exactly as
-        # it was before arbitration existed: another controller now owns this ramp
 
     #
     # duplicate suppression must not hide a takeover
@@ -597,7 +616,8 @@ class TestEngineStateRampArbitration:
 
         ramp.echo_ledger.purge(ttl=0.0)
         ramp._commanded_speed = 33
-        ramp.echo_ledger.record(EchoFamily.SPEED, 33)
+        ramp._send(TMCC2.ABSOLUTE_SPEED, 33)
+        ramp.sent.clear()
         state.update(foreign)
 
         assert ramp.aborts == ["foreign ABSOLUTE_SPEED"]
@@ -649,24 +669,6 @@ class TestEngineStateRampArbitration:
         assert bias == 5 - tmcc2_speed_to_rpm(30, ramp.rpm_max_speed)
         assert ramp.rpm_bias == bias
 
-    def test_a_repeated_announcement_cannot_cancel_a_ramp_that_is_not_ours(self):
-        # the RampedSpeedReq path: state knows it is ramping but owns no thread, so
-        # nothing here can tell a takeover from a double-send. The repeat stays where the
-        # guard dropped it rather than tearing the ramp down a second time
-        state, _ = self._ramping_engine()
-        state._ramp = None
-        announcement = CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=80)
-
-        state.update(announcement)
-        state.update(announcement)
-
-        assert state.is_ramping is True
-        # the record these updates wrote to must still be the one being read: a comp_data
-        # blanked mid-test reports speed 0 and no control type, which is a different
-        # failure from the target write going wrong, and worth telling apart
-        assert state.speed == 30
-        assert state.target_speed == 80
-
     def test_foreign_rpm_absorbs_without_cancelling(self):
         state, ramp = self._ramping_engine()
         expected = 5 - tmcc2_speed_to_rpm(ramp.commanded_speed, ramp.rpm_max_speed)
@@ -698,45 +700,32 @@ class TestEngineStateRampArbitration:
         assert state.ramp is ramp
         assert state.is_ramping is True
 
-    #
-    # a record's target speed is the only sighting of an instance that talks to the
-    # Base 3 directly rather than through our command stream
-    #
-    def test_a_record_carrying_the_ramps_own_target_never_cancels(self):
+    @pytest.mark.parametrize("target", [0, 9, 30, 80, 150, 255])
+    def test_database_snapshots_neither_arbitrate_nor_replace_local_destination(self, target):
         state, ramp = self._ramping_engine()
+        ramp.echo_ledger.record(EchoFamily.SPEED, 33)
+        ramp.echo_ledger.record(EchoFamily.SPEED, 36)
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=33))
+        pending = ramp.echo_ledger.pending
+        claimed = ramp.echo_ledger.claimed
 
-        self._update(state, _CompDataRecord(state.comp_data))
+        for reported_speed in (33, 9, 33):
+            state.comp_data.speed = reported_speed
+            state.comp_data.target_speed = target
+            self._update(state, _CompDataRecord(state.comp_data))
 
-        assert ramp.aborts == []
-        assert ramp.is_target_confirmed is True
+            assert state.speed == reported_speed
+            assert state.target_speed == (reported_speed if target == 255 else target)
+            assert ramp.requested_speed == 80
+            assert state.ramp is ramp
+            assert state.is_ramping is True
+            assert ramp.aborts == []
+            assert ramp.echo_ledger.pending == pending
+            assert ramp.echo_ledger.claimed == claimed
 
-    def test_a_record_that_predates_the_announcement_never_cancels(self):
-        # the base answers a query with its memory as of that moment, so a record queried
-        # just before the ramp's TARGET_SPEED reached it still carries the engine's
-        # previous target. Aborting on one of those would kill a ramp at birth
-        state, ramp = self._ramping_engine()
-        state.comp_data.target_speed = encode_tmcc_speed(0, True)
-
-        self._update(state, _CompDataRecord(state.comp_data))
-
-        assert ramp.aborts == []
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=36))
+        assert state.speed == state.target_speed == 36
         assert state.ramp is ramp
-        assert ramp.is_target_confirmed is False
-
-    def test_a_record_carrying_a_foreign_target_cancels_the_ramp(self):
-        # the reported takeover: another PyTrain instance commanded this engine directly,
-        # writing the base's own target byte. Nothing reached our wire, so this record is
-        # the only evidence of it, and without this check the ramp drove on to its target
-        state, ramp = self._ramping_engine()
-        self._update(state, _CompDataRecord(state.comp_data))
-        state.comp_data.target_speed = encode_tmcc_speed(30, True)
-
-        self._update(state, _CompDataRecord(state.comp_data))
-
-        assert ramp.aborts == ["foreign target speed 30"]
-        assert state.ramp is None
-        assert state.is_ramping is False
-        assert state.target_speed == 30
 
     def test_a_record_with_no_target_never_cancels(self):
         state, ramp = self._ramping_engine()
@@ -751,12 +740,13 @@ class TestEngineStateRampArbitration:
     def test_a_record_never_cancels_without_a_ramp_of_our_own(self):
         state, ramp = self._ramping_engine()
         state._ramp = None
+        state.is_ramping = False
         state.comp_data.target_speed = encode_tmcc_speed(30, True)
 
         self._update(state, _CompDataRecord(state.comp_data))
 
         assert ramp.aborts == []
-        assert state.is_ramping is True
+        assert state.is_ramping is False
 
     @pytest.mark.parametrize(
         "command, data",
@@ -789,8 +779,8 @@ class TestEngineStateRampArbitration:
         assert ramp.aborts == []
         assert state.ramp is ramp
         assert state.is_ramping is True
-        # nothing was cancelled, so the target the ramp is chasing still stands
-        assert state.target_speed == 80
+        assert ramp.requested_speed == 80
+        assert state.target_speed == state.speed == 30
 
     #
     # a cancelled ramp leaves an honest target speed behind
@@ -810,7 +800,7 @@ class TestEngineStateRampArbitration:
     def test_hard_aborts_zero_the_target_speed(self, command, data):
         state, ramp = self._ramping_engine()
         state._direction = TMCC2.FORWARD_DIRECTION
-        assert state.target_speed == 80
+        assert state.target_speed == 30
 
         self._update(state, CommandReq.build(command, 7, data=data))
 
@@ -835,14 +825,6 @@ class TestEngineStateRampArbitration:
         req = CommandReq.build(TMCC2.SPEED_RESTRICTED, 7)
 
         assert state._cancelled_target_speed(req) == int(TMCC2.SPEED_RESTRICTED.alias[1])
-
-    def test_foreign_target_speed_becomes_the_new_target(self):
-        state, ramp = self._ramping_engine()
-
-        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
-
-        assert state.target_speed == 150
-        assert ramp.abort_targets == [150]
 
     def test_abort_ramp_leaves_the_speed_the_ramp_reached(self):
         state, ramp = self._ramping_engine()
@@ -928,14 +910,11 @@ class TestEngineStateRampArbitration:
         assert ramp.sent == []
         assert state.labor == 20
 
-    @pytest.mark.parametrize(
-        "command, data", [(TMCC2.ABSOLUTE_SPEED, 150), (TMCC2EngineCommandEnumEx.TARGET_SPEED, 150)]
-    )
-    def test_a_foreign_throttle_command_hands_the_operators_effort_back(self, command, data):
+    def test_a_foreign_throttle_command_hands_the_operators_effort_back(self):
         state, ramp = self._ramping_engine()
         ramp._last_labor = 20
 
-        self._update(state, CommandReq.build(command, 7, data=data))
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
 
         # not a hard stop, so effort does not go to neutral - but it does go back. The
         # ramp raised it while there was a gap to close, and nobody else asked for that
@@ -973,7 +952,8 @@ class TestEngineStateRampArbitration:
         # issued our next step, so the step lands behind it and tells the engine to move
         state, ramp = self._ramping_engine()
         state._direction = TMCC2.FORWARD_DIRECTION
-        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._send(TMCC2.ABSOLUTE_SPEED, 34)
+        ramp.sent.clear()
         ramp._commanded_speed = 34
         ramp._last_labor = 20
 
@@ -1005,7 +985,8 @@ class TestEngineStateRampArbitration:
         state._direction = TMCC2.REVERSE_DIRECTION if command is TMCC2.FORWARD_DIRECTION else TMCC2.FORWARD_DIRECTION
         # a step still awaiting its echo: it was issued in the gap between the hard stop
         # reaching the rails and its echo reaching us
-        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._send(TMCC2.ABSOLUTE_SPEED, 34)
+        ramp.sent.clear()
         ramp._commanded_speed = 34
 
         self._update(state, CommandReq.build(command, 7, data=data))
@@ -1016,7 +997,8 @@ class TestEngineStateRampArbitration:
     def test_a_hard_stop_re_asserts_nothing_when_every_step_is_echoed(self):
         state, ramp = self._ramping_engine()
         state._direction = TMCC2.FORWARD_DIRECTION
-        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._send(TMCC2.ABSOLUTE_SPEED, 34)
+        ramp.sent.clear()
         ramp._commanded_speed = 34
         assert ramp.echo_ledger.claim(EchoFamily.SPEED, 34) is True
 
@@ -1025,18 +1007,6 @@ class TestEngineStateRampArbitration:
         # nothing of ours is still in flight, so the direction change is already the last
         # word and commanding the engine again would be noise
         assert ramp.abort_yields == [0]
-        assert [cmd for cmd, _ in ramp.sent if cmd == TMCC2.ABSOLUTE_SPEED] == []
-
-    def test_a_foreign_target_speed_re_asserts_nothing(self):
-        state, ramp = self._ramping_engine()
-        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
-        ramp._commanded_speed = 34
-
-        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
-
-        # an announcement of intent rather than a position: whoever sent it is driving
-        # the engine there themselves and does not need our help
-        assert ramp.abort_yields == [None]
         assert [cmd for cmd, _ in ramp.sent if cmd == TMCC2.ABSOLUTE_SPEED] == []
 
     def test_a_settling_ramp_and_an_abort_do_not_deadlock(self):
@@ -1086,3 +1056,33 @@ class TestEngineStateRampArbitration:
         assert first is second
         assert started == [first]
         assert first.requested_speed == 90
+
+    def test_takeover_during_start_cannot_be_hidden_by_late_owner_registration(self, monkeypatch):
+        state, _ = self._ramping_engine()
+        state._ramp = None
+        monkeypatch.setattr(SpeedRamp, "is_active", property(lambda ramp: ramp._is_running))
+
+        def start(ramp):
+            assert state.ramp is ramp
+            self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
+
+        monkeypatch.setattr(SpeedRamp, "start", start)
+        ramp = state.ramp_to(70)
+
+        assert state.ramp is None
+        assert ramp.is_active is False
+        assert ramp.abort_reason == "foreign ABSOLUTE_SPEED"
+        assert state.speed == state.target_speed == 150
+
+    def test_old_ramp_cleanup_does_not_clear_new_local_owner(self):
+        state, old_ramp = self._ramping_engine()
+        old_ramp.abort()
+        new_ramp = _LiveRamp(state, 90)
+        state._ramp = new_ramp
+        state.is_ramping = True
+
+        old_ramp.run()
+
+        assert state.ramp is new_ramp
+        assert state.is_ramping is True
+        assert new_ramp.requested_speed == 90

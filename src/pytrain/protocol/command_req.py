@@ -135,9 +135,15 @@ class CommandReq:
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> CommandReq:
+        from .sequence.sequence_req import SequenceReq
+
         # build_req & queue
         req = cls.build(command, address, data, scope)
-        cls._enqueue_command(req.as_bytes, repeat, delay, duration, baudrate, port, server, request=req)
+        req._validate_send()
+        if isinstance(req, SequenceReq):
+            req.send(repeat=repeat, delay=delay, duration=duration, baudrate=baudrate, port=port, server=server)
+        else:
+            cls._enqueue_command(req.as_bytes, repeat, delay, duration, baudrate, port, server, request=req)
         return req
 
     @classmethod
@@ -221,6 +227,10 @@ class CommandReq:
         trigger_effects: bool = True,
         interval: int = None,
     ) -> None:
+        if isinstance(cmd, CommandReq):
+            cmd._validate_send()
+        if isinstance(request, CommandReq):
+            request._validate_send()
         repeat = Validations.validate_int(repeat, min_value=1, label="repeat")
         delay = Validations.validate_float(delay, min_value=0, label="delay")
         duration = Validations.validate_float(duration, min_value=0, label="duration", allow_none=True)
@@ -276,6 +286,8 @@ class CommandReq:
                         effect_cmd = CommandReq.build(effect[0], request.address, effect[1], request.scope)
                     else:
                         continue  # we shouldn't ever get here
+                    if effect_cmd.command.name == "TARGET_SPEED":
+                        continue
                     buffer.enqueue_command(effect_cmd.as_bytes, delay)
             if duration > 0:
                 # convert duration into milliseconds, then queue a command to fire
@@ -529,6 +541,11 @@ class CommandReq:
             return self.command_def.is_d4_broadcast is False and self.address > 99
         return False
 
+    def _validate_send(self) -> None:
+        # Retain decoding support for old synthetic targets, but never transmit them.
+        if self.command.name == "TARGET_SPEED":
+            raise ValueError("TARGET_SPEED is a retired synthetic command and cannot be sent")
+
     def send(
         self,
         repeat: int = 1,
@@ -539,6 +556,7 @@ class CommandReq:
         port: str = DEFAULT_PORT,
         server: str = None,
     ) -> None:
+        self._validate_send()
         interval = self.command_def.interval if self.command_def.interval else interval
         self._enqueue_command(
             self,
@@ -587,6 +605,7 @@ class CommandReq:
         address: int = None,
         data: int = None,
     ) -> Callable:
+        self._validate_send()
         from ..comm.comm_buffer import CommBuffer
 
         buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
