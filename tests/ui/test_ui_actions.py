@@ -49,6 +49,24 @@ def test_startup_and_shutdown_match_controller_view_long_holds() -> None:
     assert shutdown.hold_threshold_ms == 1000
 
 
+def test_acela_uses_its_own_delayed_startup_and_shutdown_variants() -> None:
+    standard_startup = cab_action("startup")
+    standard_shutdown = cab_action("shutdown")
+    acela_startup = cab_action("acela_startup")
+    acela_shutdown = cab_action("acela_shutdown")
+
+    assert standard_startup is not None and standard_shutdown is not None
+    assert acela_startup is not None and acela_shutdown is not None
+    assert action_applies_to_type(standard_startup, "a") is False
+    assert action_applies_to_type(standard_shutdown, "a") is False
+    assert action_applies_to_type(acela_startup, "a") is True
+    assert action_applies_to_type(acela_shutdown, "a") is True
+    assert (acela_startup.command, acela_startup.hold_command) == ("START_UP_IMMEDIATE", "START_UP_DELAYED")
+    assert (acela_shutdown.command, acela_shutdown.hold_command) == ("SHUTDOWN_IMMEDIATE", "SHUTDOWN_DELAYED")
+    assert acela_startup.hold is True
+    assert acela_shutdown.hold is True
+
+
 def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
     crew = cab_action("engineer_chatter")
     tower = cab_action("tower_chatter")
@@ -131,13 +149,37 @@ def test_diesel_steam_and_electric_match_existing_controller_visibility_rules() 
 
 def test_secondary_actions_follow_engine_ops_layout() -> None:
     secondary = cab_actions("secondary")
-    assert [action.key for action in secondary] == ["sequence", "lights", "more"]
-    assert [action.command for action in secondary] == ["AUX1_OPTION_ONE", "AUX2_OPTION_ONE", "AUX3_OPTION_ONE"]
-    assert all(action.scope_tag == "e" for action in secondary)
-    assert all(action_applies_to_type(action, "d") for action in secondary)
-    assert all(action_applies_to_type(action, "s") for action in secondary)
-    assert all(action_applies_to_type(action, "l") for action in secondary)
-    assert all(action_applies_to_type(action, "a") for action in secondary)
+    assert [action.key for action in secondary] == [
+        "car_aux1",
+        "car_aux2",
+        "car_aux3",
+        "acela_aux2",
+        "acela_aux3",
+        "crane_aux1",
+        "crane_aux2",
+        "crane_aux3",
+        "sequence",
+        "lights",
+        "more",
+    ]
+
+    sequence = cab_action("sequence")
+    lights = cab_action("lights")
+    more = cab_action("more")
+    acela_aux2 = cab_action("acela_aux2")
+    acela_aux3 = cab_action("acela_aux3")
+    assert all(action is not None for action in (sequence, lights, more, acela_aux2, acela_aux3))
+
+    assert action_applies_to_type(sequence, "a") is True
+    assert action_applies_to_type(lights, "a") is False
+    assert action_applies_to_type(more, "a") is False
+    assert action_applies_to_type(acela_aux2, "a") is True
+    assert action_applies_to_type(acela_aux3, "a") is True
+
+    for type_key in ("d", "s", "l"):
+        assert action_applies_to_type(sequence, type_key) is True
+        assert action_applies_to_type(lights, type_key) is True
+        assert action_applies_to_type(more, type_key) is True
 
 
 def test_momentum_tuning_actions_are_engine_scoped() -> None:
