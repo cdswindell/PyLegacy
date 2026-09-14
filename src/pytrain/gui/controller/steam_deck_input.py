@@ -488,6 +488,10 @@ _DECK_LPAD_TOUCH_BIT = 1 << 3
 _DECK_RPAD_TOUCH_BIT = 1 << 4
 _DECK_LPAD_OFFSET = 16  # s16 LE x immediately followed by s16 LE y
 _DECK_RPAD_OFFSET = 20  # s16 LE x immediately followed by s16 LE y
+# Physical sticks, not Steam Input's virtual axes. Keys use the profile's joystick
+# order (LX, LY, LT, RX, RY, RT); HID Y runs upward, opposite SDL's Y.
+_DECK_STICK_AXES = {0: (48, 1), 1: (50, -1), 3: (52, 1), 4: (54, -1)}
+_DECK_INPUT_TIMEOUT = 1.0
 # The Deck reports each pad coordinate as a signed 16-bit value; the pad's y
 # axis runs from +32767 at the top edge to -32768 at the bottom edge.
 _DECK_PAD_MIN = -32768
@@ -541,6 +545,19 @@ def _decode_deck_paddles(report: bytes) -> dict[int, bool] | None:
     if report[0] != 0x01 or report[2] != _DECK_STATE_TYPE:
         return None
     return {index: bool(report[byte] & mask) for index, (byte, mask) in _DECK_PADDLE_BUTTONS.items()}
+
+
+def _decode_deck_controls(report: bytes) -> tuple[dict[int, float], tuple[int, int]] | None:
+    """Physical sticks and D-pad from SDL's SteamDeckStatePacket_t wire layout."""
+    if len(report) < 64 or report[:3] != b"\x01\x00\x09":
+        return None
+    axes = {}
+    for axis, (offset, sign) in _DECK_STICK_AXES.items():
+        raw = struct.unpack_from("<h", report, offset)[0]
+        axes[axis] = sign * raw / (32768.0 if raw < 0 else 32767.0)
+    buttons = report[9]
+    hat = (int(bool(buttons & 0x02)) - int(bool(buttons & 0x04)), int(bool(buttons & 0x01)) - int(bool(buttons & 0x08)))
+    return axes, hat
 
 
 def _deck_pad_y_fraction(raw_y: int) -> float:
@@ -1061,6 +1078,11 @@ class SteamDeckInputProvider:
         # Last seen pressed/released state of each back paddle, so only edges are
         # emitted from the stream of HID reports.
         self._hidraw_buttons: dict[int, bool] = {}
+        # Once native reports arrive, Steam's virtual sticks/D-pad are no longer
+        # authoritative: a trackpad can be mapped to either by the user's Steam layout.
+        self._native_deck_active = False
+        self._native_deck_axes: dict[int, float] = {}
+        self._native_deck_report_at: float | None = None
         # hidraw nodes whose open/read error has already been logged, so a
         # permission problem is reported once rather than every poll.
         self._hidraw_errors: set[str] = set()
@@ -1174,6 +1196,9 @@ class SteamDeckInputProvider:
         self._hidraw_pad_touched.clear()
         self._hidraw_buttons.clear()
         self._hidraw_errors.clear()
+        self._native_deck_active = False
+        self._native_deck_axes.clear()
+        self._native_deck_report_at = None
 
     def _drain_hidraw_pads(self) -> list[DeckAction]:
         # Translate any queued Deck HID reports into the same quilling_horn
@@ -1199,13 +1224,66 @@ class SteamDeckInputProvider:
         actions: list[DeckAction] = []
         for payload in latest.values():
             actions.extend(self._hidraw_paddle_actions(payload))
+            controls = _decode_deck_controls(payload)
+            if controls is not None:
+                actions.extend(self._native_deck_control_actions(*controls))
             decoded = _decode_deck_pads(payload)
             if decoded is None:
                 continue
             lpad_touched, (_lx, ly), rpad_touched, (_rx, ry) = decoded
             actions.extend(self._hidraw_pad_action(_DECK_LEFT_TOUCH_ID, lpad_touched, ly))
             actions.extend(self._hidraw_pad_action(_DECK_RIGHT_TOUCH_ID, rpad_touched, ry))
+        if (
+            self._native_deck_report_at is not None
+            and self._clock() - self._native_deck_report_at > _DECK_INPUT_TIMEOUT
+        ):
+            # Fail closed if the reader stops: never resume Steam-emulated throttle
+            # input, and never leave a native throttle or horn held indefinitely.
+            self._native_deck_report_at = None
+            self._native_deck_axes.clear()
+            self._active_axes.clear()
+            self._hat_x = self._hat_y = 0
+            actions.append(DeckAction("disconnect", "global", 0.0, "disconnected"))
         return actions
+
+    def _native_deck_control_actions(self, axes: dict[int, float], hat: tuple[int, int]) -> list[DeckAction]:
+        actions = []
+        if not self._native_deck_active and (
+            self._active_axes.intersection(_DECK_STICK_AXES) or self._hat_x or self._hat_y
+        ):
+            # Cancel, rather than settle/commit, a virtual gesture that arrived
+            # before the first native report. The physical controls start fresh.
+            actions.append(DeckAction("disconnect", "global", 0.0, "disconnected"))
+            self._active_axes.difference_update(_DECK_STICK_AXES)
+            self._hat_x = self._hat_y = 0
+        self._native_deck_active = True
+        self._native_deck_report_at = self._clock()
+        for axis, raw in axes.items():
+            previous = self._native_deck_axes.get(axis, 0.0)
+            self._native_deck_axes[axis] = raw
+            binding = self.profile.axes.get(axis)
+            if binding is None or binding.trigger or (raw == previous and axis not in self._active_axes):
+                continue
+            value = self._normalize_axis(axis, raw)
+            if binding.invert:
+                value = -value
+            actions.append(DeckAction(binding.action, binding.target, value, "changed"))
+        actions.extend(self._hat_actions(hat))
+        return actions
+
+    def _uses_native_deck_controls(self, event) -> bool:
+        if not self._native_deck_active:
+            return False
+        joystick = self._joysticks.get(getattr(event, "instance_id", None))
+        if joystick is None:
+            return False
+        name = joystick.get_name().lower()
+        if "steam deck" in name or "steam virtual gamepad" in name:
+            return True
+        # SDL may substitute a display name; the GUID still contains Valve's VID
+        # and either the Deck PID or Steam Input's virtual-gamepad PID.
+        guid = joystick.get_guid().lower() if hasattr(joystick, "get_guid") else ""
+        return guid[8:16] == "de280000" and guid[16:24] in {"05120000", "ff110000"}
 
     def _hidraw_paddle_actions(self, payload: bytes) -> list[DeckAction]:
         # Turn the paddle bits of one report into press/release actions, feeding them
@@ -1285,6 +1363,8 @@ class SteamDeckInputProvider:
         actions: list[DeckAction] = self._drain_hidraw_pads()
         for event in self._pygame.event.get():
             if event.type == self._pygame.JOYAXISMOTION:
+                if event.axis in _DECK_STICK_AXES and self._uses_native_deck_controls(event):
+                    continue
                 binding = self.profile.axes.get(event.axis)
                 if binding is not None:
                     if binding.action in TRIGGER_BUTTON_ACTIONS:
@@ -1312,7 +1392,8 @@ class SteamDeckInputProvider:
             elif event.type in (self._pygame.JOYBUTTONDOWN, self._pygame.JOYBUTTONUP):
                 actions.extend(self._button_actions(event.button, event.type == self._pygame.JOYBUTTONDOWN))
             elif event.type == self._pygame.JOYHATMOTION:
-                actions.extend(self._hat_actions(event.value))
+                if not self._uses_native_deck_controls(event):
+                    actions.extend(self._hat_actions(event.value))
             elif event.type == self._pygame.JOYDEVICEADDED:
                 self._add_device(event.device_index)
             elif event.type == self._pygame.JOYDEVICEREMOVED:
