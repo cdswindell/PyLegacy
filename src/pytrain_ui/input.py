@@ -3,6 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class CabInputSink(Protocol):
+    """Small semantic command surface required by physical cab controllers."""
+
+    def change_speed(self, delta: int) -> None: ...
+
+    def bell(self) -> None: ...
+
+    def horn(self, active: bool) -> None: ...
+
+    def boost(self, active: bool) -> None: ...
+
+    def brake(self, active: bool) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
