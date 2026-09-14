@@ -29,8 +29,6 @@ def resolve_engine_control_profile(
     *,
     type_key: str,
     momentum_supported: bool = False,
-    train_brake_supported: bool = False,
-    quilling_horn_supported: bool = False,
 ) -> EngineControlProfile:
     """Resolve presentation capabilities from explicit per-target state.
 
@@ -39,9 +37,9 @@ def resolve_engine_control_profile(
     family, throttle presence, and the semantic meaning a particular product
     assigns to quill levels do not affect their visibility.
 
-    The *_supported arguments remain accepted while the command adapter is being
-    simplified, but train-brake and quilling-horn visibility intentionally does
-    not depend on them.
+    ``has_throttle`` remains the truthful semantic state reported by PyTrain.
+    Presentation layers may still choose to display a throttle for every target;
+    they must not distort this capability merely to make a control visible.
     """
 
     if state is None:
@@ -62,12 +60,12 @@ def resolve_engine_control_profile(
     engine_type = str(getattr(engine_type_enum, "name", "UNKNOWN") or "UNKNOWN")
     control_type = str(getattr(state, "control_type_label", "NA") or "NA")
     is_legacy = bool(getattr(state, "is_legacy", False))
-    state_has_throttle = bool(getattr(state, "has_throttle", False))
+    has_throttle = bool(getattr(state, "has_throttle", False))
 
-    supports_momentum = state_has_throttle and momentum_supported
+    supports_momentum = has_throttle and momentum_supported
     supports_train_brake = is_legacy
     supports_quilling_horn = is_legacy
-    supports_speed_limit = state_has_throttle
+    supports_speed_limit = has_throttle
 
     analog_modes: list[str] = []
     if supports_train_brake:
@@ -76,13 +74,6 @@ def resolve_engine_control_profile(
         analog_modes.append("Momentum")
     if supports_quilling_horn:
         analog_modes.append("Horn")
-
-    # CabView historically uses hasThrottle as the visibility gate for its
-    # shared analog-control column. Legacy non-motive equipment can still use
-    # Train Brake and Quilling Horn, so keep that column visible whenever the
-    # resolved profile contains analog controls. Throttle-dependent capabilities
-    # above continue to use the actual state flag.
-    has_throttle = state_has_throttle or bool(analog_modes)
 
     return EngineControlProfile(
         engine_type=engine_type,
