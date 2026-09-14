@@ -7,6 +7,8 @@ import time
 
 from PySide6.QtCore import QObject, QTimer
 
+from pytrain_ui.input import RateThrottle, RepeatGate
+
 log = logging.getLogger(__name__)
 
 
@@ -31,9 +33,10 @@ class QtGamepadInput(QObject):
         self._joystick = None
         self._horn_down = False
         self._hat = (0, 0)
-        self._next_throttle = 0.0
-        self._next_horn = 0.0
-        self._next_dpad = 0.0
+        self._throttle = RateThrottle(dead_zone=self.DEAD_ZONE, min_step=1, max_step=5)
+        self._throttle_repeat = RepeatGate(self.THROTTLE_REPEAT_SECONDS)
+        self._horn_repeat = RepeatGate(self.HORN_REPEAT_SECONDS)
+        self._dpad_repeat = RepeatGate(self.DPAD_REPEAT_SECONDS)
 
         self._timer = QTimer(self)
         self._timer.setInterval(self.POLL_MS)
@@ -131,7 +134,7 @@ class QtGamepadInput(QObject):
         # SDL Y = 3; horn repeats while held.
         elif button == 3:
             self._horn_down = True
-            self._next_horn = 0.0
+            self._horn_repeat.reset()
 
     def _button_up(self, button: int) -> None:
         if button == 3:
@@ -140,32 +143,29 @@ class QtGamepadInput(QObject):
 
     def _poll_throttle(self, now: float) -> None:
         joystick = self._joystick
-        if joystick is None or joystick.get_numaxes() < 2 or now < self._next_throttle:
+        if joystick is None or joystick.get_numaxes() < 2:
             return
 
         # SDL left-stick Y is negative upward. Convert upward to positive rate.
-        lever = -float(joystick.get_axis(1))
-        magnitude = abs(lever)
-        if magnitude <= self.DEAD_ZONE:
+        delta = self._throttle.delta(-float(joystick.get_axis(1)))
+        if delta == 0:
+            self._throttle_repeat.reset()
             return
-
-        scaled = (magnitude - self.DEAD_ZONE) / (1.0 - self.DEAD_ZONE)
-        step = max(1, min(5, round(1 + scaled * 4)))
-        self._cab.changeSpeed(step if lever > 0 else -step)
-        self._next_throttle = now + self.THROTTLE_REPEAT_SECONDS
+        if self._throttle_repeat.ready(now):
+            self._cab.changeSpeed(delta)
 
     def _poll_horn(self, now: float) -> None:
-        if self._horn_down and now >= self._next_horn:
+        if self._horn_down and self._horn_repeat.ready(now):
             self._cab.horn(True)
-            self._next_horn = now + self.HORN_REPEAT_SECONDS
 
     def _poll_dpad(self, now: float) -> None:
-        if now < self._next_dpad:
-            return
         _x, y = self._hat
+        if y == 0:
+            self._dpad_repeat.reset()
+            return
+        if not self._dpad_repeat.ready(now):
+            return
         if y > 0:
             self._cab.boost(True)
-            self._next_dpad = now + self.DPAD_REPEAT_SECONDS
-        elif y < 0:
+        else:
             self._cab.brake(True)
-            self._next_dpad = now + self.DPAD_REPEAT_SECONDS
