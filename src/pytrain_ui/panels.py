@@ -15,6 +15,12 @@ class PanelAction:
     label: str
     command: str
     type_keys: frozenset[str] = field(default_factory=frozenset)
+    hold_command: str = ""
+    hold_threshold_ms: int = 1000
+
+    def __post_init__(self) -> None:
+        if self.hold_threshold_ms <= 0:
+            raise ValueError(f"Panel action {self.label!r} requires a positive hold threshold")
 
 
 _PANEL_TITLES = {
@@ -155,10 +161,10 @@ _TOWER = (
 )
 
 _MORE = (
-    PanelAction("Engine", "Start Up", "START_UP_IMMEDIATE"),
-    PanelAction("Engine", "Shut Down", "SHUTDOWN_IMMEDIATE"),
-    PanelAction("Engine", "Fuel", "ENGINEER_FUEL_LEVEL"),
-    PanelAction("Engine", "Water", "ENGINEER_WATER_LEVEL"),
+    PanelAction("Engine", "Start Up", "START_UP_IMMEDIATE", hold_command="START_UP_DELAYED"),
+    PanelAction("Engine", "Shut Down", "SHUTDOWN_IMMEDIATE", hold_command="SHUTDOWN_DELAYED"),
+    PanelAction("Engine", "Fuel", "ENGINEER_FUEL_LEVEL", hold_command="ENGINEER_FUEL_REFILLED"),
+    PanelAction("Engine", "Water", "ENGINEER_WATER_LEVEL", hold_command="ENGINEER_WATER_REFILLED"),
     PanelAction("Motion", "Speed Roll", "SPEED_ROLL"),
     PanelAction("Sound", "Master Volume +", "VOLUME_UP"),
     PanelAction("Sound", "Master Volume −", "VOLUME_DOWN"),
