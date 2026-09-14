@@ -1,3 +1,5 @@
+from importlib.resources import files
+
 from pytrain_ui.panels import PanelAction, panel_actions, panel_title
 
 
@@ -120,12 +122,13 @@ def test_more_panel_describes_short_and_long_press_behavior() -> None:
     assert actions["SHUTDOWN_IMMEDIATE"].hold_command == "SHUTDOWN_DELAYED"
     assert actions["ENGINEER_FUEL_LEVEL"].hold_command == "ENGINEER_FUEL_REFILLED"
     assert actions["ENGINEER_WATER_LEVEL"].hold_command == "ENGINEER_WATER_REFILLED"
-    assert all(actions[command].hold_threshold_ms == 1000 for command in (
+    hold_commands = (
         "START_UP_IMMEDIATE",
         "SHUTDOWN_IMMEDIATE",
         "ENGINEER_FUEL_LEVEL",
         "ENGINEER_WATER_LEVEL",
-    ))
+    )
+    assert all(actions[command].hold_threshold_ms == 1000 for command in hold_commands)
 
 
 def test_panel_action_rejects_non_positive_hold_threshold() -> None:
@@ -135,6 +138,14 @@ def test_panel_action_rejects_non_positive_hold_threshold() -> None:
         assert "positive hold threshold" in str(exc)
     else:
         raise AssertionError("PanelAction accepted a non-positive hold threshold")
+
+
+def test_popup_hold_commands_are_not_hardcoded_in_qml() -> None:
+    qml = files("pytrain_ui.qt.qml").joinpath("CommandPanelPopup.qml").read_text(encoding="utf-8")
+    assert "START_UP_DELAYED" not in qml
+    assert "SHUTDOWN_DELAYED" not in qml
+    assert "ENGINEER_FUEL_REFILLED" not in qml
+    assert "ENGINEER_WATER_REFILLED" not in qml
 
 
 def test_panel_specs_do_not_import_a_gui_toolkit() -> None:
