@@ -101,6 +101,8 @@ def test_more_panel_covers_command_driven_extra_functions() -> None:
     assert {
         "START_UP_IMMEDIATE",
         "SHUTDOWN_IMMEDIATE",
+        "ENGINEER_FUEL_LEVEL",
+        "ENGINEER_WATER_LEVEL",
         "SPEED_ROLL",
         "VOLUME_UP",
         "VOLUME_DOWN",
