@@ -366,12 +366,25 @@ class CabController(QObject):
         if self._command_port is None:
             return []
         type_key = self._command_port.controller_type_key
-        return [
-            {"section": item.section, "label": item.label, "command": item.command}
-            for item in panel_actions(key)
-            if (not item.type_keys or type_key in item.type_keys)
-            and self._command_port.supports_panel_command(item.command)
-        ]
+        model: list[dict] = []
+        for item in panel_actions(key):
+            if item.type_keys and type_key not in item.type_keys:
+                continue
+            if not self._command_port.supports_panel_command(item.command):
+                continue
+            hold_command = item.hold_command
+            if hold_command and not self._command_port.supports_panel_command(hold_command):
+                hold_command = ""
+            model.append(
+                {
+                    "section": item.section,
+                    "label": item.label,
+                    "command": item.command,
+                    "holdCommand": hold_command,
+                    "holdThreshold": item.hold_threshold_ms,
+                }
+            )
+        return model
 
     @Slot(str)
     def triggerPanelCommand(self, command: str) -> None:
