@@ -1,20 +1,33 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 ApplicationWindow {
     id: window
     visible: true
-    width: 800
+    width: 720
     height: 1280
-    minimumWidth: 520
-    minimumHeight: 760
+    minimumWidth: 480
+    minimumHeight: 720
     color: "#0f1115"
     title: "PyTrain — " + cabController.scope + " " + cabController.tmccId
 
-    CabView {
+    ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        cab: cabController
+        anchors.margins: 8
+        spacing: 6
+
+        CabView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            cab: cabController
+        }
+
+        ScopeBar {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 52
+            currentScope: cabController.scope
+        }
     }
 
     Shortcut { sequence: "Up"; onActivated: cabController.changeSpeed(1) }
