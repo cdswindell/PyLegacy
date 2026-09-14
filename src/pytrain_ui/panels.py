@@ -157,6 +157,8 @@ _TOWER = (
 _MORE = (
     PanelAction("Engine", "Start Up", "START_UP_IMMEDIATE"),
     PanelAction("Engine", "Shut Down", "SHUTDOWN_IMMEDIATE"),
+    PanelAction("Engine", "Fuel", "ENGINEER_FUEL_LEVEL"),
+    PanelAction("Engine", "Water", "ENGINEER_WATER_LEVEL"),
     PanelAction("Motion", "Speed Roll", "SPEED_ROLL"),
     PanelAction("Sound", "Master Volume +", "VOLUME_UP"),
     PanelAction("Sound", "Master Volume −", "VOLUME_DOWN"),
