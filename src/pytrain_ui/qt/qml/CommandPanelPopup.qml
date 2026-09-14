@@ -9,6 +9,7 @@ Popup {
     property string panelKey: ""
     property string panelTitle: ""
     property var actionModel: []
+    readonly property var sectionModel: buildSections(actionModel)
 
     function openFor(key) {
         panelKey = key
@@ -17,65 +18,177 @@ Popup {
         open()
     }
 
-    width: Math.min(560, (parent ? parent.width : 620) - 40)
-    height: Math.min(620, Math.max(220, contentColumn.implicitHeight + 36))
+    function buildSections(actions) {
+        const sections = []
+        for (let i = 0; i < actions.length; ++i) {
+            const action = actions[i]
+            const name = action.section || "Options"
+            let section = null
+            for (let j = 0; j < sections.length; ++j) {
+                if (sections[j].title === name) {
+                    section = sections[j]
+                    break
+                }
+            }
+            if (section === null) {
+                section = {"title": name, "actions": []}
+                sections.push(section)
+            }
+            section.actions.push(action)
+        }
+        return sections
+    }
+
+    width: Math.min(620, (parent ? parent.width : 680) - 32)
+    height: Math.min(700, Math.max(240, (parent ? parent.height : 740) - 48))
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
     modal: true
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    padding: 16
+    padding: 0
 
     background: Rectangle {
-        radius: 12
-        color: "#252a31"
+        radius: 14
+        color: "#20252c"
         border.width: 1
-        border.color: "#697382"
+        border.color: "#626c79"
     }
 
     contentItem: ColumnLayout {
-        id: contentColumn
-        spacing: 10
+        spacing: 0
 
-        Label {
+        Rectangle {
             Layout.fillWidth: true
-            text: root.panelTitle
-            color: "white"
-            font.pixelSize: 20
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-        }
+            Layout.preferredHeight: 62
+            color: "#292f38"
+            radius: 14
 
-        ScrollView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 14
+                color: parent.color
+            }
 
-            GridLayout {
-                width: parent.width
-                columns: width >= 430 ? 3 : 2
-                columnSpacing: 6
-                rowSpacing: 6
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 18
+                anchors.rightMargin: 10
+                spacing: 10
 
-                Repeater {
-                    model: root.actionModel
-                    FunctionButton {
-                        required property var modelData
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+
+                    Label {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 42
-                        compact: true
-                        text: (modelData.section ? modelData.section + " · " : "") + modelData.label
-                        onClicked: root.cab.triggerPanelCommand(modelData.command)
+                        text: root.panelTitle
+                        color: "#f5f7fa"
+                        font.pixelSize: 20
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.actionModel.length + (root.actionModel.length === 1 ? " command" : " commands")
+                        color: "#aeb6c2"
+                        font.pixelSize: 11
+                    }
+                }
+
+                ToolButton {
+                    Layout.preferredWidth: 42
+                    Layout.preferredHeight: 42
+                    text: "✕"
+                    font.pixelSize: 17
+                    onClicked: root.close()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#dfe4ea"
+                        font: parent.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        radius: 8
+                        color: parent.down ? "#48515e" : "#343b45"
+                        border.width: 1
+                        border.color: "#596371"
                     }
                 }
             }
         }
 
-        CabButton {
+        ScrollView {
             Layout.fillWidth: true
-            Layout.preferredHeight: 42
-            text: "Close"
-            onClicked: root.close()
+            Layout.fillHeight: true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.topMargin: 10
+            Layout.bottomMargin: 10
+            clip: true
+
+            ColumnLayout {
+                width: parent.width
+                spacing: 10
+
+                Repeater {
+                    model: root.sectionModel
+
+                    Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: sectionLayout.implicitHeight + 20
+                        radius: 10
+                        color: "#282e36"
+                        border.width: 1
+                        border.color: "#414a56"
+
+                        ColumnLayout {
+                            id: sectionLayout
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 10
+                            spacing: 7
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.title
+                                color: "#aeb8c5"
+                                font.pixelSize: 11
+                                font.bold: true
+                                font.capitalization: Font.AllUppercase
+                            }
+
+                            GridLayout {
+                                Layout.fillWidth: true
+                                columns: width >= 500 ? 3 : width >= 310 ? 2 : 1
+                                columnSpacing: 7
+                                rowSpacing: 7
+
+                                Repeater {
+                                    model: modelData.actions
+
+                                    FunctionButton {
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 44
+                                        compact: true
+                                        text: modelData.label
+                                        onClicked: root.cab.triggerPanelCommand(modelData.command)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
