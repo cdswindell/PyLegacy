@@ -25,9 +25,29 @@ def _int_value(value: object | None) -> int:
         return 0
 
 
+def _speed_limit_text(state: EngineOrTrainState) -> str:
+    speeds = getattr(state, "speeds", (None, None, None, None))
+    speed_limit = speeds[2] if len(speeds) > 2 else None
+    return "" if speed_limit is None else str(speed_limit)
+
+
 def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
     default_speed_max = 199 if state.is_legacy else 31
     speed_max = _int_value(getattr(state, "speed_max", default_speed_max)) or default_speed_max
+    momentum = _int_value(getattr(state, "momentum", 0))
+    train_brake = _int_value(getattr(state, "train_brake", 0))
+    smoke = _int_value(getattr(state, "smoke", 0))
+    labor_value = getattr(state, "labor", None)
+    rpm_value = getattr(state, "rpm", None)
+    is_rpm = bool(getattr(state, "is_rpm", False))
+
+    if state.is_legacy:
+        brake_text = str(train_brake) if train_brake else "Off"
+        smoke_text = str(getattr(state, "smoke_text", "") or "")
+    else:
+        brake_text = "NA"
+        smoke_text = "NA"
+
     return EngineViewState(
         scope=state.scope.name,
         tmcc_id=state.tmcc_id,
@@ -37,11 +57,17 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
         target_speed=_int_value(getattr(state, "target_speed", 0)),
         speed_max=speed_max,
         direction=_enum_name(getattr(state, "direction", None)),
-        momentum=_int_value(getattr(state, "momentum", 0)),
-        train_brake=_int_value(getattr(state, "train_brake", 0)),
-        smoke=_int_value(getattr(state, "smoke", 0)),
-        labor=_int_value(getattr(state, "labor", 0)),
-        rpm=_int_value(getattr(state, "rpm", 0)),
+        momentum=momentum,
+        train_brake=train_brake,
+        smoke=smoke,
+        labor=_int_value(labor_value),
+        rpm=_int_value(rpm_value),
+        momentum_text=str(getattr(state, "momentum_text", "") or momentum),
+        brake_text=brake_text,
+        smoke_text=smoke_text,
+        speed_limit_text=_speed_limit_text(state),
+        effort_text="" if labor_value is None else str(labor_value),
+        rpm_text=str(rpm_value) if is_rpm and rpm_value is not None else "NA",
     )
 
 
