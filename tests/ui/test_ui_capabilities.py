@@ -49,6 +49,8 @@ def test_steam_repeat_controls_preserve_engine_gui_cadence() -> None:
 
 def test_crane_operations_do_not_leak_to_other_types() -> None:
     crane_keys = (
+        "crane_sound_on",
+        "crane_sound_off",
         "crane_radio",
         "crane_boom",
         "crane_outriggers",
@@ -64,9 +66,41 @@ def test_crane_operations_do_not_leak_to_other_types() -> None:
         assert action_applies_to_type(action, "d") is False
 
 
+def test_transformer_operations_match_transformer_layout_family() -> None:
+    transformer_keys = (
+        "transformer_horn",
+        "transformer_bell",
+        "transformer_front_coupler",
+        "transformer_rear_coupler",
+        "transformer_direction",
+        "transformer_on",
+        "transformer_off",
+    )
+    for key in transformer_keys:
+        action = CAB_ACTIONS_BY_KEY[key]
+        assert action_applies_to_type(action, "t") is True
+        assert action_applies_to_type(action, "d") is False
+
+
+def test_acela_inherits_engine_controls_and_keeps_acela_aux_variants() -> None:
+    for key in ("startup", "shutdown", "rpm_up", "rpm_down", "labor_up", "labor_down", "sequence"):
+        assert action_applies_to_type(CAB_ACTIONS_BY_KEY[key], "a") is True
+
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["pantograph_both_down"], "a") is True
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["pantograph_both_up"], "a") is True
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["acela_aux2"], "a") is True
+    assert action_applies_to_type(CAB_ACTIONS_BY_KEY["acela_aux3"], "a") is True
+
+
 def test_non_engine_aux_variants_keep_plain_button_semantics() -> None:
     assert CAB_ACTIONS_BY_KEY["car_aux1"].repeat_interval_ms == 200
     assert CAB_ACTIONS_BY_KEY["car_aux1"].hold is False
     assert CAB_ACTIONS_BY_KEY["car_aux2"].hold is False
     assert CAB_ACTIONS_BY_KEY["car_aux3"].hold is False
+    assert CAB_ACTIONS_BY_KEY["crane_aux1"].repeat_interval_ms == 200
+    assert CAB_ACTIONS_BY_KEY["crane_aux1"].hold is False
+    assert CAB_ACTIONS_BY_KEY["crane_aux2"].hold is False
+    assert CAB_ACTIONS_BY_KEY["crane_aux3"].hold is False
+    assert CAB_ACTIONS_BY_KEY["acela_aux2"].hold is False
+    assert CAB_ACTIONS_BY_KEY["acela_aux3"].hold is False
     assert CAB_ACTIONS_BY_KEY["acela_aux3"].label == "Aux3 · Arcing"
