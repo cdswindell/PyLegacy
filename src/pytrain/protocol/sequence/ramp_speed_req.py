@@ -91,6 +91,12 @@ class RampSpeedReqBase(SequenceReq, ABC):
             if engr and dialog:
                 self.add(engr, address, scope=scope, delay=ENGINEER_DIALOG_DELAY)
 
+    def __repr__(self) -> str:
+        return (
+            f"[{self.scope.name} {self.address} {self.command_name} "
+            f"target_speed: {self.target_speed} dialog: {self._dialog} is_ramp: {self.is_ramp}]"
+        )
+
     @property
     def target_speed(self) -> int:
         return self._target_speed

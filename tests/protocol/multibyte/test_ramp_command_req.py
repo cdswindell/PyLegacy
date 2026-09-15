@@ -26,6 +26,21 @@ PAYLOAD = bytes.fromhex("c0a801071234abcd018bcfe5687b")
 
 
 @pytest.mark.parametrize("command", RAMP_COMMANDS)
+@pytest.mark.parametrize("scope", SCOPES)
+@pytest.mark.parametrize("from_tmcc_rx", (False, True))
+def test_ramp_repr(command, scope, from_tmcc_rx):
+    req = RampCommandReq.for_endpoint(command, 3180, "192.168.1.7", 0x1234, 0xABCD, scope, timestamp_ms=TIMESTAMP_MS)
+    req = RampCommandReq.from_bytes(req.as_bytes, from_tmcc_rx=from_tmcc_rx)
+
+    rx = " (RX)" if from_tmcc_rx else ""
+    assert repr(req) == (
+        f"[{scope.name} 3180 {command.name} endpoint: 192.168.1.7:4660 "
+        f"claim_id: 43981 timestamp_ms: {TIMESTAMP_MS}{rx}]"
+    )
+    assert req.data_bytes == PAYLOAD
+
+
+@pytest.mark.parametrize("command", RAMP_COMMANDS)
 @pytest.mark.parametrize("timestamp_ms", (1, TIMESTAMP_MS, (1 << 48) - 1))
 def test_ramp_timestamp_roundtrip(command, timestamp_ms):
     req = RampCommandReq.for_endpoint(command, 3180, "192.168.1.7", 0x1234, 0xABCD, timestamp_ms=timestamp_ms)

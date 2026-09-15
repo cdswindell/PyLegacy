@@ -19,6 +19,7 @@ if sys.version_info >= (3, 11):
     from typing import Self
 
 
+# noinspection method-overriding
 class RampCommandReq(VariableCommandReq):
     """Synthetic ramp ownership identified by an IPv4 endpoint and a short claim ID.
 
@@ -107,6 +108,14 @@ class RampCommandReq(VariableCommandReq):
             int.from_bytes(payload[8:14], "big"),
         )
         super().__init__(command_def_enum, address, payload, scope)
+
+    def __repr__(self) -> str:
+        rx = " (RX)" if self.is_tmcc_rx else ""
+        return (
+            f"[{self.scope.name} {self.address} {self.command_name} "
+            f"endpoint: {self.host}:{self.port} claim_id: {self.claim_id} "
+            f"timestamp_ms: {self.timestamp_ms}{rx}]"
+        )
 
     def _validate_send(self) -> None:
         raise ValueError(

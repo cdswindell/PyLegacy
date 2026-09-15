@@ -87,6 +87,20 @@ def enums(req: SequenceReq) -> list:
 # gui/controller/engine_gui.py builds both with the same arguments and lints clean.
 # noinspection PyMethodMayBeStatic,PyArgumentList,PyNoneFunctionAssignment
 class TestRampSpeedReq(TestBase):
+    @pytest.mark.parametrize("cls", [RampSpeedReq, RampSpeedDialogReq])
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("speed", [0, None])
+    def test_repr(self, monkeypatch, cls, scope, speed):
+        state = StubEngineState(speed=speed, scope=scope)
+        install_state(monkeypatch, state)
+        req = cls(12, 60, scope)
+
+        assert repr(req) == (
+            f"[{scope.name} 12 {req.command.name} target_speed: 60 "
+            f"dialog: {cls is RampSpeedDialogReq} is_ramp: {speed is not None}]"
+        )
+        assert state.ramp_calls == []
+
     #
     # registration and dispatch
     #
