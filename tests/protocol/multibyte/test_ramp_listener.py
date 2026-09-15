@@ -15,8 +15,13 @@ from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 @pytest.mark.parametrize("command", (TMCC2EngineCommandEnumEx.RAMP_CLAIM, TMCC2EngineCommandEnumEx.RAMP_RELEASE))
 @pytest.mark.parametrize("address", (7, 3180, 9999))
 @pytest.mark.parametrize("scope", (CommandScope.ENGINE, CommandScope.TRAIN))
-def test_listener_consumes_ramp_followed_by_speed(command, address, scope):
-    ramp = RampCommandReq.for_endpoint(command, address, "127.0.0.1", 5110, 123, scope)
+@pytest.mark.parametrize("timestamp_ms", (1, 1_700_000_000_123, (1 << 48) - 1))
+def test_listener_consumes_ramp_followed_by_speed(command, address, scope, timestamp_ms):
+    ramp = RampCommandReq.for_endpoint(command, address, "127.0.0.1", 5110, 123, scope, timestamp_ms=timestamp_ms)
+    assert ramp.data_bytes == bytes.fromhex("7f00000113f6007b") + timestamp_ms.to_bytes(6, "big")
+    assert len(ramp.data_bytes) == 14
+    assert len(ramp.as_bytes) == ramp.num_bytes == 63
+    assert ramp.as_bytes[5] == 16
     speed = CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, 42, scope)
     singletons = (CommandListener._instance, CommandDispatcher._instance)
     listener = object.__new__(CommandListener)
@@ -54,6 +59,9 @@ def test_listener_consumes_ramp_followed_by_speed(command, address, scope):
     assert received[0].address == address
     assert received[0].scope is scope
     assert (received[0].host, received[0].port, received[0].claim_id) == ("127.0.0.1", 5110, 123)
+    assert received[0].timestamp_ms == timestamp_ms
+    assert received[0].data_bytes == ramp.data_bytes
+    assert received[0].num_bytes == 63
     assert received[0].as_bytes == ramp.as_bytes
     assert received[1].command is TMCC2EngineCommandEnum.ABSOLUTE_SPEED
     assert received[1].address == address

@@ -19,7 +19,7 @@ import secrets
 import socket
 from dataclasses import dataclass, field
 from threading import Event, RLock, Thread
-from time import monotonic
+from time import monotonic, time_ns
 from typing import TYPE_CHECKING, Callable
 
 from ..constants import CommandScope
@@ -33,7 +33,6 @@ log = logging.getLogger(__name__)
 
 CLAIM_REFRESH = 5.0
 CLAIM_TTL = 15.0
-CLAIM_TIMEOUT = 0.75
 
 
 @dataclass(frozen=True)
@@ -43,14 +42,22 @@ class RampClaim:
     host: str
     port: int
     claim_id: int
+    timestamp_ms: int = field(default_factory=lambda: time_ns() // 1_000_000)
+
+    @property
+    def priority(self) -> tuple[int, bytes, int, int]:
+        """Earlier requests win; identity breaks ties in the same millisecond."""
+        return self.timestamp_ms, ipaddress.IPv4Address(self.host).packed, self.port, self.claim_id
 
     @classmethod
     def from_request(cls, command: RampCommandReq) -> RampClaim:
-        return cls(command.scope, command.address, command.host, command.port, command.claim_id)
+        return cls(command.scope, command.address, command.host, command.port, command.claim_id, command.timestamp_ms)
 
     def request(self, *, release: bool = False) -> RampCommandReq:
         command = TMCC2EngineCommandEnumEx.RAMP_RELEASE if release else TMCC2EngineCommandEnumEx.RAMP_CLAIM
-        return RampCommandReq.for_endpoint(command, self.address, self.host, self.port, self.claim_id, self.scope)
+        return RampCommandReq.for_endpoint(
+            command, self.address, self.host, self.port, self.claim_id, self.scope, timestamp_ms=self.timestamp_ms
+        )
 
 
 def advertised_host() -> str:
@@ -88,11 +95,8 @@ def publish_claim(command: RampCommandReq) -> None:
 class _Session:
     ramp: SpeedRamp
     claim: RampClaim
-    seen: bool = False
     retired: bool = False
     refreshed: float = field(default_factory=monotonic)
-    ready: Event = field(default_factory=Event)
-    error: str | None = None
 
 
 class RampPeer:
@@ -152,40 +156,35 @@ class RampPeer:
             session = self._ramps[ramp] = _Session(ramp, claim)
             ramp.claim = claim
         try:
-            self._publisher(claim.request())
-            deadline = monotonic() + CLAIM_TIMEOUT
-            while not session.ready.is_set():
-                if not ramp.is_active or self._closed.is_set():
-                    raise OSError("Ramp was canceled while claiming ownership")
-                remaining = deadline - monotonic()
-                if remaining <= 0:
-                    raise TimeoutError("Ramp claim was not confirmed by the server")
-                session.ready.wait(min(remaining, 0.02))
-            if session.error is not None:
-                raise ValueError(session.error)
-            if session.retired or not ramp.is_active:
+            # Install locally before publication: neither GUI ownership nor startup
+            # depends on a return broadcast. State resolves concurrent claims by age.
+            command = claim.request()
+            ramp.state.update(command)
+            if session.retired or not ramp.is_active or self._closed.is_set():
+                raise OSError("Ramp was canceled while claiming ownership")
+            if ramp.state.ramp_claim != claim:
+                raise ValueError(f"Ramp already owned by another controller for {ramp.scope.title} {ramp.tmcc_id}")
+            self._publisher(command)
+            if session.retired or not ramp.is_active or self._closed.is_set():
                 raise OSError("Ramp was canceled while claiming ownership")
         except Exception:
             self.release(ramp)
             raise
 
     def claim_received(self, ramp: SpeedRamp, claim: RampClaim, *, accepted: bool = True) -> None:
-        """Only synthetic announcements reach here, in server/broadcast order."""
+        """Resolve races only on synthetic announcements, never ordinary traffic."""
         with self._lock:
             session = self._ramps.get(ramp)
             if session is None or session.retired:
                 return
-            if claim == session.claim and accepted:
-                session.seen = True
-                session.ready.set()
+            if (claim.scope, claim.address) != (session.claim.scope, session.claim.address):
                 return
-            if (claim == session.claim and not accepted) or (claim != session.claim and accepted):
-                session.error = f"Ramp already owned by another controller for {claim.scope.title} {claim.address}"
-                session.ready.set()
-            else:
+            if claim == session.claim:
+                if accepted:
+                    return
+            elif not accepted or claim.priority >= session.claim.priority:
                 return
-        # Never stop the incumbent in response to a rejected competing claim.
-        ramp.abort(session.error)
+        ramp.abort(f"Ramp already owned by an earlier request for {claim.scope.title} {claim.address}")
 
     def release(self, ramp: SpeedRamp) -> None:
         """Schedule a matching release without blocking the command dispatch thread."""
@@ -193,11 +192,12 @@ class RampPeer:
             session = self._ramps.get(ramp)
             if session is not None:
                 session.retired = True
-                session.ready.set()
         self._work.set()
 
     def _release_claim(self, session: _Session) -> None:
-        self._publisher(session.claim.request(release=True))
+        command = session.claim.request(release=True)
+        session.ramp.state.update(command)
+        self._publisher(command)
         with self._lock:
             if self._ramps.get(session.ramp) is session:
                 del self._ramps[session.ramp]
@@ -218,8 +218,12 @@ class RampPeer:
             try:
                 if session.retired:
                     self._release_claim(session)
-                elif session.seen and now - session.refreshed >= CLAIM_REFRESH:
-                    self._publisher(session.claim.request())
+                elif now - session.refreshed >= CLAIM_REFRESH:
+                    command = session.claim.request()
+                    session.ramp.state.update(command)
+                    if session.retired:
+                        continue
+                    self._publisher(command)
                     session.refreshed = now
             except (OSError, ValueError) as exc:
                 log.warning("Ramp claim publication failed: %s", exc)

@@ -910,5 +910,5 @@ TMCC2_RAMP_RELEASE_COMMAND = 0xF101
 
 class TMCC2EngineCommandEnumEx(TMCC2VariableEnum):
     TARGET_SPEED = VariableCommandDef(TMCC2_TARGET_SPEED_COMMAND, 1, d_max=199, noop=True)
-    RAMP_CLAIM = VariableCommandDef(TMCC2_RAMP_CLAIM_COMMAND, 10, noop=True)
-    RAMP_RELEASE = VariableCommandDef(TMCC2_RAMP_RELEASE_COMMAND, 10, noop=True)
+    RAMP_CLAIM = VariableCommandDef(TMCC2_RAMP_CLAIM_COMMAND, 16, noop=True)
+    RAMP_RELEASE = VariableCommandDef(TMCC2_RAMP_RELEASE_COMMAND, 16, noop=True)

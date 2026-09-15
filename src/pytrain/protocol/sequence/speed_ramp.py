@@ -771,7 +771,7 @@ class SpeedRamp(Thread):
             self._last_labor = labor
 
     def _acquire_claim(self) -> None:
-        """Wait in the worker before any emission, without state or registry locks."""
+        """Publish from the worker before emitting, without waiting for a claim echo."""
         if self._claim_acquired or self._is_running is False:
             return
         try:

@@ -413,7 +413,7 @@ class EngineState(ComponentState):
         else:
             current = self.ramp_claim
             accepted = not any(old == claim and expires > now for old, expires in self._retired_ramp_claims)
-            accepted = accepted and (current is None or current == claim)
+            accepted = accepted and (current is None or current == claim or claim.priority < current.priority)
             if accepted:
                 if self._ramp_claim != claim:
                     self._retire_ramp_claim()

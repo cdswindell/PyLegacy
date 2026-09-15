@@ -32,7 +32,7 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import *
 from ..test_base import TestBase
 
 RAMP_COMMANDS = (TMCC2EngineCommandEnumEx.RAMP_CLAIM, TMCC2EngineCommandEnumEx.RAMP_RELEASE)
-RAMP_PAYLOAD = bytes.fromhex("c0a801071234abcd")
+RAMP_PAYLOAD = bytes.fromhex("c0a801071234abcd018bcfe5687b")
 
 
 # noinspection PyMethodMayBeStatic
@@ -305,8 +305,9 @@ class TestCommandReq(TestBase):
         assert parsed.address == address
         assert parsed.scope == scope
         assert parsed.data_bytes == req.data_bytes == RAMP_PAYLOAD
+        assert parsed.timestamp_ms == req.timestamp_ms == 1_700_000_000_123
         assert parsed.as_bytes == req.as_bytes
-        assert len(req.as_bytes) == req.num_bytes == 45
+        assert len(req.as_bytes) == req.num_bytes == 63
         assert parsed.is_tmcc4 is req.is_tmcc4 is False
 
     @pytest.mark.parametrize("command", RAMP_COMMANDS)
@@ -413,6 +414,7 @@ class TestCommandReq(TestBase):
                         assert isinstance(req, RampCommandReq)
                         assert req.data == 0
                         assert req.data_bytes == RAMP_PAYLOAD
+                        assert req.timestamp_ms == 1_700_000_000_123
                         assert cmd.num_data_bytes == len(req.data_bytes) + 2
                     else:
                         assert not isinstance(req, RampCommandReq)
@@ -609,14 +611,15 @@ class TestCommandReq(TestBase):
                         if tmcc_enum in RAMP_COMMANDS:
                             assert isinstance(req, RampCommandReq)
                             assert isinstance(req_from_bytes, RampCommandReq)
-                            assert len(req.as_bytes) == req.num_bytes == 45
+                            assert len(req.as_bytes) == req.num_bytes == 63
                             assert req.as_bytes[1:3] == b"\x03\x6f"
-                            assert req.as_bytes[5] == tmcc_enum.num_data_bytes == 10
+                            assert req.as_bytes[5] == tmcc_enum.num_data_bytes == 16
                             assert req.as_bytes[14:-3:3] == req.address.to_bytes(2, "big") + RAMP_PAYLOAD
                             assert req_from_bytes.data_bytes == req.data_bytes == RAMP_PAYLOAD
                             assert req_from_bytes.host == req.host == "192.168.1.7"
                             assert req_from_bytes.port == req.port == 0x1234
                             assert req_from_bytes.claim_id == req.claim_id == 0xABCD
+                            assert req_from_bytes.timestamp_ms == req.timestamp_ms == 1_700_000_000_123
                             assert req_from_bytes.is_tmcc4 is req.is_tmcc4 is False
                         else:
                             assert not isinstance(req, (ParameterCommandReq, RampCommandReq))

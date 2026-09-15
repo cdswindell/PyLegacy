@@ -22,9 +22,10 @@ if sys.version_info >= (3, 11):
 class RampCommandReq(VariableCommandReq):
     """Synthetic ramp ownership identified by an IPv4 endpoint and a short claim ID.
 
-    The public payload is eight bytes: IPv4 (4), port (2), and claim ID (2).
-    The wire payload prepends the logical address (2); all integers use network
-    byte order. Packets always use three-byte variable words at framing address 1,
+    The public payload is fourteen bytes: IPv4 (4), port/process nonce (2),
+    claim ID (2), and an immutable millisecond Unix epoch timestamp (6).
+    The sixteen-byte wire payload prepends the logical address (2); all integers
+    use unsigned network byte order. Packets use three-byte words at framing address 1,
     with ENGINE/TRAIN scope in the usual prefixes, regardless of logical address.
     """
 
@@ -44,8 +45,8 @@ class RampCommandReq(VariableCommandReq):
                 raise ValueError(
                     f"Ramp commands require three-byte words at framing address 1: {address_bytes.hex(':')}"
                 )
-            if not isinstance(data_bytes, (bytes, bytearray, list)) or len(data_bytes) != 10:
-                raise ValueError("Ramp wire payload must contain exactly ten bytes")
+            if not isinstance(data_bytes, (bytes, bytearray, list)) or len(data_bytes) != 16:
+                raise ValueError("Ramp wire payload must contain exactly sixteen bytes")
             address = int.from_bytes(bytes(data_bytes[:2]), byteorder="big")
             data_bytes = data_bytes[2:]
         return cls(command, address, data_bytes, scope)
@@ -59,11 +60,13 @@ class RampCommandReq(VariableCommandReq):
         port: int,
         claim_id: int,
         scope: CommandScope = None,
+        *,
+        timestamp_ms: int,
     ) -> Self:
-        return cls.build(command, address, cls._endpoint_bytes(host, port, claim_id), scope)
+        return cls.build(command, address, cls._endpoint_bytes(host, port, claim_id, timestamp_ms), scope)
 
     @staticmethod
-    def _endpoint_bytes(host: str, port: int, claim_id: int) -> bytes:
+    def _endpoint_bytes(host: str, port: int, claim_id: int, timestamp_ms: int) -> bytes:
         if not isinstance(host, str):
             raise ValueError("Ramp host must be a unicast IPv4 address")
         ip = IPv4Address(host)
@@ -72,7 +75,9 @@ class RampCommandReq(VariableCommandReq):
         for label, value in (("port", port), ("claim_id", claim_id)):
             if type(value) is not int or not 1 <= value <= 65535:
                 raise ValueError(f"Ramp {label} must be an integer from 1 to 65535: {value}")
-        return ip.packed + port.to_bytes(2, "big") + claim_id.to_bytes(2, "big")
+        if type(timestamp_ms) is not int or not 1 <= timestamp_ms < 1 << 48:
+            raise ValueError(f"Ramp timestamp_ms must be an integer from 1 to {(1 << 48) - 1}: {timestamp_ms}")
+        return ip.packed + port.to_bytes(2, "big") + claim_id.to_bytes(2, "big") + timestamp_ms.to_bytes(6, "big")
 
     def __init__(
         self,
@@ -88,15 +93,18 @@ class RampCommandReq(VariableCommandReq):
         if type(address) is not int or not 1 <= address <= 9999 or address == 99:
             raise ValueError(f"Invalid ramp address: {address}")
         if not isinstance(data_bytes, (bytes, bytearray, list)):
-            raise ValueError("Ramp payload must contain exactly eight bytes")
+            raise ValueError("Ramp payload must contain exactly fourteen bytes")
         try:
             payload = bytes(data_bytes)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Ramp payload must contain exactly eight bytes") from exc
-        if len(payload) != 8:
-            raise ValueError("Ramp payload must contain exactly eight bytes")
+            raise ValueError("Ramp payload must contain exactly fourteen bytes") from exc
+        if len(payload) != 14:
+            raise ValueError("Ramp payload must contain exactly fourteen bytes")
         self._endpoint_bytes(
-            str(IPv4Address(payload[:4])), int.from_bytes(payload[4:6], "big"), int.from_bytes(payload[6:8], "big")
+            str(IPv4Address(payload[:4])),
+            int.from_bytes(payload[4:6], "big"),
+            int.from_bytes(payload[6:8], "big"),
+            int.from_bytes(payload[8:14], "big"),
         )
         super().__init__(command_def_enum, address, payload, scope)
 
@@ -136,3 +144,7 @@ class RampCommandReq(VariableCommandReq):
     @property
     def claim_id(self) -> int:
         return int.from_bytes(self.data_bytes[6:8], "big")
+
+    @property
+    def timestamp_ms(self) -> int:
+        return int.from_bytes(self.data_bytes[8:14], "big")

@@ -28,8 +28,10 @@ def state(monkeypatch):
     return state
 
 
-def claim(identifier=1):
-    return RampClaim(CommandScope.ENGINE, 7, "127.0.0.1", 50000, identifier)
+def claim(identifier=1, *, timestamp_ms=None):
+    return RampClaim(
+        CommandScope.ENGINE, 7, "127.0.0.1", 50000, identifier, timestamp_ms or 1_800_000_000_000 + identifier
+    )
 
 
 def test_first_claim_wins_until_matching_release(state):
@@ -41,6 +43,38 @@ def test_first_claim_wins_until_matching_release(state):
     state.update(claim(1).request(release=True))
     state.update(claim(3).request())
     assert state.ramp_claim == claim(3)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_earlier_timestamp_wins_even_when_received_last(state, reverse):
+    earlier = claim(2, timestamp_ms=1_800_000_000_001)
+    later = claim(1, timestamp_ms=1_800_000_000_002)
+    for owner in (later, earlier) if reverse else (earlier, later):
+        state.update(CommandReq.from_bytes(owner.request().as_bytes))
+    assert state.ramp_claim == earlier
+    state.update(later.request(release=True))
+    assert state.ramp_claim == earlier
+    state.update(earlier.request(release=True))
+    state.update(later.request())
+    assert state.ramp_claim is None
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_equal_millisecond_claims_use_identity_tiebreaker(state, reverse):
+    first, second = (claim(identifier, timestamp_ms=1_800_000_000_000) for identifier in (1, 2))
+    for owner in (second, first) if reverse else (first, second):
+        state.update(owner.request())
+    assert state.ramp_claim == first
+
+
+def test_reused_endpoint_and_id_do_not_make_old_release_match_new_claim(state):
+    first, second = (claim(timestamp_ms=value) for value in (1_800_000_000_001, 1_800_000_000_002))
+    state.update(first.request())
+    state.update(first.request(release=True))
+    state.update(second.request())
+    state.update(first.request(release=True))
+    state.update(first.request())
+    assert state.ramp_claim == second
 
 
 def test_remote_claim_blocks_ramp_start_without_replacing_owner(state):
@@ -234,7 +268,7 @@ def test_foreign_claim_cannot_stop_local_owner_or_change_database(state, monkeyp
         peer.acquire(ramp)
         ramp._commanded_speed = 25
         before = state.speed, state.target_speed
-        state.update(claim(99).request())
+        state.update(claim(99, timestamp_ms=ramp.claim.timestamp_ms + 1).request())
         assert ramp.is_active
         assert state.ramp_claim == ramp.claim
         assert state.is_remote_ramping is False
