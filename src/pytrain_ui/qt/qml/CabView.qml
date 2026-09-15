@@ -11,8 +11,9 @@ Rectangle {
     readonly property bool shortLayout: height < 1000
     readonly property bool veryShortLayout: height < 850
     readonly property bool narrowLayout: width < 650
-    readonly property int controlHeaderHeight: piLayout ? 36 : 32
+    readonly property int controlHeaderHeight: piLayout ? 34 : 32
     readonly property int controlFooterHeight: 20
+    readonly property int piControlHeight: 520
 
     function isQuickAction(key) {
         return key === "rear_coupler" || key === "front_coupler" ||
@@ -171,13 +172,16 @@ Rectangle {
             layoutDirection: Qt.RightToLeft
 
             RowLayout {
-                Layout.preferredWidth: root.piLayout ? 184 : 225
-                Layout.fillHeight: true
-                spacing: 4
+                Layout.preferredWidth: root.piLayout ? 158 : 225
+                Layout.preferredHeight: root.piLayout ? root.piControlHeight : -1
+                Layout.maximumHeight: root.piLayout ? root.piControlHeight : 16777215
+                Layout.alignment: Qt.AlignTop
+                Layout.fillHeight: !root.piLayout
+                spacing: 2
                 layoutDirection: Qt.LeftToRight
 
                 ColumnLayout {
-                    Layout.preferredWidth: root.piLayout ? 82 : 78
+                    Layout.preferredWidth: root.piLayout ? 70 : 78
                     Layout.fillHeight: true
                     spacing: 2
                     visible: cab.analogModes.length > 0
@@ -189,8 +193,8 @@ Rectangle {
                         model: cab.analogModes
                         font.pixelSize: root.piLayout ? 10 : 11
                         contentItem: Text {
-                            leftPadding: 5
-                            rightPadding: 18
+                            leftPadding: 4
+                            rightPadding: 16
                             text: analogMode.displayText
                             font: analogMode.font
                             color: "#e9edf2"
@@ -216,10 +220,10 @@ Rectangle {
                 }
 
                 ColumnLayout {
-                    Layout.preferredWidth: root.piLayout ? 98 : 140
+                    Layout.preferredWidth: root.piLayout ? 86 : 140
                     Layout.fillHeight: true
                     spacing: 2
-                    Label { Layout.fillWidth: true; Layout.preferredHeight: root.controlHeaderHeight; text: "THROTTLE  " + cab.speedMax; color: "#b9c0c9"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: root.piLayout ? 10 : 14 }
+                    Label { Layout.fillWidth: true; Layout.preferredHeight: root.controlHeaderHeight; text: "THROTTLE " + cab.speedMax; color: "#b9c0c9"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: root.piLayout ? 10 : 14 }
                     VerticalThrottle { id: throttle; Layout.fillHeight: true; Layout.fillWidth: true; minimumValue: 0; maximumValue: Math.max(1, cab.speedMax); value: cab.targetSpeed; onValueCommitted: function(v) { cab.setSpeed(v) } }
                     Label { Layout.fillWidth: true; Layout.preferredHeight: root.controlFooterHeight; text: "0"; color: "#b9c0c9"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 10 }
                 }
@@ -230,14 +234,7 @@ Rectangle {
                 Layout.fillHeight: true
                 spacing: root.piLayout ? 6 : 8
 
-                Label {
-                    Layout.fillWidth: true
-                    text: "DRIVE & EFFECTS"
-                    color: "#9ea6b0"
-                    font.pixelSize: 10
-                    font.bold: true
-                    leftPadding: 2
-                }
+                Label { Layout.fillWidth: true; text: "DRIVE & EFFECTS"; color: "#9ea6b0"; font.pixelSize: 10; font.bold: true; leftPadding: 2 }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2
@@ -263,14 +260,7 @@ Rectangle {
                     }
                 }
 
-                Label {
-                    Layout.fillWidth: true
-                    text: "QUICK ACTIONS"
-                    color: "#9ea6b0"
-                    font.pixelSize: 10
-                    font.bold: true
-                    leftPadding: 2
-                }
+                Label { Layout.fillWidth: true; text: "QUICK ACTIONS"; color: "#9ea6b0"; font.pixelSize: 10; font.bold: true; leftPadding: 2 }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2
@@ -383,10 +373,9 @@ Rectangle {
                     }
                 }
 
-                Item { Layout.fillHeight: true }
-
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.topMargin: root.piLayout ? 8 : 4
                     spacing: 7
                     CabButton {
                         Layout.fillWidth: true
@@ -399,7 +388,7 @@ Rectangle {
                         onClicked: cab.stop()
                     }
                     CabButton {
-                        Layout.preferredWidth: root.piLayout ? 150 : 180
+                        Layout.preferredWidth: root.piLayout ? 145 : 180
                         Layout.preferredHeight: root.piLayout ? 60 : 58
                         text: "Reset"
                         font.pixelSize: root.piLayout ? 16 : 18
@@ -408,28 +397,53 @@ Rectangle {
                         onClicked: cab.reset()
                     }
                 }
+
+                Item { Layout.fillHeight: true }
             }
         }
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: root.piLayout ? 44 : 50
-            radius: 8
+            Layout.preferredHeight: root.piLayout ? 72 : 58
+            radius: 9
             color: "#23272e"
+            border.width: 1
+            border.color: "#303640"
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 6
-                anchors.rightMargin: 6
-                spacing: 4
+                anchors.margins: root.piLayout ? 7 : 6
+                spacing: 5
                 Repeater {
                     model: cab.infoModel
-                    ColumnLayout {
+                    Rectangle {
                         required property var modelData
                         Layout.fillWidth: true
+                        Layout.fillHeight: true
                         Layout.preferredWidth: 0
-                        spacing: -2
-                        Label { Layout.fillWidth: true; text: modelData.label === "Speed Lim" ? "Speed\nLimit" : modelData.label; color: "#9ea6b0"; horizontalAlignment: Text.AlignHCenter; lineHeight: 0.85; font.pixelSize: root.piLayout ? 9 : 10 }
-                        Label { Layout.fillWidth: true; text: modelData.value; color: "#d9dde3"; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; font.pixelSize: root.piLayout ? 11 : 13 }
+                        radius: 6
+                        color: "#1d2127"
+                        Column {
+                            anchors.centerIn: parent
+                            width: parent.width
+                            spacing: 2
+                            Label {
+                                width: parent.width
+                                text: modelData.label === "Speed Lim" ? "Speed\nLimit" : modelData.label
+                                color: "#9ea6b0"
+                                horizontalAlignment: Text.AlignHCenter
+                                lineHeight: 0.9
+                                font.pixelSize: root.piLayout ? 9 : 10
+                            }
+                            Label {
+                                width: parent.width
+                                text: modelData.value || "—"
+                                color: "#f0f3f6"
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                font.pixelSize: root.piLayout ? 14 : 14
+                                font.bold: true
+                            }
+                        }
                     }
                 }
             }
