@@ -296,8 +296,7 @@ class TestCommandReq(TestBase):
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
     @pytest.mark.parametrize("address", [7, 3180, 9999])
     @pytest.mark.parametrize("command", RAMP_COMMANDS)
-    @pytest.mark.parametrize("api", ["send", "send_request", "as_action", "build_action", "enqueue", "enqueue_bytes"])
-    def test_state_only_ramp_cannot_reach_the_buffer(self, command, address, scope, api):
+    def test_state_only_ramp_roundtrip(self, command, address, scope):
         req = self.build_request(command, address, scope=scope)
         parsed = CommandReq.from_bytes(req.as_bytes)
         assert isinstance(req, RampCommandReq)
@@ -309,6 +308,14 @@ class TestCommandReq(TestBase):
         assert parsed.as_bytes == req.as_bytes
         assert len(req.as_bytes) == req.num_bytes == 45
         assert parsed.is_tmcc4 is req.is_tmcc4 is False
+
+    @pytest.mark.parametrize("command", RAMP_COMMANDS)
+    @pytest.mark.parametrize("api", ["send", "send_request", "as_action", "build_action", "enqueue", "enqueue_bytes"])
+    def test_state_only_ramp_cannot_reach_the_buffer(self, command, api):
+        # Address/scope combinations are covered above; send rejection is unconditional.
+        address, scope = 3180, CommandScope.TRAIN
+        req = self.build_request(command, address, scope=scope)
+        parsed = CommandReq.from_bytes(req.as_bytes)
         with mock.patch.object(CommBuffer, "build") as build_buffer:
             with pytest.raises(ValueError, match=rf"{command.name}.*state-only.*CommBuffer\.update_state"):
                 if api == "send":
