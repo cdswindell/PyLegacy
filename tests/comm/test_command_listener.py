@@ -1,5 +1,4 @@
 import threading
-import time
 from collections import deque
 
 # noinspection PyPackageRequirements
@@ -11,7 +10,7 @@ from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, DEFAULT_QUEUE_SIZE
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from tests.test_base import TestBase
+from tests.test_base import TestBase, wait_until
 
 
 # noinspection PyTypeChecker
@@ -91,7 +90,12 @@ class TestCommandListener(TestBase):
             for i in range(6):
                 assert cmd_bytes[i] == listener._deque[i]
         # outside the lock context, consumer threads will run
-        time.sleep(0.1)  # allow threads to clear deque
+
+        def deque_drained():
+            with listener._cv:
+                return len(listener._deque) == 0
+
+        assert wait_until(deque_drained)
         assert len(listener._deque) == 0  # both entries processed
         # lock should be open too
         assert listener._cv.acquire(blocking=False) is True

@@ -16,12 +16,12 @@ from typing import List
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import BROADCAST_ADDRESS, CommandScope, CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT
 from ..protocol.multibyte.multibyte_constants import (
+    TMCC2DcdsCommandEnum,
     TMCC2EffectsControl,
     TMCC2LightingControl,
     TMCC2MultiByteEnum,
     TMCC2RailSoundsDialogControl,
     TMCC2RailSoundsEffectsControl,
-    TMCC2VariableEnum,
 )
 from ..protocol.sequence.sequence_constants import SequenceCommandEnum
 from ..protocol.tmcc1.engine_cmd import EngineCmd as EngineCmdTMCC1
@@ -869,7 +869,7 @@ class EngineCli(CliBaseTMCC):
                 TMCC2RailSoundsEffectsControl,
                 TMCC2EffectsControl,
                 TMCC2LightingControl,
-                TMCC2VariableEnum,
+                TMCC2DcdsCommandEnum,
                 SequenceCommandEnum,
             ]
 

@@ -1972,6 +1972,7 @@ class ThrottleLever:
     """
 
     value: float = 0.0
+    generation: int = 0
     lever: float = 0.0
     lead_target: int | None = None
     last_commit: float | None = None
@@ -2012,8 +2013,10 @@ class DeckInputRouter:
         # One throttle lever per pane whose stick is working an engine, holding both the
         # deflection and the pending target it has integrated to.
         self._levers: dict[Target, ThrottleLever] = {}
+        self._blocked_throttles: set[Target] = set()
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
+        self._boost_generations: dict[Target, int] = {}
         # A stick working an accessory's speed, as a fraction of full deflection. Kept apart
         # from _levers because the two ramp differently: an engine's throttle accumulates
         # a speed to hold, while an accessory is asked for a relative step at the slider's
@@ -2201,6 +2204,19 @@ class DeckInputRouter:
     def tick(self, now: float) -> None:
         for target in ("left", "right", "focused"):
             self._sync_list_scrolling(target)
+            gui = self._target_gui(target)
+            remote_ramp = getattr(getattr(gui, "throttle_state", None), "is_remote_ramping", False) is True
+            generation = getattr(gui, "throttle_generation", 0)
+            lever = self._levers.get(target)
+            if lever is not None and (remote_ramp or lever.generation != generation):
+                if not lever.settling:
+                    self._blocked_throttles.add(target)
+                self._clear_lever(target)
+            if self._boosts.get(target) in {"BOOST_SPEED", "BRAKE_SPEED"} and (
+                remote_ramp or self._boost_generations.get(target, generation) != generation
+            ):
+                self._boosts.pop(target, None)
+                self._boost_generations.pop(target, None)
         if self._last_tick is None:
             self._last_tick = now
             return
@@ -2372,8 +2388,10 @@ class DeckInputRouter:
         # sliders go back to showing the engines.
         for target in tuple(self._levers):
             self._clear_lever(target)
+        self._blocked_throttles.clear()
         self._quills.clear()
         self._boosts.clear()
+        self._boost_generations.clear()
         self._acc_throttles.clear()
         self._context_repeats.clear()
         # Released rather than forgotten: a pad that disconnects with the stick pushed over
@@ -2718,6 +2736,18 @@ class DeckInputRouter:
         flagged for settle and kept, so tick has a last visit in which to commit the lever
         the gesture has arrived at. A stick already at center that has no lever says nothing.
         """
+        gui = self._target_gui(target)
+        if getattr(getattr(gui, "throttle_state", None), "is_remote_ramping", False) is True:
+            self._clear_lever(target)
+            if value:
+                self._blocked_throttles.add(target)
+            else:
+                self._blocked_throttles.discard(target)
+            return
+        if target in self._blocked_throttles:
+            if not value:
+                self._blocked_throttles.discard(target)
+            return
         deflection = max(-1.0, min(1.0, value))
         lever = self._levers.get(target)
         if deflection == 0.0:
@@ -2728,7 +2758,7 @@ class DeckInputRouter:
                 lever.steady_value = None
             return
         if lever is None:
-            lever = ThrottleLever()
+            lever = ThrottleLever(generation=getattr(gui, "throttle_generation", 0))
             self._levers[target] = lever
         if lever.steady_value is None or abs(deflection - lever.steady_value) > self.profile.hysteresis:
             # Held steady is measured from the last time the thumb moved, so a stick being
@@ -2915,8 +2945,16 @@ class DeckInputRouter:
         if command is None:
             log.warning(f"Unknown dpad action: {binding.action}")
             return
+        if (
+            command in {"BOOST_SPEED", "BRAKE_SPEED"}
+            and getattr(getattr(gui, "throttle_state", None), "is_remote_ramping", False) is True
+        ):
+            self._boosts.pop(action.target, None)
+            self._boost_generations.pop(action.target, None)
+            return
         if binding.repeat:
             self._boosts[action.target] = command
+            self._boost_generations[action.target] = getattr(gui, "throttle_generation", 0)
         gui.on_engine_command(command)
 
     def _handle_select_smoke(self, action: DeckAction) -> None:

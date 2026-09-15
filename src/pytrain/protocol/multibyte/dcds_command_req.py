@@ -1,9 +1,23 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
 from __future__ import annotations
 
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX, TMCC2VariableEnum, VolumeCode
+from .multibyte_constants import (
+    TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX,
+    TMCC2DcdsCommandEnum,
+    TMCC2EngineCommandEnumEx,
+    TMCC2VariableEnum,
+    VolumeCode,
+)
 
 if sys.version_info >= (3, 11):
     from typing import List, Self
@@ -19,16 +33,33 @@ Commands to send/receive variable data byte commands
 """
 
 
+# noinspection argument-list,none-function-assignment,unreachable-code
 class VariableCommandReq(MultiByteReq):
+    # noinspection method-overriding
     @classmethod
     def build(
         cls,
-        command: TMCC2VariableEnum,
+        command: TMCC2VariableEnum | bytes,
         address: int = DEFAULT_ADDRESS,
-        data_bytes: int | List[int] = None,
+        data_bytes: int | List[int] | bytes = None,
         scope: CommandScope = None,
+        *,
+        address_bytes: bytes | None = None,
     ) -> Self:
-        return VariableCommandReq(command, address, data_bytes, scope)
+        """Build from public data or a ramp wire payload when address_bytes is supplied."""
+        if command in {TMCC2EngineCommandEnumEx.RAMP_CLAIM, TMCC2EngineCommandEnumEx.RAMP_RELEASE}:
+            from .ramp_command_req import RampCommandReq
+
+            return RampCommandReq.build(command, address, data_bytes, scope, address_bytes=address_bytes)
+        if command is TMCC2EngineCommandEnumEx.TARGET_SPEED:
+            if isinstance(data_bytes, bytes):
+                data_bytes = list(data_bytes)
+            cmd_req = VariableCommandReq(command, address, data_bytes, scope)
+            if not command.value.is_valid_data(cmd_req.data):
+                raise ValueError(f"Invalid data for {command.name}: {cmd_req.data}")
+            return cmd_req
+        else:
+            return VariableCommandReq(command, address, data_bytes, scope)
 
     @classmethod
     def from_bytes(
@@ -52,7 +83,15 @@ class VariableCommandReq(MultiByteReq):
                 raise ValueError(f"Command requires {(5 + num_data_words) * pkt_len} bytes: {param.hex(':')}")
             # extract command
             pi = int(param[3 * pkt_len + 2]) << 8 | int(param[2 * pkt_len + 2])
-            cmd_enum = TMCC2VariableEnum.by_value(pi)
+            cmd_enum = next(
+                (
+                    command
+                    for enum in (TMCC2DcdsCommandEnum, TMCC2EngineCommandEnumEx)
+                    for command in enum
+                    if command.value.bits == pi
+                ),
+                None,
+            )
             if isinstance(cmd_enum, TMCC2VariableEnum):
                 scope = CommandScope.ENGINE
                 if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
@@ -67,7 +106,7 @@ class VariableCommandReq(MultiByteReq):
                     # first byte of data bytes has to be a volume code
                     volume_code = VolumeCode.by_value(data_bytes[0])
                     if volume_code is None:
-                        raise ValueError(f"Invalid volume code: {data_bytes[0].hex()}")
+                        raise ValueError(f"Invalid volume code: {data_bytes[0]}")
                     cmd_enum = cmd_enum.by_volume_code(volume_code)
                     data_bytes = int(data_bytes[1])
                 # validate check checksum
@@ -79,8 +118,9 @@ class VariableCommandReq(MultiByteReq):
                         f"Invalid Variable byte checksum: {param.hex(':')} != {cls.checksum(param[:-1]).hex()}"
                     )
                 # build_req the request and return
-                address = cmd_enum.value.address_from_bytes(param[1:7] if is_d4 else param[1:3])
-                cmd_req = VariableCommandReq.build(cmd_enum, address, data_bytes, scope)
+                address_bytes = param[1:7] if is_d4 else param[1:3]
+                address = cmd_enum.value.address_from_bytes(address_bytes)
+                cmd_req = VariableCommandReq.build(cmd_enum, address, data_bytes, scope, address_bytes=address_bytes)
                 cmd_req._is_tmcc_rx = from_tmcc_rx
                 cmd_req._is_tmcc4 = is_d4
                 return cmd_req
@@ -100,9 +140,9 @@ class VariableCommandReq(MultiByteReq):
         else:
             super().__init__(command_def_enum, address, 0, scope)
 
-        if command_def_enum == TMCC2VariableEnum.GET_STATUS:
+        if command_def_enum == TMCC2DcdsCommandEnum.GET_STATUS:
             data_bytes = bytes([0]) * 5
-        elif command_def_enum == TMCC2VariableEnum.GET_INFO:
+        elif command_def_enum == TMCC2DcdsCommandEnum.GET_INFO:
             data_bytes = bytes([0]) * 4
 
         if data_bytes is not None and isinstance(data_bytes, int):
@@ -117,7 +157,7 @@ class VariableCommandReq(MultiByteReq):
         return super().__repr__()
 
     @property
-    def data_bytes(self) -> List[int]:
+    def data_bytes(self) -> List[int] | bytes:
         return self._data_bytes
 
     @property
@@ -132,14 +172,14 @@ class VariableCommandReq(MultiByteReq):
             Words 5 - N: Data words
             Word N + 1: Checksum
         """
-        pkt_len = 7 if self.is_tmcc4 else 3
+        pkt_len = 7 if self.address > 99 else 3
         return (5 + self.command.value.num_data_bytes) * pkt_len
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     @property
     def as_bytes(self) -> bytes:
         if isinstance(self.command, TMCC2VariableEnum):
-            cd = TMCC2VariableEnum.VOLUME_DIRECT.value if self.command.has_volume_code else self.command.value
+            cd = TMCC2DcdsCommandEnum.VOLUME_DIRECT.value if self.command.has_volume_code else self.command.value
         else:
             raise ValueError(f"Invalid command type: {type(self.command)}")
         byte_str = bytes()

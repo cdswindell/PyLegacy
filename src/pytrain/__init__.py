@@ -56,6 +56,7 @@ from .protocol.constants import (
     PROGRAM_NAME,
 )
 from .protocol.multibyte.multibyte_constants import (
+    TMCC2DcdsCommandEnum,  # noqa: F401
     TMCC2EffectsControl,  # noqa: F401
     TMCC2LightingControl,  # noqa: F401
     TMCC2MaskingControl,  # noqa: F401

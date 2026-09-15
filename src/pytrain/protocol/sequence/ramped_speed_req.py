@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import logging
-from abc import ABC, ABCMeta
+from abc import ABC
 
+from .ramp_speed_req import RampSpeedReqBase
 from .sequence_constants import SequenceCommandEnum
-from .sequence_req import SequenceReq, T
-from ..constants import CommandScope, DEFAULT_ADDRESS
+from .sequence_req import T
+from ..constants import CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
-from ...db.engine_state import EngineState
-
-log = logging.getLogger(__name__)
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 CANCELABLE_REQUESTS = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
@@ -32,125 +29,8 @@ def labor_delta(cur_speed: int, new_speed: int, cur_labor: int) -> int:
         return cur_labor
 
 
-class RampedSpeedReqBase(SequenceReq, ABC):
-    __metaclass__ = ABCMeta
-
-    # noinspection PyUnreachableCode
-    def __init__(
-        self,
-        command: SequenceCommandEnum,
-        address: int,
-        speed: int | str | T = None,
-        scope: CommandScope = CommandScope.ENGINE,
-        dialog: bool = False,
-    ) -> None:
-        super().__init__(command, address, scope)
-        tower, s, speed_req, engr = self.decode_rr_speed(speed, self.is_tmcc1)
-        # if an integer speed was provided, use it, otherwise, rely on rr speed
-        # provided by decode call; only do this if dialogs are NOT requested
-        if isinstance(speed, int) and dialog is False:
-            if isinstance(speed_req, int):
-                speed_req = min(speed_req, speed)
-            else:
-                speed_req = speed
-
-        # set the target speed value
-        self._target_speed = speed_req
-
-        # if there is no state information, treat this as an ABSOLUTE_SPEED req
-        if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
-            if tower and engr and dialog:
-                from .speed_req import SpeedReq
-
-                sr = SpeedReq(address, speed, scope, self.is_tmcc1)
-                for request in sr.requests:
-                    self.add(request.request, delay=request.delay, repeat=request.repeat)
-            else:
-                if address == DEFAULT_ADDRESS:
-                    self.add(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, address, speed_req, scope)
-                    self.add(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, speed_req, scope)
-                else:
-                    speed_enum = (
-                        TMCC1EngineCommandEnum.ABSOLUTE_SPEED
-                        if self.is_tmcc1
-                        else TMCC2EngineCommandEnum.ABSOLUTE_SPEED
-                    )
-                    self.add(speed_enum, address, speed_req, scope)
-                if address == DEFAULT_ADDRESS or self.is_tmcc2:
-                    rpm = tmcc2_speed_to_rpm(speed_req)
-                    self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
-        else:
-            speed_enum = (
-                TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
-            )
-            # issue tower dialog, if requested
-            if tower and dialog:
-                # noinspection PyUnreachableCode
-                self.add(tower, address, scope=scope)
-            # use current speed and momentum to build up or down speed
-            cs = self.state.speed
-            delay = 0.100
-            inc = 3 if self.is_tmcc2 else 1
-            if self.state.is_ramping:
-                c_rpm = 0
-                init_labor = 12
-            else:
-                c_rpm = self.state.rpm
-                init_labor = self.state.labor
-            if self.state.momentum is not None:
-                delay_inc = 0.200 + (self.state.momentum * (0.010 if self.is_tmcc2 else 0.1))
-                if self.is_tmcc2:
-                    inc = 2 if self.state.momentum >= 4 else inc
-                    inc = 1 if self.state.momentum >= 6 else inc
-            else:
-                delay_inc = 0.200
-            speed_req = min(speed_req, self.state.speed_max)
-            # are we speeding up or down?
-            log.debug(f"CS: {cs} Requested Speed: {speed_req}")
-            ramp = range(cs + inc, speed_req + 1, inc) if cs < speed_req else range(cs - inc, speed_req + 1, -inc)
-            if ramp:
-                # increase or decrease labor
-                c_labor = labor_delta(cs, speed_req, init_labor)
-                self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=c_labor, scope=scope, delay=delay)
-                # if we're decelerating, kill RPM and labor up front
-                if self.state.is_legacy and cs > speed_req:
-                    if self.state.is_rpm:
-                        rpm = tmcc2_speed_to_rpm(speed_req)
-                        self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
-                        c_rpm = rpm
-                for speed in ramp:
-                    self.add(speed_enum, address, speed, scope, delay=delay)
-                    if self.state.is_legacy:
-                        labor = labor_delta(speed, speed_req, init_labor)
-                        if labor != c_labor:
-                            self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=labor, scope=scope, delay=delay)
-                            c_labor = labor
-                        if self.state.is_rpm and cs < speed_req:
-                            rpm = tmcc2_speed_to_rpm(speed)
-                            if rpm != c_rpm:
-                                self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
-                                c_rpm = rpm
-                    delay += delay_inc
-                # make sure the final speed is requested
-                self.add(speed_enum, address, speed_req, scope, delay=delay)
-                if self.state.is_legacy:
-                    self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=init_labor, scope=scope, delay=delay)
-                    if self.state.is_rpm:
-                        rpm = tmcc2_speed_to_rpm(speed_req)
-                        if rpm != c_rpm:
-                            self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=delay)
-            else:
-                self.add(speed_enum, address, speed_req, scope)
-            # issue engineer dialog, if requested
-            if engr and dialog:
-                if delay < 2.00:
-                    delay = 2.50
-                self.add(engr, address, scope=scope, delay=delay)
-
-    def _on_before_send(self) -> None:
-        # Cancel any existing ramps
-        if self.state:
-            self.state.cancel_ramps()
+class RampedSpeedReqBase(RampSpeedReqBase, ABC):
+    """Legacy sequence identifiers use the same exclusive local ramp as new requests."""
 
 
 class RampedSpeedReq(RampedSpeedReqBase):

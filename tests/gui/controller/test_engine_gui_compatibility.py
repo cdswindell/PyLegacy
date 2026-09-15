@@ -13,6 +13,88 @@ from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
+def _remote_speed_gui(monkeypatch, remote=True):
+    state = SimpleNamespace(
+        is_remote_ramping=remote, is_legacy=True, is_cab1=False, tmcc_id=7, scope=CommandScope.ENGINE
+    )
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    monkeypatch.setattr(mod.EngineGui, "throttle_state", property(lambda _self: state))
+    calls = []
+    gui.clear_throttle = lambda: calls.append("clear")
+    gui.submit_request = lambda req, **_kwargs: calls.append(req)
+    monkeypatch.setattr(mod, "RampSpeedReq", lambda *args: ("ramp", args))
+    monkeypatch.setattr(mod, "RampSpeedDialogReq", lambda *args: ("dialog", args))
+    return gui, state, calls
+
+
+@pytest.mark.parametrize("speed", [45, "SPEED_NORMAL", "SPEED_NORMAL, SPEED_FAST"])
+def test_remote_claim_blocks_speed_requests_and_allows_fresh_request_after_release(monkeypatch, speed) -> None:
+    gui, state, calls = _remote_speed_gui(monkeypatch)
+    gui.on_speed_command(speed)
+    assert calls == ["clear"]
+    state.is_remote_ramping = False
+    gui.on_speed_command(speed)
+    assert len(calls) == 2
+    assert calls[-1][0] in {"ramp", "dialog"}
+
+
+def test_remote_claim_does_not_block_emergency_stop_speed_mapping(monkeypatch) -> None:
+    gui, state, calls = _remote_speed_gui(monkeypatch)
+    gui.on_engine_command = lambda command, **kwargs: calls.append((command, kwargs))
+    gui.on_speed_command("EMERGENCY_STOP")
+    assert calls == [("EMERGENCY_STOP", {"state": state, "scope": state.scope})]
+    assert state.is_ramping is False
+
+
+@pytest.mark.parametrize("stage", ["construct", "submit"])
+def test_ramp_rejection_race_does_not_raise_from_speed_callback(monkeypatch, stage) -> None:
+    gui, state, calls = _remote_speed_gui(monkeypatch, remote=False)
+
+    def reject(*_args):
+        state.is_remote_ramping = True
+        raise ValueError("Ramp owned by another process")
+
+    if stage == "construct":
+        monkeypatch.setattr(mod, "RampSpeedReq", reject)
+    else:
+        gui.submit_request = reject
+    gui.on_speed_command(45)
+    assert calls == ["clear"]
+
+
+@pytest.mark.parametrize("command", ["BOOST_SPEED", "BRAKE_SPEED", "ABSOLUTE_SPEED", "RELATIVE_SPEED", "RAMP_SPEED"])
+def test_remote_claim_blocks_commands_that_bypass_the_speed_callback(monkeypatch, command) -> None:
+    gui, state, calls = _remote_speed_gui(monkeypatch)
+    assert gui.do_engine_command(7, command, 1, state.scope, False, False, 2, state) is False
+    assert calls == ["clear"]
+
+
+@pytest.mark.parametrize("stage", ["construct", "submit"])
+def test_mapped_speed_rejection_race_does_not_raise_from_command_callback(monkeypatch, stage) -> None:
+    gui, state, calls = _remote_speed_gui(monkeypatch, remote=False)
+
+    def reject(*_args, **_kwargs):
+        state.is_remote_ramping = True
+        raise ValueError("Ramp owned by another process")
+
+    if stage == "construct":
+        monkeypatch.setattr(mod.CommandReq, "build", reject)
+    else:
+        gui.submit_request = reject
+    assert gui.do_engine_command(7, "ABSOLUTE_SPEED", 45, state.scope, False, False, 2, state) is False
+    assert calls == ["clear"]
+
+
+@pytest.mark.parametrize(
+    "command", ["RESET", "FORWARD_DIRECTION", "REVERSE_DIRECTION", "STOP_IMMEDIATE", "SHUTDOWN_IMMEDIATE"]
+)
+def test_remote_claim_does_not_block_safety_command_dispatch(monkeypatch, command) -> None:
+    gui, state, calls = _remote_speed_gui(monkeypatch)
+    assert gui.do_engine_command(7, command, 0, state.scope, False, False, 2, state) is True
+    assert len(calls) == 1
+    assert isinstance(calls[0], mod.CommandReq)
+
+
 class _ImmediateExecutor:
     @staticmethod
     def submit(_callable) -> Future:

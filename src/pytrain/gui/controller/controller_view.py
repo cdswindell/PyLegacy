@@ -351,14 +351,21 @@ class ControllerView:
         # speed catches up. None means the state owns the handle.
         self._throttle_committed: int | None = None
         self._throttle_committed_at: float | None = None
+        self._throttle_gesture_blocked = False
+        self._throttle_mouse_button: int | None = None
+        self._throttle_generation = 0
+        self._throttle_keys_down: set[str] = set()
+        self._throttle_blocked_keys: set[str] = set()
+        self._throttle_key_releases: dict[str, str] = {}
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
+        was_updating = self._updating_from_state
         self._updating_from_state = True
         try:
             yield
         finally:
-            self._updating_from_state = False
+            self._updating_from_state = was_updating
 
     # -----------------------------
     # Public API used by EngineGui
@@ -450,6 +457,19 @@ class ControllerView:
         # throttle extras (debounce bookkeeping + any per-slider styling)
         host.throttle.after_id = None  # used to debounce slider updates
         host.throttle.text_color = "black"
+        host.throttle.tk.bind("<ButtonPress-1>", self._on_throttle_input_event)
+        for event in (
+            "<ButtonPress-2>",
+            "<ButtonRelease-2>",
+            "<B1-Motion>",
+            "<B2-Motion>",
+            "<KeyPress>",
+            "<KeyRelease>",
+            "<MouseWheel>",
+            "<Button-4>",
+            "<Button-5>",
+        ):
+            host.throttle.tk.bind(event, self._on_throttle_input_event, add="+")
 
         # brake
         host.brake_box, _, host.brake_level, host.brake = self.make_slider(
@@ -729,11 +749,14 @@ class ControllerView:
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
+                remote_ramp = getattr(throttle_state, "is_remote_ramping", False) is True
+                if remote_ramp:
+                    self.reject_throttle_intent()
+                elif not host.throttle.enabled:
+                    host.throttle.enable()
                 if throttle_state != self._last_throttle_state:
                     if not host.speed.enabled:
                         host.speed.enable()
-                    if not host.throttle.enabled:
-                        host.throttle.enable()
                     if host._rr_speed_btn and not host._rr_speed_btn.enabled:
                         host._rr_speed_btn.enable()
 
@@ -781,12 +804,18 @@ class ControllerView:
                         else:
                             host._rr_speed_btn.on_hold = self.on_speed_limit_panel
 
-                ramp_speed = self._local_ramp_speed(throttle_state)
+                ramp_speed = None if remote_ramp else self._local_ramp_speed(throttle_state)
                 commit_holds = self._commit_latch_holds(throttle_state)
                 # Don't fight a touch drag, a held lever, or a pending direct command.
-                if host.throttle.tk.focus_displayof() != host.throttle.tk and not self.throttle_intent_active:
+                if remote_ramp or (
+                    (
+                        getattr(self, "_throttle_gesture_blocked", False)
+                        or host.throttle.tk.focus_displayof() != host.throttle.tk
+                    )
+                    and not self.throttle_intent_active
+                ):
                     if not commit_holds:
-                        host.throttle.value = ramp_speed if ramp_speed is not None else throttle_state.speed
+                        self._paint_throttle_value(ramp_speed if ramp_speed is not None else throttle_state.speed)
 
                 if throttle_state.is_cab1:
                     self._set_cab1_speed()
@@ -796,7 +825,9 @@ class ControllerView:
                     host.speed.value = f"{throttle_state.speed:03d}"
 
                 # Only a local ramp has a destination to approach.
-                if ramp_speed is not None and throttle_state.speed != ramp_speed:
+                if remote_ramp:
+                    host.throttle.tk.config(troughcolor="gray")
+                elif ramp_speed is not None and throttle_state.speed != ramp_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
@@ -1305,7 +1336,13 @@ class ControllerView:
     def on_throttle_change(self, value) -> None:
         host = self._host
         state = host.throttle_state
-        if self._updating_from_state or not state.is_cab1:
+        if (
+            self._updating_from_state
+            or self._throttle_input_blocked()
+            or getattr(self, "_throttle_gesture_blocked", False)
+            or not state
+            or not state.is_cab1
+        ):
             return
         if host.throttle is None or host.throttle.tk.focus_displayof() != host.throttle.tk:
             return
@@ -1339,7 +1376,11 @@ class ControllerView:
     def _repeat_cab_1_throttle(self) -> None:
         host = self._host
         host.throttle.after_id = None
-        if host.throttle.value == 0:
+        if (
+            self._throttle_input_blocked()
+            or getattr(self, "_throttle_gesture_blocked", False)
+            or host.throttle.value == 0
+        ):
             return
         host.on_speed_command(host.throttle.value)
         self._schedule_cab_1_throttle_repeat()
@@ -1358,6 +1399,9 @@ class ControllerView:
     # noinspection PyUnusedLocal,unused-parameter
     def _on_throttle_release_event(self, e=None) -> None:
         if self._updating_from_state:
+            return
+        self._throttle_mouse_button = None
+        if self._throttle_input_blocked() or getattr(self, "_throttle_gesture_blocked", False):
             return
         host = self._host
         # A touch drag takes the lever back from the joystick.
@@ -1381,7 +1425,7 @@ class ControllerView:
         """
         host = self._host
         state = host.throttle_state
-        if not isinstance(state, EngineState):
+        if self._throttle_input_blocked() or not isinstance(state, EngineState):
             return
 
         if state.is_cab1:
@@ -1406,10 +1450,105 @@ class ControllerView:
         self._throttle_committed_at = monotonic()
         ramp_speed = self._local_ramp_speed(state)
         if state.speed != value or (ramp_speed is not None and ramp_speed != value):
-            host.on_speed_command(value)
+            try:
+                host.on_speed_command(value)
+            except ValueError as exc:
+                log.info("Throttle request rejected: %s", exc)
+                self.reject_throttle_intent()
+                return
+        if self._throttle_input_blocked():
+            return
         # A synchronous ramp may finish or be canceled before the next display refresh.
         # Once it accepts this commit, no pending protection should outlive it.
         self._commit_latch_holds(state)
+
+    def _paint_throttle_value(self, value: int) -> None:
+        # Tk ignores Scale.set while disabled. Open it only for this synchronous paint,
+        # suppressing callbacks, and restore its input state before returning to Tk.
+        throttle = self._host.throttle
+        with self.__updating():
+            enabled = throttle.enabled
+            if not enabled:
+                throttle.enable()
+            try:
+                throttle.value = value
+            finally:
+                if not enabled:
+                    throttle.disable()
+
+    def reject_throttle_intent(self) -> None:
+        """Discard an interrupted or rejected gesture without replaying it on release."""
+        self.clear_throttle_intent()
+        self.clear_throttle_commit()
+        self._cancel_cab_1_throttle_repeat()
+        self._throttle_generation = getattr(self, "_throttle_generation", 0) + 1
+        self._throttle_gesture_blocked = True
+        self._throttle_blocked_keys = getattr(self, "_throttle_keys_down", set()).copy()
+        state = self._host.throttle_state
+        throttle = self._host.throttle
+        mouse_button = getattr(self, "_throttle_mouse_button", None)
+        self._throttle_mouse_button = None
+        if throttle is not None and mouse_button is not None:
+            # Let Tk cancel its own trough-click repeat and drag, not just our Cab-1 timer.
+            with self.__updating():
+                throttle.tk.event_generate(f"<ButtonRelease-{mouse_button}>")
+        if throttle is not None and state is not None:
+            self._paint_throttle_value(0 if state.is_cab1 else (state.speed or 0))
+            if getattr(state, "is_remote_ramping", False) is True and throttle.enabled:
+                throttle.disable()
+
+    def _throttle_input_blocked(self) -> bool:
+        if getattr(self._host.throttle_state, "is_remote_ramping", False) is True:
+            self.reject_throttle_intent()
+            return True
+        return False
+
+    def _on_throttle_input_event(self, event) -> str | None:
+        if self._updating_from_state:
+            return None
+        keys_down = getattr(self, "_throttle_keys_down", set())
+        self._throttle_keys_down = keys_down
+        key_releases = getattr(self, "_throttle_key_releases", {})
+        self._throttle_key_releases = key_releases
+        if event.type == tk.EventType.KeyPress:
+            after_id = key_releases.pop(event.keysym, None)
+            if after_id is not None:
+                self._host.throttle.tk.after_cancel(after_id)
+            keys_down.add(event.keysym)
+        elif event.type == tk.EventType.KeyRelease:
+            if event.keysym in getattr(self, "_throttle_blocked_keys", set()):
+                # X11 auto-repeat can report release/press pairs without the key coming up.
+                # A press before idle cancels this release, so a held key stays blocked.
+                key_releases[event.keysym] = self._host.throttle.tk.after_idle(
+                    lambda key=event.keysym: self._release_throttle_key(key)
+                )
+            else:
+                keys_down.discard(event.keysym)
+        if self._throttle_input_blocked():
+            return "break"
+        if event.type == tk.EventType.KeyPress and event.keysym in getattr(self, "_throttle_blocked_keys", set()):
+            return "break"
+        if event.type == tk.EventType.ButtonPress and event.num in {1, 2}:
+            self._throttle_mouse_button = event.num
+            self._throttle_gesture_blocked = False
+            self._host.throttle.tk.focus_set()
+        elif event.type == tk.EventType.ButtonRelease:
+            self._throttle_mouse_button = None
+        elif event.type == tk.EventType.Motion and getattr(self, "_throttle_gesture_blocked", False):
+            return "break"
+        elif event.type in {tk.EventType.KeyPress, tk.EventType.MouseWheel, tk.EventType.ButtonPress}:
+            self._throttle_gesture_blocked = False
+        return None
+
+    def _release_throttle_key(self, key: str) -> None:
+        self._throttle_key_releases.pop(key, None)
+        self._throttle_keys_down.discard(key)
+        self._throttle_blocked_keys.discard(key)
+
+    @property
+    def throttle_generation(self) -> int:
+        """Changes whenever a claim or rejection invalidates a pending input gesture."""
+        return getattr(self, "_throttle_generation", 0)
 
     # -----------------------------
     # Throttle lever (pending target speed)
@@ -1457,7 +1596,7 @@ class ControllerView:
         """
         host = self._host
         state = host.throttle_state
-        if not isinstance(state, EngineState) or state.is_cab1:
+        if self._throttle_input_blocked() or not isinstance(state, EngineState) or state.is_cab1:
             return None
 
         intent = self._throttle_intent

@@ -7,7 +7,9 @@
 #
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, Callable
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -203,6 +205,8 @@ class DummyWatcher:
 def patch_guizero_and_system(monkeypatch):
     # Replace guizero widgets with mock objects
     monkeypatch.setattr(base_mod, "PyCabApp", DummyApp, raising=True)
+    # Dummy widgets need no full-process collection; leave Python's global collector alone.
+    monkeypatch.setattr(base_mod, "gc", SimpleNamespace(collect=Mock(return_value=0)))
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
     monkeypatch.setattr(mod, "Text", DummyText, raising=True)
     monkeypatch.setattr(mod, "PushButton", DummyPushButton, raising=True)
@@ -282,6 +286,7 @@ def test_run_builds_min_ui_and_sync_state(monkeypatch):
 
     # After run, UI is torn down in finally, so app is None
     assert inst.app is None
+    assert base_mod.gc.collect.call_args_list == [call(), call()]
     # But run should have executed without exceptions using mock classes
 
 

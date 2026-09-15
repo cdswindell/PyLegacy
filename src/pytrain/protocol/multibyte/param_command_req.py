@@ -21,7 +21,6 @@ from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 from .multibyte_constants import (
     TMCC2EffectsControl,
-    TMCC2EngineCommandEnumEx,
     TMCC2LightingControl,
     TMCC2MaskingControl,
     TMCC2ParameterEnum,
@@ -33,7 +32,6 @@ from .multibyte_constants import (
 # noinspection PyTypeChecker
 PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
     TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
-    TMCC2EngineCommandEnumEx: TMCC2ParameterIndex.TARGET_SPEED,
     TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
     TMCC2MaskingControl: TMCC2ParameterIndex.MASKING_CONTROLS,
     TMCC2RailSoundsDialogControl: TMCC2ParameterIndex.DIALOG_TRIGGERS,
@@ -98,6 +96,8 @@ class ParameterCommandReq(MultiByteReq):
         data: int = 0,
         scope: CommandScope = None,
     ) -> None:
+        if not isinstance(command_def_enum, TMCC2ParameterEnum):
+            raise ValueError(f"Invalid parameter command: {command_def_enum}")
         super().__init__(command_def_enum, address, data, scope)
 
     @property

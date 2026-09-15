@@ -10,17 +10,28 @@
 
 Headless: the view is built over stand-in widgets, so what is asserted is the value the
 lever asks of the slider and whether a speed command went out -- not what Tk draws. The
-engine states are stand-ins too, with mod.EngineState pointed at them so the view's
-isinstance guards accept them.
+engine states are usually stand-ins too, with mod.EngineState pointed at them so the
+view's isinstance guards accept them. Claim notification tests use real engine/train
+states and StateWatcher threads.
 """
 
 from __future__ import annotations
 
+from queue import Queue
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
 
 import src.pytrain.gui.controller.controller_view as mod
+from src.pytrain.comm.comm_buffer import CommBuffer
+from src.pytrain.db.component_state_store import ComponentStateStore
+from src.pytrain.db.engine_state import EngineState, TrainState
+from src.pytrain.db.state_watcher import StateWatcher
+from src.pytrain.gui.controller.engine_gui import EngineGui
+from src.pytrain.protocol.command_req import CommandReq
+from src.pytrain.protocol.constants import CommandScope, LEGACY_CONTROL_TYPE
+from src.pytrain.protocol.sequence.ramp_peer import RampClaim
 
 
 class _FakeState:
@@ -54,10 +65,26 @@ class _FakeSlider:
         self.enabled = True
         self.configs: list[dict] = []
         self.focus_holder = object()
+        self.canceled: list[str] = []
+        self.events: list[str] = []
+        self.idle_callbacks = []
         self.tk = SimpleNamespace(
             config=lambda **kwargs: self.configs.append(kwargs),
             focus_displayof=lambda: self.focus_holder,
+            focus_set=lambda: setattr(self, "focus_holder", self.tk),
+            after=lambda *_args: "repeat",
+            after_cancel=self.canceled.append,
+            event_generate=self.events.append,
+            after_idle=lambda callback: self.idle_callbacks.append(callback) or "key-release",
         )
+
+    def enable(self) -> None:
+        self.enabled = True
+        self.tk.config(state="normal")
+
+    def disable(self) -> None:
+        self.enabled = False
+        self.tk.config(state="disabled")
 
 
 class _FakeText:
@@ -570,3 +597,284 @@ def test_a_commit_at_actual_speed_still_redirects_an_active_ramp(monkeypatch: py
     view.commit_throttle_intent(20)
 
     assert speed_calls == [20]
+
+
+def test_remote_claim_disables_slider_discards_intent_and_reenables_on_release(monkeypatch) -> None:
+    state = _FakeState(speed=20)
+    view, host, speed_calls = _view(state, monkeypatch)
+    view.nudge_throttle_intent(40)
+    view._throttle_committed = 80
+    view._throttle_committed_at = mod.monotonic()
+    host.throttle.focus_holder = host.throttle.tk
+    state.is_remote_ramping = True
+
+    view.update(state, state)
+
+    assert host.throttle.enabled is False
+    assert {"state": "disabled"} in host.throttle.configs
+    assert host.throttle.configs[-1]["troughcolor"] == "gray"
+    assert view.throttle_intent is None
+    assert view._throttle_committed is None
+    assert host.throttle.value == 20
+    assert host.speed.value == "020"
+    assert host.speed.enabled and host.brake.enabled and host.momentum.enabled
+
+    state.speed = 30
+    view.update(state, state)
+    assert host.speed.value == "030"
+    assert host.throttle.value == 30
+    assert host.throttle.configs[-1]["troughcolor"] == "gray"
+
+    state.is_remote_ramping = False
+    view.update(state, state)
+    assert host.throttle.enabled is True
+    assert {"state": "normal"} in host.throttle.configs
+    assert host.throttle.configs[-1]["troughcolor"] == mod.LIONEL_BLUE
+    view._on_throttle_release_event()
+    assert speed_calls == []
+    view.nudge_throttle_intent(5)
+    view.commit_throttle_intent()
+    assert speed_calls == [35]
+
+
+@pytest.mark.parametrize("state_type, scope", [(EngineState, CommandScope.ENGINE), (TrainState, CommandScope.TRAIN)])
+@pytest.mark.parametrize("address", [7, 3180])
+def test_claim_notifications_repaint_throttle_without_speed_changes(monkeypatch, state_type, scope, address):
+    monkeypatch.setattr(CommBuffer, "is_server", lambda: False)
+    monkeypatch.setattr(ComponentStateStore, "is_state_synchronized", lambda: False)
+    state = state_type(scope)
+    state.initialize(scope, address)
+    state._address = address
+    state._empty = False
+    state._is_legacy = True
+    state.comp_data._control_type = LEGACY_CONTROL_TYPE
+    state.comp_data.speed = state.comp_data.target_speed = 20
+    view, host, speed_calls = _view(state, monkeypatch)
+    monkeypatch.setattr(mod, "EngineState", EngineState)
+    host._shutdown_flag = Event()
+    host._message_queue = Queue()
+    host._scoped_callbacks = {scope: lambda updated: view.update(updated, updated)}
+
+    # Synchronize with the actual wait, so thread startup cannot lose the first notification.
+    waiting = Event()
+    wait = state.synchronizer.wait
+
+    def ready_wait(timeout=None):
+        waiting.set()
+        return wait(timeout)
+
+    monkeypatch.setattr(state.synchronizer, "wait", ready_wait)
+    watcher = StateWatcher(state, EngineGui.on_state_changed_action(host, state))
+    owner = RampClaim(scope, address, "192.168.4.12", 50000, 1)
+    try:
+        # A refresh must notify too, despite unchanged speed and an identical claim.
+        for release in (False, False, True):
+            assert waiting.wait(1), "StateWatcher did not start waiting"
+            waiting.clear()
+            state.changed.clear()
+            state.update(CommandReq.from_bytes(owner.request(release=release).as_bytes))
+            assert state.changed.is_set()
+            action, args = host._message_queue.get(timeout=1)
+            assert args == [state]
+            assert state.ramp_claim == (None if release else owner)
+            assert state.is_remote_ramping is not release
+            assert state.ramp is None and not state.is_ramping
+            assert state.speed == state.target_speed == 20
+
+            # Process the queued callback on this thread, as the GUI event loop does.
+            action(*args)
+            assert host.throttle.enabled is release
+            assert host.throttle.configs[-1]["troughcolor"] == (mod.LIONEL_BLUE if release else "gray")
+            assert host.throttle.value == 20
+            assert host.speed.value == "020"
+            assert host.speed.enabled and host.brake.enabled and host.momentum.enabled
+        assert speed_calls == []
+    finally:
+        watcher.shutdown()
+        watcher.join(timeout=1)
+        watcher._notifier.join(timeout=1)
+    assert not watcher.is_alive()
+    assert not watcher._notifier.is_alive()
+
+
+@pytest.mark.parametrize("route", ["nudge", "commit", "send", "release", "cab1_change", "cab1_repeat"])
+def test_remote_claim_blocks_throttle_input_before_display_refresh(monkeypatch, route) -> None:
+    state = _FakeState(speed=20, is_cab1=route.startswith("cab1"))
+    view, host, speed_calls = _view(state, monkeypatch)
+    state.is_remote_ramping = True
+    host.throttle.value = 3
+    host.throttle.focus_holder = host.throttle.tk
+    host.app = SimpleNamespace(tk=SimpleNamespace(after_idle=lambda _callback: None))
+    view._throttle_intent = 60
+    if route == "nudge":
+        assert view.nudge_throttle_intent(5) is None
+    elif route == "commit":
+        view.commit_throttle_intent(60)
+    elif route == "send":
+        view._send_throttle_value(60)
+    elif route == "release":
+        view._on_throttle_release_event()
+    elif route == "cab1_change":
+        view.on_throttle_change(3)
+    else:
+        view._repeat_cab_1_throttle()
+    assert speed_calls == []
+    assert view.throttle_intent is None
+    assert view._throttle_committed is None
+
+
+def test_rejected_ramp_reconciles_pending_gesture_without_ui_exception(monkeypatch) -> None:
+    state = _FakeState(speed=20)
+    view, host, _speed_calls = _view(state, monkeypatch)
+    view.nudge_throttle_intent(40)
+
+    def reject(_speed):
+        state.is_remote_ramping = True
+        raise ValueError("Ramp owned by another process")
+
+    host.on_speed_command = reject
+    view.commit_throttle_intent()
+    assert view.throttle_intent is None
+    assert view._throttle_committed is None
+    assert host.throttle.value == state.speed
+
+
+@pytest.mark.parametrize("remote", [False, None, object()])
+def test_only_explicit_remote_ownership_blocks_the_local_owner(monkeypatch, remote) -> None:
+    state = _FakeState(speed=20, ramp=SimpleNamespace(is_active=True, requested_speed=60))
+    state.is_remote_ramping = remote
+    view, host, speed_calls = _view(state, monkeypatch)
+    view.update(state, state)
+    assert host.throttle.enabled is True
+    assert host.throttle.value == 60
+    view.commit_throttle_intent(70)
+    assert speed_calls == [70]
+
+
+@pytest.mark.parametrize(
+    "event_type, details",
+    [
+        (mod.tk.EventType.ButtonPress, {"num": 1}),
+        (mod.tk.EventType.ButtonPress, {"num": 2}),
+        (mod.tk.EventType.ButtonPress, {"num": 4}),
+        (mod.tk.EventType.ButtonPress, {"num": 5}),
+        (mod.tk.EventType.KeyPress, {"keysym": "Up"}),
+        (mod.tk.EventType.MouseWheel, {"delta": 120}),
+        (mod.tk.EventType.Motion, {}),
+    ],
+)
+def test_remote_claim_blocks_native_slider_events(monkeypatch, event_type, details) -> None:
+    state = _FakeState(speed=20)
+    view, host, speed_calls = _view(state, monkeypatch)
+    state.is_remote_ramping = True
+    assert view._on_throttle_input_event(SimpleNamespace(type=event_type, **details)) == "break"
+    assert host.throttle.enabled is False
+    assert speed_calls == []
+
+
+def test_remote_claim_cancels_cab1_repeat_and_requires_fresh_mouse_press(monkeypatch) -> None:
+    state = _FakeState(speed=0, is_cab1=True)
+    view, host, speed_calls = _view(state, monkeypatch)
+    host.throttle.focus_holder = host.throttle.tk
+    host.throttle.value = 3
+    view.on_throttle_change(3)
+    assert host.throttle.after_id == "repeat"
+    state.is_remote_ramping = True
+    view.update(state, state)
+    assert host.throttle.canceled == ["repeat"]
+    assert host.throttle.after_id is None
+    assert host.throttle.value == 0
+    state.is_remote_ramping = False
+    view.update(state, state)
+    assert view._on_throttle_input_event(SimpleNamespace(type=mod.tk.EventType.Motion)) == "break"
+    view._on_throttle_release_event()
+    assert speed_calls == [3]
+    assert view._on_throttle_input_event(SimpleNamespace(type=mod.tk.EventType.ButtonPress, num=1)) is None
+    host.throttle.value = 2
+    view.on_throttle_change(2)
+    assert speed_calls == [3, 2]
+
+
+def test_remote_claim_does_not_rearm_a_held_arrow_key_on_release(monkeypatch) -> None:
+    state = _FakeState(speed=20)
+    view, _host, speed_calls = _view(state, monkeypatch)
+    press = SimpleNamespace(type=mod.tk.EventType.KeyPress, keysym="Up")
+    release = SimpleNamespace(type=mod.tk.EventType.KeyRelease, keysym="Up")
+    assert view._on_throttle_input_event(press) is None
+    state.is_remote_ramping = True
+    view.update(state, state)
+    state.is_remote_ramping = False
+    view.update(state, state)
+    assert view._on_throttle_input_event(press) == "break"
+    view._on_throttle_input_event(release)
+    _host.throttle.idle_callbacks.pop()()
+    assert view._on_throttle_input_event(press) is None
+    assert speed_calls == []
+
+
+def test_x11_auto_repeat_cannot_rearm_a_key_held_during_a_remote_claim(monkeypatch) -> None:
+    state = _FakeState(speed=20)
+    view, host, speed_calls = _view(state, monkeypatch)
+    press = SimpleNamespace(type=mod.tk.EventType.KeyPress, keysym="Up")
+    release = SimpleNamespace(type=mod.tk.EventType.KeyRelease, keysym="Up")
+    view._on_throttle_input_event(press)
+    state.is_remote_ramping = True
+    view.update(state, state)
+    state.is_remote_ramping = False
+    view.update(state, state)
+    view._on_throttle_input_event(release)
+    assert view._on_throttle_input_event(press) == "break"
+    assert host.throttle.canceled == ["key-release"]
+    assert "Up" in view._throttle_blocked_keys
+    assert speed_calls == []
+
+
+@pytest.mark.parametrize("button", [1, 2])
+def test_remote_claim_ends_native_mouse_repeat_and_drag(monkeypatch, button) -> None:
+    state = _FakeState(speed=20)
+    view, host, speed_calls = _view(state, monkeypatch)
+    view._on_throttle_input_event(SimpleNamespace(type=mod.tk.EventType.ButtonPress, num=button))
+    generation = view.throttle_generation
+    state.is_remote_ramping = True
+    view.update(state, state)
+    assert host.throttle.events == [f"<ButtonRelease-{button}>"]
+    assert view.throttle_generation != generation
+    assert view._updating_from_state is False
+    assert speed_calls == []
+
+
+def test_remote_claim_paints_a_scale_that_ignores_set_while_disabled(monkeypatch) -> None:
+    class DisabledScale(_FakeSlider):
+        @property
+        def value(self):
+            return self._position
+
+        @value.setter
+        def value(self, value):
+            if getattr(self, "enabled", True):
+                self._position = value
+
+    state = _FakeState(speed=20)
+    view, host, speed_calls = _view(state, monkeypatch)
+    host.throttle = DisabledScale()
+    state.is_remote_ramping = True
+    view.update(state, state)
+    state.speed = 30
+    view.update(state, state)
+    assert host.throttle.enabled is False
+    assert host.throttle.value == 30
+    assert host.speed.value == "030"
+    assert speed_calls == []
+
+
+def test_pending_cab1_callback_does_not_resume_when_claim_is_released(monkeypatch) -> None:
+    state = _FakeState(speed=0, is_cab1=True)
+    view, host, speed_calls = _view(state, monkeypatch)
+    host.throttle.focus_holder = host.throttle.tk
+    state.is_remote_ramping = True
+    view.update(state, state)
+    state.is_remote_ramping = False
+    view.update(state, state)
+    view.on_throttle_change(3)
+    view._repeat_cab_1_throttle()
+    assert speed_calls == []

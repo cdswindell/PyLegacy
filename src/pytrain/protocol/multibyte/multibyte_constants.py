@@ -106,15 +106,6 @@ class TMCC2ParameterEnum(TMCC2MultiByteEnum):
 TMCC2_TARGET_SPEED_COMMAND = 0x00
 
 
-class TMCC2EngineCommandEnumEx(TMCC2ParameterEnum):
-    TARGET_SPEED = MultiByteCommandDef(
-        TMCC2ParameterIndex.TARGET_SPEED,
-        TMCC2_TARGET_SPEED_COMMAND,
-        d_max=199,
-        noop=True,
-    )
-
-
 """
     Word #2 - RailSounds Dialog trigger controls (index 0x2)
 """
@@ -805,8 +796,9 @@ class VariableCommandDef(MultiByteCommandDef):
         d_min: int = 0,
         d_max: int = 0,
         is_abstract: bool = False,
+        noop: bool = False,
     ) -> None:
-        super().__init__(TMCC2ParameterIndex.VARIABLE_LENGTH_COMMAND, command_bits, d_min=d_min, d_max=d_max)
+        super().__init__(TMCC2ParameterIndex.VARIABLE_LENGTH_COMMAND, command_bits, d_min=d_min, d_max=d_max, noop=noop)
         self._code = code
         self._num_data_bytes = num_data_bytes
         self._data_bytes = data_bytes
@@ -869,18 +861,7 @@ TMCC2_DCDS_STORE = 0xF001
 
 
 class TMCC2VariableEnum(TMCC2MultiByteEnum):
-    MASTER_VOLUME = VariableCommandDef(TMCC2_SET_MASTER_VOLUME, 1, d_min=0, d_max=255)
-    BLEND_VOLUME = VariableCommandDef(TMCC2_SET_BLEND_VOLUME, 1, d_min=0, d_max=255)
-    VOLUME_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, is_abstract=True)
-    MASTER_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.MASTER, d_min=0, d_max=7)
-    HORN_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.HORN, d_min=0, d_max=7)
-    BELL_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BELL, d_min=0, d_max=7)
-    DIALOG_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.DIALOG, d_min=0, d_max=7)
-    BLEND_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BLEND, d_min=0, d_max=15)
-    FACTORY_DEFAULT = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
-    STORE = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
-    GET_INFO = VariableCommandDef(TMCC2_BLE_GET_INFO, 4, [0x0, 0x0, 0x0, 0x0])
-    GET_STATUS = VariableCommandDef(TMCC2_BLE_GET_STATUS, 5, [0x0, 0x0, 0x0, 0x0, 0x0])
+    """Shared interface for variable-length command enums, without command members."""
 
     # noinspection PyTypeChecker
     def by_volume_code(self, volume_code: VolumeCode, raise_exception: bool = False) -> "TMCC2VariableEnum":
@@ -906,3 +887,28 @@ class TMCC2VariableEnum(TMCC2MultiByteEnum):
     @property
     def volume_code(self) -> VolumeCode:
         return self.value.volume_code
+
+
+class TMCC2DcdsCommandEnum(TMCC2VariableEnum):
+    MASTER_VOLUME = VariableCommandDef(TMCC2_SET_MASTER_VOLUME, 1, d_min=0, d_max=255)
+    BLEND_VOLUME = VariableCommandDef(TMCC2_SET_BLEND_VOLUME, 1, d_min=0, d_max=255)
+    VOLUME_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, is_abstract=True)
+    MASTER_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.MASTER, d_min=0, d_max=7)
+    HORN_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.HORN, d_min=0, d_max=7)
+    BELL_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BELL, d_min=0, d_max=7)
+    DIALOG_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.DIALOG, d_min=0, d_max=7)
+    BLEND_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BLEND, d_min=0, d_max=15)
+    FACTORY_DEFAULT = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
+    STORE = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
+    GET_INFO = VariableCommandDef(TMCC2_BLE_GET_INFO, 4, [0x0, 0x0, 0x0, 0x0])
+    GET_STATUS = VariableCommandDef(TMCC2_BLE_GET_STATUS, 5, [0x0, 0x0, 0x0, 0x0, 0x0])
+
+
+TMCC2_RAMP_CLAIM_COMMAND = 0xF100
+TMCC2_RAMP_RELEASE_COMMAND = 0xF101
+
+
+class TMCC2EngineCommandEnumEx(TMCC2VariableEnum):
+    TARGET_SPEED = VariableCommandDef(TMCC2_TARGET_SPEED_COMMAND, 1, d_max=199, noop=True)
+    RAMP_CLAIM = VariableCommandDef(TMCC2_RAMP_CLAIM_COMMAND, 16, noop=True)
+    RAMP_RELEASE = VariableCommandDef(TMCC2_RAMP_RELEASE_COMMAND, 16, noop=True)

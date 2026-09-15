@@ -11,8 +11,9 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from time import monotonic
-from typing import Any, Dict, List, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, TypeVar
 
 from .comp_data import (
     BASE_TO_TMCC2_SMOKE_MAP,
@@ -52,9 +53,13 @@ from ..protocol.constants import (
 )
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
+    TMCC2EngineCommandEnumEx,
     TMCC2R4LCEnum,
     UnitAssignment,
 )
+
+if TYPE_CHECKING:
+    from ..protocol.sequence.ramp_peer import RampClaim
 
 # noinspection PyPep8Naming
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -233,6 +238,9 @@ class EngineState(ComponentState):
         self._is_d4: bool = False
         self._ramping: bool = False
         self._ramp = None  # SpeedRamp, when this instance owns a live ramp for this engine
+        self._ramp_claim: RampClaim | None = None
+        self._ramp_claim_expires = 0.0
+        self._retired_ramp_claims = deque(maxlen=16)
         self._prod_info = None
         self._pdi_source: bool = False  # for train is LCS BPC2
 
@@ -353,12 +361,73 @@ class EngineState(ComponentState):
     @is_ramping.setter
     def is_ramping(self, value: bool):
         with self._cv:
-            self._ramping = value
+            if self._ramping != value:
+                self._ramping = value
+                self.changed.set()
+                self._cv.notify_all()
 
     @property
     def ramp(self):
         """The live speed ramp for this engine, if this instance owns one."""
         return self._ramp
+
+    @property
+    def ramp_claim(self) -> RampClaim | None:
+        """Transient PyTrain ownership metadata, never a Lionel database field."""
+        return self._ramp_claim if monotonic() < self._ramp_claim_expires else None
+
+    @property
+    def is_remote_ramping(self) -> bool:
+        """Lock other throttles without making them manage the owner's ramp."""
+        claim = self.ramp_claim
+        if claim is None:
+            return False
+        ramp = self._ramp
+        return not (ramp is not None and ramp.is_active is True and getattr(ramp, "claim", None) == claim)
+
+    def _retire_ramp_claim(self) -> None:
+        from ..protocol.sequence.ramp_peer import CLAIM_TTL
+
+        if self._ramp_claim is not None:
+            self._retired_ramp_claims.append((self._ramp_claim, monotonic() + CLAIM_TTL))
+            self._ramp_claim = None
+            self._ramp_claim_expires = 0.0
+            with self._cv:
+                self.changed.set()
+                self._cv.notify_all()
+
+    def _update_ramp_claim(self, command: CommandReq) -> UpdateResult:
+        from ..protocol.multibyte.ramp_command_req import RampCommandReq
+        from ..protocol.sequence.ramp_peer import CLAIM_TTL, RampClaim
+
+        if not isinstance(command, RampCommandReq):
+            return UpdateResult.IGNORED
+        claim = RampClaim.from_request(command)
+        now = monotonic()
+        if command.command == TMCC2EngineCommandEnumEx.RAMP_RELEASE:
+            if self._ramp_claim != claim:
+                # A canceled request's release can arrive before its announcement.
+                self._retired_ramp_claims.append((claim, now + CLAIM_TTL))
+                return UpdateResult.IGNORED
+            self._retire_ramp_claim()
+        else:
+            current = self.ramp_claim
+            accepted = not any(old == claim and expires > now for old, expires in self._retired_ramp_claims)
+            accepted = accepted and (current is None or current == claim or claim.priority < current.priority)
+            if accepted:
+                if self._ramp_claim != claim:
+                    self._retire_ramp_claim()
+                self._ramp_claim = claim
+                self._ramp_claim_expires = now + CLAIM_TTL
+            elif current != claim:
+                self._retired_ramp_claims.append((claim, now + CLAIM_TTL))
+            ramp = self._ramp
+            peer = getattr(ramp, "_peer", None) if ramp is not None else None
+            if peer is not None:
+                peer.claim_received(ramp, claim, accepted=accepted)
+            if not accepted:
+                return UpdateResult.IGNORED
+        return UpdateResult.UPDATED
 
     def ramp_to(self, speed: int, *, dialog: bool = False):
         """
@@ -367,6 +436,8 @@ class EngineState(ComponentState):
         """
         from ..protocol.sequence.speed_ramp import RampRegistry
 
+        if getattr(self, "is_remote_ramping", False) is True:
+            raise ValueError(f"Ramp already owned by another controller for {self.scope.title} {self.tmcc_id}")
         return RampRegistry.build().ramp_to(self, speed, dialog=dialog)
 
     def abort_ramp(
@@ -383,13 +454,8 @@ class EngineState(ComponentState):
         it - 0 for a hard stop, another controller's speed when it takes the throttle -
         and otherwise the speed the ramp had reached.
 
-        `hard_stop` marks the stops that take the engine to a standstill by other means,
-        which return effort to neutral here in state; the ramp that owns the engine sends
-        the matching command so the locomotive returns with it. An ordinary abort hands
-        back the effort setting the ramp borrowed against instead.
-
-        `yield_speed` is the speed another controller asked for, so that the ramp can
-        re-assert it if one of its own steps was still on the wire.
+        Hard stops may reassert a standstill and neutral effort. Ordinary takeover is
+        silent: the losing ramp must not overwrite the new operator's commands.
         """
         from ..protocol.sequence.speed_ramp import RampRegistry
 
@@ -476,6 +542,23 @@ class EngineState(ComponentState):
         self._is_known = True
         if command is None:
             return UpdateResult.IGNORED
+        if isinstance(command, CommandReq):
+            if command.command in {TMCC2EngineCommandEnumEx.RAMP_CLAIM, TMCC2EngineCommandEnumEx.RAMP_RELEASE}:
+                # Process payload identity before value-based duplicate suppression;
+                # synthetic claims never change speed, syntax, or local ramp ownership.
+                return self._update_ramp_claim(command)
+            if self._ramp is not None or self._ramp_claim is not None:
+                from ..protocol.sequence.speed_ramp import is_ramp_override
+
+                if is_ramp_override(command) and not (
+                    command.command.name in {"FORWARD_DIRECTION", "REVERSE_DIRECTION"}
+                    and self.direction == command.command
+                ):
+                    self._retire_ramp_claim()
+                    self.cancel_ramps(0, reason=command.command.name, hard_stop=True, yield_speed=0)
+                    if self.comp_data is not None:
+                        self.comp_data.speed = 0
+                        self.comp_data.target_speed = 0
         if command == self._last_command and self.last_updated_ago < 1:
             # the command is dropped either way, but a live ramp has to be given the
             # chance to recognize it first: it may be another controller taking the
@@ -548,11 +631,8 @@ class EngineState(ComponentState):
                     pass
                 else:
                     log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
-                    # a hard stop takes the engine to a standstill, so effort goes back
-                    # to neutral; anything else that gets this far is another controller
-                    # taking the throttle, which hands the operator's own effort setting
-                    # back and re-asserts the speed they asked for if a step of ours
-                    # crossed it on the wire
+                    # Hard stops retain stop protection; ordinary takeover makes the
+                    # losing ramp silent, even if some of its old steps are in flight.
                     hard_stop = command.command in CANCEL_PENDINGS_SET
                     self.cancel_ramps(
                         self._cancelled_target_speed(command),
@@ -925,6 +1005,9 @@ class EngineState(ComponentState):
                 packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
             if isinstance(self._aux2, CommandDefEnum):
                 packets.append(CommandReq.build(self.aux2, self.address).as_bytes)
+        claim = self.ramp_claim
+        if claim is not None:
+            packets.append(claim.request().as_bytes)
         return packets
 
     @property

@@ -87,6 +87,20 @@ def enums(req: SequenceReq) -> list:
 # gui/controller/engine_gui.py builds both with the same arguments and lints clean.
 # noinspection PyMethodMayBeStatic,PyArgumentList,PyNoneFunctionAssignment
 class TestRampSpeedReq(TestBase):
+    @pytest.mark.parametrize("cls", [RampSpeedReq, RampSpeedDialogReq])
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("speed", [0, None])
+    def test_repr(self, monkeypatch, cls, scope, speed):
+        state = StubEngineState(speed=speed, scope=scope)
+        install_state(monkeypatch, state)
+        req = cls(12, 60, scope)
+
+        assert repr(req) == (
+            f"[{scope.name} 12 {req.command.name} target_speed: 60 "
+            f"dialog: {cls is RampSpeedDialogReq} is_ramp: {speed is not None}]"
+        )
+        assert state.ramp_calls == []
+
     #
     # registration and dispatch
     #
@@ -280,6 +294,23 @@ class TestRampSpeedReq(TestBase):
         assert SequenceCommandEnum.RAMPED_SPEED_SEQ.value.cmd_class is RampedSpeedReq
         assert SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ.value.cmd_class is RampedSpeedDialogReq
 
+    @pytest.mark.parametrize("request_type", [RampSpeedReq, RampSpeedDialogReq, RampedSpeedReq, RampedSpeedDialogReq])
+    @pytest.mark.parametrize("as_action", [False, True])
+    def test_rejected_owner_emits_no_components_or_dialog(self, monkeypatch, request_type, as_action):
+        state = StubEngineState()
+        install_state(monkeypatch, state)
+        state.ramp_to = Mock(side_effect=ValueError("another process owns this ramp"))
+        sent = Mock()
+        monkeypatch.setattr(CommandReq, "send", sent)
+        monkeypatch.setattr(CommBuffer, "build", Mock())
+        req = request_type(12, "limited")
+        with pytest.raises(ValueError, match="another process"):
+            if as_action:
+                req.as_action()()
+            else:
+                req.send()
+        sent.assert_not_called()
+
     @pytest.mark.parametrize("send_request", [False, True])
     @pytest.mark.parametrize("is_legacy", [False, True])
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
@@ -300,18 +331,10 @@ class TestRampSpeedReq(TestBase):
         )
         install_state(monkeypatch, state)
         req = RampedSpeedReq(12, destination, scope)
-        speed_enum = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
-        steps = [sr for sr in req.requests if sr.request.command == speed_enum]
-        assert len(steps) >= 2
-        assert steps[-1].request.data == destination
-        assert all(sr.request.scope == scope and sr.request.address == 12 for sr in steps)
-        speeds = [current] + [sr.request.data for sr in steps]
-        assert speeds == sorted(speeds, reverse=current > destination)
-        assert all(
-            current <= s <= destination if current < destination else destination <= s <= current for s in speeds
-        )
-        assert [sr.delay for sr in steps] == sorted(sr.delay for sr in steps)
-        assert steps[-1].delay > steps[0].delay
+        # Legacy identifiers must not retain a second, precomputed ramp path.
+        assert req.requests == []
+        assert req.target_speed == destination
+        assert req.is_ramp is True
         assert TMCC1EngineCommandEnum.TARGET_SPEED not in enums(req)
         assert TMCC2EngineCommandEnumEx.TARGET_SPEED not in enums(req)
         sent = []
@@ -323,8 +346,20 @@ class TestRampSpeedReq(TestBase):
             assert enums(sent_req) == enums(req)
         else:
             req.send()
-        state.cancel_ramps.assert_called_once_with()
-        assert sent == enums(req)
+        state.ramp_to.assert_called_once_with(destination, dialog=False)
+        state.cancel_ramps.assert_not_called()
+        assert sent == []
+
+    @pytest.mark.parametrize("request_type", [RampSpeedReq, RampedSpeedReq])
+    def test_unknown_speed_fallback_cannot_override_a_remote_owner(self, monkeypatch, request_type):
+        state = Mock(spec=EngineState, speed=None, is_legacy=True, is_remote_ramping=True)
+        install_state(monkeypatch, state)
+        sent = Mock()
+        monkeypatch.setattr(CommandReq, "send", sent)
+        with pytest.raises(ValueError, match="another process"):
+            request_type(12, 20).send()
+        sent.assert_not_called()
+        state.ramp_to.assert_not_called()
 
     @pytest.mark.parametrize("is_legacy", [False, True])
     def test_immediate_speed_cancels_ramps_without_writing_a_destination(self, monkeypatch, is_legacy):

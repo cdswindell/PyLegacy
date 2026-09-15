@@ -313,9 +313,8 @@ class TestSpeedRamp(TestBase):
         assert ramp.is_active is False
         # nothing further, in particular no settle at the target
         assert 120 not in recorder.speeds
-        # the one thing an abort does still send is the effort it borrowed, which is a
-        # debt rather than a step: see test_an_ordinary_abort_hands_the_operators_effort_back
-        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+        # The winner owns all settings; no trailing effort or RPM is emitted.
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ABSOLUTE_SPEED
 
     def test_abort_before_the_first_step(self):
         state = RampEngineState(speed=0)
@@ -385,13 +384,10 @@ class TestSpeedRamp(TestBase):
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        # not neutral, the way a hard stop is: the ramp borrowed against the operator's
-        # own setting while there was a gap to close, and that is what it owes back.
-        # Effort is the one axis nothing winds back on its own, so falling silent here
-        # leaves the locomotive laboring at a notch nobody asked for
-        assert recorder.labors[-2] > 20
-        assert recorder.labors[-1] == 20
-        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+        # Ordinary takeover is silent, even with elevated effort still in flight.
+        assert recorder.labors
+        assert all(labor > 20 for labor in recorder.labors)
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ABSOLUTE_SPEED
 
     def test_an_abort_hands_back_an_effort_setting_changed_mid_ramp(self):
         state = RampEngineState(speed=0, labor=12)
@@ -406,9 +402,10 @@ class TestSpeedRamp(TestBase):
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        # _absorb_labor re-baselined the debt, so the restore hands back their value
+        # The trim changed the baseline, but takeover must not restore it on the wire.
         assert ramp.init_labor == 18
-        assert recorder.labors[-1] == 18
+        assert recorder.labors[-1] > 18
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ABSOLUTE_SPEED
 
     def test_a_ramp_that_never_raised_effort_hands_nothing_back(self):
         state = RampEngineState(speed=30)
@@ -441,13 +438,11 @@ class TestSpeedRamp(TestBase):
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        # without the yield the engine would sit at our 9 rather than at their 30, with
-        # the display honestly reporting a speed nobody asked for
-        assert recorder.speeds == [3, 6, 9, 30]
-        assert ramp.commanded_speed == 30
+        # Keep the API, but never replay another controller's speed.
+        assert recorder.speeds == [3, 6, 9]
+        assert ramp.commanded_speed == 9
         assert state.target_speed == 30
-        # the effort restore is still the last word
-        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ABSOLUTE_SPEED
 
     def test_a_takeover_nothing_overtook_is_not_re_asserted(self):
         state = RampEngineState(speed=0)
@@ -547,7 +542,7 @@ class TestSpeedRamp(TestBase):
         done = Event()
 
         def aborting() -> None:
-            ramp.abort("foreign ABSOLUTE_SPEED", target_speed=30)
+            ramp.abort("STOP_IMMEDIATE", target_speed=0, hard_stop=True)
             done.set()
 
         # stand in for a step already under way: its sender has not returned yet
@@ -635,9 +630,11 @@ class TestSpeedRamp(TestBase):
         assert recorder.sent == []
 
         ramp._send(TMCC2EngineCommandEnum.ENGINE_LABOR, 25, aborting=True)
-        # the abort's own obligations are the single exception, which is what makes them
-        # the last word on the wire
-        assert recorder.labors == [25]
+        ramp._send(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 30, aborting=True)
+        ramp._send(TMCC2EngineCommandEnum.DIESEL_RPM, 3, aborting=True)
+        assert recorder.sent == []
+        ramp._send(TMCC2EngineCommandEnum.ENGINE_LABOR, DEFAULT_LABOR, aborting=True)
+        assert recorder.labors == [DEFAULT_LABOR]
 
     #
     # live momentum

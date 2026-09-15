@@ -31,13 +31,17 @@ E = TypeVar("E", bound=TMCC2MultiByteEnum)
 MULTIBYTE_PREFIX_BYTE = LEGACY_MULTIBYTE_COMMAND_PREFIX.to_bytes(1, byteorder="big")
 
 
-# noinspection PyUnreachableCode
+# noinspection PyUnreachableCode,method-overriding
 class MultiByteReq(CommandReq, ABC):
     __metaclass__ = ABCMeta
 
     @classmethod
     def build(
-        cls, command: TMCC2MultiByteEnum, address: int = DEFAULT_ADDRESS, data: int = 0, scope: CommandScope = None
+        cls,
+        command: TMCC2MultiByteEnum | bytes,
+        address: int = DEFAULT_ADDRESS,
+        data: int = 0,
+        scope: CommandScope = None,
     ) -> Self:
         if isinstance(command, TMCC2ParameterEnum):
             from .param_command_req import ParameterCommandReq  # noqa: E402
@@ -51,6 +55,7 @@ class MultiByteReq(CommandReq, ABC):
             from .dcds_command_req import VariableCommandReq
 
             return VariableCommandReq.build(command, address, data, scope)
+        raise ValueError(f"Unknown command type: {command}")
 
     @classmethod
     def vet_bytes(cls, param: bytes, cmd_type: str = "", raise_exception: bool = True) -> tuple[bool, bool, bool]:
