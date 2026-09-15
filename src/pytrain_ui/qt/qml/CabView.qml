@@ -11,9 +11,9 @@ Rectangle {
     readonly property bool veryShortLayout: height < 850
     readonly property bool narrowLayout: width < 650
     readonly property int operationColumns: width >= 1050 ? 4 : (width >= 600 ? 3 : 2)
-    readonly property int compactButtonHeight: piLayout ? 40 : (veryShortLayout ? 36 : (shortLayout ? 40 : 44))
-    readonly property int operationButtonHeight: piLayout ? 42 : (veryShortLayout ? 38 : (shortLayout ? 42 : 46))
-    readonly property int controlHeaderHeight: 32
+    readonly property int compactButtonHeight: piLayout ? 46 : (veryShortLayout ? 36 : (shortLayout ? 40 : 44))
+    readonly property int operationButtonHeight: piLayout ? 50 : (veryShortLayout ? 38 : (shortLayout ? 42 : 46))
+    readonly property int controlHeaderHeight: piLayout ? 36 : 32
     readonly property int controlFooterHeight: 20
 
     function handleModelHold(modelData) {
@@ -169,13 +169,13 @@ Rectangle {
             layoutDirection: Qt.RightToLeft
 
             RowLayout {
-                Layout.preferredWidth: root.piLayout ? 164 : (root.narrowLayout ? 176 : (root.shortLayout ? 205 : 225))
+                Layout.preferredWidth: root.piLayout ? 184 : (root.narrowLayout ? 176 : (root.shortLayout ? 205 : 225))
                 Layout.fillHeight: true
                 spacing: root.piLayout ? 4 : (root.shortLayout ? 3 : 5)
                 layoutDirection: Qt.LeftToRight
 
                 ColumnLayout {
-                    Layout.preferredWidth: root.piLayout ? 62 : (root.narrowLayout ? 70 : 78)
+                    Layout.preferredWidth: root.piLayout ? 82 : (root.narrowLayout ? 70 : 78)
                     Layout.fillHeight: true
                     spacing: 2
                     visible: cab.analogModes.length > 0
@@ -186,7 +186,7 @@ Rectangle {
                         Layout.maximumHeight: root.controlHeaderHeight
                         model: cab.analogModes
                         font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 10 : 11)
-                        contentItem: Text { leftPadding: 4; rightPadding: 16; text: analogMode.displayText; font: analogMode.font; color: "#e9edf2"; verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight }
+                        contentItem: Text { leftPadding: 5; rightPadding: 18; text: analogMode.displayText; font: analogMode.font; color: "#e9edf2"; verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight }
                         background: Rectangle { radius: 6; color: "#292e36"; border.width: 1; border.color: "#626b78" }
                     }
                     VerticalCabControl {
@@ -217,35 +217,36 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: root.piLayout ? 4 : (root.shortLayout ? 4 : 6)
+                spacing: root.piLayout ? 5 : (root.shortLayout ? 4 : 6)
                 GridLayout {
                     Layout.fillWidth: true
                     columns: root.narrowLayout ? 2 : 4
                     columnSpacing: 5
                     rowSpacing: 5
-                    Repeater { model: cab.primaryActionModel; FunctionButton { required property var modelData; Layout.fillWidth: true; Layout.preferredHeight: root.compactButtonHeight; compact: true; text: modelData.label; font.pixelSize: root.piLayout ? 13 : (root.shortLayout ? 13 : 15); deferForHold: modelData.hold; holdThreshold: modelData.holdThreshold; repeatWhileHeld: modelData.repeat; repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250; onClicked: cab.triggerAction(modelData.key); onHeld: root.handleModelHold(modelData) } }
+                    Repeater { model: cab.primaryActionModel; FunctionButton { required property var modelData; Layout.fillWidth: true; Layout.preferredHeight: root.compactButtonHeight; compact: true; text: modelData.label; font.pixelSize: root.piLayout ? 14 : (root.shortLayout ? 13 : 15); deferForHold: modelData.hold; holdThreshold: modelData.holdThreshold; repeatWhileHeld: modelData.repeat; repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250; onClicked: cab.triggerAction(modelData.key); onHeld: root.handleModelHold(modelData) } }
                 }
                 Label { Layout.fillWidth: true; text: "OPERATIONS"; color: "#9ea6b0"; font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 11 : 12); font.bold: true; leftPadding: 2 }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: root.operationColumns
                     columnSpacing: 5
-                    rowSpacing: 4
-                    Repeater { model: cab.actionModel; FunctionButton { required property var modelData; Layout.fillWidth: true; Layout.preferredHeight: root.operationButtonHeight; compact: true; text: modelData.label; iconSource: modelData.iconSource; deferForHold: modelData.hold; holdThreshold: modelData.holdThreshold; repeatWhileHeld: modelData.repeat; repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250; onClicked: cab.triggerAction(modelData.key); onHeld: root.handleModelHold(modelData) } }
+                    rowSpacing: 5
+                    Repeater { model: cab.actionModel; FunctionButton { required property var modelData; Layout.fillWidth: true; Layout.preferredHeight: root.operationButtonHeight; compact: true; text: modelData.label; iconSource: modelData.iconSource; font.pixelSize: root.piLayout ? 13 : 14; deferForHold: modelData.hold; holdThreshold: modelData.holdThreshold; repeatWhileHeld: modelData.repeat; repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250; onClicked: cab.triggerAction(modelData.key); onHeld: root.handleModelHold(modelData) } }
                 }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 4
                     columnSpacing: 5
                     rowSpacing: 4
-                    Repeater { model: cab.secondaryActionModel; FunctionButton { required property var modelData; Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 32 : (root.veryShortLayout ? 32 : 36); compact: true; text: modelData.label; font.pixelSize: root.piLayout ? 10 : (root.shortLayout ? 10 : 11); deferForHold: modelData.hold; holdThreshold: modelData.holdThreshold; repeatWhileHeld: modelData.repeat; repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250; onClicked: cab.triggerAction(modelData.key); onHeld: root.handleModelHold(modelData) } }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 32 : (root.veryShortLayout ? 32 : 36); text: cab.speedLimit > 0 ? "Limit " + cab.speedLimit : "Limit"; font.pixelSize: 10; onClicked: speedLimitPopup.open() }
+                    Repeater { model: cab.secondaryActionModel; FunctionButton { required property var modelData; Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 38 : (root.veryShortLayout ? 32 : 36); compact: true; text: modelData.label; font.pixelSize: root.piLayout ? 11 : (root.shortLayout ? 10 : 11); deferForHold: modelData.hold; holdThreshold: modelData.holdThreshold; repeatWhileHeld: modelData.repeat; repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250; onClicked: cab.triggerAction(modelData.key); onHeld: root.handleModelHold(modelData) } }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 38 : (root.veryShortLayout ? 32 : 36); text: cab.speedLimit > 0 ? "Limit " + cab.speedLimit : "Limit"; font.pixelSize: root.piLayout ? 11 : 10; onClicked: speedLimitPopup.open() }
                 }
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: root.piLayout ? 120 : (root.veryShortLayout ? 80 : (root.shortLayout ? 95 : 120))
-                    Layout.preferredHeight: root.piLayout ? 170 : (root.shortLayout ? 110 : 145)
+                    Layout.fillHeight: false
+                    Layout.minimumHeight: root.piLayout ? Math.round(width / 3) : (root.veryShortLayout ? 80 : (root.shortLayout ? 95 : 120))
+                    Layout.preferredHeight: root.piLayout ? Math.round(width / 3) : (root.shortLayout ? 110 : 145)
+                    Layout.maximumHeight: root.piLayout ? Math.round(width / 3) : 16777215
                     radius: 9
                     color: "#e8ebef"
                     border.width: 1
@@ -254,11 +255,12 @@ Rectangle {
                     Image { anchors.fill: parent; anchors.margins: root.piLayout ? 4 : 6; source: cab.artworkSource; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false }
                     Label { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6; visible: cab.hasCustomArtwork; text: "CUSTOM"; color: "#176fa8"; font.pixelSize: 10; font.bold: true }
                 }
+                Item { Layout.fillHeight: true; visible: root.piLayout }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 6
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 48 : (root.shortLayout ? 46 : 56); text: "STOP"; font.pixelSize: root.piLayout ? 18 : (root.shortLayout ? 18 : 21); font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.stop() }
-                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 48 : (root.shortLayout ? 46 : 56); text: "Reset"; font.pixelSize: root.piLayout ? 16 : 20; repeatWhileHeld: true; repeatInterval: 100; onClicked: cab.reset() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 52 : (root.shortLayout ? 46 : 56); text: "STOP"; font.pixelSize: root.piLayout ? 18 : (root.shortLayout ? 18 : 21); font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.stop() }
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 52 : (root.shortLayout ? 46 : 56); text: "Reset"; font.pixelSize: root.piLayout ? 16 : 20; repeatWhileHeld: true; repeatInterval: 100; onClicked: cab.reset() }
                 }
             }
         }
