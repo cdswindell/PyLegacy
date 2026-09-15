@@ -58,7 +58,6 @@ FIRST_DATUM_ADDR = 0x03
 if TYPE_CHECKING:  # pragma: no cover
     from .component_state import ComponentState
     from .component_state_store import ComponentStateStore
-    from .engine_state import EngineState
 
 
 def decode_tmcc_speed(speed: int, is_legacy: bool) -> int | None:
@@ -73,14 +72,6 @@ def encode_tmcc_speed(speed: int | None, is_legacy: bool) -> int:
     elif not is_legacy:
         speed = min(max(int(round(speed * 199 / 31)), 0), 199)
     return max(min(speed, 255), 0)
-
-
-def encode_target_speed(speed: int, is_legacy: bool, state: "EngineState") -> int | None:
-    from .engine_state import EngineState
-
-    if isinstance(state, EngineState) and state.is_ramping:
-        return None
-    return encode_tmcc_speed(speed, is_legacy)
 
 
 def default_from_func(t: bytes) -> int:
@@ -485,10 +476,9 @@ REQUEST_TO_UPDATES_MAP = {
     "NEXT_LINK": [("next_link",)],
     "ABSOLUTE_SPEED": [
         ("speed", encode_tmcc_speed),
-        ("target_speed", encode_target_speed),
+        ("target_speed", encode_tmcc_speed),
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
-    "TARGET_SPEED": [("target_speed", encode_target_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -741,9 +731,6 @@ class CompData(ABC, Generic[R]):
         else:
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
-            elif transform == encode_target_speed:
-                state = cls.state_store().get_state(scope, address, False)
-                base_value = transform(data, is_legacy, state)
             else:
                 base_value = transform(data)
         if base_value is None:

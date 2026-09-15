@@ -52,7 +52,6 @@ from ..protocol.constants import (
 )
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
-    TMCC2EngineCommandEnumEx,
     TMCC2R4LCEnum,
     UnitAssignment,
 )
@@ -108,10 +107,6 @@ SPEED_SET = {
     TMCC2EngineCommandEnum.SPEED_SLOW,
     (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 0),
     (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 0),
-}
-TARGET_SPEED_SET = {
-    TMCC1EngineCommandEnum.TARGET_SPEED,
-    TMCC2EngineCommandEnumEx.TARGET_SPEED,
 }
 RPM_SET = {
     TMCC2EngineCommandEnum.DIESEL_RPM,
@@ -202,11 +197,7 @@ CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
 # the commands a live speed ramp arbitrates for itself. RPM_SET and LABOR_SET are here
 # only so that notify_ramp gets to see them; it returns True for them unconditionally,
 # so a sound or effort trim can never reach cancel_ramps()
-RAMP_ARBITRATED = TARGET_SPEED_SET | SPEED_SET | RPM_SET | LABOR_SET
-
-# the arbitrated commands that can actually stop a ramp, and so the only ones that have
-# to be judged before duplicate suppression drops them; see _arbitrate_duplicate
-RAMP_THROTTLE = TARGET_SPEED_SET | SPEED_SET
+RAMP_ARBITRATED = SPEED_SET | RPM_SET | LABOR_SET
 
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
@@ -376,11 +367,7 @@ class EngineState(ComponentState):
         """
         from ..protocol.sequence.speed_ramp import RampRegistry
 
-        # the registry is the single owner of the (scope, tmcc_id) -> ramp mapping; the
-        # handle is mirrored here so state objects, and _update_state, reach it directly
-        ramp = RampRegistry.build().ramp_to(self, speed, dialog=dialog)
-        self._ramp = ramp
-        return ramp
+        return RampRegistry.build().ramp_to(self, speed, dialog=dialog)
 
     def abort_ramp(
         self,
@@ -427,14 +414,10 @@ class EngineState(ComponentState):
         Offer a command to the live ramp. Returns True when the pending commands must
         *not* be cancelled: the ramp claimed the command as its own echo, or absorbed
         it as an RPM or effort trim.
-
-        Without a ramp of our own, the widened arbitration set must not change anything
-        for a RampedSpeedReq ramp, so only a TARGET_SPEED still cancels, exactly as
-        it did before arbitration existed.
         """
         ramp = self._ramp
         if ramp is None or ramp.is_active is False:
-            return command.command not in TARGET_SPEED_SET
+            return True
         return ramp.on_state_command(command)
 
     # the defensive `is True` comparison is the idiom throughout this codebase, including
@@ -462,11 +445,8 @@ class EngineState(ComponentState):
         """
         ramp = self._ramp
         if ramp is None or ramp.is_active is False:
-            # and only a ramp of our own is judged here: without one there is nothing that
-            # can tell a takeover from a double-send, and the RampedSpeedReq path would
-            # merely cancel itself a second time on the repeat of its own announcement
             return
-        if isinstance(command, CommandReq) is False or command.command not in RAMP_THROTTLE:
+        if isinstance(command, CommandReq) is False or command.command not in SPEED_SET:
             return
         if self.notify_ramp(command) is True:
             return
@@ -476,36 +456,6 @@ class EngineState(ComponentState):
             reason=f"foreign {command.command.name}",
             yield_speed=self._yielded_speed(command),
         )
-
-    def notify_ramp_target(self) -> None:
-        """
-        Offer the target speed a Base 3 memory record just installed to the live ramp,
-        and stop the ramp if that target is not one it asked for.
-
-        Another PyTrain instance commanding this engine directly leaves no TMCC command
-        on our wire: it writes the base's own target byte, and the change reaches us only
-        when the next record carries it back. That record is the only evidence of the
-        takeover we get, so it has to count as one - otherwise this ramp keeps driving
-        the engine toward a target nobody is asking for anymore.
-
-        The abort goes through `abort_ramp` rather than `cancel_ramps`: the record just
-        installed carries the engine's real RPM and effort, straight from the base, and
-        there is nothing to be gained by overwriting them with neutral values.
-        """
-        ramp = self._ramp
-        if ramp is None or ramp.is_active is False or self.comp_data is None:
-            return
-        # 255 is Lionel's "never set"; there is nothing to compare against yet
-        if self.comp_data.target_speed is None or self.comp_data.target_speed >= 255:
-            return
-        target_speed = self.target_speed
-        if ramp.on_reported_target_speed(target_speed) is True:
-            return
-        log.info(
-            f"Speed ramp {self.scope.title} {self.tmcc_id} aborting: Base 3 reports target speed "
-            f"{target_speed}, ramp is chasing {ramp.requested_speed}"
-        )
-        self.abort_ramp(f"foreign target speed {target_speed}", target_speed=target_speed)
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
@@ -540,8 +490,8 @@ class EngineState(ComponentState):
                 self._is_legacy = True
                 self._d4_rec_no = command.record_no
                 self._is_d4 = True
-            # If no target speed is set, set target to current speed unless we're ramping
-            if not self.is_ramping and self.speed is not None and not self.target_speed:
+            # An unset database target follows reported speed, never local ramp intent.
+            if self.speed is not None and self.comp_data.target_speed in {None, 255}:
                 self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
             if not self._initialized:
                 self._initialized = True
@@ -551,11 +501,6 @@ class EngineState(ComponentState):
                         self._direction = TMCC2.FORWARD_DIRECTION if self._speed_is_legacy else TMCC1.FORWARD_DIRECTION
                     elif self.comp_data.is_reverse:
                         self._direction = TMCC2.REVERSE_DIRECTION if self._speed_is_legacy else TMCC1.REVERSE_DIRECTION
-            # the record may be carrying another controller's target speed back to us,
-            # which is the only sighting we get of an instance that talks to the base
-            # directly rather than through our command stream
-            self.notify_ramp_target()
-
         elif isinstance(command, CommandReq):
             if command.is_tmcc2 is True or self.address > 99:
                 self._is_legacy = True
@@ -591,7 +536,9 @@ class EngineState(ComponentState):
             log.debug(f"Update: {command}\nEffects: {cmd_effects}")
 
             # Cancel any delayed requests, if impacted
-            if command.command in CANCEL_PENDINGS_SET or (self._ramping and command.command in RAMP_ARBITRATED):
+            if command.command in CANCEL_PENDINGS_SET or (
+                self._ramp is not None and self._ramp.is_active is True and command.command in RAMP_ARBITRATED
+            ):
                 # ignore direction commands if they are the same as the current direction
                 if command.command in DIRECTIONS_SET and self.direction == command.command:
                     pass
@@ -730,7 +677,7 @@ class EngineState(ComponentState):
                 else:
                     data = command.data
                 self.comp_data.speed = encode_tmcc_speed(data, self._speed_is_legacy)
-                self.update_target_speed()
+                self.comp_data.target_speed = self.comp_data.speed
             elif self.is_synchronized() and cmd_effects & SPEED_SET:
                 # ignore impact of direction command while synchronizing state
                 # it is only in command stream to set initial state
@@ -741,10 +688,7 @@ class EngineState(ComponentState):
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                     self.comp_data.speed = 0
-                self.update_target_speed()
-
-            if command.command in TARGET_SPEED_SET:
-                self.update_target_speed(target_speed=command.data)
+                self.comp_data.target_speed = self.comp_data.speed
 
             # handle momentum
             if command.command in MOMENTUM_SET:
@@ -842,7 +786,7 @@ class EngineState(ComponentState):
 
         self.abort_ramp(reason, target_speed=target_speed, hard_stop=hard_stop, yield_speed=yield_speed)
         CommBuffer.cancel_delayed_requests(self)
-        self.update_target_speed(self.speed if target_speed is None else target_speed)
+        self.sync_target_speed(self.speed if target_speed is None else target_speed)
         self.comp_data.rpm_tmcc = 0
         self.comp_data.labor_tmcc = 12
         self._ramping = False
@@ -869,9 +813,7 @@ class EngineState(ComponentState):
         standstill is the only thing that takes that back, and it agrees with everything
         else these commands record: speed 0 in comp_data and a target speed of 0.
 
-        A foreign TARGET_SPEED yields nothing: it is an announcement of intent rather
-        than a position, and whoever sent it is driving the engine there themselves. An
-        absolute speed, though, is a command the other controller expects to be the last
+        An absolute speed is a command the other controller expects to be the last
         word, and a step of ours issued before we could know about it may well have
         landed after it did.
 
@@ -893,8 +835,6 @@ class EngineState(ComponentState):
     def _speed_requested_by(command: L | P) -> int | None:
         """The absolute speed a throttle command asks for, resolving the speed aliases."""
         cmd = command.command
-        if cmd in TARGET_SPEED_SET:
-            return command.data
         if cmd in SPEED_SET:
             if cmd.is_alias:
                 # noinspection PyTypeChecker
@@ -904,31 +844,10 @@ class EngineState(ComponentState):
         return None
 
     def sync_target_speed(self, target_speed: int) -> None:
-        """
-        Record where this engine is actually headed, without arming the ramping flag.
-
-        Every ramp abort path lands here, so a target speed cannot outlive the ramp that
-        announced it: a hard stop leaves 0 behind, a foreign throttle command leaves the
-        speed that controller asked for, and an ordinary abort leaves the speed the ramp
-        had reached.
-        """
+        """Synchronize the database target after stopping a locally owned ramp."""
         if target_speed is None or self.comp_data is None:
             return
         with self._cv:
-            self.comp_data.target_speed = encode_tmcc_speed(target_speed, self._speed_is_legacy)
-
-    def update_target_speed(self, target_speed: int = None):
-        if target_speed is None:
-            if self._ramping:
-                if self.speed == self.target_speed:
-                    self._ramping = False
-                    self.comp_data.speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
-                    self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
-            else:
-                # if this PyTrain instance isn't ramping speed, set the target speed to match
-                self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
-        else:
-            self._ramping = target_speed != self.speed
             self.comp_data.target_speed = encode_tmcc_speed(target_speed, self._speed_is_legacy)
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:

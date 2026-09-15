@@ -414,52 +414,46 @@ class TestEngineStateSpeedProperties:
                 assert state.speed == step
                 assert state.rr_speed is band
 
-    def test_update_target_speed_follows_the_speed_when_not_ramping(self):
+    @pytest.mark.parametrize("is_ramping", [False, True])
+    @pytest.mark.parametrize("target", [0, 45, 90])
+    def test_sync_target_speed_only_updates_the_database_target(self, is_ramping, target):
         state = new_engine(legacy=True)
         state.comp_data._speed = 45
+        state.is_ramping = is_ramping
 
-        state.update_target_speed()
+        state.sync_target_speed(target)
 
-        assert state.target_speed == 45
-        assert state.is_ramping is False
+        assert state.speed == 45
+        assert state.target_speed == target
+        assert state.comp_data.target_speed == target
+        assert state.is_ramping is is_ramping
+        assert state.ramp is None
 
-    def test_update_target_speed_with_a_target_arms_the_ramping_flag(self):
+    @pytest.mark.parametrize("target", [45, 90])
+    def test_the_local_ramping_flag_does_not_rewrite_database_speeds(self, target):
         state = new_engine(legacy=True)
-        state.comp_data._speed = 45
+        state.comp_data.speed = 45
+        state.comp_data.target_speed = target
 
-        state.update_target_speed(target_speed=90)
+        for is_ramping in (True, False):
+            state.is_ramping = is_ramping
 
-        assert state.target_speed == 90
+            assert state.is_ramping is is_ramping
+            assert state.speed == 45
+            assert state.target_speed == target
+            assert state.ramp is None
+
+    def test_a_speedless_update_does_not_complete_a_local_ramp(self):
+        state = new_engine(legacy=True)
+        state.comp_data.speed = 45
+        state.comp_data.target_speed = 45
+        state.is_ramping = True
+
+        state.update(CommandReq.build(TMCC2.ENGINE_LABOR, state.address, data=18))
+
+        assert state.labor == 18
+        assert state.speed == state.target_speed == 45
         assert state.is_ramping is True
-
-    def test_a_target_equal_to_the_speed_disarms_the_ramping_flag(self):
-        state = new_engine(legacy=True)
-        state.comp_data._speed = 45
-
-        state.update_target_speed(target_speed=45)
-
-        assert state.is_ramping is False
-
-    def test_a_ramp_that_arrived_is_wound_up_on_the_next_speedless_update(self):
-        state = new_engine(legacy=True)
-        state.comp_data._speed = 45
-        state.update_target_speed(target_speed=90)
-        state.comp_data._speed = 90
-
-        state.update_target_speed()
-
-        assert state.is_ramping is False
-        assert state.target_speed == 90
-
-    def test_a_ramp_still_under_way_keeps_its_target(self):
-        state = new_engine(legacy=True)
-        state.comp_data._speed = 45
-        state.update_target_speed(target_speed=90)
-
-        state.update_target_speed()
-
-        assert state.is_ramping is True
-        assert state.target_speed == 90
 
     def test_a_speed_written_before_the_record_arrives_is_read_back_unchanged(self):
         # a 4-digit engine is Legacy by its address alone, so the codec has to answer
@@ -889,13 +883,21 @@ class TestEngineStateCommandHandling:
 
         assert state.labor == 20
 
-    def test_an_absolute_speed_command_moves_speed_and_target_together(self):
-        state = new_engine(legacy=True)
+    @pytest.mark.parametrize("legacy, command", [(True, TMCC2.ABSOLUTE_SPEED), (False, TMCC1.ABSOLUTE_SPEED)])
+    @pytest.mark.parametrize("is_ramping", [False, True])
+    def test_an_absolute_speed_command_moves_speed_and_target_together(self, legacy, command, is_ramping):
+        state = new_engine(legacy=legacy)
+        state.comp_data.target_speed = 90
+        state.is_ramping = is_ramping
 
-        state.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, state.address, data=75))
+        for speed in (15, 25, 0):
+            state.update(CommandReq.build(command, state.address, data=speed))
 
-        assert state.speed == 75
-        assert state.target_speed == 75
+            assert state.speed == speed
+            assert state.target_speed == speed
+            assert state.comp_data.speed == state.comp_data.target_speed
+            assert state.is_ramping is is_ramping
+            assert state.ramp is None
 
     def test_a_railroad_speed_command_resolves_its_alias(self):
         state = new_engine(legacy=True)
@@ -904,15 +906,20 @@ class TestEngineStateCommandHandling:
 
         assert state.speed == int(TMCC2.SPEED_RESTRICTED.alias[1])
 
-    def test_a_target_speed_command_leaves_the_engine_ramping(self):
+    @pytest.mark.parametrize("is_ramping", [False, True])
+    @pytest.mark.parametrize("target", [0, 20, 90])
+    def test_an_incoming_target_does_not_change_database_speeds_or_local_ownership(self, is_ramping, target):
         state = new_engine(legacy=True)
         state.comp_data._speed = 20
+        state.comp_data._target_speed = 20
+        state.is_ramping = is_ramping
 
-        state.update(CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, state.address, data=90))
+        state.update(CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, state.address, data=target))
 
-        assert state.target_speed == 90
+        assert state.target_speed == 20
         assert state.speed == 20
-        assert state.is_ramping is True
+        assert state.is_ramping is is_ramping
+        assert state.ramp is None
 
     def test_a_smoke_command_is_written_to_the_record(self):
         state = new_engine(legacy=True)
@@ -1051,18 +1058,6 @@ class TestEngineStateCommandHandling:
 
         assert state.year == 2021
 
-    def test_a_record_supplies_a_target_speed_for_an_engine_already_moving(self):
-        # a record reports the speed the engine is running at but carries no target of
-        # its own, so an engine already moving when its record arrives would otherwise
-        # read as bound for a stop
-        state = new_engine(legacy=True)
-        state.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, state.address, data=40))
-        state.comp_data.target_speed = 0
-
-        state._update_state(_CompDataRecord(state.comp_data))
-
-        assert state.target_speed == 40
-
     def test_a_record_leaves_a_standing_engine_bound_for_nowhere(self):
         state = new_engine(legacy=True)
         state.comp_data.speed = 0
@@ -1072,17 +1067,20 @@ class TestEngineStateCommandHandling:
 
         assert state.target_speed == 0
 
-    def test_a_record_leaves_the_target_alone_while_a_ramp_owns_it(self):
-        # a ramp writes the target itself, one step at a time, and a record arriving
-        # mid-ramp must not push it back up to wherever the engine has reached
+    @pytest.mark.parametrize("is_ramping", [False, True])
+    @pytest.mark.parametrize("target", [0, 20, 40, 90])
+    def test_a_target_snapshot_does_not_change_local_ramp_ownership(self, is_ramping, target):
         state = new_engine(legacy=True)
         state.comp_data.speed = 40
-        state.comp_data.target_speed = 0
-        state.is_ramping = True
+        state.comp_data.target_speed = target
+        state.is_ramping = is_ramping
 
         state._update_state(_CompDataRecord(state.comp_data))
 
-        assert state.target_speed == 0
+        assert state.speed == 40
+        assert state.target_speed == target
+        assert state.is_ramping is is_ramping
+        assert state.ramp is None
 
     def test_a_d4_mapping_records_the_four_digit_record_number(self):
         state = new_engine(addr=1234, legacy=True)

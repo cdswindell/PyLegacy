@@ -10,6 +10,7 @@
 
 import re
 import types
+from unittest.mock import Mock
 
 import pytest
 
@@ -27,17 +28,27 @@ from src.pytrain.db.comp_data import (
 )
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import RouteComponent
+from src.pytrain.db.engine_state import EngineState
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
-from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2EngineCommandEnumEx
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 CLEAR_ROAD_NAME_NUMBER_DATA = b"\x00" + (b"\xff" * 31) + b"\x00" + (b"\xff" * 4)
+
+
+@pytest.fixture
+def isolated_state_store(monkeypatch):
+    # Packet construction can initialize the store; restore its cached references after the test.
+    monkeypatch.setattr(ComponentStateStore, "_instance", None)
+    for cls in (CompData, EngineData, TrainData):
+        monkeypatch.setattr(cls, "_state_store", None)
 
 
 def road_number_update_data(road_number_text: str | None) -> bytes:
@@ -317,6 +328,73 @@ class TestCompData:
         assert pkgs[0].offset == 0x69
         assert pkgs[0].length == 1
         assert pkgs[0].data_bytes == expected
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize(
+        "command, address, speed",
+        [
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, 51),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 3180, 51),
+            (TMCC1EngineCommandEnum.TARGET_SPEED, 7, 7),
+        ],
+    )
+    def test_retired_target_command_has_no_db_updates(self, scope, command, address, speed):
+        req = CommandReq.build(command, address, data=speed, scope=scope)
+        assert CompData.request_to_updates(req) == []
+        assert CompData.field_to_updates("target_speed", address, scope, speed, command.is_legacy) == []
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("is_ramping", [False, True, None])
+    @pytest.mark.parametrize(
+        "command, address, speed, expected",
+        [
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 18, b"\x12"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 3180, 51, b"\x33"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 199, b"\xc7"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 7, b"\x2d"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 31, b"\xc7"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 0, b"\x00"),
+        ],
+    )
+    def test_absolute_speed_always_encodes_both_db_speed_fields(
+        self, monkeypatch, scope, is_ramping, command, address, speed, expected
+    ):
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping)
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, address, data=speed, scope=scope)
+
+        expected_fields = [
+            ("speed", 0x07, 1, expected),
+            ("target_speed", 0x08, 1, expected),
+        ]
+        expected_request_fields = expected_fields.copy()
+        if command == TMCC1EngineCommandEnum.ABSOLUTE_SPEED and speed == 0:
+            assert req.command_alias == TMCC1EngineCommandEnum.EMERGENCY_STOP
+            expected_request_fields.extend(expected_fields)
+            expected_request_fields.append(("rpm_labor", 0x0C, 1, b"\x00"))
+        for pkgs, expected_pkgs in (
+            (CompData.request_to_updates(req), expected_request_fields),
+            (CompData.field_to_updates("absolute_speed", address, scope, speed, command.is_legacy), expected_fields),
+        ):
+            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == expected_pkgs
+            for pkg in pkgs:
+                update = pkg.as_request(address, scope, 4)
+                assert update.scope == scope
+                assert update.start == pkg.offset
+                if address > 99:
+                    assert isinstance(update, D4Req)
+                    assert update.action == D4Action.UPDATE
+                    assert update.record_no == 4
+                    assert update._data_bytes == expected
+                else:
+                    assert isinstance(update, BaseReq)
+                    assert update.pdi_command == PdiCommand.BASE_MEMORY
+                    assert update.tmcc_id == address
+                    assert update.data_bytes == expected
+        get_state.assert_not_called()
 
     def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)

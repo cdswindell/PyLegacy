@@ -76,6 +76,11 @@ class TestCommandReq(TestBase):
                     ]:
                         continue  # can't tests defs that map data, yet
                     data = self.generate_random_data(cmd)
+                    if cmd == TMCC1EngineCommandEnum.TARGET_SPEED:
+                        with pytest.raises(ValueError, match="TARGET_SPEED.*cannot be sent"):
+                            CommandReq.send_request(cmd, address, data)
+                        mk_enqueue_command.assert_not_called()
+                        continue
                     req = CommandReq.send_request(cmd, address, data)
                     bits = cmd.command_def.bits | (int.from_bytes(cmd.command_def.first_byte, byteorder="big") << 16)
                     bits |= address << 7
@@ -99,6 +104,11 @@ class TestCommandReq(TestBase):
                 if cmd == TMCC1EngineCommandEnum.RELATIVE_SPEED:
                     continue  # can't tests defs that map data, yet
                 data = self.generate_random_data(cmd)
+                if cmd == TMCC1EngineCommandEnum.TARGET_SPEED:
+                    with pytest.raises(ValueError, match="TARGET_SPEED.*cannot be sent"):
+                        CommandReq.send_request(cmd, address, data, CommandScope.TRAIN)
+                    mk_enqueue_command.assert_not_called()
+                    continue
                 req = CommandReq.send_request(cmd, address, data, CommandScope.TRAIN)
                 bits = cmd.command_def.bits
                 bits |= address << 7
@@ -197,6 +207,47 @@ class TestCommandReq(TestBase):
                 request=req,
             )
             mk_enqueue_command.reset_mock()
+
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize(
+        "command, address",
+        [
+            (TMCC1EngineCommandEnum.TARGET_SPEED, 7),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 7),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, 3180),
+        ],
+    )
+    @pytest.mark.parametrize("api", ["send", "send_request", "as_action", "build_action", "enqueue"])
+    def test_retired_target_speed_cannot_reach_the_buffer(self, command, address, scope, api):
+        req = CommandReq.build(command, address, 7, scope)
+        parsed = CommandReq.from_bytes(req.as_bytes)
+        assert parsed.command == command
+        assert parsed.data == 7
+        assert parsed.address == address
+        assert parsed.scope == scope
+        with mock.patch.object(CommBuffer, "build") as build_buffer:
+            with pytest.raises(ValueError, match="TARGET_SPEED.*cannot be sent"):
+                if api == "send":
+                    parsed.send(repeat=3, delay=1, duration=2)
+                elif api == "send_request":
+                    CommandReq.send_request(command, address, 7, scope, repeat=3, delay=1, duration=2)
+                elif api == "as_action":
+                    parsed.as_action(repeat=3, delay=1, duration=2)()
+                elif api == "build_action":
+                    CommandReq.build_action(command, address, 7, scope)()
+                else:
+                    CommandReq._enqueue_command(req, 3, 1, 2, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
+            build_buffer.assert_not_called()
+
+    @pytest.mark.parametrize("target", [TMCC1EngineCommandEnum.TARGET_SPEED, TMCC2EngineCommandEnumEx.TARGET_SPEED])
+    def test_synthetic_target_effects_are_not_sent(self, monkeypatch, target):
+        req = CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 20)
+        monkeypatch.setattr(CommandReq, "results_in", staticmethod(lambda _req: {(target, 7)}))
+        with mock.patch.object(CommBuffer, "build") as build_buffer:
+            req.send(repeat=2, duration=0.2, interval=100)
+            queued = [call.args[0] for call in build_buffer.return_value.enqueue_command.call_args_list]
+            assert len(queued) == 4
+            assert all(command is req for command in queued)
 
     def test_determine_first_byte(self):
         for cdef in self.all_command_enums:

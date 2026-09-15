@@ -32,9 +32,11 @@ class _FakeState:
         target_speed: int | None = None,
         speed_max: int = 195,
         is_cab1: bool = False,
+        ramp: SimpleNamespace | None = None,
     ) -> None:
         self.speed = speed
         self.target_speed = target_speed
+        self.ramp = ramp
         self.speed_max = speed_max
         self.is_cab1 = is_cab1
         self.is_legacy = not is_cab1
@@ -122,9 +124,9 @@ def _view(state: _FakeState | None, monkeypatch: pytest.MonkeyPatch):
 
 
 def test_the_lever_starts_from_the_speed_the_engine_says_it_is_headed_for(monkeypatch: pytest.MonkeyPatch) -> None:
-    # target_speed is where the engine is going, so that is where a new lever picks up --
-    # not the speed it happens to be passing through on the way there.
-    view, host, speed_calls = _view(_FakeState(speed=20, target_speed=60), monkeypatch)
+    # Only the locally owned ramp supplies a destination, not a database target.
+    ramp = SimpleNamespace(is_active=True, requested_speed=60)
+    view, host, speed_calls = _view(_FakeState(speed=20, target_speed=90, ramp=ramp), monkeypatch)
 
     assert view.throttle_intent_base() == 60
     assert view.nudge_throttle_intent(5) == 65
@@ -258,24 +260,19 @@ def test_a_state_refresh_moves_the_slider_once_the_lever_is_let_go(monkeypatch: 
 
     view.nudge_throttle_intent(70)
     view.clear_throttle_intent()
-    state.target_speed = 55
+    state.speed = 55
     view.update(state, state)
 
     assert host.throttle.value == 55
 
 
 def _committed(monkeypatch: pytest.MonkeyPatch, *, speed: int = 5, lever: int = 68):
-    """A finished gesture: the lever committed at `lever` and let go, the latch live.
-
-    The state is left announcing the target it had before the commit, which is the window
-    the latch exists for -- the ramp records the new one in the echo ledger and comp_data
-    does not carry it until the TARGET_SPEED command comes back.
-    """
+    """A finished direct gesture awaiting the reported speed, with no local ramp."""
     state = _FakeState(speed=speed, target_speed=0)
     view, host, speed_calls = _view(state, monkeypatch)
     clock = _clock(monkeypatch)
 
-    view.nudge_throttle_intent(lever)
+    view.nudge_throttle_intent(lever - speed)
     view.commit_throttle_intent()
     view.clear_throttle_intent()
     return view, host, state, speed_calls, clock
@@ -300,13 +297,12 @@ def test_the_handle_follows_the_engine_again_once_it_announces_the_committed_spe
 ) -> None:
     view, host, state, _speed_calls, _clk = _committed(monkeypatch)
 
-    state.target_speed = 68
+    state.speed = 68
     view.update(state, state)
     assert host.throttle.value == 68
 
-    # Agreed, so the latch is spent: a later target -- another controller, a speed limit --
-    # moves the handle as it always did.
-    state.target_speed = 40
+    # Agreed, so a later reported speed moves the handle, even with a stale target.
+    state.speed = 40
     view.update(state, state)
 
     assert host.throttle.value == 40
@@ -316,7 +312,7 @@ def test_the_handle_stops_waiting_for_a_command_that_never_lands(monkeypatch: py
     # A HALT, or another controller taking the throttle, means the committed speed is never
     # announced. The grace is what keeps that from pinning the handle for good.
     view, host, state, _speed_calls, clock = _committed(monkeypatch)
-    state.target_speed = 106
+    state.speed = 106
 
     view.update(state, state)
     assert host.throttle.value == 68, "still inside the grace"
@@ -342,7 +338,7 @@ def test_clearing_the_throttle_drops_the_latch_as_well_as_the_lever(monkeypatch:
     # What EngineGui.clear_throttle() calls: a HALT, a reset, or a different engine selected
     # leaves nothing worth standing on, so the handle is free to follow the engine down.
     view, host, state, _speed_calls, _clk = _committed(monkeypatch)
-    state.target_speed = 106
+    state.speed = 106
 
     view.clear_throttle_intent()
     view.clear_throttle_commit()
@@ -364,8 +360,7 @@ def test_a_commit_the_engine_is_already_obeying_still_holds_the_handle(monkeypat
 
 
 def test_a_cab_1_commit_takes_no_latch(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Its stick asks for relative steps and builds no ramp, so there is no announced target
-    # for a latch to wait on and nothing to hold the handle away from zero.
+    # Its stick asks for relative steps, so there is no absolute speed to wait on.
     view, _host, speed_calls = _view(_FakeState(speed=0, target_speed=0, is_cab1=True), monkeypatch)
     _clock(monkeypatch)
 
@@ -394,3 +389,184 @@ def test_a_touch_drag_takes_the_lever_back_from_the_stick(monkeypatch: pytest.Mo
     view.commit_throttle_intent()
 
     assert speed_calls == [30]
+
+
+@pytest.mark.parametrize("ramp_status", ["missing", "absent", "inactive", "active"])
+@pytest.mark.parametrize("requested_speed", [0, 20, 60])
+def test_only_an_active_local_ramp_sets_the_display_and_gesture_baseline(
+    monkeypatch: pytest.MonkeyPatch, ramp_status: str, requested_speed: int
+) -> None:
+    state = _FakeState(speed=20, target_speed=90)
+    if ramp_status == "missing":
+        del state.ramp
+    elif ramp_status != "absent":
+        state.ramp = SimpleNamespace(is_active=ramp_status == "active", requested_speed=requested_speed)
+    view, host, speed_calls = _view(state, monkeypatch)
+
+    view.update(state, state)
+
+    expected = requested_speed if ramp_status == "active" else 20
+    assert host.throttle.value == expected
+    assert host.speed.value == "020"
+    assert host.throttle.configs[-1]["troughcolor"] == ("#4C96C5" if expected != 20 else mod.LIONEL_BLUE)
+    assert view.throttle_intent_base() == expected
+    assert view.nudge_throttle_intent(5) == expected + 5
+    assert speed_calls == []
+
+
+@pytest.mark.parametrize("owns_ramp", [False, True])
+def test_ramp_ownership_comes_from_the_throttle_state_not_the_selected_engine(
+    monkeypatch: pytest.MonkeyPatch, owns_ramp: bool
+) -> None:
+    ramp = SimpleNamespace(is_active=True, requested_speed=60)
+    state = _FakeState(speed=20, target_speed=90, ramp=None if owns_ramp else ramp)
+    throttle_state = _FakeState(speed=20, target_speed=90, ramp=ramp if owns_ramp else None)
+    view, host, speed_calls = _view(throttle_state, monkeypatch)
+
+    view.update(state, throttle_state)
+
+    assert host.throttle.value == (60 if owns_ramp else 20)
+    assert host.speed.value == "020"
+    assert view.throttle_intent_base() == (60 if owns_ramp else 20)
+    assert speed_calls == []
+
+
+@pytest.mark.parametrize("held", ["touch", "lever"])
+def test_a_local_ramp_refresh_does_not_move_a_held_gesture(monkeypatch: pytest.MonkeyPatch, held: str) -> None:
+    state = _FakeState(speed=20, target_speed=90, ramp=SimpleNamespace(is_active=True, requested_speed=60))
+    view, host, speed_calls = _view(state, monkeypatch)
+    if held == "touch":
+        host.throttle.focus_holder = host.throttle.tk
+        host.throttle.value = 75
+    else:
+        view.nudge_throttle_intent(15)
+
+    view.update(state, state)
+
+    assert host.throttle.value == 75
+    assert host.speed.value == "020"
+    assert speed_calls == []
+
+    state.ramp.is_active = False
+    state.ramp = None
+    state.speed = 30
+    view.update(state, state)
+
+    assert host.throttle.value == 75
+    assert host.speed.value == "030"
+    assert host.throttle.configs[-1]["troughcolor"] == mod.LIONEL_BLUE
+
+
+def test_a_ramp_accepted_while_the_lever_is_held_does_not_leave_a_pending_commit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = _FakeState(speed=20, target_speed=90, ramp=SimpleNamespace(is_active=True, requested_speed=60))
+    view, host, speed_calls = _view(state, monkeypatch)
+    _clock(monkeypatch)
+    view.nudge_throttle_intent(15)
+    view.commit_throttle_intent(100)
+
+    # The old ramp must not acknowledge the new command while it is still pending.
+    view.update(state, state)
+    assert view._throttle_committed == 100
+    assert view.throttle_intent_base() == 100
+    assert host.throttle.value == 75
+
+    state.ramp.requested_speed = 100
+    view.update(state, state)
+    assert view._throttle_committed is None
+    assert host.throttle.value == 75
+
+    state.ramp = None
+    state.speed = 40
+    view.clear_throttle_intent()
+    view.update(state, state)
+
+    assert host.throttle.value == 40
+    assert view.throttle_intent_base() == 40
+    assert speed_calls == [100]
+
+
+def test_a_database_target_cannot_acknowledge_a_pending_direct_gesture(monkeypatch: pytest.MonkeyPatch) -> None:
+    view, host, state, _speed_calls, _clock = _committed(monkeypatch)
+    state.target_speed = 68
+    view.update(state, state)
+    state.target_speed = 90
+    view.update(state, state)
+
+    assert host.throttle.value == 68
+    assert host.speed.value == "005"
+    assert view.throttle_intent_base() == 68
+    assert host.throttle.configs[-1]["troughcolor"] == mod.LIONEL_BLUE
+
+
+def test_a_new_gesture_does_not_revive_an_expired_direct_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    view, host, state, _speed_calls, clock = _committed(monkeypatch)
+    clock.advance(mod.THROTTLE_COMMIT_GRACE)
+    state.speed = 40
+
+    assert view.throttle_intent_base() == 40
+    assert view.nudge_throttle_intent(5) == 45
+    assert host.throttle.value == 45
+
+
+def _ramping(monkeypatch: pytest.MonkeyPatch):
+    state = _FakeState(speed=5, target_speed=106)
+    view, host, speed_calls = _view(state, monkeypatch)
+    clock = _clock(monkeypatch)
+
+    def start_ramp(speed: int) -> None:
+        speed_calls.append(speed)
+        state.ramp = SimpleNamespace(is_active=True, requested_speed=speed)
+
+    host.on_speed_command = start_ramp
+    view.nudge_throttle_intent(63)
+    view.commit_throttle_intent()
+    view.clear_throttle_intent()
+    return view, host, state, speed_calls, clock
+
+
+def test_an_active_local_ramp_outlives_the_direct_commit_grace(monkeypatch: pytest.MonkeyPatch) -> None:
+    view, host, state, speed_calls, clock = _ramping(monkeypatch)
+    clock.advance(mod.THROTTLE_COMMIT_GRACE * 2)
+    state.speed = state.target_speed = 40
+
+    view.update(state, state)
+
+    assert speed_calls == [68]
+    assert host.throttle.value == 68
+    assert host.speed.value == "040"
+    assert host.throttle.configs[-1]["troughcolor"] == "#4C96C5"
+    assert view.throttle_intent_base() == 68
+
+
+@pytest.mark.parametrize("refresh_before_release", [False, True])
+@pytest.mark.parametrize("release", ["completed", "canceled", "takeover", "inactive"])
+def test_releasing_a_local_ramp_immediately_releases_commit_protection(
+    monkeypatch: pytest.MonkeyPatch, refresh_before_release: bool, release: str
+) -> None:
+    view, host, state, speed_calls, _clock = _ramping(monkeypatch)
+    if refresh_before_release:
+        view.update(state, state)
+    state.ramp.is_active = False
+    if release != "inactive":
+        state.ramp = None
+    state.speed = 68 if release == "completed" else 40
+
+    assert view.throttle_intent_base() == state.speed
+    view.update(state, state)
+
+    assert host.throttle.value == state.speed
+    assert host.speed.value == f"{state.speed:03d}"
+    assert host.throttle.configs[-1]["troughcolor"] == mod.LIONEL_BLUE
+    assert view._throttle_committed is None
+    assert speed_calls == [68]
+
+
+def test_a_commit_at_actual_speed_still_redirects_an_active_ramp(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _FakeState(speed=20, target_speed=90, ramp=SimpleNamespace(is_active=True, requested_speed=60))
+    view, _host, speed_calls = _view(state, monkeypatch)
+
+    view.commit_throttle_intent(20)
+
+    assert speed_calls == [20]

@@ -10,8 +10,6 @@ from src.pytrain.protocol.sequence.speed_ramp import (
     CLAIMED_HISTORY,
     ECHO_TTL,
     MAX_RPM_BIAS,
-    ORDERED_FAMILIES,
-    SPEED_FAMILIES,
     TMCC1_ECHO_TOLERANCE,
     EchoFamily,
     EchoLedger,
@@ -61,22 +59,57 @@ class TestEchoLedger(TestBase):
         assert ledger.claim(EchoFamily.SPEED, None) is False
 
     def test_a_step_echo_out_of_sequence_is_not_ours(self):
-        # a command that reached the Base 3 is always echoed, and always in the order it
-        # was sent, so a value arriving ahead of three that have not come back yet was
-        # issued by something other than this ramp
+        # Missing reports can be skipped, but a later report cannot go backward.
         ledger = EchoLedger()
         for speed in (10, 20, 30, 40):
             ledger.record(EchoFamily.SPEED, speed)
-        assert ledger.claim(EchoFamily.SPEED, 40) is False
-        assert ledger.pending[EchoFamily.SPEED] == (10, 20, 30, 40)
+        assert ledger.claim(EchoFamily.SPEED, 40) is True
+        assert ledger.claim(EchoFamily.SPEED, 30) is False
+        assert ledger.pending[EchoFamily.SPEED] == ()
+        assert ledger.claimed[EchoFamily.SPEED] == (40,)
 
     def test_step_echoes_are_claimed_strictly_in_send_order(self):
         ledger = EchoLedger()
         ledger.record(EchoFamily.SPEED, 32)
         ledger.record(EchoFamily.SPEED, 34)
-        assert ledger.claim(EchoFamily.SPEED, 34) is False
-        assert ledger.claim(EchoFamily.SPEED, 32) is True
         assert ledger.claim(EchoFamily.SPEED, 34) is True
+        assert ledger.claim(EchoFamily.SPEED, 32) is False
+        assert ledger.claim(EchoFamily.SPEED, 34) is True
+
+    @pytest.mark.parametrize("speeds", [(10, 20, 30, 40, 50), (50, 40, 30, 20, 10)])
+    def test_delayed_speed_reports_can_skip_steps_but_not_go_backward(self, monkeypatch, speeds):
+        clock = [100.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
+        ledger = EchoLedger()
+        for speed in speeds:
+            ledger.record(EchoFamily.SPEED, speed)
+            clock[0] += ECHO_TTL / 20
+        clock[0] = 100.0 + ECHO_TTL * 0.8
+        assert ledger.claim(EchoFamily.SPEED, speeds[1]) is True
+        assert ledger.claim(EchoFamily.SPEED, speeds[1]) is True
+        assert ledger.claim(EchoFamily.SPEED, speeds[3]) is True
+        assert ledger.pending[EchoFamily.SPEED] == (speeds[4],)
+        assert ledger.claim(EchoFamily.SPEED, speeds[2]) is False
+        assert ledger.claim(EchoFamily.SPEED, speeds[3] + 1) is False
+        assert ledger.claim(EchoFamily.SPEED, speeds[4]) is True
+        clock[0] += ECHO_TTL
+        assert ledger.claim(EchoFamily.SPEED, speeds[4]) is False
+
+    def test_speed_reports_follow_send_order_across_a_reversal(self):
+        ledger = EchoLedger()
+        for speed in (10, 20, 30, 20, 10):
+            ledger.record(EchoFamily.SPEED, speed)
+        for speed in (20, 30, 20, 10):
+            assert ledger.claim(EchoFamily.SPEED, speed) is True
+        assert ledger.claim(EchoFamily.SPEED, 20) is False
+
+    @pytest.mark.parametrize("family", [EchoFamily.RPM, EchoFamily.EFFORT])
+    def test_sound_and_effort_still_require_the_next_pending_echo(self, family):
+        ledger = EchoLedger()
+        ledger.record(family, 3)
+        ledger.record(family, 4)
+        assert ledger.claim(family, 4) is False
+        assert ledger.pending[family] == (3, 4)
 
     def test_only_the_value_just_matched_is_still_claimable(self):
         # the Lionel ecosystem sends a command two or three times; a repeat is not out of
@@ -100,48 +133,6 @@ class TestEchoLedger(TestBase):
         ledger.purge(ttl=0.0)
         assert ledger.claimed[EchoFamily.SPEED] == ()
         assert ledger.claim(EchoFamily.SPEED, 32) is False
-
-    def test_an_unordered_family_matches_by_membership(self):
-        # a TARGET_SPEED is noop: it never reaches the rails, so it is handed back in
-        # process with no ordering relationship to anything the ramp has railed
-        ledger = EchoLedger()
-        ledger.record(EchoFamily.TARGET, 120)
-        ledger.record(EchoFamily.TARGET, 49)
-        assert ledger.claim(EchoFamily.TARGET, 49) is True
-        assert ledger.pending[EchoFamily.TARGET] == (120,)
-        assert ledger.claim(EchoFamily.TARGET, 120) is True
-
-    def test_only_the_railed_families_are_ordered(self):
-        assert ORDERED_FAMILIES == {EchoFamily.SPEED, EchoFamily.RPM, EchoFamily.EFFORT}
-        assert EchoFamily.TARGET not in ORDERED_FAMILIES
-
-    def test_an_unordered_entry_expires_from_behind_a_younger_one(self, monkeypatch):
-        # matching out of order puts entries in the ring out of timestamp order, so expiry
-        # filters the ring rather than popping its head, which a younger entry would block
-        clock = [100.0]
-        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
-        ledger = EchoLedger()
-        ledger.record(EchoFamily.TARGET, 120)
-        clock[0] = 103.0
-        ledger.record(EchoFamily.TARGET, 49)
-        assert ledger.claim(EchoFamily.TARGET, 49) is True
-        assert ledger.claim(EchoFamily.TARGET, 120) is True
-        assert ledger.claimed[EchoFamily.TARGET] == (49, 120)
-        clock[0] = 100.0 + ECHO_TTL + 1.5
-        ledger.purge()
-        assert ledger.claimed[EchoFamily.TARGET] == (49,)
-
-    def test_a_target_echo_leaves_the_steps_in_flight_alone(self):
-        ledger = EchoLedger()
-        ledger.record(EchoFamily.SPEED, 34)
-        ledger.record(EchoFamily.TARGET, 49)
-        assert ledger.claim(EchoFamily.TARGET, 49) is True
-        # a TARGET_SPEED is noop, so it is handed back in process and always overtakes a
-        # step still on its way to the Base 3; its own queue is what stops it consuming
-        # one
-        assert ledger.pending[EchoFamily.SPEED] == (34,)
-        assert ledger.claimed[EchoFamily.SPEED] == ()
-        assert ledger.claim(EchoFamily.SPEED, 34) is True
 
     def test_echoes_arriving_in_order_are_claimed_one_at_a_time(self):
         ledger = EchoLedger()
@@ -210,12 +201,30 @@ class TestEchoLedger(TestBase):
         assert ledger.pending[EchoFamily.SPEED] == ()
         assert ledger.claimed[EchoFamily.SPEED] == ()
 
-    def test_an_echo_inside_the_ttl_survives_a_purge(self):
+    def test_an_echo_inside_the_ttl_survives_a_purge(self, monkeypatch):
+        clock = [0.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         ledger = EchoLedger()
         ledger.record(EchoFamily.SPEED, 10)
+        clock[0] = ECHO_TTL * 0.99
         ledger.purge()
         assert ledger.pending[EchoFamily.SPEED] == (10,)
-        assert ECHO_TTL >= 5.0
+        assert ledger.claim(EchoFamily.SPEED, 10) is True
+
+    @pytest.mark.parametrize("claimed", [False, True])
+    @pytest.mark.parametrize("age", [1.0, 1.01])
+    def test_echoes_expire_at_the_configured_ttl(self, monkeypatch, claimed, age):
+        clock = [0.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
+        ledger = EchoLedger()
+        ledger.record(EchoFamily.SPEED, 10)
+        if claimed:
+            clock[0] = ECHO_TTL * 0.5
+            assert ledger.claim(EchoFamily.SPEED, 10) is True
+        clock[0] = ECHO_TTL * age
+        assert ledger.claim(EchoFamily.SPEED, 10) is False
+        assert ledger.pending[EchoFamily.SPEED] == ()
+        assert ledger.claimed[EchoFamily.SPEED] == ()
 
     def test_the_claimed_ring_is_bounded(self):
         ledger = EchoLedger()
@@ -236,9 +245,9 @@ class TestEchoFamily(TestBase):
         "command, family",
         [
             (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, EchoFamily.SPEED),
-            (TMCC1EngineCommandEnum.TARGET_SPEED, EchoFamily.TARGET),
+            (TMCC1EngineCommandEnum.TARGET_SPEED, None),
             (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, EchoFamily.SPEED),
-            (TMCC2EngineCommandEnumEx.TARGET_SPEED, EchoFamily.TARGET),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, None),
             (TMCC2EngineCommandEnum.DIESEL_RPM, EchoFamily.RPM),
             (TMCC2EngineCommandEnum.ENGINE_LABOR, EchoFamily.EFFORT),
             (TMCC2EngineCommandEnum.ENGINE_LABOR_DEFAULT, EchoFamily.EFFORT),
@@ -249,10 +258,6 @@ class TestEchoFamily(TestBase):
 
     def test_an_unarbitrated_command_has_no_family(self):
         assert echo_family(TMCC2EngineCommandEnum.MOMENTUM) is None
-
-    def test_both_speed_carrying_families_are_throttle_commands(self):
-        # a deviation in either aborts the ramp; a trim in the other two never does
-        assert SPEED_FAMILIES == {EchoFamily.SPEED, EchoFamily.TARGET}
 
 
 # noinspection PyMethodMayBeStatic
@@ -269,29 +274,74 @@ class TestRampArbitration(TestBase):
     #
     # the ramp's own reflection
     #
-    def test_the_facade_target_speed_echo_is_ours(self):
+    @pytest.mark.parametrize("leading_rx", [False, True])
+    @pytest.mark.parametrize(
+        "command,values",
+        [
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, (12, 15, 18)),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, (30, 27, 24)),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, (12, 15, 12)),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, (12, 15, 18)),
+            (TMCC2EngineCommandEnum.DIESEL_RPM, (1, 2, 3)),
+            (TMCC2EngineCommandEnum.ENGINE_LABOR, (15, 14, 13)),
+        ],
+    )
+    def test_feedback_streams_advance_independently(self, monkeypatch, leading_rx, command, values):
+        clock = [100.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         _, _, ramp = self.ramp()
-        assert ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 40)) is True
 
-    def test_a_retarget_records_its_own_target(self):
-        _, _, ramp = self.ramp()
-        ramp.retarget(80)
-        assert 80 in ramp.echo_ledger.pending[EchoFamily.TARGET]
-        assert ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 80)) is True
+        def receive(value, is_rx):
+            request = CommandReq.from_bytes(req(command, value).as_bytes, from_tmcc_rx=is_rx)
+            assert ramp.arbitrate(request) is EchoOutcome.MINE
 
-    def test_a_target_echo_does_not_consume_a_pending_step(self):
+        ramp._send(command, values[0])
+        receive(values[0], leading_rx)
+        receive(values[0], not leading_rx)
+        for value in values[1:]:
+            clock[0] += ECHO_TTL / 8
+            ramp._send(command, value)
+            receive(value, leading_rx)
+        for value in values[1:]:
+            receive(value, not leading_rx)
+        receive(values[-1], leading_rx)
+        receive(values[-1], not leading_rx)
+
+    @pytest.mark.parametrize("is_rx", [False, True])
+    @pytest.mark.parametrize("foreign", ["backward", "unsent", "expired"])
+    def test_each_feedback_stream_still_rejects_foreign_speeds(self, monkeypatch, is_rx, foreign):
+        clock = [100.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         _, _, ramp = self.ramp()
+        command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED
+        for value in (12, 15, 18):
+            ramp._send(command, value)
+            request = CommandReq.from_bytes(req(command, value).as_bytes, from_tmcc_rx=is_rx)
+            assert ramp.arbitrate(request) is EchoOutcome.MINE
+
+        # The other stream still has all three sends pending; it cannot rescue a failed claim.
+        value = 15 if foreign == "backward" else 17
+        if foreign == "expired":
+            clock[0] += ECHO_TTL
+            value = 18
+        request = CommandReq.from_bytes(req(command, value).as_bytes, from_tmcc_rx=is_rx)
+        assert ramp.arbitrate(request) is EchoOutcome.FOREIGN
+        assert ramp.on_state_command(request) is False
+
+    def test_local_retargets_neither_send_commands_nor_change_echo_history(self):
+        _, recorder, ramp = self.ramp()
         ramp.echo_ledger.record(EchoFamily.SPEED, 34)
-        ramp.retarget(49)
-        assert ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 49)) is True
+        pending = ramp.echo_ledger.pending
+        for target in (22, 37, 52, 67, 70):
+            ramp.retarget(target)
+            assert ramp.requested_speed == target
+            assert ramp.echo_ledger.pending == pending
+        assert recorder.speeds == recorder.rpms == recorder.labors == []
         assert ramp.echo_ledger.pending[EchoFamily.SPEED] == (34,)
         assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 34)) is True
 
     def test_a_retarget_mid_flight_does_not_orphan_the_step_in_flight(self):
-        # the reported defect, in the order the log shows it: two steps go out, the first
-        # one's echo comes back, the slider retargets, the loop wakes and sends the next
-        # step, the in process TARGET_SPEED echo lands, and only then does the second
-        # step's echo arrive from the Base 3. Every one of those is this ramp's own work.
+        # The slider retargets while earlier speed steps are still on their way back.
         state = RampEngineState(speed=0)
         outcomes: list[bool] = []
 
@@ -300,13 +350,12 @@ class TestRampArbitration(TestBase):
                 first, overtaken = rec.speeds[0], rec.speeds[1]
                 outcomes.append(ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, first)))
                 ramp.retarget(49)
-                outcomes.append(ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 49)))
                 outcomes.append(ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, overtaken)))
 
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        assert outcomes == [True, True, True]
+        assert outcomes == [True, True]
         assert ramp.abort_reason is None
         # and the ramp carried on to the target the slider asked for
         assert recorder.speeds[-1] == 49
@@ -374,9 +423,14 @@ class TestRampArbitration(TestBase):
     def test_the_commanded_speed_is_always_ours(self):
         state, recorder, ramp = self.ramp()
         ramp.run()
-        # the ledger has been drained by hand, so only the commanded fallback is left
-        ramp.echo_ledger.purge(ttl=0.0)
         assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ramp.commanded_speed)) is True
+        # Even the current speed must have been sent inside the lag budget.
+        ramp.echo_ledger.purge(ttl=0.0)
+        assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ramp.commanded_speed)) is False
+
+    def test_an_initial_speed_that_was_never_sent_is_foreign(self):
+        _, _, ramp = self.ramp(speed=12)
+        assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 12)) is False
 
     def test_an_echo_past_the_ttl_looks_foreign(self):
         state, recorder, ramp = self.ramp()
@@ -409,9 +463,11 @@ class TestRampArbitration(TestBase):
         assert ramp.arbitrate(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 177)) is EchoOutcome.FOREIGN
         assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 177)) is False
 
-    def test_a_foreign_target_speed_is_foreign(self):
+    @pytest.mark.parametrize("command", [TMCC1EngineCommandEnum.TARGET_SPEED, TMCC2EngineCommandEnumEx.TARGET_SPEED])
+    def test_retired_targets_do_not_arbitrate_or_change_local_intent(self, command):
         _, _, ramp = self.ramp()
-        assert ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 177)) is False
+        assert ramp.on_state_command(req(command, 17)) is True
+        assert ramp.requested_speed == 40
 
     def test_a_foreign_rpm_is_absorbed_not_fatal(self):
         state, recorder, ramp = self.ramp()
@@ -428,55 +484,3 @@ class TestRampArbitration(TestBase):
     def test_an_unarbitrated_command_leaves_the_ramp_alone(self):
         _, _, ramp = self.ramp()
         assert ramp.on_state_command(req(TMCC2EngineCommandEnum.MOMENTUM, 6)) is True
-
-
-# noinspection PyMethodMayBeStatic
-class TestReportedTargetSpeed(TestBase):
-    """
-    A Base 3 memory record is the only sighting a ramp gets of another PyTrain instance
-    driving this engine: that instance writes the base's own target byte rather than
-    putting a command on our wire, and the change reaches us in the next record.
-    """
-
-    def ramp(self, target: int = 120, **kwargs):
-        state = RampEngineState(**kwargs)
-        return state, build_ramp(state, target, Recorder())
-
-    def test_the_target_the_ramp_is_chasing_is_ours(self):
-        _, ramp = self.ramp()
-        assert ramp.owns_target_speed(120) is True
-        assert ramp.on_reported_target_speed(120) is True
-        assert ramp.is_target_confirmed is True
-
-    def test_the_target_clamped_to_the_ceiling_is_ours(self):
-        _, ramp = self.ramp(speed_limit=40)
-        # the base records where the engine is actually headed, which is the limit
-        assert ramp.target_speed == 40
-        assert ramp.owns_target_speed(40) is True
-
-    def test_a_target_an_earlier_retarget_announced_is_still_ours(self):
-        _, ramp = self.ramp()
-        ramp.retarget(49)
-        # a record queried before the retarget went out can still be in flight, and it
-        # carries the target this ramp had a moment ago
-        assert ramp.owns_target_speed(49) is True
-        assert ramp.owns_target_speed(120) is True
-
-    def test_an_unknown_target_is_ignored_until_ours_has_been_seen(self):
-        _, ramp = self.ramp()
-        # a record queried before the announcement reached the base still carries the
-        # engine's previous target; aborting on one of those would kill a ramp within a
-        # refresh cycle of starting it
-        assert ramp.on_reported_target_speed(0) is True
-        assert ramp.is_target_confirmed is False
-
-    def test_an_unknown_target_after_ours_has_been_seen_is_a_takeover(self):
-        _, ramp = self.ramp()
-        assert ramp.on_reported_target_speed(120) is True
-        assert ramp.on_reported_target_speed(30) is False
-
-    def test_a_missing_target_is_never_ours(self):
-        _, ramp = self.ramp()
-        assert ramp.owns_target_speed(None) is False
-        assert ramp.on_reported_target_speed(None) is True
-        assert ramp.is_target_confirmed is False

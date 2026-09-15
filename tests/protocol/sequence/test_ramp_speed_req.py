@@ -1,5 +1,10 @@
+from types import SimpleNamespace
+from unittest.mock import Mock
+
 import pytest
 
+from src.pytrain.comm.comm_buffer import CommBuffer
+from src.pytrain.db.comp_data import CompData
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_state import EngineState
 from src.pytrain.protocol.command_req import CommandReq
@@ -9,8 +14,10 @@ from src.pytrain.protocol.multibyte.multibyte_constants import (
     TMCC2RailSoundsDialogControl,
 )
 from src.pytrain.protocol.sequence.ramp_speed_req import RampSpeedDialogReq, RampSpeedReq, RampSpeedReqBase
+from src.pytrain.protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from src.pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
 from src.pytrain.protocol.sequence.sequence_req import SequenceReq
+from src.pytrain.protocol.sequence.set_speed_req import SetSpeedReq
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 
@@ -115,19 +122,34 @@ class TestRampSpeedReq(TestBase):
     #
     # emitted command list
     #
-    def test_legacy_emits_only_a_target_speed(self, monkeypatch):
-        install_state(monkeypatch, StubEngineState(is_legacy=True))
-        req = RampSpeedReq(12, 60)
-        assert enums(req) == [TMCC2EngineCommandEnumEx.TARGET_SPEED]
-        assert req.requests[0].request.data == 60
-        assert req.requests[0].request.address == 12
-        assert req.is_ramp is True
+    @pytest.mark.parametrize("as_action, send_request", [(False, False), (True, False), (False, True)])
+    @pytest.mark.parametrize("is_legacy, speed", [(True, 60), (False, 20)])
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    def test_ramp_destination_stays_local(self, monkeypatch, is_legacy, speed, scope, as_action, send_request):
+        state = StubEngineState(is_legacy=is_legacy, scope=scope)
+        install_state(monkeypatch, state)
+        update_req = Mock()
+        monkeypatch.setattr(CompData, "generate_update_req", update_req)
+        monkeypatch.setattr(CommBuffer, "build", Mock())
 
-    def test_tmcc1_emits_only_a_tmcc1_target_speed(self, monkeypatch):
-        install_state(monkeypatch, StubEngineState(is_legacy=False))
-        req = RampSpeedReq(12, 20, CommandScope.ENGINE)
-        assert enums(req) == [TMCC1EngineCommandEnum.TARGET_SPEED]
-        assert req.requests[0].request.data == 20
+        req = RampSpeedReq(12, speed, scope)
+
+        assert req.requests == []
+        assert req.target_speed == speed
+        assert req.address == 12
+        assert req.scope == scope
+        assert req.is_ramp is True
+        assert state.ramp_calls == []
+        if send_request:
+            sent_req = CommandReq.send_request(SequenceCommandEnum.RAMP_SPEED_SEQ, 12, speed, scope)
+            assert isinstance(sent_req, RampSpeedReq)
+            assert sent_req.requests == []
+        elif as_action:
+            req.as_action()()
+        else:
+            req.send()
+        assert state.ramp_calls == [(speed, False)]
+        update_req.assert_not_called()
 
     def test_tmcc1_target_speed_is_sanitized_to_31(self, monkeypatch):
         install_state(monkeypatch, StubEngineState(is_legacy=False))
@@ -137,13 +159,14 @@ class TestRampSpeedReq(TestBase):
     def test_train_scope_is_carried_through(self, monkeypatch):
         install_state(monkeypatch, StubEngineState(scope=CommandScope.TRAIN, tmcc_id=7))
         req = RampSpeedReq(7, 60, CommandScope.TRAIN)
-        assert req.requests[0].request.scope == CommandScope.TRAIN
+        assert req.scope == CommandScope.TRAIN
+        assert req.state.scope == CommandScope.TRAIN
 
     def test_no_step_expansion(self, monkeypatch):
-        """The whole point of the new facade: one announcement, no ramp steps, nothing scheduled."""
+        """The facade starts a local ramp without expanding or scheduling commands."""
         install_state(monkeypatch, StubEngineState())
         req = RampSpeedReq(12, 199)
-        assert len(req) == 1
+        assert len(req) == 0
         assert all(sr.delay in (None, 0) for sr in req.requests)
         assert TMCC2EngineCommandEnum.ABSOLUTE_SPEED not in enums(req)
         assert TMCC2EngineCommandEnum.DIESEL_RPM not in enums(req)
@@ -156,7 +179,6 @@ class TestRampSpeedReq(TestBase):
         install_state(monkeypatch, StubEngineState())
         req = RampSpeedDialogReq(12, "limited")
         assert enums(req) == [
-            TMCC2EngineCommandEnumEx.TARGET_SPEED,
             TMCC2RailSoundsDialogControl.TOWER_SPEED_LIMITED,
             TMCC2RailSoundsDialogControl.ENGINEER_SPEED_LIMITED,
         ]
@@ -165,9 +187,10 @@ class TestRampSpeedReq(TestBase):
     def test_dialog_variant_on_tmcc1(self, monkeypatch):
         install_state(monkeypatch, StubEngineState(is_legacy=False))
         req = RampSpeedDialogReq(12, "restricted")
-        assert enums(req)[0] == TMCC1EngineCommandEnum.TARGET_SPEED
-        assert TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED in enums(req)
-        assert TMCC2RailSoundsDialogControl.ENGINEER_SPEED_RESTRICTED in enums(req)
+        assert enums(req) == [
+            TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED,
+            TMCC2RailSoundsDialogControl.ENGINEER_SPEED_RESTRICTED,
+        ]
 
     def test_rr_speed_string_resolves_to_a_speed(self, monkeypatch):
         install_state(monkeypatch, StubEngineState())
@@ -203,8 +226,13 @@ class TestRampSpeedReq(TestBase):
         monkeypatch.setattr(state, "ramp_to", ramp_to)
         monkeypatch.setattr(CommandReq, "send", lambda req, *_a, **_kw: order.append(f"send:{req.command.name}"))
 
-        RampSpeedReq(12, 60).send()
-        assert order == ["ramp_to:60:False", "send:TARGET_SPEED"]
+        req = RampSpeedDialogReq(12, "limited")
+        req.send()
+        assert order == [
+            f"ramp_to:{req.target_speed}:True",
+            "send:TOWER_SPEED_LIMITED",
+            "send:ENGINEER_SPEED_LIMITED",
+        ]
 
     #
     # no-state / DEFAULT_ADDRESS fallback
@@ -249,7 +277,72 @@ class TestRampSpeedReq(TestBase):
         assert SequenceCommandEnum.RAMP_SPEED_SEQ.value.cmd_class is not RampSpeedReqBase
 
     def test_ramped_speed_req_is_still_registered(self):
-        from src.pytrain.protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
-
         assert SequenceCommandEnum.RAMPED_SPEED_SEQ.value.cmd_class is RampedSpeedReq
         assert SequenceCommandEnum.RAMPED_SPEED_DIALOG_SEQ.value.cmd_class is RampedSpeedDialogReq
+
+    @pytest.mark.parametrize("send_request", [False, True])
+    @pytest.mark.parametrize("is_legacy", [False, True])
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("current, destination", [(3, 9), (9, 3)])
+    def test_scheduled_ramp_keeps_real_steps_without_target_announcements(
+        self, monkeypatch, is_legacy, scope, current, destination, send_request
+    ):
+        state = Mock(
+            spec=EngineState,
+            speed=current,
+            is_legacy=is_legacy,
+            speed_max=199 if is_legacy else 31,
+            is_ramping=False,
+            rpm=0,
+            labor=12,
+            momentum=0,
+            is_rpm=True,
+        )
+        install_state(monkeypatch, state)
+        req = RampedSpeedReq(12, destination, scope)
+        speed_enum = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
+        steps = [sr for sr in req.requests if sr.request.command == speed_enum]
+        assert len(steps) >= 2
+        assert steps[-1].request.data == destination
+        assert all(sr.request.scope == scope and sr.request.address == 12 for sr in steps)
+        speeds = [current] + [sr.request.data for sr in steps]
+        assert speeds == sorted(speeds, reverse=current > destination)
+        assert all(
+            current <= s <= destination if current < destination else destination <= s <= current for s in speeds
+        )
+        assert [sr.delay for sr in steps] == sorted(sr.delay for sr in steps)
+        assert steps[-1].delay > steps[0].delay
+        assert TMCC1EngineCommandEnum.TARGET_SPEED not in enums(req)
+        assert TMCC2EngineCommandEnumEx.TARGET_SPEED not in enums(req)
+        sent = []
+        monkeypatch.setattr(CommBuffer, "build", Mock())
+        monkeypatch.setattr(CommandReq, "send", lambda request, *_a, **_kw: sent.append(request.command))
+        if send_request:
+            sent_req = CommandReq.send_request(SequenceCommandEnum.RAMPED_SPEED_SEQ, 12, destination, scope)
+            assert isinstance(sent_req, RampedSpeedReq)
+            assert enums(sent_req) == enums(req)
+        else:
+            req.send()
+        state.cancel_ramps.assert_called_once_with()
+        assert sent == enums(req)
+
+    @pytest.mark.parametrize("is_legacy", [False, True])
+    def test_immediate_speed_cancels_ramps_without_writing_a_destination(self, monkeypatch, is_legacy):
+        state = Mock(
+            spec=EngineState,
+            is_legacy=is_legacy,
+            speed_max=199 if is_legacy else 31,
+            comp_data=SimpleNamespace(target_speed=9),
+        )
+        install_state(monkeypatch, state)
+        update_req = Mock(return_value=None)
+        monkeypatch.setattr(CompData, "generate_update_req", update_req)
+        monkeypatch.setattr(CommBuffer, "cancel_delayed_requests", Mock())
+        req = SetSpeedReq(12, 20)
+        speed_enum = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
+        assert enums(req) == [speed_enum] + ([TMCC2EngineCommandEnum.DIESEL_RPM] if is_legacy else [])
+        assert req.requests[0].request.data == 20
+        update_req.assert_not_called()
+        req._on_before_send()
+        state.cancel_ramps.assert_called_once_with()
+        assert state.comp_data.target_speed == 9

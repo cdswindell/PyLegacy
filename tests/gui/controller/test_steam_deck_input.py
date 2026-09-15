@@ -60,6 +60,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     ThrottleCommit,
     TouchpadBinding,
     _DECK_PADDLE_BUTTONS,
+    _decode_deck_controls,
     _decode_deck_paddles,
     _decode_deck_pads,
     _deck_pad_y_fraction,
@@ -3279,6 +3280,194 @@ def test_decode_deck_pads_reads_touch_bits_and_coordinates() -> None:
     decoded = _decode_deck_pads(report)
 
     assert decoded == (True, (100, -200), True, (-300, 400))
+
+
+def _native_deck_provider(events):
+    provider = SteamDeckInputProvider(ControlProfile.load(), pygame_module=_touchpad_pygame(events))
+    provider._joysticks[7] = SimpleNamespace(get_name=lambda: "Steam Virtual Gamepad")
+    provider._hidraw_queue = queue.Queue()
+    return provider
+
+
+@pytest.mark.parametrize("raw", [-32768, 0, 32767])
+def test_native_deck_stick_offsets_and_polarity(raw):
+    report = bytearray(_deck_state_report(lpad=(123, -456), rpad=(-789, 321)))
+    struct.pack_into("<hhhh", report, 48, raw, raw, raw, raw)
+    axes, hat = _decode_deck_controls(bytes(report))
+    expected = -1.0 if raw < 0 else 1.0 if raw > 0 else 0.0
+    assert axes == {0: expected, 1: -expected, 3: expected, 4: -expected}
+    assert hat == (0, 0)
+
+
+@pytest.mark.parametrize("buttons,hat", [(1, (0, 1)), (2, (1, 0)), (4, (-1, 0)), (8, (0, -1)), (3, (1, 1))])
+def test_native_deck_dpad_bits(buttons, hat):
+    report = bytearray(_deck_state_report())
+    report[9] = buttons
+    assert _decode_deck_controls(bytes(report))[1] == hat
+
+
+@pytest.mark.parametrize("report", [b"", b"\x01\x00\x09" + bytes(60), b"\x01\x00\x05" + bytes(61)])
+def test_native_deck_controls_reject_incomplete_or_unrelated_reports(report):
+    assert _decode_deck_controls(report) is None
+
+
+@pytest.mark.parametrize("side,offset", [("left", 50), ("right", 54)])
+def test_native_physical_stick_and_horn_work_simultaneously_despite_virtual_axis(side, offset):
+    gui = _gui()
+    gui.on_engine_command = lambda command, data=0: gui.command_calls.append((command, data))
+    router, _, _, _, _ = _router(ControlProfile.load(), **{side: gui})
+    provider = _native_deck_provider([SimpleNamespace(type=1, instance_id=7, axis=4, value=1.0)])
+    report = bytearray(_deck_state_report(**{f"{side[0]}pad": (0, -32768)}))
+    struct.pack_into("<h", report, offset, 32767)
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", bytes(report)))
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.0)
+    router.tick(10.25)
+    assert gui.nudge_calls == [9.0]
+    assert gui.command_calls == [(HORN_COMMAND, 15)]
+
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.5)
+    assert gui.speed_calls == [9]
+    assert gui.command_calls == [(HORN_COMMAND, 15)]
+    assert router._levers == router._quills == {}
+
+
+def test_native_physical_dpad_press_and_release_ignore_virtual_hat():
+    provider = _native_deck_provider([SimpleNamespace(type=6, instance_id=7, value=(0, -1))])
+    report = bytearray(_deck_state_report(lpad=(0, -32768)))
+    report[9] = 1
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", bytes(report)))
+    assert [(a.name, a.phase) for a in provider.poll() if a.name != QUILLING_HORN] == [(DPAD_UP, "pressed")]
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", bytes(report)))
+    assert [a for a in provider.poll() if a.name != QUILLING_HORN] == []
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    assert [(a.name, a.phase) for a in provider.poll() if a.name != QUILLING_HORN] == [(DPAD_UP, "released")]
+
+
+@pytest.mark.parametrize("native", [False, True])
+def test_native_deck_filter_preserves_external_gamepads_and_sdl_fallback(native):
+    provider = _native_deck_provider(
+        [
+            SimpleNamespace(type=1, instance_id=8, axis=4, value=-1.0),
+            SimpleNamespace(type=6, instance_id=8, value=(0, 1)),
+        ]
+    )
+    provider._joysticks[8] = SimpleNamespace(get_name=lambda: "External gamepad")
+    if native:
+        provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    assert [(a.name, a.value) for a in provider.poll()] == [("throttle", 1.0), (DPAD_UP, 1.0)]
+
+
+def test_native_deck_filter_does_not_take_triggers_or_buttons():
+    provider = _native_deck_provider(
+        [
+            SimpleNamespace(type=1, instance_id=7, axis=5, value=1.0),
+            SimpleNamespace(type=1, instance_id=7, axis=5, value=-1.0),
+            SimpleNamespace(type=2, instance_id=7, button=1),
+        ]
+    )
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    assert [a.name for a in provider.poll()] == [STARTUP_IMMEDIATE, "bell"]
+
+
+def test_native_deck_reader_timeout_clears_holds_without_accepting_emulated_input():
+    provider = _native_deck_provider([SimpleNamespace(type=1, instance_id=7, axis=4, value=-1.0)])
+    now = [0.0]
+    provider._clock = lambda: now[0]
+    report = bytearray(_deck_state_report(rpad=(0, -32768)))
+    struct.pack_into("<h", report, 54, 32767)
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", bytes(report)))
+    assert {a.name for a in provider.poll()} == {"throttle", QUILLING_HORN}
+    now[0] = 2.0
+    assert [a.name for a in provider.poll()] == ["disconnect"]
+    assert provider.poll() == []
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", bytes(report)))
+    assert {a.name for a in provider.poll()} == {"throttle", QUILLING_HORN}
+
+
+def test_native_deck_takeover_cancels_an_earlier_virtual_throttle_without_committing():
+    provider = _native_deck_provider([SimpleNamespace(type=1, instance_id=7, axis=4, value=-1.0)])
+    router, _, right, _, _ = _router(ControlProfile.load())
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.0)
+    router.tick(10.25)
+    assert right.nudge_calls == [9.0]
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.5)
+    assert right.commit_calls == right.speed_calls == []
+    assert router._levers == {}
+
+
+@pytest.mark.parametrize(
+    "name,guid",
+    [
+        ("Steam Deck", ""),
+        ("Renamed gamepad", "03000000de280000ff11000001000000"),
+        ("Renamed gamepad", "03000000de2800000512000011010000"),
+    ],
+)
+def test_native_deck_filter_recognizes_physical_and_virtual_device_identity(name, guid):
+    provider = _native_deck_provider([SimpleNamespace(type=1, instance_id=7, axis=4, value=-1.0)])
+    provider._joysticks[7] = SimpleNamespace(get_name=lambda: name, get_guid=lambda: guid)
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    assert provider.poll() == []
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+@pytest.mark.parametrize("is_cab1", [False, True])
+def test_native_trackpad_ignores_steam_input_joystick_and_dpad_emulation(side, is_cab1):
+    gui = _gui(is_cab1=is_cab1)
+    gui.on_engine_command = lambda command, data=0: gui.command_calls.append((command, data))
+    router, left, right, _, _ = _router(ControlProfile.load(), **{side: gui})
+    events = [
+        SimpleNamespace(type=1, instance_id=7, axis=4, value=-1.0),
+        SimpleNamespace(type=1, instance_id=7, axis=3, value=1.0),
+        SimpleNamespace(type=6, instance_id=7, value=(0, 1)),
+    ]
+    provider = _native_deck_provider(events)
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(**{f"{side[0]}pad": (0, -32768)})))
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert gui.command_calls == [(HORN_COMMAND, 15)]
+    for pane in (left, right):
+        assert pane.nudge_calls == pane.commit_calls == pane.speed_calls == []
+    assert router._levers == router._boosts == {}
+    assert router._direction_latches == set()
+
+    # Steam's virtual stick can keep reporting after the finger has lifted.
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.5)
+    assert gui.command_calls == [(HORN_COMMAND, 15)]
+    assert router._levers == router._boosts == router._quills == {}
+
+
+@pytest.mark.parametrize("panel_kind", ["list", "lcs"])
+def test_native_trackpad_keeps_contextual_scrolling_without_emulated_stick_repeat(panel_kind):
+    gui = _scrolling_list_gui() if panel_kind == "list" else _lcs_config_gui()
+    router, _, _, _, _ = _router(ControlProfile.load(), right=gui)
+    provider = _native_deck_provider([SimpleNamespace(type=1, instance_id=7, axis=4, value=-1.0)])
+    for raw_y in (16000, -16000):
+        provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(rpad=(0, raw_y))))
+        for action in provider.poll():
+            router.handle(action)
+    scrolls = gui.scroll_calls.copy()
+    assert len(scrolls) == 1 and scrolls[0] > 0
+    router.tick(10.0)
+    router.tick(10.25)
+    assert gui.scroll_calls == scrolls
+    assert gui.speed_calls == gui.command_calls == []
 
 
 def test_decode_deck_pads_reports_untouched_pads() -> None:

@@ -17,7 +17,6 @@ from ..protocol.command_base import CommandBase
 from ..protocol.constants import BROADCAST_ADDRESS, CommandScope, CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
-    TMCC2EngineCommandEnumEx,
     TMCC2LightingControl,
     TMCC2MultiByteEnum,
     TMCC2RailSoundsDialogControl,
@@ -604,13 +603,6 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             help="Set relative speed (-5 to 5)",
         )
-        speed_group.add_argument(
-            "-target",
-            action="store_const",
-            const="TARGET_SPEED",
-            dest="option",
-            help="Set target speed",
-        )
         speed_group.set_defaults(option="RAMP_SPEED_SEQ")
 
         volume = sp.add_parser("volume", aliases=["vo"], help="Volume Operations", parent=engine_parser)
@@ -873,7 +865,6 @@ class EngineCli(CliBaseTMCC):
         else:
             enum_classes = [
                 TMCC2EngineCommandEnum,
-                TMCC2EngineCommandEnumEx,
                 TMCC2RailSoundsDialogControl,
                 TMCC2RailSoundsEffectsControl,
                 TMCC2EffectsControl,

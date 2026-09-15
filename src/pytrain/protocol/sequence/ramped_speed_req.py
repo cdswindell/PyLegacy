@@ -6,7 +6,6 @@ from abc import ABC, ABCMeta
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq, T
 from ..constants import CommandScope, DEFAULT_ADDRESS
-from ..multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from ...db.engine_state import EngineState
@@ -81,11 +80,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     rpm = tmcc2_speed_to_rpm(speed_req)
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
         else:
-            target_enum = (
-                TMCC2EngineCommandEnumEx.TARGET_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.TARGET_SPEED
-            )
-            self.add(target_enum, self.address, self._target_speed, self.scope)
-
             speed_enum = (
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
