@@ -6,7 +6,6 @@
 #  SPDX-License-Identifier: LPGL
 #
 
-import time
 from collections import defaultdict
 from typing import Any, Generator
 from unittest import mock
@@ -770,7 +769,9 @@ class TestComponentState(TestBase):
         # simulate a switch throw
         sw_out = CommandReq.build(Switch.OUT, 22)
         dispatcher.offer(sw_out)
-        time.sleep(0.05)
+        # Wait for publication to finish, not just for the queue to become empty.
+        with dispatcher._queue.all_tasks_done:
+            assert dispatcher._queue.all_tasks_done.wait_for(lambda: dispatcher._queue.unfinished_tasks == 0, timeout=5)
         assert dispatcher.is_running
         assert self.state
         assert CommandScope.SWITCH in self.state

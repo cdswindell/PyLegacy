@@ -10,17 +10,28 @@
 
 Headless: the view is built over stand-in widgets, so what is asserted is the value the
 lever asks of the slider and whether a speed command went out -- not what Tk draws. The
-engine states are stand-ins too, with mod.EngineState pointed at them so the view's
-isinstance guards accept them.
+engine states are usually stand-ins too, with mod.EngineState pointed at them so the
+view's isinstance guards accept them. Claim notification tests use real engine/train
+states and StateWatcher threads.
 """
 
 from __future__ import annotations
 
+from queue import Queue
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
 
 import src.pytrain.gui.controller.controller_view as mod
+from src.pytrain.comm.comm_buffer import CommBuffer
+from src.pytrain.db.component_state_store import ComponentStateStore
+from src.pytrain.db.engine_state import EngineState, TrainState
+from src.pytrain.db.state_watcher import StateWatcher
+from src.pytrain.gui.controller.engine_gui import EngineGui
+from src.pytrain.protocol.command_req import CommandReq
+from src.pytrain.protocol.constants import CommandScope, LEGACY_CONTROL_TYPE
+from src.pytrain.protocol.sequence.ramp_peer import RampClaim
 
 
 class _FakeState:
@@ -601,6 +612,7 @@ def test_remote_claim_disables_slider_discards_intent_and_reenables_on_release(m
 
     assert host.throttle.enabled is False
     assert {"state": "disabled"} in host.throttle.configs
+    assert host.throttle.configs[-1]["troughcolor"] == "gray"
     assert view.throttle_intent is None
     assert view._throttle_committed is None
     assert host.throttle.value == 20
@@ -611,16 +623,78 @@ def test_remote_claim_disables_slider_discards_intent_and_reenables_on_release(m
     view.update(state, state)
     assert host.speed.value == "030"
     assert host.throttle.value == 30
+    assert host.throttle.configs[-1]["troughcolor"] == "gray"
 
     state.is_remote_ramping = False
     view.update(state, state)
     assert host.throttle.enabled is True
     assert {"state": "normal"} in host.throttle.configs
+    assert host.throttle.configs[-1]["troughcolor"] == mod.LIONEL_BLUE
     view._on_throttle_release_event()
     assert speed_calls == []
     view.nudge_throttle_intent(5)
     view.commit_throttle_intent()
     assert speed_calls == [35]
+
+
+@pytest.mark.parametrize("state_type, scope", [(EngineState, CommandScope.ENGINE), (TrainState, CommandScope.TRAIN)])
+@pytest.mark.parametrize("address", [7, 3180])
+def test_claim_notifications_repaint_throttle_without_speed_changes(monkeypatch, state_type, scope, address):
+    monkeypatch.setattr(CommBuffer, "is_server", lambda: False)
+    monkeypatch.setattr(ComponentStateStore, "is_state_synchronized", lambda: False)
+    state = state_type(scope)
+    state.initialize(scope, address)
+    state._address = address
+    state._empty = False
+    state._is_legacy = True
+    state.comp_data._control_type = LEGACY_CONTROL_TYPE
+    state.comp_data.speed = state.comp_data.target_speed = 20
+    view, host, speed_calls = _view(state, monkeypatch)
+    monkeypatch.setattr(mod, "EngineState", EngineState)
+    host._shutdown_flag = Event()
+    host._message_queue = Queue()
+    host._scoped_callbacks = {scope: lambda updated: view.update(updated, updated)}
+
+    # Synchronize with the actual wait, so thread startup cannot lose the first notification.
+    waiting = Event()
+    wait = state.synchronizer.wait
+
+    def ready_wait(timeout=None):
+        waiting.set()
+        return wait(timeout)
+
+    monkeypatch.setattr(state.synchronizer, "wait", ready_wait)
+    watcher = StateWatcher(state, EngineGui.on_state_changed_action(host, state))
+    owner = RampClaim(scope, address, "192.168.4.12", 50000, 1)
+    try:
+        # A refresh must notify too, despite unchanged speed and an identical claim.
+        for release in (False, False, True):
+            assert waiting.wait(1), "StateWatcher did not start waiting"
+            waiting.clear()
+            state.changed.clear()
+            state.update(CommandReq.from_bytes(owner.request(release=release).as_bytes))
+            assert state.changed.is_set()
+            action, args = host._message_queue.get(timeout=1)
+            assert args == [state]
+            assert state.ramp_claim == (None if release else owner)
+            assert state.is_remote_ramping is not release
+            assert state.ramp is None and not state.is_ramping
+            assert state.speed == state.target_speed == 20
+
+            # Process the queued callback on this thread, as the GUI event loop does.
+            action(*args)
+            assert host.throttle.enabled is release
+            assert host.throttle.configs[-1]["troughcolor"] == (mod.LIONEL_BLUE if release else "gray")
+            assert host.throttle.value == 20
+            assert host.speed.value == "020"
+            assert host.speed.enabled and host.brake.enabled and host.momentum.enabled
+        assert speed_calls == []
+    finally:
+        watcher.shutdown()
+        watcher.join(timeout=1)
+        watcher._notifier.join(timeout=1)
+    assert not watcher.is_alive()
+    assert not watcher._notifier.is_alive()
 
 
 @pytest.mark.parametrize("route", ["nudge", "commit", "send", "release", "cab1_change", "cab1_repeat"])

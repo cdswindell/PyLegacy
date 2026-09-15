@@ -14,6 +14,8 @@ from io import BytesIO
 from threading import Event, get_ident
 from types import SimpleNamespace
 from typing import Callable
+from unittest import mock
+from unittest.mock import Mock
 
 import pytest
 from PIL import Image
@@ -91,6 +93,9 @@ class DummyGui(mod.GuiZeroBase):
 def _patch_runtime(monkeypatch):
     DummyApp.last_instance = None
     monkeypatch.setattr(mod, "PyCabApp", DummyApp, raising=True)
+    # Dummy widgets have no Tk resources to collect; don't scan the entire test process.
+    # Replace the module reference, not gc.collect globally.
+    monkeypatch.setattr(mod, "gc", SimpleNamespace(collect=Mock(return_value=0)))
     monkeypatch.setattr(
         mod.CommandDispatcher,
         "get",
@@ -115,6 +120,7 @@ def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
     assert app_after_run is None
     assert gui.destroy_gui_calls == 1
     assert gui.destroy_complete.is_set()
+    assert mod.gc.collect.call_args_list == [mock.call(), mock.call()]
 
     app = DummyApp.last_instance
     assert app is not None

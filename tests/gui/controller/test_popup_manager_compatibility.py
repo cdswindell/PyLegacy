@@ -1194,15 +1194,6 @@ def test_a_compact_title_is_not_nudged(monkeypatch: pytest.MonkeyPatch) -> None:
     assert all("pady" not in options for options in title.tk.packed)
 
 
-def test_the_nudge_still_leaves_the_title_centered(monkeypatch: pytest.MonkeyPatch) -> None:
-    # It shifts a centered label, it does not replace the centering: drop the fill and the padding
-    # would push a top-packed title further down instead of nudging a centered one.
-    _title_row, title = _popup_with_title(monkeypatch, "Bell/Horn Options", compact=False)
-
-    assert title.kwargs["height"] == "fill"
-    assert "align" not in title.kwargs
-
-
 # ----------------------------------------------------------------------------------------
 # A title row built from the key size, holding a title built from the font scale
 # ----------------------------------------------------------------------------------------

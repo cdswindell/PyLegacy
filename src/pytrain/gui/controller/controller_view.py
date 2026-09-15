@@ -825,7 +825,9 @@ class ControllerView:
                     host.speed.value = f"{throttle_state.speed:03d}"
 
                 # Only a local ramp has a destination to approach.
-                if ramp_speed is not None and throttle_state.speed != ramp_speed:
+                if remote_ramp:
+                    host.throttle.tk.config(troughcolor="gray")
+                elif ramp_speed is not None and throttle_state.speed != ramp_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)

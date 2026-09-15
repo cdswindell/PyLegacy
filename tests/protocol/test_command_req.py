@@ -39,7 +39,7 @@ RAMP_PAYLOAD = bytes.fromhex("c0a801071234abcd")
 class TestCommandReq(TestBase):
     def teardown_method(self, test_method):
         super().teardown_method(test_method)
-        CommBuffer.build().shutdown()
+        CommBuffer.stop()
 
     def build_request(
         self, cmd, address: int = None, data: int | bytes = None, scope: CommandScope = None
