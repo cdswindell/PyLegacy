@@ -10,6 +10,7 @@ Item {
     property bool springReturn: false
     readonly property bool dragging: dragHandler.active
     readonly property int tickCount: maximumValue <= 7 ? maximumValue + 1 : 5
+    readonly property real activeHeight: Math.min(height, 650)
 
     signal valueMoved(int value)
     signal valueCommitted(int value)
@@ -52,7 +53,7 @@ Item {
     Rectangle {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
-        anchors.bottom: rail.bottom
+        height: rail.height
         width: Math.min(42, root.width - 8)
         radius: 12
         color: "#20242a"
@@ -77,7 +78,7 @@ Item {
         id: rail
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        height: root.activeHeight
         width: 10
         radius: 5
         color: "#737b86"
