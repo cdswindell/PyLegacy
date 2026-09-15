@@ -22,11 +22,17 @@ import pytest
 from src.pytrain.comm.comm_buffer import CommBuffer, CommBufferSingleton
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT
+from src.pytrain.protocol.multibyte.dcds_command_req import VariableCommandReq
 from src.pytrain.protocol.multibyte.multibyte_constants import *
+from src.pytrain.protocol.multibyte.param_command_req import PARAMETER_ENUM_TO_INDEX_MAP, ParameterCommandReq
+from src.pytrain.protocol.multibyte.ramp_command_req import RampCommandReq
 from src.pytrain.protocol.tmcc1.tmcc1_constants import *
 from src.pytrain.protocol.tmcc2.tmcc2_constants import *
 
 from ..test_base import TestBase
+
+RAMP_COMMANDS = (TMCC2EngineCommandEnumEx.RAMP_CLAIM, TMCC2EngineCommandEnumEx.RAMP_RELEASE)
+RAMP_PAYLOAD = bytes.fromhex("c0a801071234abcd")
 
 
 # noinspection PyMethodMayBeStatic
@@ -34,6 +40,20 @@ class TestCommandReq(TestBase):
     def teardown_method(self, test_method):
         super().teardown_method(test_method)
         CommBuffer.build().shutdown()
+
+    def build_request(
+        self, cmd, address: int = None, data: int | bytes = None, scope: CommandScope = None
+    ) -> CommandReq:
+        if cmd in RAMP_COMMANDS and data in (None, 0):
+            # TestBase generates scalar zero for commands without data bits.
+            data = RAMP_PAYLOAD
+        return super().build_request(cmd, address, data, scope)
+
+    def generate_random_address(self, cmd: CommandDefEnum, scope: CommandScope = None) -> int:
+        address = super().generate_random_address(cmd, scope)
+        while cmd in RAMP_COMMANDS and address == DEFAULT_ADDRESS:
+            address = super().generate_random_address(cmd, scope)
+        return address
 
     def test_send_command(self):
         with mock.patch.object(CommandReq, "_enqueue_command") as mk_enqueue_command:
@@ -225,6 +245,12 @@ class TestCommandReq(TestBase):
         assert parsed.data == 7
         assert parsed.address == address
         assert parsed.scope == scope
+        if isinstance(command, TMCC2VariableEnum):
+            assert isinstance(req, VariableCommandReq)
+            assert isinstance(parsed, VariableCommandReq)
+            assert not isinstance(req, (ParameterCommandReq, RampCommandReq))
+            assert not isinstance(parsed, (ParameterCommandReq, RampCommandReq))
+            assert parsed.data_bytes == req.data_bytes == [7]
         with mock.patch.object(CommBuffer, "build") as build_buffer:
             with pytest.raises(ValueError, match="TARGET_SPEED.*cannot be sent"):
                 if api == "send":
@@ -237,6 +263,68 @@ class TestCommandReq(TestBase):
                     CommandReq.build_action(command, address, 7, scope)()
                 else:
                     CommandReq._enqueue_command(req, 3, 1, 2, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
+            build_buffer.assert_not_called()
+
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("address", [1, 99, 100, 3180, 9999])
+    @pytest.mark.parametrize("data", [0, 7, 199])
+    def test_variable_target_speed_data(self, address, data, scope):
+        command = TMCC2EngineCommandEnumEx.TARGET_SPEED
+        assert isinstance(command, TMCC2VariableEnum)
+        assert command.num_data_bytes == 1
+        req = CommandReq.build(command, address, data, scope)
+        parsed = CommandReq.from_bytes(req.as_bytes)
+        assert isinstance(req, VariableCommandReq)
+        assert isinstance(parsed, VariableCommandReq)
+        assert not isinstance(req, (ParameterCommandReq, RampCommandReq))
+        assert not isinstance(parsed, (ParameterCommandReq, RampCommandReq))
+        assert parsed.command == req.command == command
+        assert parsed.data == req.data == data
+        assert parsed.data_bytes == req.data_bytes == [data]
+        assert parsed.address == req.address == address
+        assert parsed.scope == req.scope == scope
+        assert req.is_tmcc4 is False
+        assert parsed.is_tmcc4 is (address > 99)
+        assert parsed.as_bytes == req.as_bytes
+        assert len(req.as_bytes) == req.num_bytes == (42 if address > 99 else 18)
+
+    @pytest.mark.parametrize("data", [-1, 200, 255])
+    def test_variable_target_speed_invalid_data(self, data):
+        with pytest.raises(ValueError):
+            CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data)
+
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("address", [7, 3180, 9999])
+    @pytest.mark.parametrize("command", RAMP_COMMANDS)
+    @pytest.mark.parametrize("api", ["send", "send_request", "as_action", "build_action", "enqueue", "enqueue_bytes"])
+    def test_state_only_ramp_cannot_reach_the_buffer(self, command, address, scope, api):
+        req = self.build_request(command, address, scope=scope)
+        parsed = CommandReq.from_bytes(req.as_bytes)
+        assert isinstance(req, RampCommandReq)
+        assert isinstance(parsed, RampCommandReq)
+        assert parsed.command == command
+        assert parsed.address == address
+        assert parsed.scope == scope
+        assert parsed.data_bytes == req.data_bytes == RAMP_PAYLOAD
+        assert parsed.as_bytes == req.as_bytes
+        assert len(req.as_bytes) == req.num_bytes == 45
+        assert parsed.is_tmcc4 is req.is_tmcc4 is False
+        with mock.patch.object(CommBuffer, "build") as build_buffer:
+            with pytest.raises(ValueError, match=rf"{command.name}.*state-only.*CommBuffer\.update_state"):
+                if api == "send":
+                    parsed.send(repeat=3, delay=1, duration=2)
+                elif api == "send_request":
+                    CommandReq.send_request(command, address, RAMP_PAYLOAD, scope, repeat=3, delay=1, duration=2)
+                elif api == "as_action":
+                    parsed.as_action(repeat=3, delay=1, duration=2)()
+                elif api == "build_action":
+                    CommandReq.build_action(command, address, RAMP_PAYLOAD, scope)()
+                elif api == "enqueue":
+                    CommandReq._enqueue_command(parsed, 3, 1, 2, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
+                else:
+                    CommandReq._enqueue_command(
+                        parsed.as_bytes, 3, 1, 2, DEFAULT_BAUDRATE, DEFAULT_PORT, None, request=parsed
+                    )
             build_buffer.assert_not_called()
 
     @pytest.mark.parametrize("target", [TMCC1EngineCommandEnum.TARGET_SPEED, TMCC2EngineCommandEnumEx.TARGET_SPEED])
@@ -303,6 +391,8 @@ class TestCommandReq(TestBase):
                     assert req.address == address
                 else:
                     assert req.address == DEFAULT_ADDRESS
+                if isinstance(req, VariableCommandReq):
+                    assert req.is_tmcc4 is False
 
     def test_data(self):
         for cdef in self.all_command_enums:
@@ -310,6 +400,17 @@ class TestCommandReq(TestBase):
                 data = self.generate_random_data(cmd)
                 req = self.build_request(cmd, 1, data)
                 assert req.data == data
+                if isinstance(cmd, TMCC2VariableEnum):
+                    assert isinstance(req, VariableCommandReq)
+                    if cmd in RAMP_COMMANDS:
+                        assert isinstance(req, RampCommandReq)
+                        assert req.data == 0
+                        assert req.data_bytes == RAMP_PAYLOAD
+                        assert cmd.num_data_bytes == len(req.data_bytes) + 2
+                    else:
+                        assert not isinstance(req, RampCommandReq)
+                        assert bytes(req.data_bytes) == data.to_bytes(cmd.num_data_bytes, "big")
+                        assert cmd.num_data_bytes == len(req.data_bytes)
 
     def test_scope(self):
         for cdef in self.all_command_enums:
@@ -331,7 +432,10 @@ class TestCommandReq(TestBase):
                 address = self.generate_random_address(cmd)
                 data = self.generate_random_data(cmd)
                 req = self.build_request(cmd, address, data)
-                if isinstance(cmd, TMCC2MultiByteEnum):
+                if isinstance(cmd, TMCC2VariableEnum):
+                    word_size = 7 if req.address > 99 and not isinstance(req, RampCommandReq) else 3
+                    assert req.as_bytes[2 * word_size + 2] | (req.as_bytes[3 * word_size + 2] << 8) == cmd.value.bits
+                elif isinstance(cmd, TMCC2MultiByteEnum):
                     pass
                 else:
                     # make sure all bits in the definition are also in the request
@@ -463,8 +567,8 @@ class TestCommandReq(TestBase):
     # noinspection DuplicatedCode
     def test_build_parameter_command_req(self):
         """
-        Build all the Parameter CommandReqs and verify that their command bytes
-        map back to the sane request
+        Build all parameter and extended CommandReqs and verify that their command bytes
+        map back to the same request
         """
         scopes = [None, CommandScope.ENGINE, CommandScope.TRAIN]
         for tmcc_enums in [
@@ -491,3 +595,37 @@ class TestCommandReq(TestBase):
                     assert req_from_bytes.is_tmcc1 == req.is_tmcc1
                     assert req_from_bytes.is_tmcc2 == req.is_tmcc2
                     assert req_from_bytes.as_bytes == req.as_bytes
+                    if isinstance(tmcc_enum, TMCC2VariableEnum):
+                        assert isinstance(req, VariableCommandReq)
+                        assert isinstance(req_from_bytes, VariableCommandReq)
+                        assert req.index_byte == b"\x6f"
+                        if tmcc_enum in RAMP_COMMANDS:
+                            assert isinstance(req, RampCommandReq)
+                            assert isinstance(req_from_bytes, RampCommandReq)
+                            assert len(req.as_bytes) == req.num_bytes == 45
+                            assert req.as_bytes[1:3] == b"\x03\x6f"
+                            assert req.as_bytes[5] == tmcc_enum.num_data_bytes == 10
+                            assert req.as_bytes[14:-3:3] == req.address.to_bytes(2, "big") + RAMP_PAYLOAD
+                            assert req_from_bytes.data_bytes == req.data_bytes == RAMP_PAYLOAD
+                            assert req_from_bytes.host == req.host == "192.168.1.7"
+                            assert req_from_bytes.port == req.port == 0x1234
+                            assert req_from_bytes.claim_id == req.claim_id == 0xABCD
+                            assert req_from_bytes.is_tmcc4 is req.is_tmcc4 is False
+                        else:
+                            assert not isinstance(req, (ParameterCommandReq, RampCommandReq))
+                            assert not isinstance(req_from_bytes, (ParameterCommandReq, RampCommandReq))
+                            word_size = 7 if req.address > 99 else 3
+                            assert len(req.as_bytes) == req.num_bytes == (5 + tmcc_enum.num_data_bytes) * word_size
+                            assert req.as_bytes[word_size + 2] == tmcc_enum.num_data_bytes == 1
+                            assert req.as_bytes[4 * word_size + 2 : -word_size : word_size] == bytes(req.data_bytes)
+                            assert req_from_bytes.data_bytes == req.data_bytes == [req.data]
+                            assert 0 <= req.data <= 199
+                            assert req.is_tmcc4 is False
+                            assert req_from_bytes.is_tmcc4 is (req.address > 99)
+                    else:
+                        assert isinstance(req, ParameterCommandReq)
+                        assert isinstance(req_from_bytes, ParameterCommandReq)
+                        assert req.index_byte == PARAMETER_ENUM_TO_INDEX_MAP[type(tmcc_enum)].to_bytes(1, "big")
+                        assert len(req.as_bytes) == req.num_bytes == (21 if req.address > 99 else 9)
+                        assert len(req.data_byte) == 1
+                        assert req.as_bytes[9 if req.address > 99 else 5] == req.data_byte[0]

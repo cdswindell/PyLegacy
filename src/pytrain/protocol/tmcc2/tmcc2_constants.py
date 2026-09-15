@@ -152,7 +152,7 @@ class TMCC2CommandDef(CommandDef):
             address = (0xFFFF & (~self.address_mask & value)) >> 9
             if len(byte_data) <= 2 and 1 <= address <= 99:
                 return address
-            elif len(byte_data) <= 6 and address == 0:
+            elif len(byte_data) == 6 and address == 0:
                 add_str = ""
                 for i in range(2, 6):
                     add_str += chr(byte_data[i])

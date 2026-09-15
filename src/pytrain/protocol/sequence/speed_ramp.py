@@ -54,6 +54,7 @@ __all__ = [
     "default_sender",
     "echo_family",
     "effective_target",
+    "is_ramp_override",
     "labor_delta",
     "next_step",
     "ramp_delay",
@@ -144,6 +145,28 @@ ECHO_FAMILIES: dict[CommandDefEnum, EchoFamily] = {
 def echo_family(command: CommandDefEnum) -> EchoFamily | None:
     """The family a command belongs to, or None if a ramp never arbitrates it."""
     return ECHO_FAMILIES.get(command, None)
+
+
+def is_ramp_override(command: CommandReq) -> bool:
+    """Safety commands always supersede duplicate suppression and echo ownership."""
+    name = command.command.name
+    if name in {
+        "HALT",
+        "SYSTEM_HALT",
+        "EMERGENCY_STOP",
+        "STOP_IMMEDIATE",
+        "SPEED_STOP_HOLD",
+        "RESET",
+        "RESET_ONLY",
+        "FORWARD_DIRECTION",
+        "REVERSE_DIRECTION",
+        "TOGGLE_DIRECTION",
+        "SHUTDOWN_IMMEDIATE",
+        "SHUTDOWN_DELAYED",
+        "SHUTDOWN_DELAYED_NOP",
+    }:
+        return True
+    return (name == "ABSOLUTE_SPEED" and command.data == 0) or (name == "NUMERIC" and command.data in {0, 5})
 
 
 @dataclass(frozen=True)
@@ -453,7 +476,7 @@ class SpeedRamp(Thread):
     speed and the target the operator asked for.
 
     The target is the touchstone: a new request retargets this thread in place rather
-    than cancelling it and building a new schedule, and every step recomputes its
+    than canceling it and building a new schedule, and every step recomputes its
     increment, delay, effort, and RPM from live engine state. That is what lets
     momentum, a speed limit, or an RPM trim applied mid-ramp take effect on the very
     next step.
@@ -468,6 +491,7 @@ class SpeedRamp(Thread):
         sender: Sender = None,
         linger: float = DEFAULT_RAMP_LINGER,
         delay_scale: float = 1.0,
+        peer=None,
     ) -> None:
         scope = state.scope
         tmcc_id = state.tmcc_id
@@ -477,6 +501,13 @@ class SpeedRamp(Thread):
         self._address = tmcc_id
         self._dialog = dialog
         self._sender = sender if sender is not None else default_sender
+        self._peer = peer
+        self._use_default_peer = sender is None or sender is default_sender
+        self.claim = None
+        self._claim_pending = False
+        self._claim_acquired = False
+        self._claim_released = False
+        self._starting = False
         self._linger = linger
         self._delay_scale = delay_scale
         self._lock = RLock()
@@ -574,7 +605,7 @@ class SpeedRamp(Thread):
 
     @property
     def is_active(self) -> bool:
-        return self._is_running is True and self.is_alive()
+        return self._is_running is True and (self._starting or self.is_alive())
 
     @property
     def abort_reason(self) -> str | None:
@@ -594,7 +625,7 @@ class SpeedRamp(Thread):
 
     def retarget(self, speed: int, *, dialog: bool = False) -> None:
         """
-        Point a running ramp at a new target. Nothing is cancelled, and no second
+        Point a running ramp at a new target. Nothing is canceled, and no second
         thread is started; the loop simply wakes and recomputes from where it is.
         """
         with self._lock:
@@ -612,70 +643,43 @@ class SpeedRamp(Thread):
         yield_speed: int = None,
     ) -> None:
         """
-        Stop the ramp within one step interval, driving the engine no further and
-        leaving it at whatever speed it was last commanded to.
+        Stop silently on ordinary takeover. The winning controller owns all settings.
 
-        The target the ramp was chasing will never be reached now, so the state's
-        target speed is squared up with where the engine is actually headed:
-        `target_speed` when the caller knows it - 0 for a hard stop, the speed another
-        controller just commanded when it takes the throttle - and otherwise the speed
-        this ramp had reached.
-
-        `hard_stop` marks a HALT, a reset, an emergency stop, a direction change or a
-        shutdown: the engine is being taken to a standstill by other means, so effort
-        goes back to neutral rather than to the setting this ramp borrowed against.
-
-        `yield_speed` is the speed another controller asked for, when the wire may still
-        be carrying a step of ours issued after theirs; see `_yield_road`.
-
-        Two obligations are settled here rather than by simply falling silent. Effort is
-        discharged on every exit path - see `_restore_effort` - and the road is yielded
-        when a step of this ramp's own overtook the command that stopped it. Those two
-        are the *only* commands this ramp can still put on the wire: every other emission
-        is silenced from here on, and a step already under way finishes before they go.
+        `yield_speed` remains accepted for EngineState compatibility, but only a hard
+        stop may reassert it, and then only as zero. Hard stops also neutralize effort.
         """
+        if self._stop_speed_ramp(reason) is False:
+            return
         with self._lock:
-            if self._is_running is False:
-                return
-            self._is_running = False
-            self._abort_reason = reason
             settled = self._commanded_speed if target_speed is None else target_speed
         self._set_ramping(False)
-        self._sync_target_speed(settled)
-        # the two sends below are made under the send gate, so a step already under way
-        # completes and then nothing of this ramp's follows them. Both are the ramp's own
-        # obligations rather than steps, so they alone are allowed past the guard in
-        # `_send` that silences a stopped ramp
+        self._sync_target_speed(0 if hard_stop else settled)
+        if hard_stop is False:
+            self._release_claim()
+            return
         acquired = self._wire.acquire(timeout=ABORT_GATE_TIMEOUT)
         try:
-            self._yield_road(yield_speed)
-            self._restore_effort(hard_stop)
+            self._yield_road(0 if yield_speed is not None else None)
+            self._restore_effort(True)
         finally:
             if acquired is True:
                 self._wire.release()
+            self._release_claim()
+
+    def _stop_speed_ramp(self, reason: str | None) -> bool:
+        """Stop flags only; safe while holding the send gate, with no state lock."""
+        with self._lock:
+            if self._is_running is False:
+                return False
+            self._is_running = False
+            self._abort_reason = reason
+            self._wake.set()
         log.debug(f"Speed ramp aborted {self._scope.title} {self._address}: {reason}")
-        self._wake.set()
+        return True
 
     def _yield_road(self, yield_speed: int | None) -> None:
-        """
-        Put the speed the command that stopped this ramp asked for back on the wire, when
-        a step of the ramp's own reached the rails after it did. That is another
-        controller's absolute speed, or the standstill a hard stop imposes.
-
-        A step is committed before the command that stops us can possibly be seen:
-        `_send_step` hands it to the sender, and only the *echo* of the other command
-        tells us it exists. So the two cross, and however quick the detection, the last
-        word on the wire is ours and the engine ends up at our step rather than where it
-        was told to go - moving, when it was told to stop.
-
-        The ledgers make that visible: a step still awaiting an echo on both streams was sent
-        after their command was created, so their command is not the latest thing the
-        engine heard. Re-asserting it once is the only way it is honored, and updates
-        both speed fields in the Base 3 database.
-        """
-        if yield_speed is None or not all(
-            ledger.pending[EchoFamily.SPEED] for ledger in (self._ledger, self._rx_ledger)
-        ):
+        """Reassert only a standstill, never another controller's positive speed."""
+        if yield_speed != 0 or not all(ledger.pending[EchoFamily.SPEED] for ledger in (self._ledger, self._rx_ledger)):
             return
         with self._lock:
             self._commanded_speed = yield_speed
@@ -683,28 +687,10 @@ class SpeedRamp(Thread):
         self._last_speed = yield_speed
 
     def _restore_effort(self, hard_stop: bool) -> None:
-        """
-        Discharge the effort this ramp borrowed. Every exit path pays it, differing only
-        in the destination.
-
-        Effort is the one axis nothing winds back on its own. Speed self-corrects,
-        because whatever stopped the ramp is driving the throttle itself; RPM is
-        recomputed from the speed on every emission, so the last notch sent is always the
-        right one for the last speed sent. But an engine holds the effort it was given
-        until something says otherwise, and a ramp raises effort *while* there is a gap
-        to close - an elevated notch mid-ramp is a transient, not a setting. Stopping
-        without discharging it strands the locomotive laboring, and the next Base 3
-        record reports that notch straight back into state.
-
-        A hard stop means the engine is done, so effort returns to neutral, agreeing with
-        what state records for it. Anything else means the ramp is done, so the operator
-        gets back the setting it borrowed against - `_absorb_labor` has already
-        re-baselined that to any effort command received mid-ramp, so it is their latest
-        value whoever the operator turned out to be.
-        """
-        if self.is_legacy is False:
+        """Only hard stops may restore neutral effort after cancellation."""
+        if hard_stop is False or self.is_legacy is False:
             return
-        labor = DEFAULT_LABOR if hard_stop is True else self._init_labor
+        labor = DEFAULT_LABOR
         if labor == self._last_labor:
             # a ramp that never raised effort has nothing to hand back
             return
@@ -716,23 +702,29 @@ class SpeedRamp(Thread):
         Decide what an inbound command means to this ramp: its own echo, a foreign
         trim to absorb, or a foreign throttle command that must stop it.
         """
-        family = echo_family(command.command)
-        if family is None:
-            return EchoOutcome.MINE
-        data = command.data
-        is_speed = family is EchoFamily.SPEED
-        tolerance = self.speed_echo_tolerance if is_speed else 0
-        ledger = self._rx_ledger if command.is_tmcc_rx else self._ledger
-        # Each stream must follow recent sends in monotonic send order. A failed claim
-        # cannot fall back to the other stream, whose cursor may legitimately lag.
-        if ledger.claim(family, data, tolerance=tolerance) is True:
-            return EchoOutcome.MINE
-        return EchoOutcome.FOREIGN if is_speed else EchoOutcome.ABSORB
+        if is_ramp_override(command):
+            return EchoOutcome.FOREIGN
+        with self._lock:
+            # No own commands exist during acquisition. Let ordinary traffic update
+            # state without treating it as takeover, and never retain it for replay.
+            if self._claim_pending:
+                return EchoOutcome.MINE
+            family = echo_family(command.command)
+            if family is None:
+                return EchoOutcome.MINE
+            data = command.data
+            is_speed = family is EchoFamily.SPEED
+            tolerance = self.speed_echo_tolerance if is_speed else 0
+            ledger = self._rx_ledger if command.is_tmcc_rx else self._ledger
+            # Never fall back to the other source's cursor or the requested destination.
+            if ledger.claim(family, data, tolerance=tolerance) is True:
+                return EchoOutcome.MINE
+            return EchoOutcome.FOREIGN if is_speed else EchoOutcome.ABSORB
 
     def on_state_command(self, command: CommandReq) -> bool:
         """
         Arbitrate one command that reached engine state. Returns True when the ramp must
-        *not* be cancelled: its own recent, ordered speed echo, and every RPM or
+        *not* be canceled: its own recent, ordered speed echo, and every RPM or
         effort command, foreign or not - a sound trim is not a throttle takeover.
         """
         outcome = self.arbitrate(command)
@@ -748,7 +740,7 @@ class SpeedRamp(Thread):
                 f"{command.data}, commanded {self.commanded_speed}, "
                 f"source {'RX' if command.is_tmcc_rx else 'TX/broadcast'}, "
                 f"pending steps {ledger.pending[EchoFamily.SPEED]}, "
-                f"last matched {ledger.claimed[family][-1:]}"
+                f"last matched {ledger.claimed.get(family, ())[-1:]}"
             )
             return False
         if family is EchoFamily.RPM:
@@ -778,10 +770,55 @@ class SpeedRamp(Thread):
             self._init_labor = labor
             self._last_labor = labor
 
+    def _acquire_claim(self) -> None:
+        """Wait in the worker before any emission, without state or registry locks."""
+        if self._claim_acquired or self._is_running is False:
+            return
+        try:
+            self._claim_pending = self._peer is not None or self._use_default_peer
+            self._set_ramping(True)
+            if self._peer is None and self._use_default_peer:
+                from .ramp_peer import RampPeer
+
+                self._peer = RampPeer.build()
+                if self._peer is None:
+                    raise ValueError("Peer service unavailable")
+            if self._peer is not None and self._is_running is True:
+                self._peer.acquire(self)
+            self._claim_acquired = self._is_running
+        except Exception as exc:
+            self._claim_pending = False
+            self.abort(f"peer acquisition failed: {exc}")
+            log.warning(f"Speed ramp {self._scope.title} {self._address}: peer acquisition failed: {exc}")
+        finally:
+            self._claim_pending = False
+
+    def _release_claim(self) -> None:
+        with self._lock:
+            if self._peer is None or self._claim_released:
+                return
+            self._claim_released = True
+        self._peer.release(self)
+
+    def start(self) -> None:
+        self._starting = True
+        try:
+            if self._is_running is True:
+                self._claim_pending = self._peer is not None or self._use_default_peer
+                super().start()
+        except Exception:
+            self._claim_pending = False
+            self.abort("ramp startup failed")
+            raise
+        finally:
+            self._starting = False
+
     def run(self) -> None:
         state = self._state
         try:
-            self._set_ramping(True)
+            if self._is_running is False:
+                return
+            self._acquire_claim()
             while self._is_running is True:
                 with self._lock:
                     requested = self._requested_target
@@ -790,6 +827,13 @@ class SpeedRamp(Thread):
                 step = next_step(commanded, requested, state, self._init_labor, self._rpm_bias)
                 if step is None:
                     self._settle()
+                    if self._peer is not None or self._use_default_peer:
+                        with self._lock:
+                            if self._commanded_speed == effective_target(self._requested_target, state):
+                                self._is_running = False
+                                return
+                        self._set_ramping(True)
+                        continue
                     if self._linger_for_retarget() is False:
                         return
                     self._set_ramping(True)
@@ -799,8 +843,13 @@ class SpeedRamp(Thread):
                 if self._pause(step.delay):
                     return
         finally:
-            self._is_running = False
-            self._set_ramping(False)
+            try:
+                self._release_claim()
+            finally:
+                with self._lock:
+                    self._is_running = False
+                    self._claim_pending = False
+                self._set_ramping(False)
 
     def _pause(self, delay: float) -> bool:
         """
@@ -924,21 +973,27 @@ class SpeedRamp(Thread):
         return next_step(commanded, requested, self._state, self._init_labor, self._rpm_bias) is not None
 
     def _send(self, command: CommandDefEnum, data: int, *, aborting: bool = False) -> None:
-        """
-        The one door out to the wire, and the one place a stopped ramp is silenced.
+        """Guard every component, including trailing trims after a synchronous stop."""
+        if aborting:
+            # abort() owns the bounded gate wait; its safety fallback cannot wait again.
+            family = echo_family(command)
+            if (family is EchoFamily.SPEED and data == 0) or (family is EchoFamily.EFFORT and data == DEFAULT_LABOR):
+                self._submit(command, data)
+        else:
+            with self._wire:
+                if self._is_running is False or self._claim_pending:
+                    return
+                if (self._peer is not None or self._use_default_peer) and not self._claim_acquired:
+                    return
+                self._submit(command, data)
 
-        Once an abort is given the ramp drives the engine no further, whatever else is
-        in flight: a step whose speed has gone out sends no trailing trim, and a future
-        emission added elsewhere is safe by default rather than by remembering to guard
-        it. Only the abort's own two obligations - the yielded speed and the effort
-        restore - opt past this, which is what makes them the last word on the wire.
-        """
-        if self._is_running is False and aborting is False:
-            return
+    def _submit(self, command: CommandDefEnum, data: int) -> None:
+        """Record actual submissions before a sender can synchronously echo them."""
         family = echo_family(command)
         if family is not None:
-            self._ledger.record(family, data)
-            self._rx_ledger.record(family, data)
+            with self._lock:
+                self._ledger.record(family, data)
+                self._rx_ledger.record(family, data)
         self._sender(command, self._address, data, self._scope)
 
     def _set_ramping(self, value: bool) -> None:
@@ -953,6 +1008,9 @@ class SpeedRamp(Thread):
     def _sync_target_speed(self, target_speed: int) -> None:
         """Record where the engine is headed now that this ramp is no longer driving it."""
         try:
+            owner = getattr(self._state, "ramp", None)
+            if owner is not None and owner is not self:
+                return
             self._state.sync_target_speed(target_speed)
         except AttributeError:
             pass
@@ -1011,6 +1069,8 @@ class RampRegistry:
         """
         key = self.key_for(state)
         with self._ramps_lock:
+            if getattr(state, "is_remote_ramping", False) is True:
+                raise ValueError("Ramp already owned by another process")
             self._reap()
             ramp = self._ramps.get(key)
             if ramp is not None and ramp.is_active is True:
@@ -1018,12 +1078,18 @@ class RampRegistry:
                 ramp.retarget(speed, dialog=dialog)
                 return ramp
             ramp = SpeedRamp(state, speed, dialog=dialog, sender=sender, **kwargs)
+            ramp._starting = True
             self._ramps[key] = ramp
             # Install ownership before the first speed can be sent or echoed back.
             state._ramp = ramp
-            # started under the lock so that a concurrent reap cannot mistake a ramp
-            # that has not run yet for one that has already finished
+        # The worker acquires the claim; startup never waits for network acknowledgment.
+        try:
             ramp.start()
+        except Exception:
+            with self._ramps_lock:
+                if self._ramps.get(key) is ramp:
+                    del self._ramps[key]
+            raise
         return ramp
 
     def get(self, state: EngineState) -> SpeedRamp | None:

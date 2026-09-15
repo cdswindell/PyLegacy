@@ -28,7 +28,7 @@ class RampSpeedReqBase(SequenceReq, ABC):
     """
     Base class for the threaded speed ramper.
 
-    Unlike ``RampedSpeedReq``, this request expands no steps and schedules nothing;
+    This request expands no steps and schedules no speed or component commands;
     it hands the destination to the engine's local ramp thread in ``_on_before_send``.
     Only the tower and engineer dialogs, when asked, are added to the request.
     """
@@ -59,7 +59,7 @@ class RampSpeedReqBase(SequenceReq, ABC):
         self._dialog = dialog
 
         # if there is no state information, there is nothing to ramp; fall back to
-        # a plain ABSOLUTE_SPEED (plus RPM), exactly as RampedSpeedReqBase does
+        # a plain ABSOLUTE_SPEED (plus RPM)
         if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
             self._is_ramp = False
             if tower and engr and dialog:
@@ -101,6 +101,8 @@ class RampSpeedReqBase(SequenceReq, ABC):
         return self._is_ramp
 
     def _on_before_send(self) -> None:
+        if getattr(self.state, "is_remote_ramping", False) is True:
+            raise ValueError("Ramp already owned by another process")
         if self._is_ramp and isinstance(self.state, EngineState):
             self.state.ramp_to(self._target_speed, dialog=self._dialog)
 

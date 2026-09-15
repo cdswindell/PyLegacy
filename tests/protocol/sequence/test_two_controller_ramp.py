@@ -8,16 +8,14 @@
 """
 Two controllers, one engine.
 
-PyTrain allows several controllers, and a ramp is owned by the instance that asked for
-it, so each controller runs its own thread against its own copy of the engine's state.
-What is exercised here is the collision: both controllers point a ramp at the same
-engine, the second controller's distinguishable speed wins, and the first is left clean - no ramp of its
-own, and a state that settles on what the winner actually did, which is what its GUI
-draws from.
+PyTrain's first accepted claimant owns a ramp until completion. A competing claimant
+must emit nothing, while other controllers observe the owner's commands. Untagged
+Lionel throttle commands still override a ramp: custom senders without a claim service
+exercise that fallback and its independent echo ordering below.
 
 The layout below stands in for CommandDispatcher -> ComponentStateStore ->
 state.update(): whatever one controller sends is delivered to the state every controller
-keeps. The ramps are driven synchronously, so the whole handoff is deterministic.
+keeps. The ramps are driven synchronously, so command ordering is deterministic.
 """
 
 from typing import Callable
@@ -72,7 +70,7 @@ class Layout:
         for controller in self.controllers:
             # noinspection PyProtectedMember
             # what ComponentStateStore.__call__ does, minus the synchronizer and the
-            # duplicate suppression, so the handoff is deterministic
+            # duplicate suppression, so command ordering is deterministic
             controller.state._update_state(req)
         if self.hook is not None:
             self.hook(self)
@@ -114,7 +112,7 @@ class Controller:
 
 # noinspection PyMethodMayBeStatic
 class TestTwoControllerRamp(TestBase):
-    """A second controller's ramp takes the engine, and the first one lets go of it."""
+    """Exclusive claims coexist with the untagged Lionel throttle fallback."""
 
     @staticmethod
     @pytest.fixture(autouse=True)
@@ -239,7 +237,7 @@ class TestTwoControllerRamp(TestBase):
         assert ramp.abort_reason == "foreign ABSOLUTE_SPEED"
         assert state.speed == takeover_speed
         assert state.target_speed == takeover_speed
-        assert sent[-1][2] == takeover_speed
+        assert [args[2] for args in sent] == [10, 20, 30, 40, 50]
 
     def test_server_ramp_survives_a_base_echo_overtaken_by_local_feedback(self, monkeypatch):
         clock = [100.0]
@@ -306,7 +304,7 @@ class TestTwoControllerRamp(TestBase):
         assert ramp.is_active is False
         assert ramp.abort_reason == "foreign ABSOLUTE_SPEED"
         assert state.speed == state.target_speed == 17
-        assert [args[2] for args in sent] == ([10, 20, 17] if pending_step else [10])
+        assert [args[2] for args in sent] == ([10, 20] if pending_step else [10])
 
     def test_the_loser_drives_the_engine_no_further(self):
         first, _second, _first_ramp, _second_ramp = self._handed_off()
@@ -314,22 +312,18 @@ class TestTwoControllerRamp(TestBase):
         assert len(first.speeds) == 3
         # no settle at the target it will never reach, and no trailing trim either
         assert 120 not in first.speeds
-        # Every step was echoed before takeover, so nothing needs to be re-asserted.
+        # Ordinary takeover never reasserts speed, even with pending echoes.
         assert first.of(TMCC2EngineCommandEnum.ABSOLUTE_SPEED) == first.speeds
-        # the effort it borrowed is the only thing still owed, and the only thing sent
-        assert first.sent[-1] == (TMCC2EngineCommandEnum.ENGINE_LABOR, _first_ramp.init_labor)
+        assert first.sent[-1] == (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, first.speeds[-1])
 
     def test_the_loser_hands_back_the_effort_it_borrowed(self):
         first, _second, first_ramp, _second_ramp = self._handed_off()
         labors = first.of(TMCC2EngineCommandEnum.ENGINE_LABOR)
 
-        # another controller taking the throttle is not a hard stop, so effort does not
-        # go to neutral - but it does go back. The loser raised it while it had a gap to
-        # close, and leaving that notch behind would strand the engine laboring for a
-        # ramp that no longer exists, with the winner's own steps trimming from there
-        assert labors[:-1] != []
-        assert max(labors[:-1]) > first_ramp.init_labor
-        assert labors[-1] == first_ramp.init_labor
+        # The replacement owns effort too: the loser must not restore its baseline.
+        assert labors != []
+        assert all(labor > first_ramp.init_labor for labor in labors)
+        assert first.sent[-1][0] == TMCC2EngineCommandEnum.ABSOLUTE_SPEED
 
     def test_the_first_controller_is_left_clean(self):
         first, second, _first_ramp, second_ramp = self._handed_off()
@@ -339,7 +333,7 @@ class TestTwoControllerRamp(TestBase):
 
         assert second.speeds[-1] == 60
         # neither controller is left holding a live ramp: the loser dropped its handle
-        # when it was cancelled, and the winner's thread has run its course
+        # when it was canceled, and the winner's thread has run its course
         assert first.state.ramp is None
         assert second_ramp.is_active is False
         for controller in (first, second):
@@ -386,3 +380,59 @@ class TestTwoControllerRamp(TestBase):
             assert state.is_ramping is False, controller.name
             assert state.target_speed == 0, controller.name
             assert state.labor == DEFAULT_LABOR, controller.name
+
+    @pytest.mark.parametrize("target", [93, 27])
+    def test_competing_claim_cannot_emit_or_cancel_owner_and_can_start_after_release(self, target):
+        layout = Layout()
+        first = Controller(layout, "deck")
+        second = Controller(layout, "cab")
+        attempts = []
+
+        class Peer:
+            owner = None
+
+            def acquire(self, ramp):
+                if self.owner is not None:
+                    raise ValueError("Ramp already owned by another process")
+                self.owner = ramp
+
+            def release(self, ramp):
+                if self.owner is ramp:
+                    self.owner = None
+
+        peer = Peer()
+        owner = first.ramp_to(120)
+        owner._peer = peer
+
+        def compete(_bus):
+            if attempts or len(first.speeds) != 10:
+                return
+            contender = second.ramp_to(target)
+            contender._peer = peer
+            attempts.append(contender)
+            contender.run()
+            assert "already owned" in contender.abort_reason
+            assert contender.is_active is False
+            assert second.sent == []
+            assert peer.owner is owner
+            assert owner.is_active is True
+            assert owner.abort_reason is None
+
+        layout.hook = compete
+        owner.run()
+        assert len(attempts) == 1
+        assert first.speeds[-1] == 120
+        assert second.sent == []
+        assert owner.abort_reason is None
+        assert owner.is_active is False
+        assert peer.owner is None
+        assert all(controller.state.speed == 120 for controller in layout.controllers)
+
+        next_owner = second.ramp_to(target)
+        next_owner._peer = peer
+        next_owner.run()
+        assert next_owner is not attempts[0]
+        assert next_owner.abort_reason is None
+        assert second.speeds[-1] == target
+        assert peer.owner is None
+        assert layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == []

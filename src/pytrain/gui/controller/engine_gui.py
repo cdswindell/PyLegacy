@@ -2959,22 +2959,29 @@ class EngineGui(GuiZeroBase, Generic[S]):
             do_dialog = False
             rr_speed = speed_req
 
-        if state:
-            if state.is_cab1:
-                req = CommandReq.build(
-                    TMCC1EngineCommandEnum.RELATIVE_SPEED, state.tmcc_id, data=rr_speed, scope=state.scope
-                )
-            else:
-                if do_dialog:
-                    req = RampSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
+        if getattr(state, "is_remote_ramping", False) is True:
+            self.reject_throttle()
+            return
+        try:
+            if state:
+                if state.is_cab1:
+                    req = CommandReq.build(
+                        TMCC1EngineCommandEnum.RELATIVE_SPEED, state.tmcc_id, data=rr_speed, scope=state.scope
+                    )
                 else:
-                    req = RampSpeedReq(state.tmcc_id, rr_speed, state.scope)
-        else:
-            tmcc_id = self._scope_tmcc_ids[self.scope]
-            req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
+                    if do_dialog:
+                        req = RampSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
+                    else:
+                        req = RampSpeedReq(state.tmcc_id, rr_speed, state.scope)
+            else:
+                tmcc_id = self._scope_tmcc_ids[self.scope]
+                req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
 
-        # dispatch command
-        self.submit_request(req)
+            # dispatch command
+            self.submit_request(req)
+        except ValueError as exc:
+            log.info("Throttle request rejected: %s", exc)
+            self.reject_throttle()
 
     # -----------------------------
     # Throttle lever facade
@@ -3010,6 +3017,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if view:
             view.clear_throttle_intent()
             view.clear_throttle_commit()
+
+    def reject_throttle(self) -> None:
+        """Reconcile a lost claim without leaving a pending GUI speed selection."""
+        self.clear_throttle()
+        view = self._throttle_lever_view
+        if view:
+            view.reject_throttle_intent()
+
+    @property
+    def throttle_generation(self) -> int:
+        view = self._throttle_lever_view
+        return view.throttle_generation if view else 0
 
     @property
     def throttle_target(self) -> int | None:
@@ -3097,6 +3116,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
             targets = [targets]
         for target in targets:
             target = self.resolve_command_alias(target)
+            is_throttle_command = target in {
+                "ABSOLUTE_SPEED",
+                "RELATIVE_SPEED",
+                "BOOST_SPEED",
+                "BRAKE_SPEED",
+            } or target.startswith(("SPEED_", "RAMP_SPEED"))
+            if getattr(state, "is_remote_ramping", False) is True and is_throttle_command:
+                self.reject_throttle()
+                return False
             if state and state.is_legacy:
                 # there are a few special cases
                 if target in {SMOKE_ON, SMOKE_OFF}:
@@ -3108,9 +3136,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
             else:
                 cmd_enum = TMCC1EngineCommandEnum.by_name(target)
             if cmd_enum:
-                cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
-                repeat = self.get_repeats(cmd_enum, repeat)
-                self.submit_request(cmd, repeat=repeat, delay=delay)
+                try:
+                    cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
+                    repeat = self.get_repeats(cmd_enum, repeat)
+                    self.submit_request(cmd, repeat=repeat, delay=delay)
+                except ValueError as exc:
+                    if not is_throttle_command:
+                        raise
+                    log.info("Throttle request rejected: %s", exc)
+                    self.reject_throttle()
+                    return False
                 if do_ops is True and self._keypad_view.is_entry_mode is True:
                     self.ops_mode(update_info=True)
                 elif do_entry and self._keypad_view.is_entry_mode is False:

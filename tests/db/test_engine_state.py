@@ -579,11 +579,9 @@ class TestEngineStateRampArbitration:
 
         assert ramp.aborts == ["foreign ABSOLUTE_SPEED"]
         assert ramp.abort_yields == [30]
-        # step 34 was committed before their command could possibly be seen, so it
-        # landed after theirs and the engine would have been left at 34. Detection
-        # cannot recall it; the only way their command is honored is to re-assert it
-        assert ramp.sent[0] == (TMCC2.ABSOLUTE_SPEED, 30)
-        assert ramp.sent[-1] == (TMCC2.ENGINE_LABOR, ramp.init_labor)
+        # The new owner may already have moved below 30. Yielding must not replay
+        # that obsolete speed or restore effort over the new owner's commands.
+        assert ramp.sent == []
         assert state.target_speed == 30
         assert state.is_ramping is False
 
@@ -624,9 +622,8 @@ class TestEngineStateRampArbitration:
         assert state.ramp is None
         assert state.is_ramping is False
         assert state.target_speed == 30
-        # and a takeover found this way is a takeover like any other: step 33 was
-        # committed after their command, so their speed is re-asserted
-        assert ramp.sent[0] == (TMCC2.ABSOLUTE_SPEED, 30)
+        # Duplicate suppression must not hide takeover, and takeover must be silent.
+        assert ramp.sent == []
 
     def test_our_own_echo_arriving_twice_does_not_cancel(self):
         state, ramp = self._ramping_engine(speed=30)
@@ -916,12 +913,10 @@ class TestEngineStateRampArbitration:
 
         self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
 
-        # not a hard stop, so effort does not go to neutral - but it does go back. The
-        # ramp raised it while there was a gap to close, and nobody else asked for that
-        # notch: leaving it behind strands the locomotive laboring, and the next Base 3
-        # record reports it straight back into the state this abort just cleaned
+        # Ordinary takeover now relinquishes effort as well as speed: restoring
+        # the old effort setting would interfere with a new owner's ramp.
         assert ramp.abort_hard_stops == [False]
-        assert ramp.sent == [(TMCC2.ENGINE_LABOR, ramp.init_labor)]
+        assert ramp.sent == []
 
     def test_a_ramp_that_never_raised_effort_hands_nothing_back(self):
         state, ramp = self._ramping_engine()

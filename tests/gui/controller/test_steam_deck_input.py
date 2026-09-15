@@ -1371,6 +1371,114 @@ def test_provider_start_wraps_only_sdl_runtime_errors() -> None:
         provider.start()
 
 
+@pytest.mark.parametrize("policy", ["lead", "dwell", "release"])
+@pytest.mark.parametrize("is_cab1", [False, True])
+def test_remote_claim_blocks_stick_until_neutral_and_keeps_other_pane_usable(policy, is_cab1) -> None:
+    router, left, right, _, _ = _router(_profile(throttle_commit=policy))
+    left.throttle_state.is_remote_ramping = True
+    left.throttle_state.is_cab1 = is_cab1
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.handle(DeckAction("throttle", "right", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.2)
+    assert left.nudge_calls == []
+    assert left.speed_calls == []
+    assert right.nudge_calls
+
+    left.throttle_state.is_remote_ramping = False
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.tick(10.4)
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(10.6)
+    assert left.speed_calls == []
+    assert left.nudge_calls == []
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.8)
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(11.0)
+    assert left.speed_calls
+
+
+@pytest.mark.parametrize("settling", [False, True])
+def test_remote_claim_drops_held_or_pending_settle_before_tick(settling) -> None:
+    router, left, _, _, _ = _router(_profile(throttle_commit="release"))
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.2)
+    if settling:
+        router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    left.throttle_state.is_remote_ramping = True
+    router.tick(10.4)
+    assert left.lever is None
+    assert router._levers == {}
+    left.throttle_state.is_remote_ramping = False
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(10.6)
+    assert left.speed_calls == []
+
+
+def test_remote_claim_keeps_direction_reset_halt_and_shutdown_operational() -> None:
+    router, left, _, _, global_calls = _router()
+    left.throttle_state.is_remote_ramping = True
+    router.handle(DeckAction("direction", "left", 1.0, "changed"))
+    router.handle(DeckAction("reset", "left", 1.0, "pressed"))
+    router.handle(DeckAction(SHUTDOWN_IMMEDIATE, "left", 1.0, "pressed"))
+    router.handle(DeckAction("halt", "global", 1.0, "pressed"))
+    assert left.command_calls == ["FORWARD_DIRECTION", "RESET", "SHUTDOWN_IMMEDIATE"]
+    assert global_calls == ["halt"]
+
+
+@pytest.mark.parametrize("held_before_claim", [False, True])
+@pytest.mark.parametrize("action", [DPAD_UP, DPAD_DOWN])
+def test_remote_claim_discards_held_speed_mapping_without_resuming_it(action, held_before_claim) -> None:
+    router, left, _, _, _ = _router()
+    if held_before_claim:
+        router.handle(DeckAction(action, "left", 1.0, "pressed"))
+        assert left.command_calls
+        left.command_calls.clear()
+    left.throttle_state.is_remote_ramping = True
+    if not held_before_claim:
+        router.handle(DeckAction(action, "left", 1.0, "pressed"))
+    router.tick(10.0)
+    router.tick(10.2)
+    left.throttle_state.is_remote_ramping = False
+    router.tick(10.4)
+    router.handle(DeckAction(action, "left", 0.0, "released"))
+    assert left.command_calls == []
+    router.handle(DeckAction(action, "left", 1.0, "pressed"))
+    assert left.command_calls
+
+
+@pytest.mark.parametrize("tick_before_claim", [False, True])
+def test_claim_and_release_between_ticks_still_discards_the_old_stick_gesture(tick_before_claim) -> None:
+    router, left, _, _, _ = _router(_profile(throttle_commit="release"))
+    left.throttle_generation = 0
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    if tick_before_claim:
+        router.tick(10.0)
+    # The view observed the claim and release while the router was between ticks.
+    left.throttle_generation += 1
+    router.tick(10.2)
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(10.4)
+    assert router._levers == {}
+    assert left.lever is None
+    assert left.speed_calls == []
+
+
+def test_claim_and_release_between_ticks_discards_a_boost_repeat() -> None:
+    router, left, _, _, _ = _router()
+    left.throttle_generation = 0
+    router.handle(DeckAction(DPAD_UP, "left", 1.0, "pressed"))
+    left.command_calls.clear()
+    left.throttle_generation += 1
+    router.tick(10.0)
+    router.tick(10.2)
+    assert left.command_calls == []
+    assert router._boosts == {}
+
+
 def test_held_throttle_moves_the_lever_and_commands_only_its_lead() -> None:
     # The polling loop generates no stream of ramp requests: a held stick moves the pane's
     # lever proportionally to how far it is pushed, and says one thing to the engine -- the
