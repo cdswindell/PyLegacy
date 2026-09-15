@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -18,6 +19,7 @@ Item {
 
     implicitWidth: 76
     implicitHeight: 420
+    Layout.maximumHeight: 650
 
     function clamp(v) {
         return Math.max(minimumValue, Math.min(maximumValue, v))
