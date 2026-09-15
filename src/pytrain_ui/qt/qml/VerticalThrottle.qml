@@ -9,6 +9,7 @@ Item {
     property int value: 0
     property int pendingValue: value
     property bool awaitingConfirmation: false
+    readonly property real activeHeight: Math.min(height, 650)
     signal valueCommitted(int value)
 
     implicitWidth: 112
@@ -67,7 +68,7 @@ Item {
     Rectangle {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
-        anchors.bottom: rail.bottom
+        height: rail.height
         width: 58
         radius: 15
         color: "#20242a"
@@ -91,7 +92,7 @@ Item {
         id: rail
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        height: root.activeHeight
         width: 12
         radius: 6
         color: "#737b86"
