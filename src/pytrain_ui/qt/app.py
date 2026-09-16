@@ -46,6 +46,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     if not engine.rootObjects():
         gamepad.close()
         selection.close()
+        catalog.close()
         cab.close()
         return 1
     try:
@@ -53,6 +54,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     finally:
         gamepad.close()
         selection.close()
+        catalog.close()
         cab.close()
 
 
