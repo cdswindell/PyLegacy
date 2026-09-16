@@ -26,7 +26,7 @@ class SelectedEngineController(QObject):
             return
         tmcc_id = self._cab.tmccId
         if tmcc_id not in self._selected_ids:
-            self._selected_ids.append(tmcc_id)
+            self._selected_ids.insert(0, tmcc_id)
         self.selectionChanged.emit()
 
     @staticmethod
@@ -94,8 +94,9 @@ class SelectedEngineController(QObject):
         state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
         if state is None:
             return
-        if tmcc_id not in self._selected_ids:
-            self._selected_ids.append(tmcc_id)
+        if tmcc_id in self._selected_ids:
+            self._selected_ids.remove(tmcc_id)
+        self._selected_ids.insert(0, tmcc_id)
         if self._cab.scope != CommandScope.ENGINE.name or self._cab.tmccId != tmcc_id:
             self._cab._switch_target(CommandScope.ENGINE, tmcc_id)
         else:
