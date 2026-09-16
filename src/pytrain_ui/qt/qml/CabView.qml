@@ -176,6 +176,7 @@ Rectangle {
                 Layout.preferredHeight: root.piLayout ? root.piControlHeight : -1
                 Layout.maximumHeight: root.piLayout ? root.piControlHeight : 16777215
                 Layout.alignment: Qt.AlignTop
+                Layout.topMargin: root.piLayout ? 18 : 20
                 Layout.fillHeight: !root.piLayout
                 spacing: 2
                 layoutDirection: Qt.LeftToRight
@@ -248,6 +249,7 @@ Rectangle {
                             Layout.preferredHeight: root.piLayout ? 58 : 52
                             compact: true
                             text: modelData.label
+                            iconSource: modelData.iconSource
                             font.pixelSize: root.piLayout ? 16 : 15
                             font.bold: modelData.key === "brake" || modelData.key === "boost"
                             deferForHold: modelData.hold
@@ -272,7 +274,7 @@ Rectangle {
                             required property var modelData
                             visible: root.isQuickAction(modelData.key)
                             Layout.fillWidth: visible
-                            Layout.preferredHeight: visible ? (root.piLayout ? 48 : 46) : 0
+                            Layout.preferredHeight: visible ? (root.piLayout ? 54 : 50) : 0
                             compact: true
                             text: modelData.label
                             iconSource: modelData.iconSource
