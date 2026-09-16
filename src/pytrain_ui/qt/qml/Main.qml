@@ -31,6 +31,7 @@ ApplicationWindow {
             EngineCatalog {
                 cab: cabController
                 catalog: engineCatalogController
+                selection: selectedEngineController
                 onEngineSelected: window.engineCatalogVisible = false
                 onCloseRequested: window.engineCatalogVisible = false
             }
