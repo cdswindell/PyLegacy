@@ -58,14 +58,13 @@ class EngineCatalogController(QObject):
         rows: list[dict] = []
         type_labels: dict[str, str] = {}
         states = sorted(ComponentStateStore.get().get_all(CommandScope.ENGINE), key=lambda state: state.tmcc_id)
-        for source_index, state in enumerate(states):
+        for state in states:
             road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
             road_number = str(getattr(state, "road_number", "") or "").strip()
             type_key, type_label = self._engine_type(state)
             type_labels[type_key] = type_label
             rows.append(
                 {
-                    "sourceIndex": source_index,
                     "tmccId": int(state.tmcc_id),
                     "roadName": road_name,
                     "roadNumber": road_number,
