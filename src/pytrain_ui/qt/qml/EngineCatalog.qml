@@ -57,24 +57,9 @@ Rectangle {
         return rows
     }
 
-    component ChoiceButton: Button {
-        id: control
-        checkable: true
+    component ChoiceButton: CabButton {
         font.pixelSize: 14
-        font.bold: checked
-        contentItem: Label {
-            text: control.text
-            color: "#f4f6f8"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            font: control.font
-        }
-        background: Rectangle {
-            radius: 6
-            color: control.checked ? "#246aa0" : control.pressed ? "#3a424d" : "#303640"
-            border.width: control.checked ? 2 : 1
-            border.color: control.checked ? "#78bff0" : "#555e6b"
-        }
+        font.bold: selected
     }
 
     ColumnLayout {
@@ -101,7 +86,7 @@ Rectangle {
                 pressedColor: "#b43b42"
                 onClicked: cab.stop()
             }
-            Button {
+            CabButton {
                 Layout.preferredWidth: 100
                 Layout.preferredHeight: 46
                 text: "Cab"
@@ -124,7 +109,7 @@ Rectangle {
                 onTextChanged: root.searchText = text
             }
 
-            Button {
+            CabButton {
                 Layout.preferredWidth: 72
                 Layout.preferredHeight: 54
                 text: "Clear"
@@ -145,32 +130,25 @@ Rectangle {
                 color: "#aeb7c2"
                 font.pixelSize: 13
             }
-            ButtonGroup {
-                id: sortGroup
-                exclusive: true
-            }
             ChoiceButton {
                 Layout.preferredWidth: 104
                 Layout.preferredHeight: 42
                 text: "Name"
-                checked: root.sortMode === "name"
-                ButtonGroup.group: sortGroup
+                selected: root.sortMode === "name"
                 onClicked: root.sortMode = "name"
             }
             ChoiceButton {
                 Layout.preferredWidth: 104
                 Layout.preferredHeight: 42
                 text: "Road #"
-                checked: root.sortMode === "road"
-                ButtonGroup.group: sortGroup
+                selected: root.sortMode === "road"
                 onClicked: root.sortMode = "road"
             }
             ChoiceButton {
                 Layout.preferredWidth: 104
                 Layout.preferredHeight: 42
                 text: "TMCC ID"
-                checked: root.sortMode === "tmcc"
-                ButtonGroup.group: sortGroup
+                selected: root.sortMode === "tmcc"
                 onClicked: root.sortMode = "tmcc"
             }
             Item {
@@ -202,10 +180,10 @@ Rectangle {
                 model: [{ "key": "ALL", "label": "All" }].concat(root.catalog ? root.catalog.typeFilters : [])
                 delegate: ChoiceButton {
                     required property var modelData
-                    width: Math.max(82, implicitContentWidth + 26)
+                    width: Math.max(82, implicitWidth + 26)
                     height: 42
                     text: modelData.label
-                    checked: root.typeFilter === modelData.key
+                    selected: root.typeFilter === modelData.key
                     onClicked: root.typeFilter = modelData.key
                 }
             }
