@@ -7,6 +7,7 @@ Rectangle {
 
     required property var cab
     required property var catalog
+    required property var selection
     signal engineSelected()
     signal closeRequested()
 
@@ -231,7 +232,7 @@ Rectangle {
                     id: tapHandler
                     gesturePolicy: TapHandler.DragThreshold
                     onTapped: {
-                        root.cab.selectTarget(row.modelData.sourceIndex)
+                        root.selection.selectEngine(row.modelData.tmccId)
                         searchField.clear()
                         root.engineSelected()
                     }
