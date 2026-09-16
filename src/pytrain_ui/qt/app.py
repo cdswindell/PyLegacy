@@ -45,12 +45,14 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
 
     if not engine.rootObjects():
         gamepad.close()
+        selection.close()
         cab.close()
         return 1
     try:
         return app.exec()
     finally:
         gamepad.close()
+        selection.close()
         cab.close()
 
 
