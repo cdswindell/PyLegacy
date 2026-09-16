@@ -30,13 +30,43 @@ class SelectedEngineController(QObject):
         self.selectionChanged.emit()
 
     @staticmethod
-    def _row(tmcc_id: int, current_id: int) -> dict:
+    def _direction(state) -> str:
+        direction = getattr(state, "direction", None)
+        name = str(getattr(direction, "name", direction) or "").upper()
+        if "FORWARD" in name:
+            return "F"
+        if "REVERSE" in name:
+            return "R"
+        return "-"
+
+    @staticmethod
+    def _smoke(state) -> str:
+        smoke = getattr(state, "smoke", None)
+        if smoke is None:
+            smoke = getattr(state, "smoke_level", None)
+        name = str(getattr(smoke, "name", smoke) or "").upper()
+        if "HIGH" in name:
+            return "H"
+        if "MED" in name:
+            return "M"
+        if "LOW" in name:
+            return "L"
+        if "OFF" in name or "NONE" in name or "ZERO" in name:
+            return "-"
+        if name in {"0", "1", "2", "3"}:
+            return {"0": "-", "1": "L", "2": "M", "3": "H"}[name]
+        return "+" if name else "-"
+
+    @classmethod
+    def _row(cls, tmcc_id: int, current_id: int) -> dict:
         state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
         if state is None:
             return {
                 "tmccId": tmcc_id,
                 "roadName": "",
                 "roadNumber": "",
+                "direction": "-",
+                "smoke": "-",
                 "speed": 0,
                 "current": tmcc_id == current_id,
             }
@@ -44,6 +74,8 @@ class SelectedEngineController(QObject):
             "tmccId": tmcc_id,
             "roadName": str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip(),
             "roadNumber": str(getattr(state, "road_number", "") or "").strip(),
+            "direction": cls._direction(state),
+            "smoke": cls._smoke(state),
             "speed": int(getattr(state, "speed", 0) or 0),
             "current": tmcc_id == current_id,
         }
