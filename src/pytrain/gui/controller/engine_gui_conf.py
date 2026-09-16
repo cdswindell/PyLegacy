@@ -62,6 +62,7 @@ CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
 INFO_KEY = "Info"
+ROSTER_KEY = "Roster..."
 ROUTE_BUILDER_KEY = "Route\nBuilder"
 # The two directions of the accessory panel toggle. An LCS-specific screen (BPC2, ASC2, Sensor
 # Track, AMC2) carries ACC_PANEL_KEY, which forces the generic accessory panel -- the only one

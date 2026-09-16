@@ -39,6 +39,7 @@ from .engine_gui_conf import (
     INFO_KEY,
     LCS_PANEL_KEY,
     OP_SCREEN_IMAGE,
+    ROSTER_KEY,
     ROUTE_BUILDER_KEY,
     SENSOR_TRACK_OPTS,
     SET_KEY,
@@ -435,6 +436,20 @@ class KeypadView(Generic[S]):
             hover=True,
         )
 
+        host.roster_cell, host.roster_btn = make_key(
+            keypad_keys,
+            ROSTER_KEY,
+            row + 1,
+            0,
+            size=host.s_16,
+            is_entry=True,
+            hover=True,
+            command=host.show_scope_catalog,
+            args=[],
+        )
+        host.roster_cell.grid = [0, row + 1, 3, 1]
+        host.roster_cell.tk.configure(width=3 * host.button_size + 4 * host.grid_pad_by, height=host.button_size)
+
         # fire route button
         host.fire_route_cell, host.fire_route_btn = make_key(
             keypad_keys,
@@ -717,7 +732,7 @@ class KeypadView(Generic[S]):
 
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
-        num_rows = 5
+        num_rows = 6
         num_cols = 5
         min_cell_height = host.button_size + (2 * host.grid_pad_by)
         min_cell_width = host.button_size + (2 * host.grid_pad_by)
@@ -800,13 +815,16 @@ class KeypadView(Generic[S]):
             keypad_box.tk.configure(width=total_width)
 
     def _show_keypad_bottom_row(self, visible: bool) -> None:
-        """Releases the empty fifth row in Route entry mode; restores it for other views."""
+        """Collapses Route's empty fifth row and reserves the roster row only in entry mode."""
         host = self._host
         min_cell_height = host.button_size + (2 * host.grid_pad_by)
-        num_rows = 5 if visible else 4
+        num_rows = (5 if visible else 4) + int(self.is_entry_mode)
         for box in (host.keypad_keys, host.keypad_box):
             if box is not None:
                 box.tk.grid_rowconfigure(4, weight=1 if visible else 0, minsize=min_cell_height if visible else 0)
+                box.tk.grid_rowconfigure(
+                    5, weight=1 if self.is_entry_mode else 0, minsize=min_cell_height if self.is_entry_mode else 0
+                )
                 box.tk.configure(height=num_rows * min_cell_height)
 
     def on_keypress(self, key: str) -> None:
