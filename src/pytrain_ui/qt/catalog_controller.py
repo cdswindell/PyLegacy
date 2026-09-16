@@ -17,6 +17,14 @@ _ENGINE_TYPE_ALIASES = {
     "DIESEL_PULLMOR": ("DIESEL", "Diesel"),
 }
 
+_ENGINE_TYPE_PRIORITY = {
+    "STEAM": 0,
+    "DIESEL": 1,
+    "ELECTRIC": 2,
+    "STEAM_SWITCHER": 3,
+    "DIESEL_SWITCHER": 4,
+}
+
 
 class EngineCatalogController(QObject):
     """Expose engine roster data without requiring QML to parse display labels."""
@@ -36,6 +44,14 @@ class EngineCatalogController(QObject):
         if raw_key in _ENGINE_TYPE_ALIASES:
             return _ENGINE_TYPE_ALIASES[raw_key]
         return raw_key, raw_key.replace("_", " ").title()
+
+    @staticmethod
+    def _type_sort_key(item: tuple[str, str]) -> tuple[int, str]:
+        key, label = item
+        priority = _ENGINE_TYPE_PRIORITY.get(key)
+        if priority is not None:
+            return priority, ""
+        return len(_ENGINE_TYPE_PRIORITY), label.lower()
 
     @Slot()
     def reload(self) -> None:
@@ -60,7 +76,7 @@ class EngineCatalogController(QObject):
         self._engines = rows
         self._type_filters = [
             {"key": key, "label": label}
-            for key, label in sorted(type_labels.items(), key=lambda item: item[1].lower())
+            for key, label in sorted(type_labels.items(), key=self._type_sort_key)
         ]
         self.catalogChanged.emit()
 
