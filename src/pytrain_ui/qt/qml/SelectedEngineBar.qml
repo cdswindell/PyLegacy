@@ -38,7 +38,7 @@ Rectangle {
                 id: card
                 required property var modelData
 
-                width: Math.min(210, Math.max(132, nameLabel.implicitWidth + 76))
+                width: Math.min(230, Math.max(150, nameLabel.implicitWidth + 88))
                 height: selectedList.height - 6
                 anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                 radius: 7
@@ -74,17 +74,22 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: (modelData.roadNumber ? modelData.roadNumber + "   " : "") + "SPD " + modelData.speed
+                            text: (modelData.roadNumber ? modelData.roadNumber + "   " : "") +
+                                  modelData.direction + "   SM " + modelData.smoke + "   SP " + modelData.speed
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
                             font.pixelSize: 9
                             elide: Text.ElideRight
                         }
                     }
 
-                    ToolButton {
+                    CabButton {
                         visible: root.selection.count > 1
+                        Layout.preferredWidth: visible ? 28 : 0
+                        Layout.preferredHeight: 28
                         text: "×"
-                        font.pixelSize: 17
+                        font.pixelSize: 16
+                        normalColor: "#343a44"
+                        pressedColor: "#4d5968"
                         onClicked: root.selection.dismissEngine(card.modelData.tmccId)
                     }
                 }
