@@ -37,6 +37,13 @@ ApplicationWindow {
             }
         }
 
+        SelectedEngineBar {
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? 58 : 0
+            visible: !window.engineCatalogVisible && cabController.scope === "ENGINE"
+            selection: selectedEngineController
+        }
+
         ScopeBar {
             Layout.fillWidth: true
             Layout.preferredHeight: 52
@@ -51,13 +58,49 @@ ApplicationWindow {
         }
     }
 
-    Shortcut { sequence: "Escape"; enabled: window.engineCatalogVisible; onActivated: window.engineCatalogVisible = false }
-    Shortcut { sequence: "Up"; enabled: !window.engineCatalogVisible; onActivated: cabController.changeSpeed(1) }
-    Shortcut { sequence: "Down"; enabled: !window.engineCatalogVisible; onActivated: cabController.changeSpeed(-1) }
-    Shortcut { sequence: "Shift+Up"; enabled: !window.engineCatalogVisible; onActivated: cabController.changeSpeed(5) }
-    Shortcut { sequence: "Shift+Down"; enabled: !window.engineCatalogVisible; onActivated: cabController.changeSpeed(-5) }
-    Shortcut { sequence: "F"; enabled: !window.engineCatalogVisible; onActivated: cabController.setDirection("FORWARD") }
-    Shortcut { sequence: "R"; enabled: !window.engineCatalogVisible; onActivated: cabController.setDirection("REVERSE") }
-    Shortcut { sequence: "B"; enabled: !window.engineCatalogVisible; onActivated: cabController.bell() }
-    Shortcut { sequence: "Space"; enabled: !window.engineCatalogVisible; onActivated: cabController.stop() }
+    Shortcut {
+        sequence: "Escape"
+        enabled: window.engineCatalogVisible
+        onActivated: window.engineCatalogVisible = false
+    }
+    Shortcut {
+        sequence: "Up"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.changeSpeed(1)
+    }
+    Shortcut {
+        sequence: "Down"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.changeSpeed(-1)
+    }
+    Shortcut {
+        sequence: "Shift+Up"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.changeSpeed(5)
+    }
+    Shortcut {
+        sequence: "Shift+Down"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.changeSpeed(-5)
+    }
+    Shortcut {
+        sequence: "F"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.setDirection("FORWARD")
+    }
+    Shortcut {
+        sequence: "R"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.setDirection("REVERSE")
+    }
+    Shortcut {
+        sequence: "B"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.bell()
+    }
+    Shortcut {
+        sequence: "Space"
+        enabled: !window.engineCatalogVisible
+        onActivated: cabController.stop()
+    }
 }
