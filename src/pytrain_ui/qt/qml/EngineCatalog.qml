@@ -75,6 +75,30 @@ Rectangle {
         return rows
     }
 
+    component SortButton: Button {
+        id: control
+        checkable: true
+        Layout.preferredWidth: 104
+        Layout.preferredHeight: 42
+        font.pixelSize: 14
+        font.bold: checked
+
+        contentItem: Label {
+            text: control.text
+            color: "#f4f6f8"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            font: control.font
+        }
+
+        background: Rectangle {
+            radius: 6
+            color: control.checked ? "#246aa0" : control.pressed ? "#3a424d" : "#303640"
+            border.width: control.checked ? 2 : 1
+            border.color: control.checked ? "#78bff0" : "#555e6b"
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
@@ -121,25 +145,22 @@ Rectangle {
                 exclusive: true
             }
 
-            Button {
+            SortButton {
                 text: "Name"
-                checkable: true
                 checked: root.sortMode === "name"
                 ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "name"
             }
 
-            Button {
+            SortButton {
                 text: "Road #"
-                checkable: true
                 checked: root.sortMode === "road"
                 ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "road"
             }
 
-            Button {
+            SortButton {
                 text: "TMCC ID"
-                checkable: true
                 checked: root.sortMode === "tmcc"
                 ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "tmcc"
