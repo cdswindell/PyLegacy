@@ -19,6 +19,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     from .cab_controller import CabController
     from .catalog_controller import EngineCatalogController
     from .gamepad import QtCabInputSink, QtGamepadInput
+    from .selection_controller import SelectedEngineController
 
     # PyTrain supplies custom backgrounds/content for its controls. The native macOS
     # style intentionally rejects those delegates, so use a customizable style on every
@@ -32,10 +33,12 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
 
     cab = CabController(scope, tmcc_id)
     catalog = EngineCatalogController()
+    selection = SelectedEngineController(cab)
     gamepad = QtGamepadInput(QtCabInputSink(cab), cab)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("cabController", cab)
     engine.rootContext().setContextProperty("engineCatalogController", catalog)
+    engine.rootContext().setContextProperty("selectedEngineController", selection)
     qml = files("pytrain_ui.qt.qml").joinpath("Main.qml")
     with as_file(qml) as qml_path:
         engine.load(QUrl.fromLocalFile(str(qml_path)))
