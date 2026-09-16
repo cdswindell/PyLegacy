@@ -75,8 +75,7 @@ class EngineCatalogController(QObject):
             )
         self._engines = rows
         self._type_filters = [
-            {"key": key, "label": label}
-            for key, label in sorted(type_labels.items(), key=self._type_sort_key)
+            {"key": key, "label": label} for key, label in sorted(type_labels.items(), key=self._type_sort_key)
         ]
         self.catalogChanged.emit()
 
