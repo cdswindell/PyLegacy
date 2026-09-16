@@ -30,6 +30,7 @@ ApplicationWindow {
 
             EngineCatalog {
                 cab: cabController
+                catalog: engineCatalogController
                 onEngineSelected: window.engineCatalogVisible = false
                 onCloseRequested: window.engineCatalogVisible = false
             }
@@ -40,8 +41,11 @@ ApplicationWindow {
             Layout.preferredHeight: 52
             currentScope: cabController.scope
             onScopePressed: function(scope) {
-                if (scope === "ENGINE" && cabController.scope === "ENGINE")
+                if (scope === "ENGINE" && cabController.scope === "ENGINE") {
+                    if (!window.engineCatalogVisible)
+                        engineCatalogController.reload()
                     window.engineCatalogVisible = !window.engineCatalogVisible
+                }
             }
         }
     }
