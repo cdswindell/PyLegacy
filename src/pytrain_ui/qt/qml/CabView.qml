@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Rectangle {
     id: root
     required property var cab
+    required property var selection
     property bool moreControlsVisible: false
 
     readonly property bool piLayout: width <= 720
@@ -40,73 +41,6 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: root.piLayout ? 10 : (root.shortLayout ? 12 : 18)
         spacing: root.piLayout ? 5 : (root.shortLayout ? 6 : 9)
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
-            ComboBox {
-                id: targetPicker
-                Layout.fillWidth: true
-                Layout.preferredHeight: root.piLayout ? 40 : 50
-                model: cab.targetLabels
-                currentIndex: cab.targetIndex
-                font.pixelSize: root.piLayout ? 14 : 17
-                onActivated: cab.selectTarget(currentIndex)
-                contentItem: Text {
-                    leftPadding: 10
-                    rightPadding: 30
-                    text: targetPicker.displayText
-                    font: targetPicker.font
-                    color: "#ffffff"
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
-                }
-                background: Rectangle {
-                    radius: 8
-                    color: "#292e36"
-                    border.width: 1
-                    border.color: targetPicker.activeFocus ? "#78bff0" : "#626b78"
-                }
-                delegate: ItemDelegate {
-                    required property int index
-                    required property var modelData
-                    width: targetPicker.width
-                    height: 42
-                    text: modelData
-                    font.pixelSize: 15
-                    highlighted: targetPicker.highlightedIndex === index
-                    contentItem: Text {
-                        text: parent.text
-                        font: parent.font
-                        color: "#ffffff"
-                        verticalAlignment: Text.AlignVCenter
-                        elide: Text.ElideRight
-                    }
-                    background: Rectangle { color: parent.highlighted ? "#246aa0" : "#292e36" }
-                }
-                popup: Popup {
-                    y: targetPicker.height
-                    width: targetPicker.width
-                    implicitHeight: Math.min(contentItem.implicitHeight, 420)
-                    padding: 1
-                    contentItem: ListView {
-                        clip: true
-                        implicitHeight: contentHeight
-                        model: targetPicker.popup.visible ? targetPicker.delegateModel : null
-                        currentIndex: targetPicker.highlightedIndex
-                        ScrollIndicator.vertical: ScrollIndicator { }
-                    }
-                    background: Rectangle { color: "#20242a"; border.color: "#626b78"; radius: 8 }
-                }
-            }
-            CabButton {
-                Layout.preferredWidth: root.piLayout ? 92 : 104
-                Layout.preferredHeight: root.piLayout ? 40 : 50
-                text: "Refresh"
-                font.pixelSize: root.piLayout ? 14 : 16
-                onClicked: cab.refreshRoster()
-            }
-        }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -315,6 +249,7 @@ Rectangle {
                 }
 
                 Rectangle {
+                    id: artwork
                     Layout.fillWidth: true
                     Layout.preferredHeight: Math.round(width / 3)
                     Layout.maximumHeight: Math.round(width / 3)
@@ -325,6 +260,17 @@ Rectangle {
                     clip: true
                     Image { anchors.fill: parent; anchors.margins: 4; source: cab.artworkSource; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false }
                     Label { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6; visible: cab.hasCustomArtwork; text: "CUSTOM"; color: "#176fa8"; font.pixelSize: 10; font.bold: true }
+                    DragHandler {
+                        id: artworkSwipe
+                        target: null
+                        xAxis.enabled: true
+                        yAxis.enabled: false
+                        onActiveChanged: {
+                            if (!active && Math.abs(translation.x) >= 48 && root.selection) {
+                                root.selection.selectRelative(translation.x < 0 ? 1 : -1)
+                            }
+                        }
+                    }
                 }
 
                 CabButton {
