@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     required property var cab
+    required property var catalog
     signal engineSelected()
     signal closeRequested()
 
@@ -14,30 +15,7 @@ Rectangle {
 
     property string sortMode: "name"
     property string searchText: ""
-
-    function tmccId(label) {
-        var match = label.match(/^Engine\s+(\d+)/)
-        return match ? Number(match[1]) : 0
-    }
-
-    function detail(label) {
-        var parts = label.split(" — ")
-        return parts.length > 1 ? parts.slice(1).join(" — ") : label
-    }
-
-    function roadNumber(label) {
-        var value = root.detail(label)
-        var parts = value.trim().split(/\s+/)
-        return parts.length ? parts[parts.length - 1] : ""
-    }
-
-    function roadName(label) {
-        var value = root.detail(label)
-        var number = root.roadNumber(label)
-        if (!number.length)
-            return value
-        return value.slice(0, value.length - number.length).trim()
-    }
+    property string typeFilter: "ALL"
 
     function compareRoadNumbers(a, b) {
         var an = Number(a)
@@ -52,37 +30,35 @@ Rectangle {
     function filteredTargets() {
         var rows = []
         var needle = searchText.trim().toLowerCase()
-        for (var i = 0; i < cab.targetLabels.length; ++i) {
-            var label = cab.targetLabels[i]
-            if (!label.startsWith("Engine "))
+        for (var i = 0; i < catalog.engines.length; ++i) {
+            var engine = catalog.engines[i]
+            if (typeFilter !== "ALL" && engine.engineType !== typeFilter)
                 continue
-            if (needle.length && label.toLowerCase().indexOf(needle) < 0)
+            var searchable = (engine.roadName + " " + engine.roadNumber + " " + engine.tmccId + " " +
+                              engine.engineType + " " + engine.engineTypeLabel).toLowerCase()
+            if (needle.length && searchable.indexOf(needle) < 0)
                 continue
-            rows.push({ "sourceIndex": i, "label": label })
+            rows.push(engine)
         }
         rows.sort(function(a, b) {
             if (sortMode === "tmcc")
-                return root.tmccId(a.label) - root.tmccId(b.label)
+                return a.tmccId - b.tmccId
             if (sortMode === "road") {
-                var result = root.compareRoadNumbers(root.roadNumber(a.label), root.roadNumber(b.label))
+                var result = root.compareRoadNumbers(a.roadNumber, b.roadNumber)
                 if (result !== 0)
                     return result
             }
-            var av = root.roadName(a.label).toLowerCase()
-            var bv = root.roadName(b.label).toLowerCase()
-            return av.localeCompare(bv)
+            var result = a.roadName.toLowerCase().localeCompare(b.roadName.toLowerCase())
+            return result !== 0 ? result : a.tmccId - b.tmccId
         })
         return rows
     }
 
-    component SortButton: Button {
+    component ChoiceButton: Button {
         id: control
         checkable: true
-        Layout.preferredWidth: 104
-        Layout.preferredHeight: 42
         font.pixelSize: 14
         font.bold: checked
-
         contentItem: Label {
             text: control.text
             color: "#f4f6f8"
@@ -90,7 +66,6 @@ Rectangle {
             verticalAlignment: Text.AlignVCenter
             font: control.font
         }
-
         background: Rectangle {
             radius: 6
             color: control.checked ? "#246aa0" : control.pressed ? "#3a424d" : "#303640"
@@ -106,7 +81,6 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-
             Label {
                 Layout.fillWidth: true
                 text: "ENGINES"
@@ -114,7 +88,6 @@ Rectangle {
                 font.pixelSize: 24
                 font.bold: true
             }
-
             CabButton {
                 Layout.preferredWidth: 130
                 Layout.preferredHeight: 46
@@ -125,7 +98,6 @@ Rectangle {
                 pressedColor: "#b43b42"
                 onClicked: cab.stop()
             }
-
             Button {
                 Layout.preferredWidth: 100
                 Layout.preferredHeight: 46
@@ -139,7 +111,7 @@ Rectangle {
             id: searchField
             Layout.fillWidth: true
             Layout.preferredHeight: 54
-            placeholderText: "Search name, road number, or TMCC ID"
+            placeholderText: "Search name, road number, TMCC ID, or type"
             font.pixelSize: 17
             selectByMouse: true
             onTextChanged: root.searchText = text
@@ -148,53 +120,49 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-
-            Label {
-                text: "Sort"
-                color: "#aeb7c2"
-                font.pixelSize: 13
-            }
-
-            ButtonGroup {
-                id: sortGroup
-                exclusive: true
-            }
-
-            SortButton {
-                text: "Name"
-                checked: root.sortMode === "name"
-                ButtonGroup.group: sortGroup
+            Label { text: "Sort"; color: "#aeb7c2"; font.pixelSize: 13 }
+            ButtonGroup { id: sortGroup; exclusive: true }
+            ChoiceButton {
+                Layout.preferredWidth: 104; Layout.preferredHeight: 42
+                text: "Name"; checked: root.sortMode === "name"; ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "name"
             }
-
-            SortButton {
-                text: "Road #"
-                checked: root.sortMode === "road"
-                ButtonGroup.group: sortGroup
+            ChoiceButton {
+                Layout.preferredWidth: 104; Layout.preferredHeight: 42
+                text: "Road #"; checked: root.sortMode === "road"; ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "road"
             }
-
-            SortButton {
-                text: "TMCC ID"
-                checked: root.sortMode === "tmcc"
-                ButtonGroup.group: sortGroup
+            ChoiceButton {
+                Layout.preferredWidth: 104; Layout.preferredHeight: 42
+                text: "TMCC ID"; checked: root.sortMode === "tmcc"; ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "tmcc"
             }
-
             Item { Layout.fillWidth: true }
-
-            Label {
-                text: root.filteredTargets().length + " engines"
-                color: "#9ea6b0"
-                font.pixelSize: 12
-            }
+            Label { text: root.filteredTargets().length + " engines"; color: "#9ea6b0"; font.pixelSize: 12 }
         }
 
-        Label {
+        RowLayout {
             Layout.fillWidth: true
-            text: "Type filters will use PyTrain engine types in the next pass"
-            color: "#87919d"
-            font.pixelSize: 11
+            spacing: 7
+            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
+            ListView {
+                id: typeList
+                Layout.fillWidth: true
+                Layout.preferredHeight: 42
+                orientation: ListView.Horizontal
+                spacing: 7
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: [{ "key": "ALL", "label": "All" }].concat(root.catalog.typeFilters)
+                delegate: ChoiceButton {
+                    required property var modelData
+                    width: Math.max(82, implicitContentWidth + 26)
+                    height: 42
+                    text: modelData.label
+                    checked: root.typeFilter === modelData.key
+                    onClicked: root.typeFilter = modelData.key
+                }
+            }
         }
 
         ListView {
@@ -222,7 +190,6 @@ Rectangle {
                     anchors.leftMargin: 14
                     anchors.rightMargin: 14
                     spacing: 14
-
                     Rectangle {
                         Layout.preferredWidth: 66
                         Layout.preferredHeight: 46
@@ -232,29 +199,16 @@ Rectangle {
                         border.color: "#596574"
                         Column {
                             anchors.centerIn: parent
-                            Label {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "ENG"
-                                color: "#9ea6b0"
-                                font.pixelSize: 9
-                                font.bold: true
-                            }
-                            Label {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: root.tmccId(row.modelData.label)
-                                color: "white"
-                                font.pixelSize: 18
-                                font.bold: true
-                            }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: "ENG"; color: "#9ea6b0"; font.pixelSize: 9; font.bold: true }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 18; font.bold: true }
                         }
                     }
-
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
                         Label {
                             Layout.fillWidth: true
-                            text: root.detail(row.modelData.label)
+                            text: (row.modelData.roadName || "Engine") + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
                             font.pixelSize: 16
                             font.bold: true
@@ -262,18 +216,13 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: row.modelData.label
+                            text: row.modelData.engineTypeLabel
                             color: "#a9b2bd"
                             font.pixelSize: 11
                             elide: Text.ElideRight
                         }
                     }
-
-                    Label {
-                        text: "›"
-                        color: "#8fc9ef"
-                        font.pixelSize: 28
-                    }
+                    Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 28 }
                 }
 
                 TapHandler {
@@ -281,6 +230,7 @@ Rectangle {
                     gesturePolicy: TapHandler.DragThreshold
                     onTapped: {
                         root.cab.selectTarget(row.modelData.sourceIndex)
+                        searchField.clear()
                         root.engineSelected()
                     }
                 }
