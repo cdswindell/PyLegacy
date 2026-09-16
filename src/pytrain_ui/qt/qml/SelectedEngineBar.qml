@@ -32,7 +32,7 @@ Rectangle {
             spacing: 6
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            model: root.selection.selectedEngines
+            model: root.selection ? root.selection.selectedEngines : []
 
             delegate: Rectangle {
                 id: card
@@ -83,20 +83,26 @@ Rectangle {
                     }
 
                     CabButton {
-                        visible: root.selection.count > 1
+                        visible: root.selection ? root.selection.count > 1 : false
                         Layout.preferredWidth: visible ? 28 : 0
                         Layout.preferredHeight: 28
                         text: "×"
                         font.pixelSize: 16
                         normalColor: "#343a44"
                         pressedColor: "#4d5968"
-                        onClicked: root.selection.dismissEngine(card.modelData.tmccId)
+                        onClicked: {
+                            if (root.selection)
+                                root.selection.dismissEngine(card.modelData.tmccId)
+                        }
                     }
                 }
 
                 TapHandler {
                     gesturePolicy: TapHandler.DragThreshold
-                    onTapped: root.selection.selectEngine(card.modelData.tmccId)
+                    onTapped: {
+                        if (root.selection)
+                            root.selection.selectEngine(card.modelData.tmccId)
+                    }
                 }
             }
         }
