@@ -250,6 +250,7 @@ def _keypad_button(
     wires the command exactly as the real one does, because which set a cell lands in is what
     entry_mode and enter_ops_mode_base act on."""
     cell = DummyBox(visible=kwargs.get("visible", True), grid=[col, row])
+    cell.tk.configure(width=host.button_size, height=host.button_size)
     btn = DummyButton()
     btn.text = label
     if kwargs.get("is_ops"):
@@ -319,6 +320,8 @@ def _new_host() -> SimpleNamespace:
     host.on_show_native_acc_panel = lambda: host.on_show_panel_calls.append("native")
     host.on_lcs_config_panel = lambda: host.on_show_panel_calls.append("lcs")
     host.on_route_builder = lambda: host.on_show_panel_calls.append("route_builder")
+    host.show_scope_catalog_calls = []
+    host.show_scope_catalog = lambda: host.show_scope_catalog_calls.append(host.scope)
     host.on_info_calls = []
     host.on_info = lambda state=None: host.on_info_calls.append(state)
     host.on_set_key_calls = []
@@ -340,6 +343,67 @@ def _new_host() -> SimpleNamespace:
     host.controller_view = SimpleNamespace(make_slider=_make_slider)
     host._controller_view = host.controller_view
     return host
+
+
+@pytest.mark.parametrize("button_size", [48, 96])
+def test_roster_key_spans_the_final_entry_row_at_standard_button_height(button_size: int) -> None:
+    host = _new_host()
+    host.button_size = button_size
+    view = mod.KeypadView(host)
+    view.build()
+
+    cell = host.roster_cell
+    assert host.roster_btn.text == "Roster..."
+    assert cell.grid == [0, 5, 3, 1]
+    assert cell in host.entry_cells
+    assert cell not in host.ops_cells
+    assert cell in view._keypad_cells
+    assert cell.visible is True
+    assert cell.tk._config["height"] == host.set_key_cell.tk._config["height"] == button_size
+    assert cell.tk._config["width"] == 3 * button_size + 4 * host.grid_pad_by
+    assert all(other.grid[1] < cell.grid[1] for other in view._keypad_cells if other.visible and other is not cell)
+
+
+def test_roster_key_opens_the_catalog_for_the_current_scope() -> None:
+    host = _new_host()
+    mod.KeypadView(host).build()
+
+    command, args = host.roster_btn.on_press
+    assert command is host.show_scope_catalog
+    assert args == []
+    scopes = [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE]
+    for scope in scopes:
+        host.scope = scope
+        command(*args)
+
+    assert host.show_scope_catalog_calls == scopes
+
+
+@pytest.mark.parametrize(
+    "scope", [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE]
+)
+def test_roster_row_is_entry_only_and_releases_its_height_in_ops(scope: CommandScope) -> None:
+    host = _new_host()
+    host.scope = scope
+    host._scope_tmcc_ids = {s: 0 for s in CommandScope}
+    view = mod.KeypadView(host)
+    view.build()
+    cell_height = host.button_size + 2 * host.grid_pad_by
+
+    for _ in range(2):
+        view.entry_mode(clear_info=False)
+
+        assert host.roster_cell.visible is True
+        for box in (host.keypad_keys, host.keypad_box):
+            assert box.tk._row_config[5] == {"weight": 1, "minsize": cell_height}
+            assert box.tk._config["height"] == (5 if scope == CommandScope.ROUTE else 6) * cell_height
+
+        view.enter_ops_mode_base()
+
+        assert host.roster_cell.visible is False
+        for box in (host.keypad_keys, host.keypad_box):
+            assert box.tk._row_config[5] == {"weight": 0, "minsize": 0}
+            assert box.tk._config["height"] == 5 * cell_height
 
 
 def disabled_test_generic_accessory_ops_mode_shows_throttle_and_reflects_state() -> None:
@@ -902,16 +966,20 @@ def test_route_entry_collapses_the_bottom_row_and_ops_restores_it(clear_info: bo
     for _ in range(2):
         view.entry_mode(clear_info=clear_info)
 
-        assert {cell.grid[1] for cell in view._keypad_cells if cell.visible} == set(range(4))
+        assert {cell.grid[1] for cell in view._keypad_cells if cell.visible} == {0, 1, 2, 3, 5}
+        assert host.roster_cell.visible is True
         for box in (host.keypad_keys, host.keypad_box):
             assert box.tk._row_config[4] == {"weight": 0, "minsize": 0}
-            assert box.tk._config["height"] == 4 * cell_height
+            assert box.tk._row_config[5] == {"weight": 1, "minsize": cell_height}
+            assert box.tk._config["height"] == 5 * cell_height
 
         view.enter_ops_mode_base()
         view.apply_ops_mode_ui_non_engine()
 
+        assert host.roster_cell.visible is False
         for box in (host.keypad_keys, host.keypad_box):
             assert box.tk._row_config[4] == {"weight": 1, "minsize": cell_height}
+            assert box.tk._row_config[5] == {"weight": 0, "minsize": 0}
             assert box.tk._config["height"] == 5 * cell_height
         assert host.info_cell.visible and host.info_cell.grid == [0, 4]
         assert host.fire_route_cell.visible and host.fire_route_cell.grid == [1, 4]
@@ -929,7 +997,8 @@ def test_leaving_route_entry_restores_the_bottom_row_for_other_scopes(scope: Com
     cell_height = host.button_size + 2 * host.grid_pad_by
     for box in (host.keypad_keys, host.keypad_box):
         assert box.tk._row_config[4] == {"weight": 1, "minsize": cell_height}
-        assert box.tk._config["height"] == 5 * cell_height
+        assert box.tk._row_config[5] == {"weight": 1, "minsize": cell_height}
+        assert box.tk._config["height"] == 6 * cell_height
     if scope in {CommandScope.ACC, CommandScope.SWITCH}:
         assert host.lcs_panel_cell.visible and host.lcs_panel_cell.grid == [0, 4]
     else:

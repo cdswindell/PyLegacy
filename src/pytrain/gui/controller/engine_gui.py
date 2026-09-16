@@ -280,6 +280,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = self.keypad_keys = None
         self.sw_set_btn = self.info_btn = self.acc_generic_btn = None
         self.route_builder_cell = self.route_builder_btn = None
+        self.roster_cell = self.roster_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None

@@ -306,6 +306,7 @@ def _new_host(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> Simp
     host.on_show_native_acc_panel = lambda: host.calls.append(("show_native",))
     host.on_lcs_config_panel = lambda: host.calls.append(("lcs_config_panel",))
     host.on_route_builder = lambda: host.calls.append(("route_builder",))
+    host.show_scope_catalog = lambda: host.calls.append(("scope_catalog", host.scope))
     host.on_set_key = lambda scope_, tmcc_id_: host.calls.append(("set_key", scope_, tmcc_id_))
     host.get_image = lambda _image, size=None: None
     host.on_configured_accessory = lambda _acc: None
