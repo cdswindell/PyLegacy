@@ -106,6 +106,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
+
             Label {
                 Layout.fillWidth: true
                 text: "ENGINES"
@@ -113,7 +114,21 @@ Rectangle {
                 font.pixelSize: 24
                 font.bold: true
             }
+
+            CabButton {
+                Layout.preferredWidth: 130
+                Layout.preferredHeight: 46
+                text: "HALT"
+                font.pixelSize: 17
+                font.bold: true
+                normalColor: "#8b2d32"
+                pressedColor: "#b43b42"
+                onClicked: cab.stop()
+            }
+
             Button {
+                Layout.preferredWidth: 100
+                Layout.preferredHeight: 46
                 text: "Cab"
                 font.pixelSize: 15
                 onClicked: root.closeRequested()
