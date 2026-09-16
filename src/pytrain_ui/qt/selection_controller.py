@@ -22,10 +22,12 @@ class SelectedEngineController(QObject):
         self._active_ids: list[int] = []
         self._dismissed_activity: dict[int, tuple] = {}
         self._watchers: dict[int, StateWatcher] = {}
+        self._sensor_watchers: dict[int, StateWatcher] = {}
         self._operating_state: dict[int, tuple] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         self._cab.stateChanged.connect(self._sync_current_target)
         self._install_watchers()
+        self._install_sensor_watchers()
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
         self._sync_current_target()
@@ -37,6 +39,9 @@ class SelectedEngineController(QObject):
         for watcher in self._watchers.values():
             watcher.shutdown()
         self._watchers.clear()
+        for watcher in self._sensor_watchers.values():
+            watcher.shutdown()
+        self._sensor_watchers.clear()
 
     @staticmethod
     def _operating_signature(state) -> tuple:
@@ -60,18 +65,37 @@ class SelectedEngineController(QObject):
             self._operating_state[tmcc_id] = self._operating_signature(state)
             self._watchers[tmcc_id] = StateWatcher(state, lambda s=state: self._engine_state_changed(s))
 
+    def _install_sensor_watchers(self) -> None:
+        for state in ComponentStateStore.get().get_all(CommandScope.IRDA):
+            sensor_id = int(state.tmcc_id)
+            if sensor_id not in self._sensor_watchers:
+                self._sensor_watchers[sensor_id] = StateWatcher(state, lambda s=state: self._sensor_track_changed(s))
+
+    def _mark_active(self, tmcc_id: int) -> None:
+        if tmcc_id <= 0:
+            return
+        if ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False) is None:
+            return
+        self._dismissed_activity.pop(tmcc_id, None)
+        if tmcc_id not in self._active_ids:
+            self._active_ids.append(tmcc_id)
+        self.selectionChanged.emit()
+
     def _engine_command(self, command) -> None:
         """Treat received engine command traffic as activity even if state is unchanged."""
         if getattr(command, "scope", None) != CommandScope.ENGINE:
             return
         tmcc_id = int(getattr(command, "address", 0) or 0)
-        if tmcc_id <= 0:
-            return
         self._install_watchers()
-        self._dismissed_activity.pop(tmcc_id, None)
-        if tmcc_id not in self._active_ids:
-            self._active_ids.append(tmcc_id)
-        self.selectionChanged.emit()
+        self._install_sensor_watchers()
+        self._mark_active(tmcc_id)
+
+    def _sensor_track_changed(self, state) -> None:
+        """A Sensor Track sighting makes the resolved engine active without selecting it."""
+        if getattr(state, "is_train", False):
+            return
+        tmcc_id = int(getattr(state, "last_engine_id", 0) or 0)
+        self._mark_active(tmcc_id)
 
     def _engine_state_changed(self, state) -> None:
         tmcc_id = int(state.tmcc_id)
