@@ -38,13 +38,13 @@ Rectangle {
                 id: card
                 required property var modelData
 
-                width: Math.min(230, Math.max(150, nameLabel.implicitWidth + 88))
+                width: 185
                 height: selectedList.height - 6
                 anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                 radius: 7
                 color: modelData.current ? "#246aa0" : "#292f38"
                 border.width: modelData.current ? 2 : 1
-                border.color: modelData.current ? "#78bff0" : "#505b68"
+                border.color: modelData.current ? "#78bff0" : (modelData.active ? "#d0a24c" : "#505b68")
 
                 RowLayout {
                     anchors.fill: parent
@@ -63,15 +63,41 @@ Rectangle {
                         Layout.fillWidth: true
                         spacing: 0
 
-                        Label {
-                            id: nameLabel
+                        Item {
+                            id: nameViewport
                             Layout.fillWidth: true
-                            text: modelData.roadName || "Engine"
-                            color: "#f4f6f8"
-                            font.pixelSize: 11
-                            font.bold: modelData.current
-                            elide: Text.ElideRight
+                            Layout.preferredHeight: 15
+                            clip: true
+
+                            Text {
+                                id: nameText
+                                y: 0
+                                text: card.modelData.roadName || "Engine"
+                                color: "#f4f6f8"
+                                font.pixelSize: 11
+                                font.bold: card.modelData.current
+                                verticalAlignment: Text.AlignVCenter
+
+                                SequentialAnimation on x {
+                                    running: nameText.width > nameViewport.width
+                                    loops: Animation.Infinite
+                                    PauseAnimation { duration: 1200 }
+                                    NumberAnimation {
+                                        from: 0
+                                        to: Math.min(0, nameViewport.width - nameText.width - 8)
+                                        duration: Math.max(800, (nameText.width - nameViewport.width) * 18)
+                                        easing.type: Easing.Linear
+                                    }
+                                    PauseAnimation { duration: 900 }
+                                    NumberAnimation {
+                                        to: 0
+                                        duration: 300
+                                        easing.type: Easing.OutQuad
+                                    }
+                                }
+                            }
                         }
+
                         Label {
                             Layout.fillWidth: true
                             text: (modelData.roadNumber ? modelData.roadNumber + "   " : "") +
