@@ -29,6 +29,8 @@ Rectangle {
 
     function filteredTargets() {
         var rows = []
+        if (!catalog)
+            return rows
         var needle = searchText.trim().toLowerCase()
         for (var i = 0; i < catalog.engines.length; ++i) {
             var engine = catalog.engines[i]
@@ -153,7 +155,7 @@ Rectangle {
                 spacing: 7
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                model: [{ "key": "ALL", "label": "All" }].concat(root.catalog.typeFilters)
+                model: [{ "key": "ALL", "label": "All" }].concat(root.catalog ? root.catalog.typeFilters : [])
                 delegate: ChoiceButton {
                     required property var modelData
                     width: Math.max(82, implicitContentWidth + 26)
