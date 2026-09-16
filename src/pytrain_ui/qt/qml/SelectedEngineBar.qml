@@ -128,13 +128,13 @@ Rectangle {
                                 font.pixelSize: 9
                             }
                             Label {
-                                text: "SM " + modelData.smoke
+                                text: "SP " + modelData.speed
                                 color: modelData.current ? "#dceffc" : "#aeb7c2"
                                 font.pixelSize: 9
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: "SP " + modelData.speed
+                                text: "SM " + modelData.smoke
                                 color: modelData.current ? "#dceffc" : "#aeb7c2"
                                 font.pixelSize: 9
                                 horizontalAlignment: Text.AlignLeft
