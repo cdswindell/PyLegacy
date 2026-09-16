@@ -110,44 +110,87 @@ Rectangle {
             }
         }
 
-        TextField {
-            id: searchField
+        RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 54
-            placeholderText: "Search name, road number, TMCC ID, or type"
-            font.pixelSize: 17
-            selectByMouse: true
-            onTextChanged: root.searchText = text
+            spacing: 6
+
+            TextField {
+                id: searchField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 54
+                placeholderText: "Search name, road number, TMCC ID, or type"
+                font.pixelSize: 17
+                selectByMouse: true
+                onTextChanged: root.searchText = text
+            }
+
+            Button {
+                Layout.preferredWidth: 72
+                Layout.preferredHeight: 54
+                text: "Clear"
+                font.pixelSize: 14
+                enabled: searchField.text.length > 0
+                onClicked: {
+                    searchField.clear()
+                    searchField.forceActiveFocus()
+                }
+            }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label { text: "Sort"; color: "#aeb7c2"; font.pixelSize: 13 }
-            ButtonGroup { id: sortGroup; exclusive: true }
+            Label {
+                text: "Sort"
+                color: "#aeb7c2"
+                font.pixelSize: 13
+            }
+            ButtonGroup {
+                id: sortGroup
+                exclusive: true
+            }
             ChoiceButton {
-                Layout.preferredWidth: 104; Layout.preferredHeight: 42
-                text: "Name"; checked: root.sortMode === "name"; ButtonGroup.group: sortGroup
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 42
+                text: "Name"
+                checked: root.sortMode === "name"
+                ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "name"
             }
             ChoiceButton {
-                Layout.preferredWidth: 104; Layout.preferredHeight: 42
-                text: "Road #"; checked: root.sortMode === "road"; ButtonGroup.group: sortGroup
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 42
+                text: "Road #"
+                checked: root.sortMode === "road"
+                ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "road"
             }
             ChoiceButton {
-                Layout.preferredWidth: 104; Layout.preferredHeight: 42
-                text: "TMCC ID"; checked: root.sortMode === "tmcc"; ButtonGroup.group: sortGroup
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 42
+                text: "TMCC ID"
+                checked: root.sortMode === "tmcc"
+                ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "tmcc"
             }
-            Item { Layout.fillWidth: true }
-            Label { text: root.filteredTargets().length + " engines"; color: "#9ea6b0"; font.pixelSize: 12 }
+            Item {
+                Layout.fillWidth: true
+            }
+            Label {
+                text: root.filteredTargets().length + " engines"
+                color: "#9ea6b0"
+                font.pixelSize: 12
+            }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
+            Label {
+                text: "Type"
+                color: "#aeb7c2"
+                font.pixelSize: 13
+            }
             ListView {
                 id: typeList
                 Layout.fillWidth: true
@@ -202,8 +245,20 @@ Rectangle {
                         border.color: "#596574"
                         Column {
                             anchors.centerIn: parent
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: "ENG"; color: "#9ea6b0"; font.pixelSize: 9; font.bold: true }
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 18; font.bold: true }
+                            Label {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "ENG"
+                                color: "#9ea6b0"
+                                font.pixelSize: 9
+                                font.bold: true
+                            }
+                            Label {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: row.modelData.tmccId
+                                color: "white"
+                                font.pixelSize: 18
+                                font.bold: true
+                            }
                         }
                     }
                     ColumnLayout {
@@ -211,7 +266,8 @@ Rectangle {
                         spacing: 2
                         Label {
                             Layout.fillWidth: true
-                            text: (row.modelData.roadName || "Engine") + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
+                            text: (row.modelData.roadName || "Engine") +
+                                  (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
                             font.pixelSize: 16
                             font.bold: true
@@ -225,7 +281,11 @@ Rectangle {
                             elide: Text.ElideRight
                         }
                     }
-                    Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 28 }
+                    Label {
+                        text: "›"
+                        color: "#8fc9ef"
+                        font.pixelSize: 28
+                    }
                 }
 
                 TapHandler {
