@@ -26,6 +26,7 @@ ApplicationWindow {
 
             CabView {
                 cab: cabController
+                selection: selectedEngineController
             }
 
             EngineCatalog {
@@ -49,11 +50,8 @@ ApplicationWindow {
             Layout.preferredHeight: 52
             currentScope: cabController.scope
             onScopePressed: function(scope) {
-                if (scope === "ENGINE" && cabController.scope === "ENGINE") {
-                    if (!window.engineCatalogVisible)
-                        engineCatalogController.reload()
+                if (scope === "ENGINE" && cabController.scope === "ENGINE")
                     window.engineCatalogVisible = !window.engineCatalogVisible
-                }
             }
         }
     }
