@@ -50,7 +50,7 @@ Rectangle {
                     anchors.fill: parent
                     anchors.leftMargin: 8
                     anchors.rightMargin: 5
-                    spacing: 6
+                    spacing: 5
 
                     Label {
                         text: modelData.tmccId
@@ -69,42 +69,76 @@ Rectangle {
                             Layout.preferredHeight: 15
                             clip: true
 
-                            Text {
-                                id: nameText
-                                y: 0
-                                text: card.modelData.roadName || "Engine"
-                                color: "#f4f6f8"
-                                font.pixelSize: 11
-                                font.bold: card.modelData.current
-                                verticalAlignment: Text.AlignVCenter
+                            readonly property real marqueeGap: 18
+                            readonly property real marqueeDistance: nameText.width + marqueeGap
 
-                                SequentialAnimation on x {
-                                    running: nameText.width > nameViewport.width
-                                    loops: Animation.Infinite
-                                    PauseAnimation { duration: 1200 }
-                                    NumberAnimation {
-                                        from: 0
-                                        to: Math.min(0, nameViewport.width - nameText.width - 8)
-                                        duration: Math.max(800, (nameText.width - nameViewport.width) * 18)
-                                        easing.type: Easing.Linear
-                                    }
-                                    PauseAnimation { duration: 900 }
-                                    NumberAnimation {
-                                        to: 0
-                                        duration: 300
-                                        easing.type: Easing.OutQuad
-                                    }
+                            Row {
+                                id: marqueeRow
+                                y: 0
+                                spacing: nameViewport.marqueeGap
+
+                                Text {
+                                    id: nameText
+                                    text: card.modelData.roadName || "Engine"
+                                    color: "#f4f6f8"
+                                    font.pixelSize: 11
+                                    font.bold: card.modelData.current
+                                    verticalAlignment: Text.AlignVCenter
                                 }
+
+                                Text {
+                                    visible: nameText.width > nameViewport.width
+                                    text: nameText.text
+                                    color: nameText.color
+                                    font: nameText.font
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+
+                            SequentialAnimation {
+                                running: nameText.width > nameViewport.width
+                                loops: Animation.Infinite
+
+                                PauseAnimation { duration: 900 }
+                                NumberAnimation {
+                                    target: marqueeRow
+                                    property: "x"
+                                    from: 0
+                                    to: -nameViewport.marqueeDistance
+                                    duration: Math.max(1200, nameViewport.marqueeDistance * 18)
+                                    easing.type: Easing.Linear
+                                }
+                                ScriptAction { script: marqueeRow.x = 0 }
                             }
                         }
 
-                        Label {
+                        RowLayout {
                             Layout.fillWidth: true
-                            text: (modelData.roadNumber ? modelData.roadNumber + "   " : "") +
-                                  modelData.direction + "   SM " + modelData.smoke + "   SP " + modelData.speed
-                            color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
-                            elide: Text.ElideRight
+                            spacing: 3
+
+                            Label {
+                                visible: text.length > 0
+                                text: modelData.roadNumber || ""
+                                color: modelData.current ? "#dceffc" : "#aeb7c2"
+                                font.pixelSize: 9
+                            }
+                            Label {
+                                text: modelData.direction
+                                color: modelData.current ? "#dceffc" : "#aeb7c2"
+                                font.pixelSize: 9
+                            }
+                            Label {
+                                text: "SM " + modelData.smoke
+                                color: modelData.current ? "#dceffc" : "#aeb7c2"
+                                font.pixelSize: 9
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: "SP " + modelData.speed
+                                color: modelData.current ? "#dceffc" : "#aeb7c2"
+                                font.pixelSize: 9
+                                horizontalAlignment: Text.AlignLeft
+                            }
                         }
                     }
 
