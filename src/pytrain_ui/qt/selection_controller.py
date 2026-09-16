@@ -65,7 +65,7 @@ class SelectedEngineController(QObject):
         if tmcc_id not in self._selected_ids:
             self._selected_ids.append(tmcc_id)
         if self._cab.scope != CommandScope.ENGINE.name or self._cab.tmccId != tmcc_id:
-            self._cab.selectEngine(tmcc_id)
+            self._cab._switch_target(CommandScope.ENGINE, tmcc_id)
         else:
             self.selectionChanged.emit()
 
@@ -78,7 +78,7 @@ class SelectedEngineController(QObject):
         self._selected_ids.remove(tmcc_id)
         if was_current:
             next_index = min(index, len(self._selected_ids) - 1)
-            self._cab.selectEngine(self._selected_ids[next_index])
+            self.selectEngine(self._selected_ids[next_index])
         else:
             self.selectionChanged.emit()
 
