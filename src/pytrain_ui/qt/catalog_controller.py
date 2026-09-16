@@ -14,6 +14,7 @@ _ENGINE_TYPE_ALIASES = {
     "PASSENGER_CARS": ("PASSENGER", "Passenger"),
     "ACELA": ("ELECTRIC", "Electric"),
     "STEAM_PULLMOR": ("STEAM", "Steam"),
+    "DIESEL_PULLMOR": ("DIESEL", "Diesel"),
 }
 
 
