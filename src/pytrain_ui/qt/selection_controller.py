@@ -65,6 +65,29 @@ class SelectedEngineController(QObject):
         if tmcc_id not in self._selected_ids:
             self._selected_ids.append(tmcc_id)
         if self._cab.scope != CommandScope.ENGINE.name or self._cab.tmccId != tmcc_id:
-            self._cab._switch_target(CommandScope.ENGINE, tmcc_id)
+            self._cab.selectEngine(tmcc_id)
         else:
             self.selectionChanged.emit()
+
+    @Slot(int)
+    def dismissEngine(self, tmcc_id: int) -> None:
+        if tmcc_id not in self._selected_ids or len(self._selected_ids) <= 1:
+            return
+        index = self._selected_ids.index(tmcc_id)
+        was_current = self._cab.scope == CommandScope.ENGINE.name and self._cab.tmccId == tmcc_id
+        self._selected_ids.remove(tmcc_id)
+        if was_current:
+            next_index = min(index, len(self._selected_ids) - 1)
+            self._cab.selectEngine(self._selected_ids[next_index])
+        else:
+            self.selectionChanged.emit()
+
+    @Slot(int)
+    def selectRelative(self, delta: int) -> None:
+        if len(self._selected_ids) < 2 or self._cab.scope != CommandScope.ENGINE.name:
+            return
+        try:
+            index = self._selected_ids.index(self._cab.tmccId)
+        except ValueError:
+            return
+        self.selectEngine(self._selected_ids[(index + delta) % len(self._selected_ids)])
