@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.constants import CommandScope
@@ -22,11 +23,17 @@ class SelectedEngineController(QObject):
         self._dismissed_activity: dict[int, tuple] = {}
         self._watchers: dict[int, StateWatcher] = {}
         self._operating_state: dict[int, tuple] = {}
+        self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         self._cab.stateChanged.connect(self._sync_current_target)
         self._install_watchers()
+        if self._dispatcher is not None:
+            self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
         self._sync_current_target()
 
     def close(self) -> None:
+        if self._dispatcher is not None:
+            self._dispatcher.unsubscribe(self._engine_command, CommandScope.ENGINE)
+            self._dispatcher = None
         for watcher in self._watchers.values():
             watcher.shutdown()
         self._watchers.clear()
@@ -53,14 +60,27 @@ class SelectedEngineController(QObject):
             self._operating_state[tmcc_id] = self._operating_signature(state)
             self._watchers[tmcc_id] = StateWatcher(state, lambda s=state: self._engine_state_changed(s))
 
+    def _engine_command(self, command) -> None:
+        """Treat received engine command traffic as activity even if state is unchanged."""
+        if getattr(command, "scope", None) != CommandScope.ENGINE:
+            return
+        tmcc_id = int(getattr(command, "address", 0) or 0)
+        if tmcc_id <= 0:
+            return
+        self._install_watchers()
+        self._dismissed_activity.pop(tmcc_id, None)
+        if tmcc_id not in self._active_ids:
+            self._active_ids.append(tmcc_id)
+        self.selectionChanged.emit()
+
     def _engine_state_changed(self, state) -> None:
         tmcc_id = int(state.tmcc_id)
         signature = self._operating_signature(state)
         previous = self._operating_state.get(tmcc_id)
         self._operating_state[tmcc_id] = signature
 
-        # Every state notification refreshes tile values. Only an actual operating
-        # state change discovers an engine as active.
+        # Every state notification refreshes tile values. An operating-state change
+        # remains a fallback activity source for updates that are not TMCC commands.
         if previous is not None and signature != previous:
             if self._dismissed_activity.get(tmcc_id) != signature:
                 self._dismissed_activity.pop(tmcc_id, None)
