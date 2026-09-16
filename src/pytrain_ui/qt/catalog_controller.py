@@ -8,6 +8,15 @@ from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.protocol.constants import CommandScope
 
 
+_ENGINE_TYPE_ALIASES = {
+    "FREIGHT_SOUNDS": ("FREIGHT", "Freight"),
+    "PASSENGER_CAR": ("PASSENGER", "Passenger"),
+    "PASSENGER_CARS": ("PASSENGER", "Passenger"),
+    "ACELA": ("ELECTRIC", "Electric"),
+    "STEAM_PULLMOR": ("STEAM", "Steam"),
+}
+
+
 class EngineCatalogController(QObject):
     """Expose engine roster data without requiring QML to parse display labels."""
 
@@ -22,9 +31,10 @@ class EngineCatalogController(QObject):
     @staticmethod
     def _engine_type(state) -> tuple[str, str]:
         engine_type = getattr(state, "engine_type_enum", None)
-        key = str(getattr(engine_type, "name", "") or "UNKNOWN")
-        label = key.replace("_", " ").title()
-        return key, label
+        raw_key = str(getattr(engine_type, "name", "") or "UNKNOWN")
+        if raw_key in _ENGINE_TYPE_ALIASES:
+            return _ENGINE_TYPE_ALIASES[raw_key]
+        return raw_key, raw_key.replace("_", " ").title()
 
     @Slot()
     def reload(self) -> None:
