@@ -25,6 +25,30 @@ Rectangle {
         return parts.length > 1 ? parts.slice(1).join(" — ") : label
     }
 
+    function roadNumber(label) {
+        var value = root.detail(label)
+        var parts = value.trim().split(/\s+/)
+        return parts.length ? parts[parts.length - 1] : ""
+    }
+
+    function roadName(label) {
+        var value = root.detail(label)
+        var number = root.roadNumber(label)
+        if (!number.length)
+            return value
+        return value.slice(0, value.length - number.length).trim()
+    }
+
+    function compareRoadNumbers(a, b) {
+        var an = Number(a)
+        var bn = Number(b)
+        var aNumeric = a.length > 0 && !isNaN(an)
+        var bNumeric = b.length > 0 && !isNaN(bn)
+        if (aNumeric && bNumeric)
+            return an - bn
+        return a.toLowerCase().localeCompare(b.toLowerCase())
+    }
+
     function filteredTargets() {
         var rows = []
         var needle = searchText.trim().toLowerCase()
@@ -39,8 +63,13 @@ Rectangle {
         rows.sort(function(a, b) {
             if (sortMode === "tmcc")
                 return root.tmccId(a.label) - root.tmccId(b.label)
-            var av = root.detail(a.label).toLowerCase()
-            var bv = root.detail(b.label).toLowerCase()
+            if (sortMode === "road") {
+                var result = root.compareRoadNumbers(root.roadNumber(a.label), root.roadNumber(b.label))
+                if (result !== 0)
+                    return result
+            }
+            var av = root.roadName(a.label).toLowerCase()
+            var bv = root.roadName(b.label).toLowerCase()
             return av.localeCompare(bv)
         })
         return rows
@@ -80,24 +109,44 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
+
             Label {
                 text: "Sort"
                 color: "#aeb7c2"
                 font.pixelSize: 13
             }
+
+            ButtonGroup {
+                id: sortGroup
+                exclusive: true
+            }
+
             Button {
                 text: "Name"
                 checkable: true
                 checked: root.sortMode === "name"
+                ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "name"
             }
+
+            Button {
+                text: "Road #"
+                checkable: true
+                checked: root.sortMode === "road"
+                ButtonGroup.group: sortGroup
+                onClicked: root.sortMode = "road"
+            }
+
             Button {
                 text: "TMCC ID"
                 checkable: true
                 checked: root.sortMode === "tmcc"
+                ButtonGroup.group: sortGroup
                 onClicked: root.sortMode = "tmcc"
             }
+
             Item { Layout.fillWidth: true }
+
             Label {
                 text: root.filteredTargets().length + " engines"
                 color: "#9ea6b0"
