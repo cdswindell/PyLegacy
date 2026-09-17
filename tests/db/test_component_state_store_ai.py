@@ -11,10 +11,13 @@ from unittest import mock
 
 import pytest
 
+from src.pytrain.db.comp_data import CompDataMixin
 from src.pytrain.db.component_state import ComponentState
 from src.pytrain.db.component_state_store import ComponentStateStore, DependencyCache
 from src.pytrain.db.sync_state import SyncState
+from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import IrdaAction, PdiCommand
+from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.irda_req import IrdaReq, IrdaSequence
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
@@ -48,7 +51,9 @@ def reset_singletons():
     # Force building a new instance by re-instantiating
     # No direct API to clear _instance, so create a new instance for each tests
     yield
-    ComponentStateStore.reset()
+    with ComponentStateStore._lock:
+        ComponentStateStore.reset()
+        ComponentStateStore._instance = None
 
 
 def build_store(*, is_base=False, is_ser2=False, topics=None, listeners=()):
@@ -71,7 +76,170 @@ def _mock_request_config(self, command):
     return None
 
 
+def bluetooth_record(address, bt_id, *, scope=CommandScope.ENGINE, speed=0, record_no=123):
+    record = CompDataMixin()
+    record.initialize(scope, address)
+    record.comp_data._bt_id = bt_id
+    record.comp_data._speed = speed
+    data = record.comp_data.as_bytes()
+    if address > 99:
+        command = D4Req(
+            record_no,
+            PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN,
+            data_length=len(data),
+            data_bytes=data,
+            timestamp=0,
+        )
+        return D4Req(command.as_bytes)
+    command = BaseReq(address, PdiCommand.BASE_MEMORY, scope=scope, data_length=len(data), data_bytes=data)
+    return BaseReq(command.as_bytes)
+
+
+class TestComponentStateStoreBluetooth:
+    def test_lookup_before_build_returns_none(self):
+        assert ComponentStateStore.by_bluetooth_id(0xABCD) is None
+        assert ComponentStateStore.is_built() is False
+
+    def test_unknown_id_does_not_create_state(self):
+        store = build_store()
+
+        assert store.by_bluetooth_id(0xABCD) is None
+        assert store.is_empty
+        assert store._bt_index == {}
+
+    @pytest.mark.parametrize("address", [1, 98, 100, 9999])
+    def test_record_indexes_the_actual_engine_state(self, address):
+        store = build_store()
+        store(bluetooth_record(address, 0xABCD))
+
+        state = store.query(CommandScope.ENGINE, address)
+        assert state is not None
+        assert state.bt_int == 0xABCD
+        assert store.by_bluetooth_id(0xABCD) is state
+        assert store.by_bluetooth_id(0x1234) is None
+
+    @pytest.mark.parametrize("addresses", [(7, 1234), (1234, 7), (42, 7, 1234), (1234, 42, 7)])
+    def test_shared_id_selects_highest_address_regardless_of_update_order(self, addresses):
+        store = build_store()
+        for address in addresses:
+            store(bluetooth_record(address, 0xABCD))
+
+        assert store.by_bluetooth_id(0xABCD) is store.query(CommandScope.ENGINE, max(addresses))
+        assert list(store._bt_index[0xABCD]) == sorted(addresses)
+
+    def test_different_bluetooth_ids_are_indexed_independently(self):
+        store = build_store()
+        store(bluetooth_record(7, 0xABCD))
+        store(bluetooth_record(1234, 0x1234))
+
+        assert store.by_bluetooth_id(0xABCD) is store.query(CommandScope.ENGINE, 7)
+        assert store.by_bluetooth_id(0x1234) is store.query(CommandScope.ENGINE, 1234)
+
+    def test_repeated_record_updates_the_existing_indexed_state(self):
+        store = build_store()
+        store(bluetooth_record(7, 0xABCD))
+        state = store.query(CommandScope.ENGINE, 7)
+        store(bluetooth_record(7, 0xABCD, speed=10))
+
+        assert store.by_bluetooth_id(0xABCD) is state
+        assert state.comp_data._speed == 10
+        assert len(store._bt_index[0xABCD]) == 1
+
+    def test_zero_id_is_not_indexed(self):
+        store = build_store()
+        store(bluetooth_record(7, 0))
+
+        assert store.query(CommandScope.ENGINE, 7) is not None
+        assert store.by_bluetooth_id(0) is None
+        assert store._bt_index == {}
+
+    @pytest.mark.parametrize("address", [7, 1234])
+    def test_train_records_do_not_replace_engine_bluetooth_entries(self, address):
+        store = build_store()
+        store(bluetooth_record(address, 0xABCD))
+        store(bluetooth_record(address, 0xABCD, scope=CommandScope.TRAIN))
+
+        assert store.query(CommandScope.TRAIN, address) is not None
+        assert store.by_bluetooth_id(0xABCD) is store.query(CommandScope.ENGINE, address)
+        assert len(store._bt_index[0xABCD]) == 1
+
+    def test_command_without_component_data_does_not_create_bluetooth_index(self):
+        store = build_store()
+        command = BaseReq(
+            7, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE, start=4, data_length=2, data_bytes=b"\xcd\xab"
+        )
+        store(BaseReq(command.as_bytes))
+
+        assert store.query(CommandScope.ENGINE, 7) is not None
+        assert store._bt_index == {}
+
+
 class TestComponentStateStoreBasics:
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            lambda: ComponentStateStore.get(),
+            lambda: ComponentStateStore.get_state(CommandScope.ENGINE, 7),
+            lambda: ComponentStateStore.set_state(CommandScope.ENGINE, 7, None),
+            lambda: ComponentStateStore.delete_state(None),
+        ],
+    )
+    def test_state_access_requires_a_built_store(self, operation):
+        with pytest.raises(AttributeError, match="ComponentStateStore not built"):
+            operation()
+
+    @pytest.mark.parametrize("is_base, is_ser2", [(False, False), (False, True), (True, False), (True, True)])
+    def test_build_flags_and_reinitialization(self, is_base, is_ser2):
+        store = ComponentStateStore.build(is_base=is_base, is_ser2=is_ser2)
+
+        assert ComponentStateStore.build() is store
+        assert store.is_base is is_base
+        assert store.is_ser2 is is_ser2
+        assert store.is_filter_updates is (is_base and is_ser2)
+
+    def test_query_without_creation_and_state_deletion(self):
+        store = build_store()
+        assert store.get_state(CommandScope.ENGINE, 7, create=False) is None
+        assert store.query(CommandScope.ENGINE) is None
+        assert store.keys(CommandScope.ENGINE) == []
+        assert store.get_all(CommandScope.ENGINE) == []
+        assert store.is_empty
+
+        state = store.get_state(CommandScope.ENGINE, 7)
+        assert store.query(CommandScope.ENGINE) == [state]
+        assert CommandScope.ENGINE in store
+        store.delete_state(state)
+        store.delete_state(state)
+        store.delete_state(None)
+        assert store.query(CommandScope.ENGINE, 7) is None
+
+        store.reset()
+        assert store.is_empty
+        assert store.get() is store
+
+    def test_road_number_alias_is_omitted_and_replaced_by_real_engine(self):
+        store = build_store()
+        store(bluetooth_record(7, 0xABCD))
+        state = store.query(CommandScope.ENGINE, 7)
+        store.set_state(CommandScope.ENGINE, 1234, state)
+
+        assert store.get_all(CommandScope.ENGINE) == [state]
+        assert store.keys(CommandScope.ENGINE) == [7]
+        store(bluetooth_record(1234, 0x1234))
+        replacement = store.query(CommandScope.ENGINE, 1234)
+        assert replacement is not state
+        assert replacement.address == 1234
+        assert store.get_all(CommandScope.ENGINE) == [state, replacement]
+
+    def test_record_number_lookup_uses_engine_records_only(self):
+        store = build_store()
+        assert store.by_record_no(123) is None
+        store(bluetooth_record(1234, 0xABCD, record_no=123))
+        store(bluetooth_record(2345, 0x1234, scope=CommandScope.TRAIN, record_no=456))
+
+        assert store.by_record_no(123) is store.query(CommandScope.ENGINE, 1234)
+        assert store.by_record_no(456) is None
+
     def test_valid_topic_checks(self):
         assert ComponentStateStore.is_built() is False
         # Accepts CommandScope

@@ -43,6 +43,8 @@ dependencies = [
     "setuptools >= 84.0.0",
     "setuptools_scm >= 10.2.0",
     "smbus2 >= 0.6.1",
+    "sortedcontainers >= 2.4.0",
+    "sortedcontainers-stubs >= 2.4.3",
     "zeroconf >= 0.150.2",
     "spidev >= 3.8.0; platform_system == 'Linux'"
 ]
