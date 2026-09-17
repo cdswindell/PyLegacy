@@ -21,6 +21,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     from .cab_controller import CabController
     from .catalog_controller import EngineCatalogController
     from .gamepad import QtCabInputSink, QtGamepadInput
+    from .ops_controller import OpsController
     from .selection_controller import SelectedEngineController
     from .session import restore_engine, save_engine
 
@@ -43,11 +44,15 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     cab = CabController(scope, tmcc_id)
     catalog = EngineCatalogController()
     selection = SelectedEngineController(cab)
+    switches = OpsController(CommandScope.SWITCH)
+    routes = OpsController(CommandScope.ROUTE)
     gamepad = QtGamepadInput(QtCabInputSink(cab), cab)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("cabController", cab)
     engine.rootContext().setContextProperty("engineCatalogController", catalog)
     engine.rootContext().setContextProperty("selectedEngineController", selection)
+    engine.rootContext().setContextProperty("switchOpsController", switches)
+    engine.rootContext().setContextProperty("routeOpsController", routes)
     engine.rootContext().setContextProperty("showCatalogAtStartup", show_catalog)
 
     def remember_current_engine() -> None:
@@ -62,6 +67,8 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
 
     if not engine.rootObjects():
         gamepad.close()
+        routes.close()
+        switches.close()
         selection.close()
         catalog.close()
         cab.close()
@@ -71,6 +78,8 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     finally:
         remember_current_engine()
         gamepad.close()
+        routes.close()
+        switches.close()
         selection.close()
         catalog.close()
         cab.close()
