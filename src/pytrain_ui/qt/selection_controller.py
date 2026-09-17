@@ -234,7 +234,9 @@ class SelectedEngineController(QObject):
             return
         key = self._physical_key(tmcc_id)
         was_current = self._cab.scope == CommandScope.ENGINE.name and self._physical_key(self._cab.tmccId) == key
-        aliases = [candidate for candidate in self._selected_ids + self._active_ids if self._physical_key(candidate) == key]
+        aliases = [
+            candidate for candidate in self._selected_ids + self._active_ids if self._physical_key(candidate) == key
+        ]
         self._selected_ids = [candidate for candidate in self._selected_ids if self._physical_key(candidate) != key]
         self._active_ids = [candidate for candidate in self._active_ids if self._physical_key(candidate) != key]
         for candidate in aliases:
