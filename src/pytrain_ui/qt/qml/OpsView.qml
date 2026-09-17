@@ -8,6 +8,7 @@ Rectangle {
     required property var controller
     property string sortKey: "roadName"
     property int editingSwitchId: 0
+    property int pendingOverwriteSwitchId: 0
     property bool showInactiveSwitches: false
     signal closeRequested()
 
@@ -57,8 +58,44 @@ Rectangle {
         addRoadNumber.text = ""
         commandControlSwitch.checked = true
         addError.text = ""
+        pendingOverwriteSwitchId = 0
         addSwitchPopup.open()
         addSwitchId.forceActiveFocus()
+    }
+
+    function completeExistingSwitchIdentity() {
+        const tmccId = Number(addSwitchId.text)
+        if (tmccId < 1 || tmccId > 98)
+            return
+        const identity = controller.switchIdentity(tmccId)
+        if (!identity.exists)
+            return
+        if (!addRoadName.text.trim())
+            addRoadName.text = identity.roadName
+        if (!addRoadNumber.text.trim())
+            addRoadNumber.text = identity.roadNumber
+    }
+
+    function submitAddSwitch(overwrite) {
+        const tmccId = Number(addSwitchId.text)
+        const identity = controller.switchIdentity(tmccId)
+        if (identity.exists && !overwrite) {
+            completeExistingSwitchIdentity()
+            pendingOverwriteSwitchId = tmccId
+            overwriteSwitchPopup.open()
+            return
+        }
+        const error = controller.addSwitch(tmccId,
+                                           addRoadName.text,
+                                           addRoadNumber.text,
+                                           commandControlSwitch.checked,
+                                           overwrite)
+        if (error.length > 0)
+            addError.text = error
+        else {
+            overwriteSwitchPopup.close()
+            addSwitchPopup.close()
+        }
     }
 
     ColumnLayout {
@@ -314,6 +351,7 @@ Rectangle {
                 inputMethodHints: Qt.ImhDigitsOnly
                 validator: IntValidator { bottom: 1; top: 98 }
                 font.pixelSize: 18
+                onEditingFinished: root.completeExistingSwitchIdentity()
             }
             Label {
                 text: "Road Name"
@@ -363,16 +401,59 @@ Rectangle {
                     Layout.preferredHeight: 50
                     text: "ADD SWITCH"
                     font.bold: true
-                    onClicked: {
-                        const error = controller.addSwitch(Number(addSwitchId.text),
-                                                           addRoadName.text,
-                                                           addRoadNumber.text,
-                                                           commandControlSwitch.checked)
-                        if (error.length > 0)
-                            addError.text = error
-                        else
-                            addSwitchPopup.close()
-                    }
+                    onClicked: root.submitAddSwitch(false)
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: overwriteSwitchPopup
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 70, 560)
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#20242a"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 14
+
+            Label {
+                Layout.fillWidth: true
+                text: "Replace Switch " + root.pendingOverwriteSwitchId + "?"
+                color: "#f4f6f8"
+                font.pixelSize: 22
+                font.bold: true
+            }
+            Label {
+                Layout.fillWidth: true
+                text: "A switch with this TMCC ID already exists. Continue and overwrite its configuration?"
+                color: "#c8ced6"
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "CANCEL"
+                    onClicked: overwriteSwitchPopup.close()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "REPLACE SWITCH"
+                    font.bold: true
+                    onClicked: root.submitAddSwitch(true)
                 }
             }
         }
