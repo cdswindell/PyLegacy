@@ -182,7 +182,7 @@ Rectangle {
                 visible: controller && controller.scope === "SWITCH"
                 Layout.preferredWidth: 154
                 Layout.preferredHeight: 38
-                text: root.showInactiveSwitches ? "HIDE INACTIVE" : "SHOW INACTIVE"
+                text: root.showInactiveSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
                 selected: root.showInactiveSwitches
                 onClicked: root.showInactiveSwitches = !root.showInactiveSwitches
             }
