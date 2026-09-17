@@ -15,6 +15,7 @@ Rectangle {
     readonly property int controlHeaderHeight: piLayout ? 34 : 32
     readonly property int controlFooterHeight: 20
     readonly property int piControlHeight: 520
+    readonly property int displayedTargetSpeed: throttle.dragging || throttle.awaitingConfirmation ? throttle.pendingValue : cab.targetSpeed
 
     function isQuickAction(key) {
         return key === "rear_coupler" || key === "front_coupler" ||
@@ -87,7 +88,7 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: -1
                     Label { anchors.horizontalCenter: parent.horizontalCenter; text: "TARGET"; color: "#9ea6b0"; font.pixelSize: root.piLayout ? 10 : 12 }
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: cab.targetSpeed; color: "white"; font.pixelSize: root.piLayout ? 22 : 28; font.bold: true }
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: root.displayedTargetSpeed; color: "white"; font.pixelSize: root.piLayout ? 22 : 28; font.bold: true }
                 }
             }
         }
@@ -278,27 +279,24 @@ Rectangle {
                     Layout.preferredHeight: root.piLayout ? 44 : 42
                     text: root.moreControlsVisible ? "Less Controls  ▲" : "More Controls  ▼"
                     font.pixelSize: root.piLayout ? 13 : 14
-                    selected: root.moreControlsVisible
                     onClicked: root.moreControlsVisible = !root.moreControlsVisible
                 }
 
                 GridLayout {
-                    Layout.fillWidth: true
                     visible: root.moreControlsVisible
-                    columns: 3
+                    Layout.fillWidth: true
+                    columns: 4
                     columnSpacing: 5
                     rowSpacing: 5
                     Repeater {
-                        model: cab.actionModel
+                        model: cab.moreActionModel
                         FunctionButton {
                             required property var modelData
-                            visible: !root.isQuickAction(modelData.key)
-                            Layout.fillWidth: visible
-                            Layout.preferredHeight: visible ? (root.piLayout ? 44 : 42) : 0
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: root.piLayout ? 38 : 36
                             compact: true
                             text: modelData.label
-                            iconSource: modelData.iconSource
-                            font.pixelSize: root.piLayout ? 11 : 12
+                            font.pixelSize: root.piLayout ? 10 : 10
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold
                             repeatWhileHeld: modelData.repeat
@@ -307,120 +305,72 @@ Rectangle {
                             onHeld: root.handleModelHold(modelData)
                         }
                     }
-                    Repeater {
-                        model: cab.tuningActionModel
-                        FunctionButton {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.piLayout ? 44 : 42
-                            compact: true
-                            text: modelData.label
-                            font.pixelSize: root.piLayout ? 11 : 12
-                            onClicked: cab.triggerAction(modelData.key)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: root.piLayout ? 8 : 4
-                    spacing: 7
-                    CabButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.piLayout ? 60 : 58
-                        text: "HALT"
-                        font.pixelSize: root.piLayout ? 20 : 21
-                        font.bold: true
-                        normalColor: "#8b2d32"
-                        pressedColor: "#b43b42"
-                        onClicked: cab.stop()
-                    }
-                    CabButton {
-                        Layout.preferredWidth: root.piLayout ? 145 : 180
-                        Layout.preferredHeight: root.piLayout ? 60 : 58
-                        text: "Reset"
-                        font.pixelSize: root.piLayout ? 16 : 18
-                        repeatWhileHeld: true
-                        repeatInterval: 100
-                        onClicked: cab.reset()
-                    }
                 }
 
                 Item { Layout.fillHeight: true }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    CabButton { Layout.fillWidth: true; Layout.preferredHeight: root.piLayout ? 50 : 56; text: "HALT"; font.pixelSize: root.piLayout ? 18 : 20; font.bold: true; normalColor: "#9d2020"; pressedColor: "#c62d2d"; onClicked: cab.stop() }
+                    CabButton { Layout.preferredWidth: root.piLayout ? 94 : 112; Layout.preferredHeight: root.piLayout ? 50 : 56; text: "Reset"; font.pixelSize: root.piLayout ? 14 : 15; onClicked: cab.reset() }
+                }
             }
         }
 
-        Rectangle {
+        GridLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: root.piLayout ? 72 : 58
-            radius: 9
-            color: "#23272e"
-            border.width: 1
-            border.color: "#303640"
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: root.piLayout ? 7 : 6
-                spacing: 5
-                Repeater {
-                    model: cab.infoModel
-                    Rectangle {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.preferredWidth: 0
-                        radius: 6
-                        color: "#1d2127"
-                        Column {
-                            anchors.centerIn: parent
-                            width: parent.width
-                            spacing: 2
-                            Label {
-                                width: parent.width
-                                text: modelData.label === "Speed Lim" ? "Speed\nLimit" : modelData.label
-                                color: "#9ea6b0"
-                                horizontalAlignment: Text.AlignHCenter
-                                lineHeight: 0.9
-                                font.pixelSize: root.piLayout ? 9 : 10
-                            }
-                            Label {
-                                width: parent.width
-                                text: modelData.value || "—"
-                                color: "#f0f3f6"
-                                horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                                font.pixelSize: root.piLayout ? 14 : 14
-                                font.bold: true
-                            }
-                        }
+            columns: 6
+            columnSpacing: 5
+            rowSpacing: 0
+            Repeater {
+                model: cab.infoModel
+                Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.piLayout ? 42 : 50
+                    radius: 6
+                    color: "#20242a"
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: -1
+                        Label { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.label; color: "#8f98a4"; font.pixelSize: root.piLayout ? 8 : 10 }
+                        Label { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.value; color: "#e7eaee"; font.pixelSize: root.piLayout ? 11 : 13; font.bold: true }
                     }
                 }
             }
         }
     }
 
-    CommandPanelPopup { id: commandPanel; cab: root.cab }
+    CommandPanel {
+        id: commandPanel
+        parent: Overlay.overlay
+        cab: root.cab
+        width: Math.min(Overlay.overlay.width - 24, 620)
+        height: Math.min(Overlay.overlay.height - 24, 760)
+        x: (Overlay.overlay.width - width) / 2
+        y: (Overlay.overlay.height - height) / 2
+    }
 
     Popup {
         id: speedLimitPopup
-        x: Math.round((root.width - width) / 2)
-        y: Math.round((root.height - height) / 2)
-        width: Math.min(440, root.width - 48)
+        parent: Overlay.overlay
         modal: true
         focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        padding: 18
-        onOpened: limitSpin.value = cab.speedLimit > 0 ? cab.speedLimit : Math.max(1, cab.targetSpeed)
-        background: Rectangle { radius: 12; color: "#252a31"; border.width: 1; border.color: "#697382" }
-        contentItem: ColumnLayout {
-            spacing: 14
-            Label { Layout.fillWidth: true; text: "Speed Limit"; color: "white"; font.pixelSize: 22; font.bold: true; horizontalAlignment: Text.AlignHCenter }
-            Label { Layout.fillWidth: true; text: cab.speedLimit > 0 ? "Current limit: " + cab.speedLimit : "No speed limit set"; color: "#c8ced6"; font.pixelSize: 15; horizontalAlignment: Text.AlignHCenter }
-            SpinBox { id: limitSpin; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 180; from: 1; to: cab.commandSpeedMax; editable: true; font.pixelSize: 20 }
+        anchors.centerIn: parent
+        width: Math.min(Overlay.overlay.width - 36, 360)
+        padding: 14
+        background: Rectangle { color: "#22272e"; radius: 10; border.width: 1; border.color: "#56606c" }
+        ColumnLayout {
+            width: parent.width
+            spacing: 10
+            Label { Layout.fillWidth: true; text: "Speed Limit"; color: "white"; font.pixelSize: 18; font.bold: true }
+            Slider { id: speedLimitSlider; Layout.fillWidth: true; from: 0; to: Math.max(1, cab.speedMax); stepSize: 1; value: cab.speedLimit }
+            Label { Layout.fillWidth: true; text: Math.round(speedLimitSlider.value); color: "#dce3eb"; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 18 }
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 8
-                CabButton { Layout.fillWidth: true; text: "Clear"; enabled: cab.speedLimit > 0; onClicked: { cab.clearSpeedLimit(); speedLimitPopup.close() } }
-                CabButton { Layout.fillWidth: true; text: "Set"; selected: true; onClicked: { cab.setSpeedLimit(limitSpin.value); speedLimitPopup.close() } }
+                CabButton { Layout.fillWidth: true; text: "Clear"; onClicked: { cab.clearSpeedLimit(); speedLimitPopup.close() } }
+                CabButton { Layout.fillWidth: true; text: "Set"; normalColor: "#246aa0"; onClicked: { cab.setSpeedLimit(Math.round(speedLimitSlider.value)); speedLimitPopup.close() } }
             }
         }
     }
