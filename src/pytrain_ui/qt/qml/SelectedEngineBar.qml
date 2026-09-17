@@ -7,7 +7,7 @@ Rectangle {
 
     required property var selection
 
-    readonly property bool compactTiles: selection ? selection.count > 3 : false
+    readonly property bool compactTiles: selection ? selection.count > 4 : false
 
     color: "#15191f"
     radius: 8
@@ -42,6 +42,14 @@ Rectangle {
                 anchors.rightMargin: root.compactTiles ? 3 : 5
                 spacing: root.compactTiles ? 3 : 5
 
+                Label {
+                    visible: !root.compactTiles
+                    text: modelData.tmccId
+                    color: "white"
+                    font.pixelSize: 15
+                    font.bold: true
+                }
+
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
@@ -65,7 +73,9 @@ Rectangle {
                                 text: {
                                     const name = card.modelData.roadName || "Engine"
                                     const number = card.modelData.roadNumber || ""
-                                    return number.length > 0 ? name + " #" + number : name
+                                    if (root.compactTiles && number.length > 0)
+                                        return name + " #" + number
+                                    return name
                                 }
                                 color: "#f4f6f8"
                                 font.pixelSize: 11
@@ -104,10 +114,17 @@ Rectangle {
                         spacing: 3
 
                         Label {
+                            visible: root.compactTiles
                             text: modelData.tmccId
                             color: "white"
-                            font.pixelSize: root.compactTiles ? 12 : 13
+                            font.pixelSize: 12
                             font.bold: true
+                        }
+                        Label {
+                            visible: !root.compactTiles && text.length > 0
+                            text: modelData.roadNumber || ""
+                            color: modelData.current ? "#dceffc" : "#aeb7c2"
+                            font.pixelSize: 9
                         }
                         Label {
                             text: modelData.direction
