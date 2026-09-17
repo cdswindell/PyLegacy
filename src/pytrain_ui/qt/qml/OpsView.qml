@@ -109,16 +109,16 @@ Rectangle {
                 width: roster.width
                 height: 68
                 radius: 8
-                color: controller.selectedId === modelData.tmccId ? "#244f70" : "#262b32"
+                color: "#262b32"
                 border.width: 1
-                border.color: controller.selectedId === modelData.tmccId ? "#78bff0" : "#444c57"
+                border.color: "#444c57"
 
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 8
-                    spacing: 10
+                    spacing: 8
                     Label {
-                        Layout.preferredWidth: 72
+                        Layout.preferredWidth: 58
                         text: modelData.tmccId
                         color: "#f4f6f8"
                         font.pixelSize: 20
@@ -145,13 +145,29 @@ Rectangle {
                         }
                     }
                     Label {
-                        Layout.preferredWidth: controller.scope === "ROUTE" ? 108 : 72
+                        Layout.preferredWidth: controller.scope === "ROUTE" ? 108 : 64
                         text: modelData.stateText
                         color: modelData.stateText === "ALIGNED" || modelData.stateText === "THRU" ? "#73d38a" :
                                modelData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
                         font.pixelSize: 12
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
+                    }
+                    CabButton {
+                        visible: controller.scope === "SWITCH"
+                        Layout.preferredWidth: 76
+                        Layout.preferredHeight: 46
+                        text: "THRU"
+                        selected: row.modelData.stateText === "THRU"
+                        onClicked: controller.operateSwitch(row.modelData.tmccId, "THRU")
+                    }
+                    CabButton {
+                        visible: controller.scope === "SWITCH"
+                        Layout.preferredWidth: 76
+                        Layout.preferredHeight: 46
+                        text: "OUT"
+                        selected: row.modelData.stateText === "OUT"
+                        onClicked: controller.operateSwitch(row.modelData.tmccId, "OUT")
                     }
                     CabButton {
                         visible: controller.scope === "ROUTE"
@@ -163,68 +179,6 @@ Rectangle {
                         normalColor: "#a84418"
                         pressedColor: "#d65a20"
                         onClicked: controller.fireRoute(row.modelData.tmccId)
-                    }
-                }
-
-                TapHandler {
-                    enabled: controller.scope === "SWITCH"
-                    onTapped: controller.select(row.modelData.tmccId)
-                }
-            }
-        }
-
-        Rectangle {
-            visible: controller.scope === "SWITCH"
-            Layout.fillWidth: true
-            Layout.preferredHeight: controller.selectedId ? 150 : 82
-            radius: 9
-            color: "#20242a"
-            border.width: 1
-            border.color: "#3d444f"
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 6
-                Label {
-                    Layout.fillWidth: true
-                    text: controller.selectedId ?
-                              ((controller.roadName || controller.scope) +
-                               (controller.roadNumber ? "  #" + controller.roadNumber : "") +
-                               "   TMCC " + controller.selectedId) :
-                              "Select a switch"
-                    color: "#f4f6f8"
-                    font.pixelSize: 17
-                    font.bold: true
-                    elide: Text.ElideRight
-                }
-                Label {
-                    visible: controller.selectedId !== 0
-                    Layout.fillWidth: true
-                    text: controller.stateText
-                    color: controller.stateText === "THRU" ? "#73d38a" :
-                           controller.stateText === "UNKNOWN" ? "#b9c0c9" : "#f0a35a"
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-                RowLayout {
-                    visible: controller.selectedId !== 0
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 8
-                    CabButton {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: "THRU"
-                        selected: controller.isThru
-                        onClicked: controller.operate("THRU")
-                    }
-                    CabButton {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: "OUT"
-                        selected: controller.isOut
-                        onClicked: controller.operate("OUT")
                     }
                 }
             }
