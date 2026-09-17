@@ -8,6 +8,7 @@ Rectangle {
     required property var controller
     property string sortKey: "roadName"
     property int editingSwitchId: 0
+    property bool showInactiveSwitches: false
     signal closeRequested()
 
     color: "#171a1f"
@@ -28,10 +29,13 @@ Rectangle {
     function visibleRows() {
         const query = searchField.text.trim().toLowerCase()
         const result = controller.rows.filter(function(row) {
+            if (controller.scope === "SWITCH" && row.inactive && !root.showInactiveSwitches)
+                return false
             return !query ||
                    String(row.tmccId).toLowerCase().indexOf(query) >= 0 ||
                    row.roadName.toLowerCase().indexOf(query) >= 0 ||
-                   row.roadNumber.toLowerCase().indexOf(query) >= 0
+                   row.roadNumber.toLowerCase().indexOf(query) >= 0 ||
+                   row.lcsAssociations.toLowerCase().indexOf(query) >= 0
         })
         result.sort(compareRows)
         return result
@@ -119,6 +123,14 @@ Rectangle {
                     onClicked: root.sortKey = modelData.key
                 }
             }
+            CabButton {
+                visible: controller.scope === "SWITCH"
+                Layout.preferredWidth: 126
+                Layout.preferredHeight: 38
+                text: root.showInactiveSwitches ? "HIDE INACTIVE" : "SHOW INACTIVE"
+                selected: root.showInactiveSwitches
+                onClicked: root.showInactiveSwitches = !root.showInactiveSwitches
+            }
         }
 
         ListView {
@@ -174,7 +186,13 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.roadNumber ? "Road # " + modelData.roadNumber : "TMCC ID " + modelData.tmccId
+                            text: {
+                                let detail = modelData.roadNumber ? "Road # " + modelData.roadNumber :
+                                                                  "TMCC ID " + modelData.tmccId
+                                if (modelData.lcsAssociations)
+                                    detail += " · " + modelData.lcsAssociations
+                                return detail
+                            }
                             color: "#aeb5bf"
                             font.pixelSize: 12
                             elide: Text.ElideRight
@@ -261,7 +279,7 @@ Rectangle {
                 wrapMode: Text.WordWrap
             }
             Label {
-                text: "TMCC ID (1-99)"
+                text: "TMCC ID (1-98)"
                 color: "#aeb5bf"
             }
             TextField {
@@ -270,7 +288,7 @@ Rectangle {
                 Layout.preferredHeight: 50
                 maximumLength: 2
                 inputMethodHints: Qt.ImhDigitsOnly
-                validator: IntValidator { bottom: 1; top: 99 }
+                validator: IntValidator { bottom: 1; top: 98 }
                 font.pixelSize: 18
             }
             Label {
