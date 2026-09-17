@@ -10,6 +10,13 @@ Rectangle {
     required property var selection
     signal engineSelected()
     signal closeRequested()
+    signal engineRequested(int tmccId)
+
+    onEngineRequested: function(tmccId) {
+        selection.selectEngine(tmccId)
+        searchText = ""
+        engineSelected()
+    }
 
     color: "#15191f"
     radius: 10
@@ -69,36 +76,14 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Label {
-                Layout.fillWidth: true
-                text: "ENGINES"
-                color: "#f4f6f8"
-                font.pixelSize: 24
-                font.bold: true
-            }
-            CabButton {
-                Layout.preferredWidth: 130
-                Layout.preferredHeight: 46
-                text: "HALT"
-                font.pixelSize: 17
-                font.bold: true
-                normalColor: "#8b2d32"
-                pressedColor: "#b43b42"
-                onClicked: cab.stop()
-            }
-            CabButton {
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 46
-                text: "Cab"
-                font.pixelSize: 15
-                onClicked: root.closeRequested()
-            }
+            Label { Layout.fillWidth: true; text: "ENGINES"; color: "#f4f6f8"; font.pixelSize: 24; font.bold: true }
+            CabButton { Layout.preferredWidth: 130; Layout.preferredHeight: 46; text: "HALT"; font.pixelSize: 17; font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.stop() }
+            CabButton { Layout.preferredWidth: 100; Layout.preferredHeight: 46; text: "Cab"; font.pixelSize: 15; onClicked: root.closeRequested() }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
-
             TextField {
                 id: searchField
                 Layout.fillWidth: true
@@ -106,69 +91,34 @@ Rectangle {
                 placeholderText: "Search name, road number, TMCC ID, or type"
                 font.pixelSize: 17
                 selectByMouse: true
-                onTextChanged: root.searchText = text
+                text: root.searchText
+                onTextEdited: root.searchText = text
             }
-
             CabButton {
                 Layout.preferredWidth: 72
                 Layout.preferredHeight: 54
                 text: "Clear"
                 font.pixelSize: 14
                 enabled: searchField.text.length > 0
-                onClicked: {
-                    searchField.clear()
-                    searchField.forceActiveFocus()
-                }
+                onClicked: { root.searchText = ""; searchField.forceActiveFocus() }
             }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label {
-                text: "Sort"
-                color: "#aeb7c2"
-                font.pixelSize: 13
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 42
-                text: "Name"
-                selected: root.sortMode === "name"
-                onClicked: root.sortMode = "name"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 42
-                text: "Road #"
-                selected: root.sortMode === "road"
-                onClicked: root.sortMode = "road"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 42
-                text: "TMCC ID"
-                selected: root.sortMode === "tmcc"
-                onClicked: root.sortMode = "tmcc"
-            }
-            Item {
-                Layout.fillWidth: true
-            }
-            Label {
-                text: root.filteredTargets().length + " engines"
-                color: "#9ea6b0"
-                font.pixelSize: 12
-            }
+            Label { text: "Sort"; color: "#aeb7c2"; font.pixelSize: 13 }
+            ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "Name"; selected: root.sortMode === "name"; onClicked: root.sortMode = "name" }
+            ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "Road #"; selected: root.sortMode === "road"; onClicked: root.sortMode = "road" }
+            ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "TMCC ID"; selected: root.sortMode === "tmcc"; onClicked: root.sortMode = "tmcc" }
+            Item { Layout.fillWidth: true }
+            Label { text: root.filteredTargets().length + " engines"; color: "#9ea6b0"; font.pixelSize: 12 }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label {
-                text: "Type"
-                color: "#aeb7c2"
-                font.pixelSize: 13
-            }
+            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
             ListView {
                 id: typeList
                 Layout.fillWidth: true
@@ -223,20 +173,8 @@ Rectangle {
                         border.color: "#596574"
                         Column {
                             anchors.centerIn: parent
-                            Label {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "ENG"
-                                color: "#9ea6b0"
-                                font.pixelSize: 9
-                                font.bold: true
-                            }
-                            Label {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: row.modelData.tmccId
-                                color: "white"
-                                font.pixelSize: 18
-                                font.bold: true
-                            }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: "ENG"; color: "#9ea6b0"; font.pixelSize: 9; font.bold: true }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 18; font.bold: true }
                         }
                     }
                     ColumnLayout {
@@ -244,36 +182,21 @@ Rectangle {
                         spacing: 2
                         Label {
                             Layout.fillWidth: true
-                            text: (row.modelData.roadName || "Engine") +
-                                  (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
+                            text: (row.modelData.roadName || "Engine") + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
                             font.pixelSize: 16
                             font.bold: true
                             elide: Text.ElideRight
                         }
-                        Label {
-                            Layout.fillWidth: true
-                            text: row.modelData.engineTypeLabel
-                            color: "#a9b2bd"
-                            font.pixelSize: 11
-                            elide: Text.ElideRight
-                        }
+                        Label { Layout.fillWidth: true; text: row.modelData.engineTypeLabel; color: "#a9b2bd"; font.pixelSize: 11; elide: Text.ElideRight }
                     }
-                    Label {
-                        text: "›"
-                        color: "#8fc9ef"
-                        font.pixelSize: 28
-                    }
+                    Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 28 }
                 }
 
                 TapHandler {
                     id: tapHandler
                     gesturePolicy: TapHandler.DragThreshold
-                    onTapped: {
-                        root.selection.selectEngine(row.modelData.tmccId)
-                        root.engineSelected()
-                        searchField.clear()
-                    }
+                    onTapped: root.engineRequested(row.modelData.tmccId)
                 }
             }
         }
