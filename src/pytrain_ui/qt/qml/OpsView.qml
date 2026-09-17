@@ -274,12 +274,25 @@ Rectangle {
                 font.pixelSize: 24
                 font.bold: true
             }
-            CheckBox {
-                id: commandControlSwitch
+            RowLayout {
                 Layout.fillWidth: true
-                checked: true
-                text: "Lionel Command Control Switch"
-                font.pixelSize: 16
+                spacing: 10
+
+                CheckBox {
+                    id: commandControlSwitch
+                    checked: true
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: "Lionel Command Control Switch"
+                    color: "#f4f6f8"
+                    font.pixelSize: 16
+                    font.bold: true
+
+                    TapHandler {
+                        onTapped: commandControlSwitch.checked = !commandControlSwitch.checked
+                    }
+                }
             }
             Label {
                 Layout.fillWidth: true
