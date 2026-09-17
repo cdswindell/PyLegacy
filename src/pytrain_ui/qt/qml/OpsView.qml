@@ -174,16 +174,21 @@ Rectangle {
                 ]
                 CabButton {
                     required property var modelData
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: 145
                     Layout.preferredHeight: 38
                     text: modelData.label
                     selected: root.sortKey === modelData.key
                     onClicked: root.sortKey = modelData.key
                 }
             }
+            Item {
+                visible: controller && controller.scope === "SWITCH"
+                Layout.preferredWidth: 8
+            }
             CabButton {
                 visible: controller && controller.scope === "SWITCH"
-                Layout.preferredWidth: 154
+                Layout.fillWidth: true
+                Layout.minimumWidth: 170
                 Layout.preferredHeight: 38
                 text: root.showInactiveSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
                 selected: root.showInactiveSwitches
