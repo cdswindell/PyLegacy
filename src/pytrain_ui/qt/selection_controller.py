@@ -98,14 +98,19 @@ class SelectedEngineController(QObject):
             if sensor_id not in self._sensor_watchers:
                 self._sensor_watchers[sensor_id] = StateWatcher(state, lambda s=state: self._sensor_track_changed(s))
 
+    def _touch_active(self, tmcc_id: int) -> None:
+        """Move a physical locomotive to the front of the activity-only group."""
+        key = self._physical_key(tmcc_id)
+        self._active_ids = [candidate for candidate in self._active_ids if self._physical_key(candidate) != key]
+        self._active_ids.insert(0, tmcc_id)
+
     def _mark_active(self, tmcc_id: int) -> None:
         if tmcc_id <= 0:
             return
         if ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False) is None:
             return
         self._dismissed_activity.pop(tmcc_id, None)
-        if tmcc_id not in self._active_ids:
-            self._active_ids.append(tmcc_id)
+        self._touch_active(tmcc_id)
         self._watch_engine(tmcc_id)
         self.selectionChanged.emit()
 
@@ -132,8 +137,7 @@ class SelectedEngineController(QObject):
         if previous is not None and signature != previous:
             if self._dismissed_activity.get(tmcc_id) != signature:
                 self._dismissed_activity.pop(tmcc_id, None)
-                if tmcc_id not in self._active_ids:
-                    self._active_ids.append(tmcc_id)
+                self._touch_active(tmcc_id)
         self.selectionChanged.emit()
 
     def _sync_current_target(self) -> None:
@@ -203,7 +207,10 @@ class SelectedEngineController(QObject):
         }
 
     def _display_ids(self) -> list[int]:
-        return self._dedupe_physical(self._selected_ids + self._active_ids)
+        selected = self._dedupe_physical(self._selected_ids)
+        selected_keys = {self._physical_key(tmcc_id) for tmcc_id in selected}
+        active_only = [tmcc_id for tmcc_id in self._active_ids if self._physical_key(tmcc_id) not in selected_keys]
+        return selected + self._dedupe_physical(active_only)
 
     def _is_selected(self, tmcc_id: int) -> bool:
         return any(self._same_physical_engine(tmcc_id, candidate) for candidate in self._selected_ids)
