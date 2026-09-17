@@ -12,7 +12,7 @@ ApplicationWindow {
     color: "#0f1115"
     title: "PyTrain — " + cabController.scope + " " + cabController.tmccId
 
-    property bool engineCatalogVisible: false
+    property bool engineCatalogVisible: showCatalogAtStartup
 
     ColumnLayout {
         anchors.fill: parent
