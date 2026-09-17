@@ -9,6 +9,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.pdi.base_req import BaseReq
 from pytrain.pdi.constants import PdiCommand
 from pytrain.protocol.command_req import CommandReq
@@ -61,13 +62,33 @@ class OpsController(QObject):
             return "ALIGNED" if state.is_aligned else "UNKNOWN" if state.is_unknown else "NOT ALIGNED"
         return "UNKNOWN"
 
+    @staticmethod
+    def _switch_lcs_associations(tmcc_id: int) -> str:
+        """Describe each STM2/ASC2 module and port that owns this switch address."""
+        associations = []
+        for occupant in occupants_of(tmcc_id, scope=CommandScope.SWITCH):
+            if occupant.device.key not in {"stm2", "asc2"}:
+                continue
+            port = occupant.port_index
+            label = f"{occupant.device.label} {occupant.base_id}"
+            if port is not None:
+                label += f" Port {port}"
+            associations.append(label)
+        return " · ".join(associations)
+
     def _row(self, state) -> dict:
         road_name, road_number = self._identity(state)
+        inactive = isinstance(state, SwitchState) and (not road_name or not road_number)
+        lcs_associations = (
+            self._switch_lcs_associations(int(state.tmcc_id)) if isinstance(state, SwitchState) else ""
+        )
         return {
             "tmccId": int(state.tmcc_id),
             "roadName": road_name,
             "roadNumber": road_number,
             "stateText": self._state_text(state),
+            "inactive": inactive,
+            "lcsAssociations": lcs_associations,
         }
 
     def _refresh_row(self, tmcc_id: int) -> None:
@@ -196,8 +217,8 @@ class OpsController(QObject):
         """Validate and start provisioning a new physical switch; return an error or empty string."""
         if self._scope != CommandScope.SWITCH:
             return "Switch provisioning is only available from the Switch screen."
-        if not 1 <= tmcc_id <= 99:
-            return "TMCC ID must be between 1 and 99."
+        if not 1 <= tmcc_id <= 98:
+            return "TMCC ID must be between 1 and 98; 99 is the broadcast address."
         if ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False) is not None:
             return f"Switch {tmcc_id} already exists."
 
