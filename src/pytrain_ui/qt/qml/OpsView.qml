@@ -27,6 +27,8 @@ Rectangle {
     }
 
     function visibleRows() {
+        if (!controller)
+            return []
         const query = searchField.text.trim().toLowerCase()
         const result = controller.rows.filter(function(row) {
             if (controller.scope === "SWITCH" && row.inactive && !root.showInactiveSwitches)
@@ -67,13 +69,13 @@ Rectangle {
             Layout.fillWidth: true
             Label {
                 Layout.fillWidth: true
-                text: controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
+                text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
                 color: "#f4f6f8"
                 font.pixelSize: 24
                 font.bold: true
             }
             CabButton {
-                visible: controller.scope === "SWITCH"
+                visible: controller && controller.scope === "SWITCH"
                 Layout.preferredWidth: 90
                 Layout.preferredHeight: 46
                 text: "ADD"
@@ -124,8 +126,8 @@ Rectangle {
                 }
             }
             CabButton {
-                visible: controller.scope === "SWITCH"
-                Layout.preferredWidth: 126
+                visible: controller && controller.scope === "SWITCH"
+                Layout.preferredWidth: 154
                 Layout.preferredHeight: 38
                 text: root.showInactiveSwitches ? "HIDE INACTIVE" : "SHOW INACTIVE"
                 selected: root.showInactiveSwitches
@@ -178,7 +180,7 @@ Rectangle {
                         spacing: 1
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.roadName || (controller.scope === "SWITCH" ? "Switch" : "Route")
+                            text: modelData.roadName || (controller && controller.scope === "SWITCH" ? "Switch" : "Route")
                             color: "#f4f6f8"
                             font.pixelSize: 16
                             font.bold: true
@@ -199,7 +201,7 @@ Rectangle {
                         }
                     }
                     Label {
-                        Layout.preferredWidth: controller.scope === "ROUTE" ? 108 : 58
+                        Layout.preferredWidth: controller && controller.scope === "ROUTE" ? 108 : 58
                         text: modelData.stateText
                         color: modelData.stateText === "ALIGNED" || modelData.stateText === "THRU" ? "#73d38a" :
                                modelData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
@@ -208,7 +210,7 @@ Rectangle {
                         horizontalAlignment: Text.AlignHCenter
                     }
                     CabButton {
-                        visible: controller.scope === "SWITCH"
+                        visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "THRU"
@@ -216,7 +218,7 @@ Rectangle {
                         onClicked: controller.operateSwitch(row.modelData.tmccId, "THRU")
                     }
                     CabButton {
-                        visible: controller.scope === "SWITCH"
+                        visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "OUT"
@@ -224,7 +226,7 @@ Rectangle {
                         onClicked: controller.operateSwitch(row.modelData.tmccId, "OUT")
                     }
                     CabButton {
-                        visible: controller.scope === "ROUTE"
+                        visible: controller && controller.scope === "ROUTE"
                         Layout.preferredWidth: 96
                         Layout.preferredHeight: 46
                         text: "FIRE"
@@ -235,7 +237,7 @@ Rectangle {
                         onClicked: controller.fireRoute(row.modelData.tmccId)
                     }
                     CabButton {
-                        visible: controller.scope === "SWITCH"
+                        visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 58
                         Layout.preferredHeight: 46
                         text: "EDIT"
