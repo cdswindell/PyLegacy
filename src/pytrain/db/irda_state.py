@@ -157,11 +157,11 @@ class IrdaState(LcsState):
 
     @property
     def is_left_to_right(self) -> bool:
-        return self.last_direction == 1
+        return self.last_direction == Direction.L2R
 
     @property
     def is_right_to_left(self) -> bool:
-        return self.last_direction == 0
+        return self.last_direction == Direction.R2L
 
     @property
     def last_engine_id(self) -> int:
@@ -201,11 +201,21 @@ class IrdaState(LcsState):
     def harvest_tmcc_id(command: P, scope: CommandScope = CommandScope.ENGINE) -> int:
         from ..db.component_state_store import ComponentStateStore
 
+        if (
+            scope == CommandScope.ENGINE
+            and isinstance(command, IrdaReq)
+            and command.action == IrdaAction.DATA
+            and command.bt_id
+        ):
+            state = ComponentStateStore.by_bluetooth_id(command.bt_id)
+            if state:
+                return state.address
+
         tmcc_id = command.engine_id if scope == CommandScope.ENGINE else command.train_id
         if tmcc_id == 1 and command.number and command.number.isdigit():
             road_number = int(command.number)
             state = ComponentStateStore.get_state(scope, road_number, False)
-            tmcc_id = state.address if state else 1
+            tmcc_id = state.address if state else tmcc_id
         return tmcc_id
 
 

@@ -15,6 +15,8 @@ import threading
 from collections import defaultdict
 from typing import Generic, List, Set, Tuple, TypeVar
 
+from sortedcontainers import SortedDict
+
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
@@ -123,7 +125,8 @@ class ComponentStateStore:
 
     @classmethod
     def by_bluetooth_id(cls, bt_id: int) -> T | None:
-        return cls._instance._bt_index.get(bt_id, None) if cls._instance else None
+        sd = cls._instance._bt_index.get(bt_id, None) if cls._instance else None
+        return sd[max(sd.keys())] if sd else None
 
     @classmethod
     def by_record_no(cls, record_no: int) -> T | None:
@@ -163,7 +166,7 @@ class ComponentStateStore:
         self._listeners = listeners
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
-        self._bt_index: dict[int, EngineState] = {}
+        self._bt_index: dict[int, SortedDict[int, EngineState]] = {}
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
@@ -235,7 +238,11 @@ class ComponentStateStore:
                                 and CommandScope.ENGINE in self._state
                                 and address in self._state[CommandScope.ENGINE]
                             ):
-                                self._bt_index[command.comp_data._bt_id] = self._state[CommandScope.ENGINE][address]
+                                if command.comp_data._bt_id not in self._bt_index:
+                                    sd = self._bt_index[command.comp_data._bt_id] = SortedDict()
+                                else:
+                                    sd = self._bt_index[command.comp_data._bt_id]
+                                sd[address] = self._state[CommandScope.ENGINE][address]
                 else:
                     log.warning(f"Received Unknown State Update: {command.scope} {command}")
             except RequestConfigurationException:

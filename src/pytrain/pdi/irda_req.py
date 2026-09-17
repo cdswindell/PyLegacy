@@ -131,9 +131,8 @@ class IrdaReq(LcsReq):
                 self._max_speed = self._data[64] if data_len > 64 else None
                 self._odometer = int.from_bytes(self._data[65:68], byteorder="little") if data_len > 68 else None
                 # if BlueTooth ID present, update engine_id, if necessary
-                if not self._engine_id and self._bluetooth_id:
-                    bt_id = int.from_bytes(self._bluetooth_id, byteorder="big")
-                    state = ComponentStateStore.by_bluetooth_id(bt_id)
+                if (not self._engine_id or self._engine_id == 1) and self._bluetooth_id:
+                    state = ComponentStateStore.by_bluetooth_id(self.bt_id)
                     if state:
                         self._engine_id = state.tmcc_id
                 # if train_id is present but train doesn't exist, clear it
@@ -201,6 +200,12 @@ class IrdaReq(LcsReq):
     @property
     def bluetooth_id(self) -> bytes:
         return self._bluetooth_id
+
+    @property
+    def bt_id(self) -> int:
+        if self._bluetooth_id:
+            return int.from_bytes(self._bluetooth_id, byteorder="big")
+        return None
 
     @property
     def valid1(self) -> int:
