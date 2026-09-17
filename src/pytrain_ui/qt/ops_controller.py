@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
-from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
@@ -25,16 +25,12 @@ class OpsController(QObject):
         self._scope = scope
         self._rows: list[dict] = []
         self._selected_id = 0
-        self._watchers: dict[int, StateWatcher] = {}
+        self._dispatcher = CommandDispatcher.get()
+        self._dispatcher.subscribe(self._command_received, self._scope)
         self.reload()
 
     def close(self) -> None:
-        self._release_watchers()
-
-    def _release_watchers(self) -> None:
-        for watcher in self._watchers.values():
-            watcher.shutdown()
-        self._watchers.clear()
+        self._dispatcher.unsubscribe(self._command_received, self._scope)
 
     def _state(self):
         if not self._selected_id:
@@ -64,27 +60,33 @@ class OpsController(QObject):
             "stateText": self._state_text(state),
         }
 
+    def _refresh_row(self, tmcc_id: int) -> None:
+        state = ComponentStateStore.get_state(self._scope, tmcc_id, create=False)
+        if state is None:
+            self.reload()
+            return
+        row = self._row(state)
+        for index, existing in enumerate(self._rows):
+            if existing["tmccId"] == tmcc_id:
+                self._rows[index] = row
+                self._rows = list(self._rows)
+                self.changed.emit()
+                return
+        self.reload()
+
+    def _command_received(self, command: CommandReq) -> None:
+        """Refresh the affected entity after ComponentStateStore processes its command."""
+        tmcc_id = int(getattr(command, "address", 0) or 0)
+        if tmcc_id:
+            self._refresh_row(tmcc_id)
+
     @Slot()
     def reload(self) -> None:
         states = sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id)
-        state_ids = {int(state.tmcc_id) for state in states}
-        for tmcc_id in tuple(self._watchers):
-            if tmcc_id not in state_ids:
-                self._watchers.pop(tmcc_id).shutdown()
-        for state in states:
-            tmcc_id = int(state.tmcc_id)
-            if tmcc_id not in self._watchers:
-                self._watchers[tmcc_id] = StateWatcher(state, self._state_changed)
         self._rows = [self._row(state) for state in states]
+        state_ids = {int(state.tmcc_id) for state in states}
         if self._selected_id and self._selected_id not in state_ids:
             self._selected_id = 0
-        self.changed.emit()
-
-    def _state_changed(self) -> None:
-        self._rows = [
-            self._row(state)
-            for state in sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id)
-        ]
         self.changed.emit()
 
     @Slot(int)
