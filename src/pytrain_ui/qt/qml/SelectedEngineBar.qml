@@ -134,6 +134,13 @@ Rectangle {
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
                             font.pixelSize: 9
                         }
+                        Item {
+                            Layout.preferredWidth: {
+                                if (!root.compactTiles)
+                                    return 3
+                                return String(modelData.tmccId).length < 4 ? 3 : 0
+                            }
+                        }
                         Label {
                             text: modelData.direction
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
