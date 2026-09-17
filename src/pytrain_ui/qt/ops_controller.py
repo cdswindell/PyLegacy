@@ -377,7 +377,9 @@ class OpsController(QObject):
             self._route_draft.validate(self._lookup_route)
             state = self._lookup_route(self._route_draft.tmcc_id)
             if state is None:
-                state = ComponentStateStore.get_state(CommandScope.ROUTE, self._route_draft.tmcc_id, create=True)
+                state = ComponentStateStore.get_state(
+                    CommandScope.ROUTE, self._route_draft.tmcc_id, create=True
+                )
                 if state is None:
                     return "Unable to create the route state."
                 state.initialize(CommandScope.ROUTE, self._route_draft.tmcc_id)
@@ -426,7 +428,9 @@ class OpsController(QObject):
                     "tmccId": component.tmcc_id,
                     "scope": scope.name,
                     "name": name or f"{scope.title} {component.tmcc_id:02d}",
-                    "position": "ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT",
+                    "position": (
+                        "ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT"
+                    ),
                 }
             )
         return rows
