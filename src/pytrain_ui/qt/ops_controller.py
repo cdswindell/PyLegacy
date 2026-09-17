@@ -1,0 +1,130 @@
+"""Qt controllers for operating switches and routes."""
+
+from __future__ import annotations
+
+from PySide6.QtCore import Property, QObject, Signal, Slot
+
+from pytrain.db.component_state import RouteState, SwitchState
+from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.state_watcher import StateWatcher
+from pytrain.protocol.command_req import CommandReq
+from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
+from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
+
+
+class OpsController(QObject):
+    """Expose a selectable roster and simple operating commands for one scope."""
+
+    changed = Signal()
+
+    def __init__(self, scope: CommandScope, parent: QObject | None = None) -> None:
+        if scope not in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            raise ValueError(f"Unsupported operations scope: {scope}")
+        super().__init__(parent)
+        self._scope = scope
+        self._rows: list[dict] = []
+        self._selected_id = 0
+        self._watcher: StateWatcher | None = None
+        self.reload()
+
+    def close(self) -> None:
+        self._release_watcher()
+
+    def _release_watcher(self) -> None:
+        if self._watcher is not None:
+            self._watcher.shutdown()
+            self._watcher = None
+
+    def _state(self):
+        if not self._selected_id:
+            return None
+        return ComponentStateStore.get_state(self._scope, self._selected_id, create=False)
+
+    @staticmethod
+    def _identity(state) -> tuple[str, str]:
+        road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
+        road_number = str(getattr(state, "road_number", "") or "").strip()
+        return road_name, road_number
+
+    @Slot()
+    def reload(self) -> None:
+        rows: list[dict] = []
+        for state in sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id):
+            road_name, road_number = self._identity(state)
+            rows.append({"tmccId": int(state.tmcc_id), "roadName": road_name, "roadNumber": road_number})
+        self._rows = rows
+        if self._selected_id and not any(row["tmccId"] == self._selected_id for row in rows):
+            self._select(0)
+        self.changed.emit()
+
+    def _select(self, tmcc_id: int) -> None:
+        self._release_watcher()
+        self._selected_id = tmcc_id
+        state = self._state()
+        if state is not None:
+            self._watcher = StateWatcher(state, self._state_changed)
+        self.changed.emit()
+
+    def _state_changed(self) -> None:
+        self.changed.emit()
+
+    @Slot(int)
+    def select(self, tmcc_id: int) -> None:
+        if any(row["tmccId"] == tmcc_id for row in self._rows):
+            self._select(tmcc_id)
+
+    @Slot(str)
+    def operate(self, action: str) -> None:
+        if not self._selected_id:
+            return
+        if self._scope == CommandScope.SWITCH:
+            command = TMCC1SwitchCommandEnum.THRU if action == "THRU" else TMCC1SwitchCommandEnum.OUT
+        else:
+            command = TMCC2RouteCommandEnum.FIRE
+        CommandReq.build(command, self._selected_id).send()
+
+    @Slot()
+    def halt(self) -> None:
+        CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
+
+    @Property(str, constant=True)
+    def scope(self) -> str:
+        return self._scope.name
+
+    @Property(list, notify=changed)
+    def rows(self) -> list[dict]:
+        return self._rows
+
+    @Property(int, notify=changed)
+    def selectedId(self) -> int:
+        return self._selected_id
+
+    @Property(str, notify=changed)
+    def roadName(self) -> str:
+        state = self._state()
+        return self._identity(state)[0] if state is not None else ""
+
+    @Property(str, notify=changed)
+    def roadNumber(self) -> str:
+        state = self._state()
+        return self._identity(state)[1] if state is not None else ""
+
+    @Property(str, notify=changed)
+    def stateText(self) -> str:
+        state = self._state()
+        if isinstance(state, SwitchState):
+            return "THRU" if state.is_thru else "OUT" if state.is_out else "UNKNOWN"
+        if isinstance(state, RouteState):
+            return "ALIGNED" if state.is_aligned else "UNKNOWN" if state.is_unknown else "NOT ALIGNED"
+        return ""
+
+    @Property(bool, notify=changed)
+    def isThru(self) -> bool:
+        state = self._state()
+        return isinstance(state, SwitchState) and state.is_thru
+
+    @Property(bool, notify=changed)
+    def isOut(self) -> bool:
+        state = self._state()
+        return isinstance(state, SwitchState) and state.is_out
