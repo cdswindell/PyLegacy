@@ -26,7 +26,6 @@ class SelectedEngineController(QObject):
         self._operating_state: dict[int, tuple] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         self._cab.stateChanged.connect(self._sync_current_target)
-        self._install_watchers()
         self._install_sensor_watchers()
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
@@ -76,13 +75,22 @@ class SelectedEngineController(QObject):
                 result.append(tmcc_id)
         return result
 
-    def _install_watchers(self) -> None:
-        for state in ComponentStateStore.get().get_all(CommandScope.ENGINE):
-            tmcc_id = int(state.tmcc_id)
-            if tmcc_id in self._watchers:
-                continue
-            self._operating_state[tmcc_id] = self._operating_signature(state)
-            self._watchers[tmcc_id] = StateWatcher(state, lambda s=state: self._engine_state_changed(s))
+    def _watch_engine(self, tmcc_id: int) -> None:
+        """Attach live state observation only while an engine is in the working set."""
+        if tmcc_id in self._watchers:
+            return
+        state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
+        if state is None:
+            return
+        self._operating_state[tmcc_id] = self._operating_signature(state)
+        self._watchers[tmcc_id] = StateWatcher(state, lambda s=state: self._engine_state_changed(s))
+
+    def _prune_watchers(self) -> None:
+        working_ids = set(self._selected_ids + self._active_ids)
+        for tmcc_id in tuple(self._watchers):
+            if tmcc_id not in working_ids:
+                self._watchers.pop(tmcc_id).shutdown()
+                self._operating_state.pop(tmcc_id, None)
 
     def _install_sensor_watchers(self) -> None:
         for state in ComponentStateStore.get().get_all(CommandScope.IRDA):
@@ -98,6 +106,7 @@ class SelectedEngineController(QObject):
         self._dismissed_activity.pop(tmcc_id, None)
         if tmcc_id not in self._active_ids:
             self._active_ids.append(tmcc_id)
+        self._watch_engine(tmcc_id)
         self.selectionChanged.emit()
 
     def _engine_command(self, command) -> None:
@@ -105,7 +114,6 @@ class SelectedEngineController(QObject):
         if getattr(command, "scope", None) != CommandScope.ENGINE:
             return
         tmcc_id = int(getattr(command, "address", 0) or 0)
-        self._install_watchers()
         self._install_sensor_watchers()
         self._mark_active(tmcc_id)
 
@@ -136,6 +144,7 @@ class SelectedEngineController(QObject):
         if tmcc_id in self._selected_ids:
             self._selected_ids.remove(tmcc_id)
         self._selected_ids.insert(0, tmcc_id)
+        self._watch_engine(tmcc_id)
         self.selectionChanged.emit()
 
     @staticmethod
@@ -222,6 +231,7 @@ class SelectedEngineController(QObject):
         if tmcc_id in self._selected_ids:
             self._selected_ids.remove(tmcc_id)
         self._selected_ids.insert(0, tmcc_id)
+        self._watch_engine(tmcc_id)
         if self._cab.scope != CommandScope.ENGINE.name or self._cab.tmccId != tmcc_id:
             self._cab._switch_target(CommandScope.ENGINE, tmcc_id)
         else:
@@ -243,6 +253,7 @@ class SelectedEngineController(QObject):
             state = ComponentStateStore.get_state(CommandScope.ENGINE, candidate, create=False)
             if state is not None:
                 self._dismissed_activity[candidate] = self._operating_signature(state)
+        self._prune_watchers()
         if was_current:
             remaining = self._display_ids()
             if remaining:
