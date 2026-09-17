@@ -7,6 +7,8 @@ Rectangle {
 
     required property var selection
 
+    readonly property bool compactTiles: selection ? selection.count > 3 : false
+
     color: "#15191f"
     radius: 8
     clip: true
@@ -17,7 +19,7 @@ Rectangle {
         anchors.leftMargin: 8
         anchors.rightMargin: 8
         orientation: ListView.Horizontal
-        spacing: 6
+        spacing: root.compactTiles ? 4 : 6
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         model: root.selection ? root.selection.selectedEngines : []
@@ -26,7 +28,7 @@ Rectangle {
             id: card
             required property var modelData
 
-            width: 170
+            width: root.compactTiles ? 137 : 170
             height: selectedList.height - 6
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
             radius: 7
@@ -36,16 +38,9 @@ Rectangle {
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 5
-                spacing: 5
-
-                Label {
-                    text: modelData.tmccId
-                    color: "white"
-                    font.pixelSize: 15
-                    font.bold: true
-                }
+                anchors.leftMargin: root.compactTiles ? 6 : 8
+                anchors.rightMargin: root.compactTiles ? 3 : 5
+                spacing: root.compactTiles ? 3 : 5
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -67,7 +62,11 @@ Rectangle {
 
                             Text {
                                 id: nameText
-                                text: card.modelData.roadName || "Engine"
+                                text: {
+                                    const name = card.modelData.roadName || "Engine"
+                                    const number = card.modelData.roadNumber || ""
+                                    return number.length > 0 ? name + " #" + number : name
+                                }
                                 color: "#f4f6f8"
                                 font.pixelSize: 11
                                 font.bold: card.modelData.current
@@ -105,10 +104,10 @@ Rectangle {
                         spacing: 3
 
                         Label {
-                            visible: text.length > 0
-                            text: modelData.roadNumber || ""
-                            color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
+                            text: modelData.tmccId
+                            color: "white"
+                            font.pixelSize: root.compactTiles ? 12 : 13
+                            font.bold: true
                         }
                         Label {
                             text: modelData.direction
@@ -132,10 +131,10 @@ Rectangle {
 
                 CabButton {
                     visible: root.selection ? root.selection.count > 1 : false
-                    Layout.preferredWidth: visible ? 28 : 0
-                    Layout.preferredHeight: 28
+                    Layout.preferredWidth: root.compactTiles ? 24 : 28
+                    Layout.preferredHeight: root.compactTiles ? 24 : 28
                     text: "×"
-                    font.pixelSize: 16
+                    font.pixelSize: root.compactTiles ? 14 : 16
                     normalColor: "#343a44"
                     pressedColor: "#4d5968"
                     onClicked: {
