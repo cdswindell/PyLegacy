@@ -342,7 +342,7 @@ Rectangle {
         }
     }
 
-    CommandPanel {
+    CommandPanelPopup {
         id: commandPanel
         parent: Overlay.overlay
         cab: root.cab
