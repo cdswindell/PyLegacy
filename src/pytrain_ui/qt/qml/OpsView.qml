@@ -121,7 +121,6 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Label {
-                Layout.fillWidth: true
                 text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
                 color: "#f4f6f8"
                 font.pixelSize: 24
@@ -129,15 +128,19 @@ Rectangle {
             }
             CabButton {
                 visible: controller && controller.scope === "SWITCH"
+                Layout.leftMargin: 16
                 Layout.preferredWidth: 90
                 Layout.preferredHeight: 46
-                text: "ADD"
+                text: "ADD…"
                 font.bold: true
                 onClicked: root.openAddSwitch()
             }
+            Item {
+                Layout.fillWidth: true
+            }
             CabButton {
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 46
+                Layout.preferredWidth: 120
+                Layout.preferredHeight: 54
                 text: "HALT"
                 font.bold: true
                 normalColor: "#9d2020"
@@ -293,7 +296,7 @@ Rectangle {
                         visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 58
                         Layout.preferredHeight: 46
-                        text: "EDIT"
+                        text: "EDIT…"
                         onClicked: root.editSwitch(row.modelData.tmccId)
                     }
                 }
