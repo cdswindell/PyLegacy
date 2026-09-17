@@ -12,6 +12,8 @@ Rectangle {
     property string populatedSwitchName: ""
     property string populatedSwitchNumber: ""
     property bool showInactiveSwitches: false
+    property string routeCandidateScope: "SWITCH"
+    property string routeCandidateSearch: ""
     signal closeRequested()
 
     color: "#171a1f"
@@ -91,6 +93,66 @@ Rectangle {
         }
     }
 
+    function openAddRoute() {
+        addRouteId.text = ""
+        addRouteError.text = ""
+        addRoutePopup.open()
+        addRouteId.forceActiveFocus()
+    }
+
+    function editRoute(tmccId) {
+        const error = controller.openRouteBuilder(tmccId)
+        if (error.length > 0)
+            return
+        routeNameField.text = controller.routeBuilderName
+        routeNumberField.text = controller.routeBuilderNumber
+        routeBuilder.open()
+    }
+
+    function createRoute() {
+        const tmccId = Number(addRouteId.text)
+        if (controller.routeExists(tmccId)) {
+            addRouteError.text = "Route " + tmccId + " already exists. Use EDIT… to modify it."
+            return
+        }
+        const error = controller.openRouteBuilder(tmccId)
+        if (error.length > 0) {
+            addRouteError.text = error
+            return
+        }
+        addRoutePopup.close()
+        routeNameField.text = ""
+        routeNumberField.text = ""
+        routeBuilder.open()
+    }
+
+    function routeCandidateRows() {
+        if (!controller || !controller.routeBuilderOpen)
+            return []
+        const query = routeCandidateSearch.trim().toLowerCase()
+        return controller.routeCandidates.filter(function(row) {
+            if (row.scope !== routeCandidateScope)
+                return false
+            if (row.scope === "SWITCH" && !row.userDefined)
+                return false
+            return !query ||
+                   String(row.tmccId).indexOf(query) >= 0 ||
+                   row.name.toLowerCase().indexOf(query) >= 0 ||
+                   row.roadNumber.toLowerCase().indexOf(query) >= 0
+        }).sort(function(a, b) {
+            const result = a.name.toLowerCase().localeCompare(b.name.toLowerCase(), undefined, { numeric: true })
+            return result !== 0 ? result : a.tmccId - b.tmccId
+        })
+    }
+
+    function openRoutePicker() {
+        routeCandidateScope = "SWITCH"
+        routeCandidateSearch = ""
+        routeCandidateSearchField.text = ""
+        routePickerError.text = ""
+        routePicker.open()
+    }
+
     function submitAddSwitch(overwrite) {
         const tmccId = Number(addSwitchId.text)
         const identity = controller.switchIdentity(tmccId)
@@ -127,13 +189,18 @@ Rectangle {
                 font.bold: true
             }
             CabButton {
-                visible: controller && controller.scope === "SWITCH"
+                visible: controller
                 Layout.leftMargin: 16
                 Layout.preferredWidth: 90
                 Layout.preferredHeight: 46
                 text: "ADD…"
                 font.bold: true
-                onClicked: root.openAddSwitch()
+                onClicked: {
+                    if (controller.scope === "SWITCH")
+                        root.openAddSwitch()
+                    else
+                        root.openAddRoute()
+                }
             }
             Item {
                 Layout.fillWidth: true
@@ -298,6 +365,13 @@ Rectangle {
                         onClicked: controller.fireRoute(row.modelData.tmccId)
                     }
                     CabButton {
+                        visible: controller && controller.scope === "ROUTE"
+                        Layout.preferredWidth: 68
+                        Layout.preferredHeight: 46
+                        text: "EDIT…"
+                        onClicked: root.editRoute(row.modelData.tmccId)
+                    }
+                    CabButton {
                         visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 58
                         Layout.preferredHeight: 46
@@ -305,6 +379,460 @@ Rectangle {
                         onClicked: root.editSwitch(row.modelData.tmccId)
                     }
                 }
+            }
+        }
+    }
+
+    Popup {
+        id: addRoutePopup
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 80, 520)
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#20242a"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            Label {
+                Layout.fillWidth: true
+                text: "Add Route"
+                color: "#f4f6f8"
+                font.pixelSize: 24
+                font.bold: true
+            }
+            Label {
+                text: "TMCC ID (1-99)"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: addRouteId
+                Layout.fillWidth: true
+                Layout.preferredHeight: 50
+                maximumLength: 2
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: IntValidator { bottom: 1; top: 99 }
+                font.pixelSize: 18
+            }
+            Label {
+                id: addRouteError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#ff7777"
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "CANCEL"
+                    onClicked: addRoutePopup.close()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "CREATE"
+                    font.bold: true
+                    onClicked: root.createRoute()
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: routeBuilder
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 24, 690)
+        height: Math.min(root.height - 24, 1160)
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#171a1f"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    Layout.fillWidth: true
+                    text: "Route Builder — " + controller.routeBuilderId
+                    color: "#f4f6f8"
+                    font.pixelSize: 24
+                    font.bold: true
+                }
+                Label {
+                    text: controller.routeComponents.length + " of 16"
+                    color: "#aeb5bf"
+                    font.pixelSize: 14
+                }
+            }
+
+            Label {
+                text: "Route Name"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: routeNameField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 46
+                maximumLength: 31
+                font.pixelSize: 17
+            }
+
+            Label {
+                text: "Route Number"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: routeNumberField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 46
+                maximumLength: 4
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator {
+                    regularExpression: /[0-9]{0,4}/
+                }
+                font.pixelSize: 17
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: controller.routeComponents.length ?
+                          "Select a card to change its position, order, or remove it." :
+                          "No components yet. Add a switch or nested route."
+                color: "#aeb5bf"
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+
+            ListView {
+                id: routeComponentList
+                Layout.fillWidth: true
+                Layout.preferredHeight: 300
+                orientation: ListView.Horizontal
+                spacing: 8
+                clip: true
+                model: controller.routeComponents
+
+                delegate: Rectangle {
+                    required property var modelData
+                    width: 180
+                    height: routeComponentList.height - 4
+                    radius: 8
+                    color: controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
+                    border.width: controller.routeComponentIndex === modelData.index ? 2 : 1
+                    border.color: controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
+
+                    TapHandler {
+                        onTapped: controller.selectRouteComponent(modelData.index)
+                    }
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 5
+                        Label {
+                            Layout.fillWidth: true
+                            text: "Card " + (modelData.index + 1)
+                            color: "#aeb5bf"
+                            font.pixelSize: 12
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.name
+                            color: "#f4f6f8"
+                            font.pixelSize: 16
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.scope === "ROUTE" ? "Route " + modelData.tmccId :
+                                                               "Switch " + modelData.tmccId
+                            color: "#aeb5bf"
+                            font.pixelSize: 13
+                        }
+                        Item {
+                            Layout.fillHeight: true
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.position
+                            color: modelData.position === "THRU" ? "#73d38a" :
+                                   modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
+                            font.pixelSize: 16
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "THRU"
+                    enabled: controller.routeComponentIndex >= 0 &&
+                             controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
+                    selected: enabled &&
+                              controller.routeComponents[controller.routeComponentIndex].position === "THRU"
+                    onClicked: controller.setRouteComponentPosition("THRU")
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "OUT"
+                    enabled: controller.routeComponentIndex >= 0 &&
+                             controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
+                    selected: enabled &&
+                              controller.routeComponents[controller.routeComponentIndex].position === "OUT"
+                    onClicked: controller.setRouteComponentPosition("OUT")
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "MOVE LEFT"
+                    enabled: controller.routeComponentIndex > 0
+                    onClicked: controller.moveRouteComponent(-1)
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "MOVE RIGHT"
+                    enabled: controller.routeComponentIndex >= 0 &&
+                             controller.routeComponentIndex < controller.routeComponents.length - 1
+                    onClicked: controller.moveRouteComponent(1)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "ADD…"
+                    enabled: controller.routeComponents.length < 16
+                    onClicked: root.openRoutePicker()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "REMOVE"
+                    enabled: controller.routeComponentIndex >= 0
+                    onClicked: controller.removeRouteComponent()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    text: "CLEAR ALL"
+                    enabled: controller.routeComponents.length > 0
+                    onClicked: controller.clearRouteComponents()
+                }
+            }
+
+            Label {
+                id: routeBuilderError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#ff7777"
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "CANCEL"
+                    onClicked: {
+                        controller.closeRouteBuilder()
+                        routeBuilder.close()
+                    }
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "SAVE ROUTE"
+                    font.bold: true
+                    onClicked: {
+                        const error = controller.saveRouteBuilder(routeNameField.text, routeNumberField.text)
+                        if (error.length > 0)
+                            routeBuilderError.text = error
+                        else
+                            routeBuilder.close()
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: routePicker
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 50, 640)
+        height: Math.min(root.height - 100, 940)
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#20242a"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+            Label {
+                Layout.fillWidth: true
+                text: "Add to Route"
+                color: "#f4f6f8"
+                font.pixelSize: 22
+                font.bold: true
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 42
+                    text: "SWITCHES"
+                    selected: root.routeCandidateScope === "SWITCH"
+                    onClicked: root.routeCandidateScope = "SWITCH"
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 42
+                    text: "ROUTES"
+                    selected: root.routeCandidateScope === "ROUTE"
+                    onClicked: root.routeCandidateScope = "ROUTE"
+                }
+            }
+            TextField {
+                id: routeCandidateSearchField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 44
+                placeholderText: "Search name, road number, or TMCC ID"
+                font.pixelSize: 14
+                onTextChanged: root.routeCandidateSearch = text
+            }
+            ListView {
+                id: routeCandidateList
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: 5
+                model: root.routeCandidateRows()
+
+                delegate: Rectangle {
+                    required property var modelData
+                    width: routeCandidateList.width
+                    height: 62
+                    radius: 8
+                    color: "#262b32"
+                    border.width: 1
+                    border.color: "#444c57"
+
+                    TapHandler {
+                        onDoubleTapped: {
+                            const error = controller.addRouteComponent(modelData.scope, modelData.tmccId)
+                            if (error.length > 0)
+                                routePickerError.text = error
+                            else
+                                routePicker.close()
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        Label {
+                            Layout.preferredWidth: 42
+                            text: modelData.tmccId
+                            color: "#f4f6f8"
+                            font.pixelSize: 18
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                color: "#f4f6f8"
+                                font.pixelSize: 15
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.scope === "ROUTE" ? "Route" :
+                                      (modelData.roadNumber ? "Switch · Road # " + modelData.roadNumber : "Switch")
+                                color: "#aeb5bf"
+                                font.pixelSize: 12
+                            }
+                        }
+                        CabButton {
+                            Layout.preferredWidth: 74
+                            Layout.preferredHeight: 42
+                            text: "ADD"
+                            onClicked: {
+                                const error = controller.addRouteComponent(modelData.scope, modelData.tmccId)
+                                if (error.length > 0)
+                                    routePickerError.text = error
+                                else
+                                    routePicker.close()
+                            }
+                        }
+                    }
+                }
+            }
+            Label {
+                id: routePickerError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#ff7777"
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+            CabButton {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 48
+                text: "CANCEL"
+                onClicked: routePicker.close()
             }
         }
     }
