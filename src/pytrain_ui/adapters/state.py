@@ -36,7 +36,7 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
     speed_max = _int_value(getattr(state, "speed_max", default_speed_max)) or default_speed_max
     speed_limit = _int_value(getattr(state, "speed_limit", 0))
     speed = _int_value(getattr(state, "speed", 0))
-    target_speed = _int_value(getattr(state, "target_speed", speed)) if state.is_ramping else speed
+    target_speed = _int_value(getattr(state, "target_speed", speed)) if getattr(state, "is_ramping", False) else speed
     momentum = _int_value(getattr(state, "momentum", 0))
     train_brake = _int_value(getattr(state, "train_brake", 0))
     smoke = _int_value(getattr(state, "smoke", 0))
