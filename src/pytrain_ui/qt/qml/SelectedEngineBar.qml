@@ -9,6 +9,14 @@ Rectangle {
 
     readonly property bool compactTiles: selection ? selection.count > 4 : false
 
+    function roadNumber(number) {
+        const raw = String(number || "")
+        if (raw.length === 0)
+            return ""
+        const stripped = raw.replace(/^0+/, "")
+        return "#" + (stripped.length > 0 ? stripped : "0")
+    }
+
     color: "#15191f"
     radius: 8
     clip: true
@@ -72,9 +80,9 @@ Rectangle {
                                 id: nameText
                                 text: {
                                     const name = card.modelData.roadName || "Engine"
-                                    const number = card.modelData.roadNumber || ""
+                                    const number = root.roadNumber(card.modelData.roadNumber)
                                     if (root.compactTiles && number.length > 0)
-                                        return name + " #" + number
+                                        return name + " " + number
                                     return name
                                 }
                                 color: "#f4f6f8"
@@ -122,7 +130,7 @@ Rectangle {
                         }
                         Label {
                             visible: !root.compactTiles && text.length > 0
-                            text: modelData.roadNumber || ""
+                            text: root.roadNumber(modelData.roadNumber)
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
                             font.pixelSize: 9
                         }
