@@ -25,16 +25,16 @@ class OpsController(QObject):
         self._scope = scope
         self._rows: list[dict] = []
         self._selected_id = 0
-        self._watcher: StateWatcher | None = None
+        self._watchers: dict[int, StateWatcher] = {}
         self.reload()
 
     def close(self) -> None:
-        self._release_watcher()
+        self._release_watchers()
 
-    def _release_watcher(self) -> None:
-        if self._watcher is not None:
-            self._watcher.shutdown()
-            self._watcher = None
+    def _release_watchers(self) -> None:
+        for watcher in self._watchers.values():
+            watcher.shutdown()
+        self._watchers.clear()
 
     def _state(self):
         if not self._selected_id:
@@ -47,32 +47,51 @@ class OpsController(QObject):
         road_number = str(getattr(state, "road_number", "") or "").strip()
         return road_name, road_number
 
+    @staticmethod
+    def _state_text(state) -> str:
+        if isinstance(state, SwitchState):
+            return "THRU" if state.is_thru else "OUT" if state.is_out else "UNKNOWN"
+        if isinstance(state, RouteState):
+            return "ALIGNED" if state.is_aligned else "UNKNOWN" if state.is_unknown else "NOT ALIGNED"
+        return "UNKNOWN"
+
+    def _row(self, state) -> dict:
+        road_name, road_number = self._identity(state)
+        return {
+            "tmccId": int(state.tmcc_id),
+            "roadName": road_name,
+            "roadNumber": road_number,
+            "stateText": self._state_text(state),
+        }
+
     @Slot()
     def reload(self) -> None:
-        rows: list[dict] = []
-        for state in sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id):
-            road_name, road_number = self._identity(state)
-            rows.append({"tmccId": int(state.tmcc_id), "roadName": road_name, "roadNumber": road_number})
-        self._rows = rows
-        if self._selected_id and not any(row["tmccId"] == self._selected_id for row in rows):
-            self._select(0)
-        self.changed.emit()
-
-    def _select(self, tmcc_id: int) -> None:
-        self._release_watcher()
-        self._selected_id = tmcc_id
-        state = self._state()
-        if state is not None:
-            self._watcher = StateWatcher(state, self._state_changed)
+        states = sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id)
+        state_ids = {int(state.tmcc_id) for state in states}
+        for tmcc_id in tuple(self._watchers):
+            if tmcc_id not in state_ids:
+                self._watchers.pop(tmcc_id).shutdown()
+        for state in states:
+            tmcc_id = int(state.tmcc_id)
+            if tmcc_id not in self._watchers:
+                self._watchers[tmcc_id] = StateWatcher(state, self._state_changed)
+        self._rows = [self._row(state) for state in states]
+        if self._selected_id and self._selected_id not in state_ids:
+            self._selected_id = 0
         self.changed.emit()
 
     def _state_changed(self) -> None:
+        self._rows = [
+            self._row(state)
+            for state in sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id)
+        ]
         self.changed.emit()
 
     @Slot(int)
     def select(self, tmcc_id: int) -> None:
         if any(row["tmccId"] == tmcc_id for row in self._rows):
-            self._select(tmcc_id)
+            self._selected_id = tmcc_id
+            self.changed.emit()
 
     @Slot(str)
     def operate(self, action: str) -> None:
@@ -113,11 +132,7 @@ class OpsController(QObject):
     @Property(str, notify=changed)
     def stateText(self) -> str:
         state = self._state()
-        if isinstance(state, SwitchState):
-            return "THRU" if state.is_thru else "OUT" if state.is_out else "UNKNOWN"
-        if isinstance(state, RouteState):
-            return "ALIGNED" if state.is_aligned else "UNKNOWN" if state.is_unknown else "NOT ALIGNED"
-        return ""
+        return self._state_text(state) if state is not None else ""
 
     @Property(bool, notify=changed)
     def isThru(self) -> bool:
