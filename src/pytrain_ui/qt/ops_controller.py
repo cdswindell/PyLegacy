@@ -192,9 +192,10 @@ class OpsController(QObject):
             BaseReq.process_sync_reqs([*requests, state], do_async=True)
         self._refresh_row(tmcc_id)
 
-    def _provision_switch(self, tmcc_id: int, road_name: str, road_number: str) -> None:
+    def _provision_switch(self, tmcc_id: int, road_name: str, road_number: str, command_control: bool) -> None:
         """Program the switch, persist its Base record, then request authoritative config."""
-        CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, tmcc_id).send()
+        if command_control:
+            CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, tmcc_id).send()
 
         state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=True)
         if state is None:
@@ -212,8 +213,8 @@ class OpsController(QObject):
         # and follows the normal PDI distribution path to the server and connected clients.
         BaseReq(tmcc_id, PdiCommand.BASE_SWITCH).send()
 
-    @Slot(int, str, str, result=str)
-    def addSwitch(self, tmcc_id: int, road_name: str, road_number: str) -> str:
+    @Slot(int, str, str, bool, result=str)
+    def addSwitch(self, tmcc_id: int, road_name: str, road_number: str, command_control: bool) -> str:
         """Validate and start provisioning a new physical switch; return an error or empty string."""
         if self._scope != CommandScope.SWITCH:
             return "Switch provisioning is only available from the Switch screen."
@@ -230,7 +231,11 @@ class OpsController(QObject):
             return "Road Number must contain no more than four digits."
         road_number = road_number.zfill(4) if road_number else ""
 
-        Thread(target=self._provision_switch, args=(tmcc_id, road_name, road_number), daemon=True).start()
+        Thread(
+            target=self._provision_switch,
+            args=(tmcc_id, road_name, road_number, command_control),
+            daemon=True,
+        ).start()
         return ""
 
     @Slot(int)
