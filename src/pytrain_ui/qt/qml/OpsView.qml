@@ -6,10 +6,35 @@ Rectangle {
     id: root
 
     required property var controller
+    property string sortKey: "roadName"
     signal closeRequested()
 
     color: "#171a1f"
     radius: 14
+
+    function compareRows(a, b) {
+        if (sortKey === "tmccId")
+            return a.tmccId - b.tmccId
+
+        let av = sortKey === "roadNumber" ? a.roadNumber : a.roadName
+        let bv = sortKey === "roadNumber" ? b.roadNumber : b.roadName
+        av = String(av || "").toLowerCase()
+        bv = String(bv || "").toLowerCase()
+        const result = av.localeCompare(bv, undefined, { numeric: true })
+        return result !== 0 ? result : a.tmccId - b.tmccId
+    }
+
+    function visibleRows() {
+        const query = searchField.text.trim().toLowerCase()
+        const result = controller.rows.filter(function(row) {
+            return !query ||
+                   String(row.tmccId).toLowerCase().indexOf(query) >= 0 ||
+                   row.roadName.toLowerCase().indexOf(query) >= 0 ||
+                   row.roadNumber.toLowerCase().indexOf(query) >= 0
+        })
+        result.sort(compareRows)
+        return result
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -44,27 +69,45 @@ Rectangle {
             font.pixelSize: 15
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Label {
+                text: "Sort:"
+                color: "#aeb5bf"
+                font.pixelSize: 13
+            }
+            Repeater {
+                model: [
+                    { key: "roadName", label: "Name" },
+                    { key: "roadNumber", label: "Road #" },
+                    { key: "tmccId", label: "TMCC ID" }
+                ]
+                CabButton {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+                    text: modelData.label
+                    selected: root.sortKey === modelData.key
+                    onClicked: root.sortKey = modelData.key
+                }
+            }
+        }
+
         ListView {
             id: roster
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             spacing: 5
-            model: controller.rows
+            model: root.visibleRows()
 
             delegate: Rectangle {
                 id: row
                 required property var modelData
                 width: roster.width
-                height: visible ? 62 : 0
-                visible: {
-                    const query = searchField.text.trim().toLowerCase()
-                    if (!query)
-                        return true
-                    return String(modelData.tmccId).toLowerCase().indexOf(query) >= 0 ||
-                           modelData.roadName.toLowerCase().indexOf(query) >= 0 ||
-                           modelData.roadNumber.toLowerCase().indexOf(query) >= 0
-                }
+                height: 68
                 radius: 8
                 color: controller.selectedId === modelData.tmccId ? "#244f70" : "#262b32"
                 border.width: 1
@@ -100,6 +143,15 @@ Rectangle {
                             font.pixelSize: 12
                             elide: Text.ElideRight
                         }
+                    }
+                    Label {
+                        Layout.preferredWidth: controller.scope === "ROUTE" ? 108 : 72
+                        text: modelData.stateText
+                        color: modelData.stateText === "ALIGNED" || modelData.stateText === "THRU" ? "#73d38a" :
+                               modelData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
+                        font.pixelSize: 12
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
                     }
                 }
 
@@ -137,8 +189,10 @@ Rectangle {
                     visible: controller.selectedId !== 0
                     Layout.fillWidth: true
                     text: controller.stateText
-                    color: "#b9c0c9"
+                    color: controller.stateText === "ALIGNED" || controller.stateText === "THRU" ? "#73d38a" :
+                           controller.stateText === "UNKNOWN" ? "#b9c0c9" : "#f0a35a"
                     font.pixelSize: 14
+                    font.bold: true
                 }
                 RowLayout {
                     visible: controller.selectedId !== 0
@@ -165,8 +219,11 @@ Rectangle {
                         visible: controller.scope === "ROUTE"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        text: "FIRE ROUTE"
-                        normalColor: "#246aa0"
+                        text: "🔥  FIRE ROUTE"
+                        font.pixelSize: 20
+                        font.bold: true
+                        normalColor: "#a84418"
+                        pressedColor: "#d65a20"
                         onClicked: controller.operate("FIRE")
                     }
                 }
