@@ -57,6 +57,7 @@ Rectangle {
             color: modelData.current ? "#246aa0" : "#292f38"
             border.width: modelData.current ? 2 : 1
             border.color: modelData.current ? "#78bff0" : (modelData.active ? "#d0a24c" : "#505b68")
+            clip: true
 
             RowLayout {
                 anchors.fill: parent
@@ -74,11 +75,13 @@ Rectangle {
 
                 ColumnLayout {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     spacing: 0
 
                     Item {
                         id: nameViewport
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         Layout.preferredHeight: 15
                         clip: true
 
@@ -131,6 +134,7 @@ Rectangle {
 
                     RowLayout {
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         spacing: 3
 
                         Label {
@@ -166,18 +170,23 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             visible: !root.compactTiles
                             text: "B " + root.shortState(modelData.brake)
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
                             font.pixelSize: 9
                             horizontalAlignment: Text.AlignLeft
+                            elide: Text.ElideRight
                         }
                     }
                 }
 
                 CabButton {
-                    visible: root.selection ? root.selection.count > 0 : false
+                    Layout.minimumWidth: root.compactTiles ? 24 : 28
+                    Layout.maximumWidth: root.compactTiles ? 24 : 28
                     Layout.preferredWidth: root.compactTiles ? 24 : 28
+                    Layout.minimumHeight: root.compactTiles ? 24 : 28
+                    Layout.maximumHeight: root.compactTiles ? 24 : 28
                     Layout.preferredHeight: root.compactTiles ? 24 : 28
                     text: "×"
                     font.pixelSize: root.compactTiles ? 14 : 16
