@@ -190,10 +190,16 @@ class SelectedEngineController(QObject):
                 "direction": "-",
                 "smoke": "-",
                 "speed": 0,
+                "momentum": "-",
+                "brake": "-",
                 "current": tmcc_id == current_id,
                 "selected": selected,
                 "active": active,
             }
+        momentum = str(getattr(getattr(state, "momentum", None), "name", getattr(state, "momentum", "-")) or "-")
+        brake = str(
+            getattr(getattr(state, "train_brake", None), "name", getattr(state, "train_brake", "-")) or "-"
+        )
         return {
             "tmccId": tmcc_id,
             "roadName": str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip(),
@@ -201,6 +207,8 @@ class SelectedEngineController(QObject):
             "direction": cls._direction(state),
             "smoke": cls._smoke(state),
             "speed": int(getattr(state, "speed", 0) or 0),
+            "momentum": momentum,
+            "brake": brake,
             "current": tmcc_id == current_id,
             "selected": selected,
             "active": active,
@@ -210,7 +218,11 @@ class SelectedEngineController(QObject):
         selected = self._dedupe_physical(self._selected_ids)
         selected_keys = {self._physical_key(tmcc_id) for tmcc_id in selected}
         active_only = [tmcc_id for tmcc_id in self._active_ids if self._physical_key(tmcc_id) not in selected_keys]
-        return selected + self._dedupe_physical(active_only)
+        display_ids = selected + self._dedupe_physical(active_only)
+        if self._cab.scope == CommandScope.ENGINE.name:
+            current_key = self._physical_key(self._cab.tmccId)
+            display_ids = [tmcc_id for tmcc_id in display_ids if self._physical_key(tmcc_id) != current_key]
+        return display_ids
 
     def _is_selected(self, tmcc_id: int) -> bool:
         return any(self._same_physical_engine(tmcc_id, candidate) for candidate in self._selected_ids)
@@ -247,10 +259,9 @@ class SelectedEngineController(QObject):
     @Slot(int)
     def dismissEngine(self, tmcc_id: int) -> None:
         display_ids = self._display_ids()
-        if tmcc_id not in display_ids or len(display_ids) <= 1:
+        if tmcc_id not in display_ids:
             return
         key = self._physical_key(tmcc_id)
-        was_current = self._cab.scope == CommandScope.ENGINE.name and self._physical_key(self._cab.tmccId) == key
         aliases = [
             candidate for candidate in self._selected_ids + self._active_ids if self._physical_key(candidate) == key
         ]
@@ -261,12 +272,7 @@ class SelectedEngineController(QObject):
             if state is not None:
                 self._dismissed_activity[candidate] = self._operating_signature(state)
         self._prune_watchers()
-        if was_current:
-            remaining = self._display_ids()
-            if remaining:
-                self.selectEngine(remaining[0])
-        else:
-            self.selectionChanged.emit()
+        self.selectionChanged.emit()
 
     @Slot(int)
     def selectRelative(self, delta: int) -> None:
