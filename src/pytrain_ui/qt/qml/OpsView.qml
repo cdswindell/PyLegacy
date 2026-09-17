@@ -153,15 +153,28 @@ Rectangle {
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
                     }
+                    CabButton {
+                        visible: controller.scope === "ROUTE"
+                        Layout.preferredWidth: 96
+                        Layout.preferredHeight: 46
+                        text: "FIRE"
+                        font.pixelSize: 16
+                        font.bold: true
+                        normalColor: "#a84418"
+                        pressedColor: "#d65a20"
+                        onClicked: controller.fireRoute(row.modelData.tmccId)
+                    }
                 }
 
                 TapHandler {
+                    enabled: controller.scope === "SWITCH"
                     onTapped: controller.select(row.modelData.tmccId)
                 }
             }
         }
 
         Rectangle {
+            visible: controller.scope === "SWITCH"
             Layout.fillWidth: true
             Layout.preferredHeight: controller.selectedId ? 150 : 82
             radius: 9
@@ -179,7 +192,7 @@ Rectangle {
                               ((controller.roadName || controller.scope) +
                                (controller.roadNumber ? "  #" + controller.roadNumber : "") +
                                "   TMCC " + controller.selectedId) :
-                              "Select a " + (controller.scope === "SWITCH" ? "switch" : "route")
+                              "Select a switch"
                     color: "#f4f6f8"
                     font.pixelSize: 17
                     font.bold: true
@@ -189,7 +202,7 @@ Rectangle {
                     visible: controller.selectedId !== 0
                     Layout.fillWidth: true
                     text: controller.stateText
-                    color: controller.stateText === "ALIGNED" || controller.stateText === "THRU" ? "#73d38a" :
+                    color: controller.stateText === "THRU" ? "#73d38a" :
                            controller.stateText === "UNKNOWN" ? "#b9c0c9" : "#f0a35a"
                     font.pixelSize: 14
                     font.bold: true
@@ -200,7 +213,6 @@ Rectangle {
                     Layout.fillHeight: true
                     spacing: 8
                     CabButton {
-                        visible: controller.scope === "SWITCH"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         text: "THRU"
@@ -208,23 +220,11 @@ Rectangle {
                         onClicked: controller.operate("THRU")
                     }
                     CabButton {
-                        visible: controller.scope === "SWITCH"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         text: "OUT"
                         selected: controller.isOut
                         onClicked: controller.operate("OUT")
-                    }
-                    CabButton {
-                        visible: controller.scope === "ROUTE"
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: "🔥  FIRE ROUTE"
-                        font.pixelSize: 20
-                        font.bold: true
-                        normalColor: "#a84418"
-                        pressedColor: "#d65a20"
-                        onClicked: controller.operate("FIRE")
                     }
                 }
             }
