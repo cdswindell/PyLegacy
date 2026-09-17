@@ -17,6 +17,20 @@ Rectangle {
         return "#" + (stripped.length > 0 ? stripped : "0")
     }
 
+    function shortState(value) {
+        const raw = String(value || "-")
+        const upper = raw.toUpperCase()
+        if (upper.indexOf("LOW") >= 0)
+            return "L"
+        if (upper.indexOf("MED") >= 0)
+            return "M"
+        if (upper.indexOf("HIGH") >= 0)
+            return "H"
+        if (upper.indexOf("OFF") >= 0 || upper.indexOf("NONE") >= 0)
+            return "-"
+        return raw
+    }
+
     color: "#15191f"
     radius: 8
     clip: true
@@ -81,9 +95,7 @@ Rectangle {
                                 text: {
                                     const name = card.modelData.roadName || "Engine"
                                     const number = root.roadNumber(card.modelData.roadNumber)
-                                    if (root.compactTiles && number.length > 0)
-                                        return name + " " + number
-                                    return name
+                                    return number.length > 0 ? name + " " + number : name
                                 }
                                 color: "#f4f6f8"
                                 font.pixelSize: 11
@@ -128,18 +140,8 @@ Rectangle {
                             font.pixelSize: 12
                             font.bold: true
                         }
-                        Label {
-                            visible: !root.compactTiles && text.length > 0
-                            text: root.roadNumber(modelData.roadNumber)
-                            color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
-                        }
                         Item {
-                            Layout.preferredWidth: {
-                                if (!root.compactTiles)
-                                    return 3
-                                return String(modelData.tmccId).length < 4 ? 3 : 0
-                            }
+                            Layout.preferredWidth: root.compactTiles && String(modelData.tmccId).length >= 4 ? 0 : 3
                         }
                         Label {
                             text: modelData.direction
@@ -152,8 +154,20 @@ Rectangle {
                             font.pixelSize: 9
                         }
                         Label {
-                            Layout.fillWidth: true
                             text: "SM " + modelData.smoke
+                            color: modelData.current ? "#dceffc" : "#aeb7c2"
+                            font.pixelSize: 9
+                        }
+                        Label {
+                            visible: !root.compactTiles
+                            text: "M " + root.shortState(modelData.momentum)
+                            color: modelData.current ? "#dceffc" : "#aeb7c2"
+                            font.pixelSize: 9
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            visible: !root.compactTiles
+                            text: "B " + root.shortState(modelData.brake)
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
                             font.pixelSize: 9
                             horizontalAlignment: Text.AlignLeft
@@ -162,7 +176,7 @@ Rectangle {
                 }
 
                 CabButton {
-                    visible: root.selection ? root.selection.count > 1 : false
+                    visible: root.selection ? root.selection.count > 0 : false
                     Layout.preferredWidth: root.compactTiles ? 24 : 28
                     Layout.preferredHeight: root.compactTiles ? 24 : 28
                     text: "×"
