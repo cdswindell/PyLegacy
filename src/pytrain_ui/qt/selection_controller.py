@@ -197,9 +197,7 @@ class SelectedEngineController(QObject):
                 "active": active,
             }
         momentum = str(getattr(getattr(state, "momentum", None), "name", getattr(state, "momentum", "-")) or "-")
-        brake = str(
-            getattr(getattr(state, "train_brake", None), "name", getattr(state, "train_brake", "-")) or "-"
-        )
+        brake = str(getattr(getattr(state, "train_brake", None), "name", getattr(state, "train_brake", "-")) or "-")
         return {
             "tmccId": tmcc_id,
             "roadName": str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip(),
