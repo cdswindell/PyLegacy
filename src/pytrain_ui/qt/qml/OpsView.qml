@@ -7,6 +7,7 @@ Rectangle {
 
     required property var controller
     property string sortKey: "roadName"
+    property int editingSwitchId: 0
     signal closeRequested()
 
     color: "#171a1f"
@@ -34,6 +35,14 @@ Rectangle {
         })
         result.sort(compareRows)
         return result
+    }
+
+    function editSwitch(tmccId) {
+        editingSwitchId = tmccId
+        roadNameField.text = controller.switchRoadName(tmccId)
+        roadNumberField.text = controller.switchRoadNumber(tmccId)
+        switchEditor.open()
+        roadNameField.forceActiveFocus()
     }
 
     ColumnLayout {
@@ -113,12 +122,22 @@ Rectangle {
                 border.width: 1
                 border.color: "#444c57"
 
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    onDoubleTapped: {
+                        if (root.controller.scope === "ROUTE")
+                            root.controller.fireRoute(row.modelData.tmccId)
+                        else
+                            root.controller.toggleSwitch(row.modelData.tmccId)
+                    }
+                }
+
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 8
-                    spacing: 8
+                    spacing: 6
                     Label {
-                        Layout.preferredWidth: 58
+                        Layout.preferredWidth: 50
                         text: modelData.tmccId
                         color: "#f4f6f8"
                         font.pixelSize: 20
@@ -145,7 +164,7 @@ Rectangle {
                         }
                     }
                     Label {
-                        Layout.preferredWidth: controller.scope === "ROUTE" ? 108 : 64
+                        Layout.preferredWidth: controller.scope === "ROUTE" ? 108 : 58
                         text: modelData.stateText
                         color: modelData.stateText === "ALIGNED" || modelData.stateText === "THRU" ? "#73d38a" :
                                modelData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
@@ -155,7 +174,14 @@ Rectangle {
                     }
                     CabButton {
                         visible: controller.scope === "SWITCH"
-                        Layout.preferredWidth: 76
+                        Layout.preferredWidth: 58
+                        Layout.preferredHeight: 46
+                        text: "EDIT"
+                        onClicked: root.editSwitch(row.modelData.tmccId)
+                    }
+                    CabButton {
+                        visible: controller.scope === "SWITCH"
+                        Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "THRU"
                         selected: row.modelData.stateText === "THRU"
@@ -163,7 +189,7 @@ Rectangle {
                     }
                     CabButton {
                         visible: controller.scope === "SWITCH"
-                        Layout.preferredWidth: 76
+                        Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "OUT"
                         selected: row.modelData.stateText === "OUT"
@@ -179,6 +205,90 @@ Rectangle {
                         normalColor: "#a84418"
                         pressedColor: "#d65a20"
                         onClicked: controller.fireRoute(row.modelData.tmccId)
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: switchEditor
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 40, 620)
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#20242a"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 14
+
+            Label {
+                Layout.fillWidth: true
+                text: "Edit Switch " + root.editingSwitchId
+                color: "#f4f6f8"
+                font.pixelSize: 24
+                font.bold: true
+            }
+
+            Label {
+                text: "Road Name"
+                color: "#aeb5bf"
+                font.pixelSize: 14
+            }
+            TextField {
+                id: roadNameField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 52
+                font.pixelSize: 18
+                maximumLength: 31
+                selectByMouse: true
+            }
+
+            Label {
+                text: "Road Number"
+                color: "#aeb5bf"
+                font.pixelSize: 14
+            }
+            TextField {
+                id: roadNumberField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 52
+                font.pixelSize: 18
+                maximumLength: 4
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator {
+                    regularExpression: /[0-9]{0,4}/
+                }
+                selectByMouse: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "CANCEL"
+                    onClicked: switchEditor.close()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "SAVE"
+                    font.bold: true
+                    onClicked: {
+                        controller.saveSwitchIdentity(root.editingSwitchId,
+                                                      roadNameField.text,
+                                                      roadNumberField.text)
+                        switchEditor.close()
                     }
                 }
             }
