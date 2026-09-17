@@ -45,7 +45,6 @@ class SelectedEngineController(QObject):
 
     @staticmethod
     def _operating_signature(state) -> tuple:
-        """Values whose changes indicate that an engine is being operated."""
         return (
             getattr(state, "speed", None),
             getattr(state, "target_speed", None),
@@ -56,6 +55,26 @@ class SelectedEngineController(QObject):
             getattr(state, "labor", None),
             getattr(state, "rpm", None),
         )
+
+    @staticmethod
+    def _physical_key(tmcc_id: int) -> tuple[str, int]:
+        """Return stable physical identity when Bluetooth identity is known."""
+        state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
+        bt_id = int(getattr(state, "bt_int", 0) or 0) if state is not None else 0
+        return ("bt", bt_id) if bt_id else ("tmcc", tmcc_id)
+
+    def _same_physical_engine(self, left: int, right: int) -> bool:
+        return self._physical_key(left) == self._physical_key(right)
+
+    def _dedupe_physical(self, ids: list[int]) -> list[int]:
+        result: list[int] = []
+        seen: set[tuple[str, int]] = set()
+        for tmcc_id in ids:
+            key = self._physical_key(tmcc_id)
+            if key not in seen:
+                seen.add(key)
+                result.append(tmcc_id)
+        return result
 
     def _install_watchers(self) -> None:
         for state in ComponentStateStore.get().get_all(CommandScope.ENGINE):
@@ -91,7 +110,7 @@ class SelectedEngineController(QObject):
         self._mark_active(tmcc_id)
 
     def _sensor_track_changed(self, state) -> None:
-        """A Sensor Track sighting makes the resolved engine active without selecting it."""
+        """A Sensor Track sighting makes the already-resolved engine active."""
         if getattr(state, "is_train", False):
             return
         tmcc_id = int(getattr(state, "last_engine_id", 0) or 0)
@@ -102,9 +121,6 @@ class SelectedEngineController(QObject):
         signature = self._operating_signature(state)
         previous = self._operating_state.get(tmcc_id)
         self._operating_state[tmcc_id] = signature
-
-        # Every state notification refreshes tile values. An operating-state change
-        # remains a fallback activity source for updates that are not TMCC commands.
         if previous is not None and signature != previous:
             if self._dismissed_activity.get(tmcc_id) != signature:
                 self._dismissed_activity.pop(tmcc_id, None)
@@ -117,8 +133,9 @@ class SelectedEngineController(QObject):
             self.selectionChanged.emit()
             return
         tmcc_id = self._cab.tmccId
-        if tmcc_id not in self._selected_ids:
-            self._selected_ids.insert(0, tmcc_id)
+        if tmcc_id in self._selected_ids:
+            self._selected_ids.remove(tmcc_id)
+        self._selected_ids.insert(0, tmcc_id)
         self.selectionChanged.emit()
 
     @staticmethod
@@ -177,15 +194,19 @@ class SelectedEngineController(QObject):
         }
 
     def _display_ids(self) -> list[int]:
-        ids = list(self._selected_ids)
-        ids.extend(tmcc_id for tmcc_id in self._active_ids if tmcc_id not in ids)
-        return ids
+        return self._dedupe_physical(self._selected_ids + self._active_ids)
+
+    def _is_selected(self, tmcc_id: int) -> bool:
+        return any(self._same_physical_engine(tmcc_id, candidate) for candidate in self._selected_ids)
+
+    def _is_active(self, tmcc_id: int) -> bool:
+        return any(self._same_physical_engine(tmcc_id, candidate) for candidate in self._active_ids)
 
     @Property(list, notify=selectionChanged)
     def selectedEngines(self) -> list[dict]:
         current_id = self._cab.tmccId if self._cab.scope == CommandScope.ENGINE.name else -1
         return [
-            self._row(tmcc_id, current_id, tmcc_id in self._selected_ids, tmcc_id in self._active_ids)
+            self._row(tmcc_id, current_id, self._is_selected(tmcc_id), self._is_active(tmcc_id))
             for tmcc_id in self._display_ids()
         ]
 
@@ -211,14 +232,15 @@ class SelectedEngineController(QObject):
         display_ids = self._display_ids()
         if tmcc_id not in display_ids or len(display_ids) <= 1:
             return
-        was_current = self._cab.scope == CommandScope.ENGINE.name and self._cab.tmccId == tmcc_id
-        if tmcc_id in self._selected_ids:
-            self._selected_ids.remove(tmcc_id)
-        if tmcc_id in self._active_ids:
-            self._active_ids.remove(tmcc_id)
-            state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
+        key = self._physical_key(tmcc_id)
+        was_current = self._cab.scope == CommandScope.ENGINE.name and self._physical_key(self._cab.tmccId) == key
+        aliases = [candidate for candidate in self._selected_ids + self._active_ids if self._physical_key(candidate) == key]
+        self._selected_ids = [candidate for candidate in self._selected_ids if self._physical_key(candidate) != key]
+        self._active_ids = [candidate for candidate in self._active_ids if self._physical_key(candidate) != key]
+        for candidate in aliases:
+            state = ComponentStateStore.get_state(CommandScope.ENGINE, candidate, create=False)
             if state is not None:
-                self._dismissed_activity[tmcc_id] = self._operating_signature(state)
+                self._dismissed_activity[candidate] = self._operating_signature(state)
         if was_current:
             remaining = self._display_ids()
             if remaining:
@@ -228,15 +250,17 @@ class SelectedEngineController(QObject):
 
     @Slot(int)
     def selectRelative(self, delta: int) -> None:
-        ids = self._display_ids()
+        # Artwork swiping intentionally traverses explicit selections, not engines
+        # that merely appeared because command or Sensor Track activity was observed.
+        ids = self._dedupe_physical(self._selected_ids)
         if len(ids) < 2 or self._cab.scope != CommandScope.ENGINE.name:
             return
+        current_key = self._physical_key(self._cab.tmccId)
         try:
-            index = ids.index(self._cab.tmccId)
-        except ValueError:
+            index = next(i for i, tmcc_id in enumerate(ids) if self._physical_key(tmcc_id) == current_key)
+        except StopIteration:
             return
         tmcc_id = ids[(index + delta) % len(ids)]
         state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
         if state is not None:
-            # Swiping traverses the working set without changing its MRU order.
             self._cab._switch_target(CommandScope.ENGINE, tmcc_id)
