@@ -105,6 +105,13 @@ class OpsController(QObject):
             command = TMCC2RouteCommandEnum.FIRE
         CommandReq.build(command, self._selected_id).send()
 
+    @Slot(int)
+    def fireRoute(self, tmcc_id: int) -> None:
+        if self._scope != CommandScope.ROUTE:
+            return
+        if any(row["tmccId"] == tmcc_id for row in self._rows):
+            CommandReq.build(TMCC2RouteCommandEnum.FIRE, tmcc_id).send()
+
     @Slot()
     def halt(self) -> None:
         CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
