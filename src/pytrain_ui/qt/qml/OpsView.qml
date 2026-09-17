@@ -174,13 +174,6 @@ Rectangle {
                     }
                     CabButton {
                         visible: controller.scope === "SWITCH"
-                        Layout.preferredWidth: 58
-                        Layout.preferredHeight: 46
-                        text: "EDIT"
-                        onClicked: root.editSwitch(row.modelData.tmccId)
-                    }
-                    CabButton {
-                        visible: controller.scope === "SWITCH"
                         Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "THRU"
@@ -205,6 +198,13 @@ Rectangle {
                         normalColor: "#a84418"
                         pressedColor: "#d65a20"
                         onClicked: controller.fireRoute(row.modelData.tmccId)
+                    }
+                    CabButton {
+                        visible: controller.scope === "SWITCH"
+                        Layout.preferredWidth: 58
+                        Layout.preferredHeight: 46
+                        text: "EDIT"
+                        onClicked: root.editSwitch(row.modelData.tmccId)
                     }
                 }
             }
