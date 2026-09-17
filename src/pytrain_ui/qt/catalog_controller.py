@@ -6,7 +6,6 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state_store import ComponentStateStore
-from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.constants import CommandScope
 
 
@@ -29,7 +28,7 @@ _ENGINE_TYPE_PRIORITY = {
 
 
 class EngineCatalogController(QObject):
-    """Expose a live engine roster without requiring QML to parse display labels."""
+    """Expose an engine roster without watching every engine's operating state."""
 
     catalogChanged = Signal()
 
@@ -37,7 +36,6 @@ class EngineCatalogController(QObject):
         super().__init__(parent)
         self._engines: list[dict] = []
         self._type_filters: list[dict] = []
-        self._watchers: dict[int, StateWatcher] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
@@ -47,9 +45,6 @@ class EngineCatalogController(QObject):
         if self._dispatcher is not None:
             self._dispatcher.unsubscribe(self._engine_command, CommandScope.ENGINE)
             self._dispatcher = None
-        for watcher in self._watchers.values():
-            watcher.shutdown()
-        self._watchers.clear()
 
     @staticmethod
     def _engine_type(state) -> tuple[str, str]:
@@ -69,28 +64,14 @@ class EngineCatalogController(QObject):
 
     def _engine_command(self, _command) -> None:
         # Command traffic can introduce a state that was not present when the Qt
-        # catalog was created. Re-read the store and attach watchers as needed.
+        # catalog was created, so re-read the roster without watching every state.
         self.reload()
-
-    def _state_changed(self) -> None:
-        self.reload()
-
-    def _install_watchers(self, states) -> None:
-        current_ids = {int(state.tmcc_id) for state in states}
-        for tmcc_id in tuple(self._watchers):
-            if tmcc_id not in current_ids:
-                self._watchers.pop(tmcc_id).shutdown()
-        for state in states:
-            tmcc_id = int(state.tmcc_id)
-            if tmcc_id not in self._watchers:
-                self._watchers[tmcc_id] = StateWatcher(state, self._state_changed)
 
     @Slot()
     def reload(self) -> None:
         rows: list[dict] = []
         type_labels: dict[str, str] = {}
         states = sorted(ComponentStateStore.get().get_all(CommandScope.ENGINE), key=lambda state: state.tmcc_id)
-        self._install_watchers(states)
         for state in states:
             road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
             road_number = str(getattr(state, "road_number", "") or "").strip()
