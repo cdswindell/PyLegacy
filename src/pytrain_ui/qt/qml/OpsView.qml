@@ -9,6 +9,8 @@ Rectangle {
     property string sortKey: "roadName"
     property int editingSwitchId: 0
     property int pendingOverwriteSwitchId: 0
+    property string populatedSwitchName: ""
+    property string populatedSwitchNumber: ""
     property bool showInactiveSwitches: false
     signal closeRequested()
 
@@ -59,21 +61,34 @@ Rectangle {
         commandControlSwitch.checked = true
         addError.text = ""
         pendingOverwriteSwitchId = 0
+        populatedSwitchName = ""
+        populatedSwitchNumber = ""
         addSwitchPopup.open()
         addSwitchId.forceActiveFocus()
     }
 
     function completeExistingSwitchIdentity() {
+        if (addRoadName.text === populatedSwitchName)
+            addRoadName.text = ""
+        if (addRoadNumber.text === populatedSwitchNumber)
+            addRoadNumber.text = ""
+        populatedSwitchName = ""
+        populatedSwitchNumber = ""
+
         const tmccId = Number(addSwitchId.text)
         if (tmccId < 1 || tmccId > 98)
             return
         const identity = controller.switchIdentity(tmccId)
         if (!identity.exists)
             return
-        if (!addRoadName.text.trim())
+        if (!addRoadName.text.trim()) {
             addRoadName.text = identity.roadName
-        if (!addRoadNumber.text.trim())
+            populatedSwitchName = identity.roadName
+        }
+        if (!addRoadNumber.text.trim()) {
             addRoadNumber.text = identity.roadNumber
+            populatedSwitchNumber = identity.roadNumber
+        }
     }
 
     function submitAddSwitch(overwrite) {
