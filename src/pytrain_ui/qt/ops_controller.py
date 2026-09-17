@@ -105,6 +105,15 @@ class OpsController(QObject):
             command = TMCC2RouteCommandEnum.FIRE
         CommandReq.build(command, self._selected_id).send()
 
+    @Slot(int, str)
+    def operateSwitch(self, tmcc_id: int, action: str) -> None:
+        if self._scope != CommandScope.SWITCH:
+            return
+        if not any(row["tmccId"] == tmcc_id for row in self._rows):
+            return
+        command = TMCC1SwitchCommandEnum.THRU if action == "THRU" else TMCC1SwitchCommandEnum.OUT
+        CommandReq.build(command, tmcc_id).send()
+
     @Slot(int)
     def fireRoute(self, tmcc_id: int) -> None:
         if self._scope != CommandScope.ROUTE:
