@@ -45,6 +45,15 @@ Rectangle {
         roadNameField.forceActiveFocus()
     }
 
+    function openAddSwitch() {
+        addSwitchId.text = ""
+        addRoadName.text = ""
+        addRoadNumber.text = ""
+        addError.text = ""
+        addSwitchPopup.open()
+        addSwitchId.forceActiveFocus()
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
@@ -58,6 +67,14 @@ Rectangle {
                 color: "#f4f6f8"
                 font.pixelSize: 24
                 font.bold: true
+            }
+            CabButton {
+                visible: controller.scope === "SWITCH"
+                Layout.preferredWidth: 90
+                Layout.preferredHeight: 46
+                text: "ADD"
+                font.bold: true
+                onClicked: root.openAddSwitch()
             }
             CabButton {
                 Layout.preferredWidth: 100
@@ -205,6 +222,113 @@ Rectangle {
                         Layout.preferredHeight: 46
                         text: "EDIT"
                         onClicked: root.editSwitch(row.modelData.tmccId)
+                    }
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: addSwitchPopup
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 40, 620)
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#20242a"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+
+            Label {
+                Layout.fillWidth: true
+                text: "Add Switch"
+                color: "#f4f6f8"
+                font.pixelSize: 24
+                font.bold: true
+            }
+            Label {
+                Layout.fillWidth: true
+                text: "Put the physical switch into PROGRAM mode before pressing ADD SWITCH."
+                color: "#f0c36a"
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                text: "TMCC ID (1-99)"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: addSwitchId
+                Layout.fillWidth: true
+                Layout.preferredHeight: 50
+                maximumLength: 2
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: IntValidator { bottom: 1; top: 99 }
+                font.pixelSize: 18
+            }
+            Label {
+                text: "Road Name"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: addRoadName
+                Layout.fillWidth: true
+                Layout.preferredHeight: 50
+                maximumLength: 31
+                font.pixelSize: 18
+            }
+            Label {
+                text: "Road Number"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: addRoadNumber
+                Layout.fillWidth: true
+                Layout.preferredHeight: 50
+                maximumLength: 4
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator {
+                    regularExpression: /[0-9]{0,4}/
+                }
+                font.pixelSize: 18
+            }
+            Label {
+                id: addError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#ff7777"
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "CANCEL"
+                    onClicked: addSwitchPopup.close()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    text: "ADD SWITCH"
+                    font.bold: true
+                    onClicked: {
+                        const error = controller.addSwitch(Number(addSwitchId.text),
+                                                           addRoadName.text,
+                                                           addRoadNumber.text)
+                        if (error.length > 0)
+                            addError.text = error
+                        else
+                            addSwitchPopup.close()
                     }
                 }
             }
