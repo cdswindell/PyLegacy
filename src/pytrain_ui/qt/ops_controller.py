@@ -78,7 +78,7 @@ class OpsController(QObject):
 
     def _row(self, state) -> dict:
         road_name, road_number = self._identity(state)
-        inactive = isinstance(state, SwitchState) and (not road_name or not road_number)
+        inactive = isinstance(state, SwitchState) and not state.is_user_defined
         lcs_associations = (
             self._switch_lcs_associations(int(state.tmcc_id)) if isinstance(state, SwitchState) else ""
         )
