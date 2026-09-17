@@ -17,6 +17,7 @@ class OpsController(QObject):
     """Expose a selectable roster and simple operating commands for one scope."""
 
     changed = Signal()
+    commandReceived = Signal(int, str)
 
     def __init__(self, scope: CommandScope, parent: QObject | None = None) -> None:
         if scope not in {CommandScope.SWITCH, CommandScope.ROUTE}:
@@ -26,11 +27,16 @@ class OpsController(QObject):
         self._rows: list[dict] = []
         self._selected_id = 0
         self._dispatcher = CommandDispatcher.get()
+        self.commandReceived.connect(self._refresh_after_command)
         self._dispatcher.subscribe(self._command_received, self._scope)
+        if self._scope == CommandScope.ROUTE:
+            self._dispatcher.subscribe(self._command_received, CommandScope.SWITCH)
         self.reload()
 
     def close(self) -> None:
         self._dispatcher.unsubscribe(self._command_received, self._scope)
+        if self._scope == CommandScope.ROUTE:
+            self._dispatcher.unsubscribe(self._command_received, CommandScope.SWITCH)
 
     def _state(self):
         if not self._selected_id:
@@ -75,9 +81,20 @@ class OpsController(QObject):
         self.reload()
 
     def _command_received(self, command: CommandReq) -> None:
-        """Refresh the affected entity after ComponentStateStore processes its command."""
+        """Queue UI refresh until dispatcher subscribers have processed the command."""
         tmcc_id = int(getattr(command, "address", 0) or 0)
-        if tmcc_id:
+        scope = getattr(command, "scope", None)
+        if tmcc_id and scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            self.commandReceived.emit(tmcc_id, scope.name)
+
+    @Slot(int, str)
+    def _refresh_after_command(self, tmcc_id: int, scope_name: str) -> None:
+        """Read state on the Qt thread after ComponentStateStore has handled the command."""
+        if self._scope == CommandScope.ROUTE and scope_name == CommandScope.SWITCH.name:
+            # A switch can participate in several routes, including nested routes. RouteState
+            # propagates the switch change through those dependencies, so reread the small route roster.
+            self.reload()
+        elif scope_name == self._scope.name:
             self._refresh_row(tmcc_id)
 
     @Slot()
