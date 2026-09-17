@@ -10,6 +10,7 @@ Item {
     property int value: 0
     property int pendingValue: value
     property bool awaitingConfirmation: false
+    readonly property bool dragging: dragHandler.active
     readonly property real activeHeight: Math.min(height, 650)
     signal valueCommitted(int value)
 
