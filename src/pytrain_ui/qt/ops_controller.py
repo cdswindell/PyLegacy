@@ -10,6 +10,7 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.gui.controller.lcs_id_map import occupants_of
+from pytrain.gui.controller.route_draft import RouteDraft
 from pytrain.pdi.base_req import BaseReq
 from pytrain.pdi.constants import PdiCommand
 from pytrain.protocol.command_req import CommandReq
@@ -31,6 +32,8 @@ class OpsController(QObject):
         self._scope = scope
         self._rows: list[dict] = []
         self._selected_id = 0
+        self._route_draft: RouteDraft | None = None
+        self._route_component_index = -1
         self._dispatcher = CommandDispatcher.get()
         self.commandReceived.connect(self._refresh_after_command)
         self._dispatcher.subscribe(self._command_received, self._scope)
@@ -254,6 +257,202 @@ class OpsController(QObject):
             daemon=True,
         ).start()
         return ""
+
+    @staticmethod
+    def _existing_route(state) -> bool:
+        return (
+            isinstance(state, RouteState)
+            and not state.is_deleted
+            and state.tmcc_id is not None
+            and 1 <= state.tmcc_id <= 99
+            and bool(not state.is_comp_data_empty or state.is_user_defined or state.components)
+        )
+
+    def _lookup_route(self, tmcc_id: int) -> RouteState | None:
+        state = ComponentStateStore.get_state(CommandScope.ROUTE, tmcc_id, create=False)
+        return state if isinstance(state, RouteState) else None
+
+    @Slot(int, result=str)
+    def openRouteBuilder(self, tmcc_id: int) -> str:
+        if self._scope != CommandScope.ROUTE or not 1 <= tmcc_id <= 99:
+            return "Route ID must be an integer from 1 to 99."
+        state = self._lookup_route(tmcc_id)
+        self._route_draft = RouteDraft(
+            tmcc_id,
+            (state.components or ()) if self._existing_route(state) else (),
+            road_name=state.road_name if self._existing_route(state) and state.is_road_name else "",
+            road_number=state.road_number if self._existing_route(state) and state.is_road_number else "",
+        )
+        self._route_component_index = 0 if self._route_draft.components else -1
+        self.changed.emit()
+        return ""
+
+    @Slot(int, result=bool)
+    def routeExists(self, tmcc_id: int) -> bool:
+        return self._existing_route(self._lookup_route(tmcc_id))
+
+    @Slot()
+    def closeRouteBuilder(self) -> None:
+        self._route_draft = None
+        self._route_component_index = -1
+        self.changed.emit()
+
+    @Slot(int)
+    def selectRouteComponent(self, index: int) -> None:
+        if self._route_draft is not None and 0 <= index < len(self._route_draft.components):
+            self._route_component_index = index
+            self.changed.emit()
+
+    @Slot(int)
+    def moveRouteComponent(self, delta: int) -> None:
+        if self._route_draft is None or self._route_component_index < 0:
+            return
+        self._route_component_index = self._route_draft.move(self._route_component_index, delta)
+        self.changed.emit()
+
+    @Slot()
+    def removeRouteComponent(self) -> None:
+        if self._route_draft is None or self._route_component_index < 0:
+            return
+        self._route_draft.remove(self._route_component_index)
+        count = len(self._route_draft.components)
+        self._route_component_index = min(self._route_component_index, count - 1) if count else -1
+        self.changed.emit()
+
+    @Slot()
+    def clearRouteComponents(self) -> None:
+        if self._route_draft is not None:
+            self._route_draft.clear()
+            self._route_component_index = -1
+            self.changed.emit()
+
+    @Slot(str)
+    def setRouteComponentPosition(self, position: str) -> None:
+        if self._route_draft is None or self._route_component_index < 0:
+            return
+        component = self._route_draft.components[self._route_component_index]
+        if component.is_route or position not in {"THRU", "OUT"}:
+            return
+        self._route_draft.set_component(
+            self._route_component_index,
+            component.tmcc_id,
+            0 if position == "THRU" else 1,
+            self._lookup_route,
+        )
+        self.changed.emit()
+
+    @Slot(str, int, result=str)
+    def addRouteComponent(self, scope_name: str, tmcc_id: int) -> str:
+        if self._route_draft is None:
+            return "Open a route before adding components."
+        if len(self._route_draft.components) >= 16:
+            return "A route can contain at most 16 components."
+        try:
+            scope = CommandScope[scope_name]
+        except KeyError:
+            return "Choose a switch or route."
+        if scope not in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            return "Choose a switch or route."
+        try:
+            self._route_draft.set_component(
+                None,
+                tmcc_id,
+                3 if scope == CommandScope.ROUTE else 0,
+                self._lookup_route,
+            )
+        except ValueError as exc:
+            return str(exc)
+        self._route_component_index = len(self._route_draft.components) - 1
+        self.changed.emit()
+        return ""
+
+    @Slot(str, str, result=str)
+    def saveRouteBuilder(self, road_name: str, road_number: str) -> str:
+        if self._route_draft is None:
+            return "Open a route before saving."
+        road_name = road_name.strip()
+        road_number = road_number.strip()
+        try:
+            self._route_draft.set_metadata(road_name, road_number)
+            self._route_draft.validate(self._lookup_route)
+            state = self._lookup_route(self._route_draft.tmcc_id)
+            if state is None:
+                state = ComponentStateStore.get_state(CommandScope.ROUTE, self._route_draft.tmcc_id, create=True)
+                if state is None:
+                    return "Unable to create the route state."
+                state.initialize(CommandScope.ROUTE, self._route_draft.tmcc_id)
+            requests = self._route_draft.build_requests(state, self._lookup_route)
+            BaseReq.process_sync_reqs([*requests, state], do_async=True)
+        except Exception as exc:
+            return str(exc)
+        self._route_draft.mark_saved()
+        self._route_draft = None
+        self._route_component_index = -1
+        self.reload()
+        return ""
+
+    @Property(bool, notify=changed)
+    def routeBuilderOpen(self) -> bool:
+        return self._route_draft is not None
+
+    @Property(int, notify=changed)
+    def routeBuilderId(self) -> int:
+        return self._route_draft.tmcc_id if self._route_draft is not None else 0
+
+    @Property(str, notify=changed)
+    def routeBuilderName(self) -> str:
+        return self._route_draft.road_name if self._route_draft is not None else ""
+
+    @Property(str, notify=changed)
+    def routeBuilderNumber(self) -> str:
+        return self._route_draft.road_number if self._route_draft is not None else ""
+
+    @Property(int, notify=changed)
+    def routeComponentIndex(self) -> int:
+        return self._route_component_index
+
+    @Property(list, notify=changed)
+    def routeComponents(self) -> list[dict]:
+        if self._route_draft is None:
+            return []
+        rows = []
+        for index, component in enumerate(self._route_draft.components):
+            scope = CommandScope.ROUTE if component.is_route else CommandScope.SWITCH
+            state = ComponentStateStore.get_state(scope, component.tmcc_id, create=False)
+            name = self._identity(state)[0] if state is not None else ""
+            rows.append(
+                {
+                    "index": index,
+                    "tmccId": component.tmcc_id,
+                    "scope": scope.name,
+                    "name": name or f"{scope.title} {component.tmcc_id:02d}",
+                    "position": "ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT",
+                }
+            )
+        return rows
+
+    @Property(list, notify=changed)
+    def routeCandidates(self) -> list[dict]:
+        if self._route_draft is None:
+            return []
+        rows = []
+        for scope in (CommandScope.SWITCH, CommandScope.ROUTE):
+            for state in ComponentStateStore.get().get_all(scope):
+                if state.is_deleted or not 1 <= state.tmcc_id <= 99:
+                    continue
+                if scope == CommandScope.ROUTE and state.tmcc_id == self._route_draft.tmcc_id:
+                    continue
+                name, road_number = self._identity(state)
+                rows.append(
+                    {
+                        "tmccId": int(state.tmcc_id),
+                        "scope": scope.name,
+                        "name": name or f"{scope.title} {state.tmcc_id:02d}",
+                        "roadNumber": road_number,
+                        "userDefined": bool(state.is_user_defined),
+                    }
+                )
+        return rows
 
     @Slot(int)
     def fireRoute(self, tmcc_id: int) -> None:
