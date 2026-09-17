@@ -55,6 +55,7 @@ Rectangle {
         addSwitchId.text = ""
         addRoadName.text = ""
         addRoadNumber.text = ""
+        commandControlSwitch.checked = true
         addError.text = ""
         addSwitchPopup.open()
         addSwitchId.forceActiveFocus()
@@ -273,9 +274,17 @@ Rectangle {
                 font.pixelSize: 24
                 font.bold: true
             }
+            CheckBox {
+                id: commandControlSwitch
+                Layout.fillWidth: true
+                checked: true
+                text: "Lionel Command Control Switch"
+                font.pixelSize: 16
+            }
             Label {
                 Layout.fillWidth: true
-                text: "Put the physical switch into PROGRAM mode before pressing ADD SWITCH."
+                visible: commandControlSwitch.checked
+                text: "Put the Command Control switch into PROGRAM mode before pressing ADD SWITCH."
                 color: "#f0c36a"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
@@ -344,7 +353,8 @@ Rectangle {
                     onClicked: {
                         const error = controller.addSwitch(Number(addSwitchId.text),
                                                            addRoadName.text,
-                                                           addRoadNumber.text)
+                                                           addRoadNumber.text,
+                                                           commandControlSwitch.checked)
                         if (error.length > 0)
                             addError.text = error
                         else
