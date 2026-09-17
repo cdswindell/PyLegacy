@@ -7,6 +7,8 @@ Rectangle {
     required property var cab
     required property var selection
     property bool moreControlsVisible: false
+    property int requestedTargetSpeed: cab.targetSpeed
+    property int requestedTargetTmccId: cab.tmccId
 
     readonly property bool piLayout: width <= 720
     readonly property bool shortLayout: height < 1000
@@ -15,7 +17,17 @@ Rectangle {
     readonly property int controlHeaderHeight: piLayout ? 34 : 32
     readonly property int controlFooterHeight: 20
     readonly property int piControlHeight: 520
-    readonly property int displayedTargetSpeed: throttle.dragging || throttle.awaitingConfirmation ? throttle.pendingValue : cab.targetSpeed
+
+    onRequestedTargetTmccIdChanged: requestedTargetSpeed = cab.targetSpeed
+    Connections {
+        target: cab
+        function onStateChanged() {
+            if (root.requestedTargetTmccId !== cab.tmccId) {
+                root.requestedTargetTmccId = cab.tmccId
+                root.requestedTargetSpeed = cab.targetSpeed
+            }
+        }
+    }
 
     function isQuickAction(key) {
         return key === "rear_coupler" || key === "front_coupler" ||
@@ -88,7 +100,7 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: -1
                     Label { anchors.horizontalCenter: parent.horizontalCenter; text: "TARGET"; color: "#9ea6b0"; font.pixelSize: root.piLayout ? 10 : 12 }
-                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: root.displayedTargetSpeed; color: "white"; font.pixelSize: root.piLayout ? 22 : 28; font.bold: true }
+                    Label { anchors.horizontalCenter: parent.horizontalCenter; text: throttle.dragging ? throttle.pendingValue : root.requestedTargetSpeed; color: "white"; font.pixelSize: root.piLayout ? 22 : 28; font.bold: true }
                 }
             }
         }
@@ -160,7 +172,18 @@ Rectangle {
                     Layout.fillHeight: true
                     spacing: 2
                     Label { Layout.fillWidth: true; Layout.preferredHeight: root.controlHeaderHeight; text: "THROTTLE " + cab.speedMax; color: "#b9c0c9"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: root.piLayout ? 10 : 14 }
-                    VerticalThrottle { id: throttle; Layout.fillHeight: true; Layout.fillWidth: true; minimumValue: 0; maximumValue: Math.max(1, cab.speedMax); value: cab.targetSpeed; onValueCommitted: function(v) { cab.setSpeed(v) } }
+                    VerticalThrottle {
+                        id: throttle
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        minimumValue: 0
+                        maximumValue: Math.max(1, cab.speedMax)
+                        value: cab.speed
+                        onValueCommitted: function(v) {
+                            root.requestedTargetSpeed = v
+                            cab.setSpeed(v)
+                        }
+                    }
                     Label { Layout.fillWidth: true; Layout.preferredHeight: root.controlFooterHeight; text: "0"; color: "#b9c0c9"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 10 }
                 }
             }
