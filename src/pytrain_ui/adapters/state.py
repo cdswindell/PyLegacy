@@ -35,6 +35,8 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
     default_speed_max = 199 if state.is_legacy else 31
     speed_max = _int_value(getattr(state, "speed_max", default_speed_max)) or default_speed_max
     speed_limit = _int_value(getattr(state, "speed_limit", 0))
+    speed = _int_value(getattr(state, "speed", 0))
+    target_speed = _int_value(getattr(state, "target_speed", speed)) if state.is_ramping else speed
     momentum = _int_value(getattr(state, "momentum", 0))
     train_brake = _int_value(getattr(state, "train_brake", 0))
     smoke = _int_value(getattr(state, "smoke", 0))
@@ -54,8 +56,8 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
         tmcc_id=state.tmcc_id,
         road_name=str(getattr(state, "road_name", "") or getattr(state, "name", "") or ""),
         road_number=str(getattr(state, "road_number", "") or ""),
-        speed=_int_value(getattr(state, "speed", 0)),
-        target_speed=_int_value(getattr(state, "target_speed", 0)),
+        speed=speed,
+        target_speed=target_speed,
         speed_max=speed_max,
         speed_limit=speed_limit,
         direction=_enum_name(getattr(state, "direction", None)),
