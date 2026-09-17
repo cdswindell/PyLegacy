@@ -191,7 +191,7 @@ Rectangle {
                 Layout.minimumWidth: 170
                 Layout.preferredHeight: 38
                 text: root.showInactiveSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
-                selected: root.showInactiveSwitches
+                selected: true
                 onClicked: root.showInactiveSwitches = !root.showInactiveSwitches
             }
         }
