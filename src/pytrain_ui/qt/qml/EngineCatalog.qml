@@ -271,8 +271,8 @@ Rectangle {
                     gesturePolicy: TapHandler.DragThreshold
                     onTapped: {
                         root.selection.selectEngine(row.modelData.tmccId)
-                        searchField.clear()
                         root.engineSelected()
+                        searchField.clear()
                     }
                 }
             }
