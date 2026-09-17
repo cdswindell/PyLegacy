@@ -213,14 +213,33 @@ class OpsController(QObject):
         # and follows the normal PDI distribution path to the server and connected clients.
         BaseReq(tmcc_id, PdiCommand.BASE_SWITCH).send()
 
-    @Slot(int, str, str, bool, result=str)
-    def addSwitch(self, tmcc_id: int, road_name: str, road_number: str, command_control: bool) -> str:
-        """Validate and start provisioning a new physical switch; return an error or empty string."""
+    @Slot(int, result="QVariantMap")
+    def switchIdentity(self, tmcc_id: int) -> dict:
+        """Return an existing switch's identity for Add Switch field completion."""
+        if not 1 <= tmcc_id <= 98:
+            return {"exists": False, "roadName": "", "roadNumber": ""}
+        state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False)
+        if not isinstance(state, SwitchState):
+            return {"exists": False, "roadName": "", "roadNumber": ""}
+        road_name, road_number = self._identity(state)
+        return {"exists": True, "roadName": road_name, "roadNumber": road_number}
+
+    @Slot(int, str, str, bool, bool, result=str)
+    def addSwitch(
+        self,
+        tmcc_id: int,
+        road_name: str,
+        road_number: str,
+        command_control: bool,
+        overwrite: bool = False,
+    ) -> str:
+        """Validate and start provisioning a physical switch; return an error or empty string."""
         if self._scope != CommandScope.SWITCH:
             return "Switch provisioning is only available from the Switch screen."
         if not 1 <= tmcc_id <= 98:
             return "TMCC ID must be between 1 and 98; 99 is the broadcast address."
-        if ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False) is not None:
+        exists = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False) is not None
+        if exists and not overwrite:
             return f"Switch {tmcc_id} already exists."
 
         road_name = road_name.strip()
