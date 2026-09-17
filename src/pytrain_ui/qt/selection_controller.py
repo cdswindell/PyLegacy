@@ -25,11 +25,10 @@ class SelectedEngineController(QObject):
         self._sensor_watchers: dict[int, StateWatcher] = {}
         self._operating_state: dict[int, tuple] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
-        self._cab.stateChanged.connect(self._sync_current_target)
+        self._cab.stateChanged.connect(self.selectionChanged.emit)
         self._install_sensor_watchers()
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
-        self._sync_current_target()
 
     def close(self) -> None:
         if self._dispatcher is not None:
@@ -138,17 +137,6 @@ class SelectedEngineController(QObject):
             if self._dismissed_activity.get(tmcc_id) != signature:
                 self._dismissed_activity.pop(tmcc_id, None)
                 self._touch_active(tmcc_id)
-        self.selectionChanged.emit()
-
-    def _sync_current_target(self) -> None:
-        if self._cab.scope != CommandScope.ENGINE.name:
-            self.selectionChanged.emit()
-            return
-        tmcc_id = self._cab.tmccId
-        if tmcc_id in self._selected_ids:
-            self._selected_ids.remove(tmcc_id)
-        self._selected_ids.insert(0, tmcc_id)
-        self._watch_engine(tmcc_id)
         self.selectionChanged.emit()
 
     @staticmethod
