@@ -256,7 +256,14 @@ class LcsConfigController(QObject):
         if mode is None:
             return []
         rows = []
+        assigned = {
+            (occupant.device.key, occupant.base_id, occupant.last_id, occupant.effective_scope)
+            for occupant in occupants_of(self._base_id, scope=mode.scope)
+        }
         for occupant in overlaps(self._base_id, mode.ports, scope=mode.scope):
+            identity = (occupant.device.key, occupant.base_id, occupant.last_id, occupant.effective_scope)
+            if identity in assigned:
+                continue
             rows.append(
                 {
                     "text": (
