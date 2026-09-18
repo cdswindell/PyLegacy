@@ -425,7 +425,7 @@ Rectangle {
                 Layout.preferredHeight: 50
                 maximumLength: 2
                 inputMethodHints: Qt.ImhDigitsOnly
-                validator: IntValidator { bottom: 1; top: 99 }
+                validator: IntValidator { bottom: 1; top: 98 }
                 font.pixelSize: 18
             }
             Label {
@@ -479,13 +479,13 @@ Rectangle {
                 Layout.fillWidth: true
                 Label {
                     Layout.fillWidth: true
-                    text: "Route Builder — " + controller.routeBuilderId
+                    text: "Route Builder — " + (controller ? controller.routeBuilderId : "")
                     color: "#f4f6f8"
                     font.pixelSize: 24
                     font.bold: true
                 }
                 Label {
-                    text: controller.routeComponents.length + " of 16"
+                    text: (controller ? controller.routeComponents.length : 0) + " of 16"
                     color: "#aeb5bf"
                     font.pixelSize: 14
                 }
@@ -521,7 +521,7 @@ Rectangle {
 
             Label {
                 Layout.fillWidth: true
-                text: controller.routeComponents.length ?
+                text: controller && controller.routeComponents.length ?
                           "Select a card to change its position, order, or remove it." :
                           "No components yet. Add a switch or nested route."
                 color: "#aeb5bf"
@@ -536,16 +536,16 @@ Rectangle {
                 orientation: ListView.Horizontal
                 spacing: 8
                 clip: true
-                model: controller.routeComponents
+                model: controller ? controller.routeComponents : []
 
                 delegate: Rectangle {
                     required property var modelData
                     width: 180
                     height: routeComponentList.height - 4
                     radius: 8
-                    color: controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
-                    border.width: controller.routeComponentIndex === modelData.index ? 2 : 1
-                    border.color: controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
+                    color: controller && controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
+                    border.width: controller && controller.routeComponentIndex === modelData.index ? 2 : 1
+                    border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
 
                     TapHandler {
                         onTapped: controller.selectRouteComponent(modelData.index)
@@ -599,7 +599,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "THRU"
-                    enabled: controller.routeComponentIndex >= 0 &&
+                    enabled: controller && controller.routeComponentIndex >= 0 &&
                              controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                     selected: enabled &&
                               controller.routeComponents[controller.routeComponentIndex].position === "THRU"
@@ -609,7 +609,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "OUT"
-                    enabled: controller.routeComponentIndex >= 0 &&
+                    enabled: controller && controller.routeComponentIndex >= 0 &&
                              controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                     selected: enabled &&
                               controller.routeComponents[controller.routeComponentIndex].position === "OUT"
@@ -624,14 +624,14 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "MOVE LEFT"
-                    enabled: controller.routeComponentIndex > 0
+                    enabled: controller && controller.routeComponentIndex > 0
                     onClicked: controller.moveRouteComponent(-1)
                 }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "MOVE RIGHT"
-                    enabled: controller.routeComponentIndex >= 0 &&
+                    enabled: controller && controller.routeComponentIndex >= 0 &&
                              controller.routeComponentIndex < controller.routeComponents.length - 1
                     onClicked: controller.moveRouteComponent(1)
                 }
@@ -644,21 +644,21 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "ADD…"
-                    enabled: controller.routeComponents.length < 16
+                    enabled: controller && controller.routeComponents.length < 16
                     onClicked: root.openRoutePicker()
                 }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "REMOVE"
-                    enabled: controller.routeComponentIndex >= 0
+                    enabled: controller && controller.routeComponentIndex >= 0
                     onClicked: controller.removeRouteComponent()
                 }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 46
                     text: "CLEAR ALL"
-                    enabled: controller.routeComponents.length > 0
+                    enabled: controller && controller.routeComponents.length > 0
                     onClicked: controller.clearRouteComponents()
                 }
             }
