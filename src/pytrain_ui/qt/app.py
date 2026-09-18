@@ -21,6 +21,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     from .cab_controller import CabController
     from .catalog_controller import EngineCatalogController
     from .gamepad import QtCabInputSink, QtGamepadInput
+    from .lcs_controller import LcsConfigController
     from .ops_controller import OpsController
     from .selection_controller import SelectedEngineController
     from .session import restore_engine, save_engine
@@ -46,6 +47,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     selection = SelectedEngineController(cab)
     switches = OpsController(CommandScope.SWITCH)
     routes = OpsController(CommandScope.ROUTE)
+    lcs = LcsConfigController()
     gamepad = QtGamepadInput(QtCabInputSink(cab), cab)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("cabController", cab)
@@ -53,6 +55,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     engine.rootContext().setContextProperty("selectedEngineController", selection)
     engine.rootContext().setContextProperty("switchOpsController", switches)
     engine.rootContext().setContextProperty("routeOpsController", routes)
+    engine.rootContext().setContextProperty("lcsConfigController", lcs)
     engine.rootContext().setContextProperty("showCatalogAtStartup", show_catalog)
 
     def remember_current_engine() -> None:
