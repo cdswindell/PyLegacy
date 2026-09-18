@@ -736,7 +736,7 @@ Rectangle {
                 }
                 CabButton {
                     visible: root.routeCandidateScope === "SWITCH"
-                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
+                    Layout.fillWidth: true
                     Layout.preferredHeight: 38
                     text: root.showUnnamedRouteSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
                     selected: true
