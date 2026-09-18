@@ -217,7 +217,7 @@ Rectangle {
                     Layout.preferredWidth: 0
             Label {
                 text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
-                color: lcsConfig.visible ? "#777d86" : "#f4f6f8"
+                color: (lcsConfig.visible || routeBuilder.visible || routePicker.visible) ? "#777d86" : "#f4f6f8"
                 font.pixelSize: 24
                 font.bold: true
             }
@@ -227,7 +227,7 @@ Rectangle {
                 Layout.preferredWidth: 90
                 Layout.preferredHeight: 46
                 text: "ADD…"
-                enabled: !lcsConfig.visible
+                enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
                 font.bold: true
                 onClicked: {
                     if (controller.scope === "SWITCH")
@@ -241,7 +241,7 @@ Rectangle {
                 Layout.preferredWidth: 90
                 Layout.preferredHeight: 46
                 text: "LCS…"
-                enabled: !lcsConfig.visible
+                enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
                 font.bold: true
                 onClicked: lcsConfig.open()
             }
