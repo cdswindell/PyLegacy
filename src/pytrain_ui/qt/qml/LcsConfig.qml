@@ -44,10 +44,11 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            text: root.showingModules ? "My LCS Modules" : (root.page === 0 ? "Which module are you configuring?" : root.controller.deviceLabel + " TMCC ID")
-            color: root.showingModules || root.page === 1 ? "#f4f6f8" : "#aeb5bf"
-            font.pixelSize: root.showingModules || root.page === 1 ? 20 : 16
-            font.bold: root.showingModules || root.page === 1
+            visible: root.showingModules || root.page === 0
+            text: root.showingModules ? "My LCS Modules" : "Which module are you configuring?"
+            color: root.showingModules ? "#f4f6f8" : "#aeb5bf"
+            font.pixelSize: root.showingModules ? 20 : 16
+            font.bold: root.showingModules
         }
 
         Repeater {
@@ -92,10 +93,21 @@ Popup {
             visible: !root.showingModules && root.page === 1
             spacing: 10
 
+            Image {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: Math.min(480, root.width - 80)
+                Layout.preferredHeight: Layout.preferredWidth / 3
+                source: root.controller ? root.controller.deviceImage : ""
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                visible: source.toString().length > 0
+            }
+
             Label {
                 text: "Base TMCC ID (1-" + (root.controller && root.controller.modes.length ? root.controller.modes.find(function(m) { return m.key === root.controller.modeKey }).maxBase : 98) + ")"
-                color: "#aeb5bf"
-                font.pixelSize: 16
+                color: "#f4f6f8"
+                font.pixelSize: 20
+                font.bold: true
             }
 
             TextField {
