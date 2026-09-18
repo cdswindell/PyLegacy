@@ -16,6 +16,7 @@ Popup {
     property string moduleSortKey: "module"
     property int page: 0
     property string configureError: ""
+    property alias baseIdText: baseIdField.text
 
     onOpened: {
         showingModules = false
@@ -65,7 +66,7 @@ Popup {
                 onDoubleClicked: {
                     root.controller.selectDevice(modelData.key)
                     root.page = 1
-                    baseIdField.text = String(root.controller.baseId)
+                    root.baseIdText = String(root.controller.baseId)
                 }
             }
         }
@@ -571,7 +572,7 @@ Popup {
                         root.controller.selectConfiguredModule(modelData.deviceKey, modelData.tmccId, modelData.scope)
                         root.showingModules = false
                         root.page = 1
-                        baseIdField.text = String(root.controller.baseId)
+                        root.baseIdText = String(root.controller.baseId)
                     }
                 }
             }
@@ -647,7 +648,7 @@ Popup {
                         root.close()
                     } else if (root.page === 0) {
                         root.page = 1
-                        baseIdField.text = String(root.controller.baseId)
+                        root.baseIdText = String(root.controller.baseId)
                     } else if (root.page === 1) {
                         root.page = root.controller.options.length > 2 ? 2 : 3
                     } else if (root.page === 2) {
