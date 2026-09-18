@@ -513,6 +513,7 @@ class LcsConfigController(QObject):
         self._options = {}
         if modes:
             self._base_id = min(self._base_id, modes[0].max_base)
+            self._load_reported_options()
         self.changed.emit()
 
     @Slot()
