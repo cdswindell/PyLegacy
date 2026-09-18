@@ -558,7 +558,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "THRU"
                     enabled: controller && controller.routeComponentIndex >= 0 &&
@@ -568,7 +568,7 @@ Rectangle {
                     onClicked: controller.setRouteComponentPosition("THRU")
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "OUT"
                     enabled: controller && controller.routeComponentIndex >= 0 &&
@@ -583,14 +583,14 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "MOVE LEFT"
                     enabled: controller && controller.routeComponentIndex > 0
                     onClicked: controller.moveRouteComponent(-1)
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "MOVE RIGHT"
                     enabled: controller && controller.routeComponentIndex >= 0 &&
@@ -603,21 +603,21 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "ADD…"
                     enabled: controller && controller.routeComponents.length < 16
                     onClicked: root.openRoutePicker()
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "REMOVE"
                     enabled: controller && controller.routeComponentIndex >= 0
                     onClicked: controller.removeRouteComponent()
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 46
                     text: "CLEAR ALL"
                     enabled: controller && controller.routeComponents.length > 0
@@ -642,7 +642,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 10
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: {
@@ -651,7 +651,7 @@ Rectangle {
                     }
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "SAVE ROUTE"
                     font.bold: true
@@ -736,7 +736,7 @@ Rectangle {
                 }
                 CabButton {
                     visible: root.routeCandidateScope === "SWITCH"
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 38
                     text: root.showUnnamedRouteSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
                     selected: true
@@ -945,13 +945,13 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 10
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: addSwitchPopup.close()
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "ADD SWITCH"
                     font.bold: true
@@ -997,13 +997,13 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 10
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: overwriteSwitchPopup.close()
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "REPLACE SWITCH"
                     font.bold: true
@@ -1076,13 +1076,13 @@ Rectangle {
                 spacing: 10
 
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: switchEditor.close()
                 }
                 CabButton {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: (parent.width - parent.spacing * (parent.children.length - 1)) / parent.children.length
                     Layout.preferredHeight: 50
                     text: "SAVE"
                     font.bold: true
