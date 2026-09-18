@@ -697,14 +697,14 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
                 CabButton {
-                    Layout.preferredWidth: (parent.width - parent.spacing) / 2
+                    Layout.fillWidth: true
                     Layout.preferredHeight: 42
                     text: "SWITCHES"
                     selected: root.routeCandidateScope === "SWITCH"
                     onClicked: root.routeCandidateScope = "SWITCH"
                 }
                 CabButton {
-                    Layout.preferredWidth: (parent.width - parent.spacing) / 2
+                    Layout.fillWidth: true
                     Layout.preferredHeight: 42
                     text: "ROUTES"
                     selected: root.routeCandidateScope === "ROUTE"
