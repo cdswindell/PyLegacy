@@ -6,7 +6,13 @@ from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
 
 from pytrain.utils.path_utils import find_file
 
-from pytrain.gui.controller.lcs_config_panel import SCOPE_LABEL
+from pytrain.gui.controller.lcs_config_panel import (
+    PRESS_DELAY,
+    READBACK_TIMEOUT_MSEC,
+    SCOPE_LABEL,
+    VERIFY_DELAY,
+    VERIFY_POLL_DELAY,
+)
 from pytrain.gui.controller.lcs_device_registry import (
     MAX_TMCC_ID,
     SENSOR_TRACK_ACTION,
@@ -241,11 +247,20 @@ class LcsConfigController(QObject):
             program = build_program(device, mode, self._base_id, self._options)
         except ValueError as exc:
             return str(exc)
-        for request in program.presses:
-            request.send()
-        for request in program.verify:
-            request.send()
+        for index, request in enumerate(program.presses):
+            request.send(delay=index * PRESS_DELAY)
+        for at in self._verify_times(len(program.presses)):
+            for index, request in enumerate(program.verify):
+                request.send(delay=at + index * PRESS_DELAY)
         return ""
+
+    @staticmethod
+    def _verify_times(presses: int) -> list[float]:
+        """Return the same post-programming verification schedule as the legacy LCS tool."""
+        after_presses = presses * PRESS_DELAY + VERIFY_DELAY
+        budget = READBACK_TIMEOUT_MSEC / 1000 - after_presses
+        asks = max(1, int(budget / VERIFY_POLL_DELAY) + 1)
+        return [after_presses + ask * VERIFY_POLL_DELAY for ask in range(asks)]
 
     @Property("QVariantList", notify=changed)
     def assignments(self) -> list[dict]:
