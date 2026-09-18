@@ -222,6 +222,15 @@ Popup {
             spacing: 10
 
             CabButton {
+                visible: !root.showingModules
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 52
+                text: "CANCEL"
+                onClicked: root.close()
+            }
+
+            CabButton {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
