@@ -11,7 +11,6 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
-from pytrain.gui.accessories.accessory_registry import PortBehavior
 from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
@@ -173,7 +172,6 @@ class AccessoryCatalogController(QObject):
             preferred_view=AccessoryViewKind.LCS if lcs_labels else AccessoryViewKind.GENERIC,
             user_defined=bool(state.is_user_defined),
         )
-
 
     @staticmethod
     def _image_source(filename: str | None) -> str:
