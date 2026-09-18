@@ -685,8 +685,16 @@ Popup {
                         root.page = 1
                         root.baseIdText = String(root.controller.baseId)
                     } else if (root.page === 1) {
-                        root.page = root.controller.options.length > 2 ? 2 : 3
+                        if (root.controller.options.length > 2) {
+                            root.page = 2
+                        } else {
+                            root.controller.clearConfigureStatus()
+                            root.configureError = ""
+                            root.page = 3
+                        }
                     } else if (root.page === 2) {
+                        root.controller.clearConfigureStatus()
+                        root.configureError = ""
                         root.page = 3
                     } else {
                         root.configureError = root.controller.configure()
