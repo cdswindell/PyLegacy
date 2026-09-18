@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     required property var controller
+    property var lcsController: null
     property string sortKey: "roadName"
     property int editingSwitchId: 0
     property string editingSwitchOriginalName: ""
@@ -233,6 +234,14 @@ Rectangle {
                     else
                         root.openAddRoute()
                 }
+            }
+            CabButton {
+                visible: controller && controller.scope === "SWITCH" && root.lcsController
+                Layout.preferredWidth: 90
+                Layout.preferredHeight: 46
+                text: "LCS…"
+                font.bold: true
+                onClicked: lcsConfig.open()
             }
             Item {
                 Layout.fillWidth: true
@@ -1130,4 +1139,9 @@ Rectangle {
             }
         }
     }
+    LcsConfig {
+        id: lcsConfig
+        controller: root.lcsController
+    }
+
 }
