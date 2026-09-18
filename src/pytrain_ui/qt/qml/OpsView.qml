@@ -424,7 +424,7 @@ Rectangle {
 
     Popup {
         id: routeBuilder
-        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 24, 690)
         height: Math.min(root.height - 64, 1160)
@@ -699,7 +699,7 @@ Rectangle {
 
     Popup {
         id: routePicker
-        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 50, 640)
         height: Math.min(root.height - 100, 940)
@@ -875,7 +875,7 @@ Rectangle {
 
     Popup {
         id: addSwitchPopup
-        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 40, 620)
         modal: false
@@ -1003,7 +1003,7 @@ Rectangle {
 
     Popup {
         id: overwriteSwitchPopup
-        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 70, 560)
         modal: false
@@ -1058,7 +1058,7 @@ Rectangle {
 
     Popup {
         id: switchEditor
-        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 40, 620)
         modal: false
