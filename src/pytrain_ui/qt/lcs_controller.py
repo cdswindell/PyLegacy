@@ -247,6 +247,14 @@ class LcsConfigController(QObject):
         self._options[key] = checked
         self.changed.emit()
 
+    @Slot()
+    def clearConfigureStatus(self) -> None:
+        """Clear feedback from an earlier configuration attempt."""
+        self._configure_generation += 1
+        self._stop_readback_watcher()
+        self._sent_program = None
+        self._set_configure_status("", "")
+
     @Property(str, notify=changed)
     def configureStatus(self) -> str:
         return self._configure_status
