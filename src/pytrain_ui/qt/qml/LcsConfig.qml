@@ -381,11 +381,15 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
+                Layout.topMargin: 8
+                Layout.bottomMargin: 10
                 text: root.controller && root.controller.programInstruction.length > 0
                       ? root.controller.programInstruction + ", then press CONFIGURE below"
                       : ""
                 color: "#f0c36a"
-                font.pixelSize: 15
+                font.pixelSize: 19
+                font.bold: true
+                lineHeight: 1.15
                 wrapMode: Text.WordWrap
             }
 
