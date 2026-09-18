@@ -109,9 +109,7 @@ class LcsConfigController(QObject):
                 }
             )
         if mode.scope.name == "TRAIN":
-            rows.extend(
-                {"text": f"Train {train.base_id}: {train.name}"} for train in trains_of(self._base_id)
-            )
+            rows.extend({"text": f"Train {train.base_id}: {train.name}"} for train in trains_of(self._base_id))
         return rows
 
     @Property("QVariantList", notify=changed)
@@ -131,8 +129,7 @@ class LcsConfigController(QObject):
             )
         if mode.scope.name == "TRAIN":
             rows.extend(
-                {"text": f"Train {train.base_id}: {train.name}"}
-                for train in train_overlaps(self._base_id, mode.ports)
+                {"text": f"Train {train.base_id}: {train.name}"} for train in train_overlaps(self._base_id, mode.ports)
             )
         return rows
 
