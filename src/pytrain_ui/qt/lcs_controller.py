@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 
+from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.state_watcher import StateWatcher
+from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
 from pytrain.gui.controller.lcs_config_panel import (
@@ -28,6 +31,7 @@ class LcsConfigController(QObject):
     """Expose the toolkit-neutral LCS registry to Qt Quick."""
 
     changed = Signal()
+    readbackChanged = Signal(int)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -35,6 +39,12 @@ class LcsConfigController(QObject):
         self._mode_key = ""
         self._base_id = 1
         self._options: dict[str, object] = {}
+        self._configure_status = ""
+        self._configure_state = ""
+        self._configure_generation = 0
+        self._readback_watcher: StateWatcher | None = None
+        self._sent_program = None
+        self.readbackChanged.connect(self._on_readback_changed)
 
     @Property("QVariantList", notify=changed)
     def devices(self) -> list[dict]:
@@ -237,6 +247,93 @@ class LcsConfigController(QObject):
         self._options[key] = checked
         self.changed.emit()
 
+    @Property(str, notify=changed)
+    def configureStatus(self) -> str:
+        return self._configure_status
+
+    @Property(str, notify=changed)
+    def configureState(self) -> str:
+        return self._configure_state
+
+    def _set_configure_status(self, state: str, text: str) -> None:
+        self._configure_state = state
+        self._configure_status = text
+        self.changed.emit()
+
+    def _readback_state(self, program):
+        scope = CommandScope.IRDA if program.device.key == "sensor_track" else program.mode.scope
+        return ComponentStateStore.get_state(scope, program.base_id, create=False)
+
+    def _stop_readback_watcher(self) -> None:
+        watcher, self._readback_watcher = self._readback_watcher, None
+        if watcher is not None:
+            watcher.shutdown()
+
+    def _watch_readback(self, generation: int) -> None:
+        self._stop_readback_watcher()
+        state = self._readback_state(self._sent_program)
+        if state is None:
+            return
+        self._readback_watcher = StateWatcher(state, lambda: self.readbackChanged.emit(generation))
+
+    @Slot(int)
+    def _on_readback_changed(self, generation: int) -> None:
+        if generation != self._configure_generation or self._sent_program is None:
+            return
+        self._verify_readback(generation)
+
+    def _verify_readback(self, generation: int) -> None:
+        if generation != self._configure_generation or self._sent_program is None:
+            return
+        program = self._sent_program
+        occupant = next(
+            (
+                item
+                for item in occupants_of(program.base_id, scope=program.mode.scope)
+                if item.device is program.device and item.base_id == program.base_id
+            ),
+            None,
+        )
+        if occupant is None:
+            return
+        differs = []
+        if occupant.mode is not None and occupant.mode is not program.mode:
+            differs.append("Mode")
+        for option in programmed_options(program.device, program.mode):
+            reported = option.reported_by(occupant.config)
+            expected = program.options.get(option.key)
+            if reported is not None and reported != expected:
+                differs.append(option.label)
+        self._stop_readback_watcher()
+        if differs:
+            detail = ", ".join(dict.fromkeys(differs))
+            self._set_configure_status(
+                "error",
+                f"Unsuccessful - not set as sent: {detail}. "
+                f"Hold the {program.device.label}'s {program.device.program_button} button and try again.",
+            )
+        else:
+            self._set_configure_status("success", "Success - the module reported the requested configuration.")
+
+    def _readback_timeout(self, generation: int) -> None:
+        if generation != self._configure_generation or self._configure_state != "polling":
+            return
+        self._stop_readback_watcher()
+        program = self._sent_program
+        self._set_configure_status(
+            "error",
+            f"Unsuccessful - no configuration reported. "
+            f"Hold the {program.device.label}'s {program.device.program_button} button and try again.",
+        )
+
+    def _ensure_readback_watcher(self, generation: int) -> None:
+        if generation != self._configure_generation or self._configure_state != "polling":
+            return
+        if self._readback_watcher is None:
+            self._watch_readback(generation)
+        if self._readback_watcher is None:
+            QTimer.singleShot(250, lambda: self._ensure_readback_watcher(generation))
+
     @Slot(result=str)
     def configure(self) -> str:
         device = self._device()
@@ -247,11 +344,24 @@ class LcsConfigController(QObject):
             program = build_program(device, mode, self._base_id, self._options)
         except ValueError as exc:
             return str(exc)
+
+        self._configure_generation += 1
+        generation = self._configure_generation
+        self._sent_program = program
+        self._set_configure_status(
+            "polling",
+            f"Configuration request sent. Polling the {device.label} to verify its configuration matches what was sent...",
+        )
+        self._watch_readback(generation)
+
         for index, request in enumerate(program.presses):
             request.send(delay=index * PRESS_DELAY)
         for at in self._verify_times(len(program.presses)):
             for index, request in enumerate(program.verify):
                 request.send(delay=at + index * PRESS_DELAY)
+
+        self._ensure_readback_watcher(generation)
+        QTimer.singleShot(READBACK_TIMEOUT_MSEC, lambda: self._readback_timeout(generation))
         return ""
 
     @staticmethod
