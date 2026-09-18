@@ -14,6 +14,8 @@ Rectangle {
     property bool showInactiveSwitches: false
     property string routeCandidateScope: "SWITCH"
     property string routeCandidateSearch: ""
+    property string routeCandidateSortKey: "roadName"
+    property bool showUnnamedRouteSwitches: false
     signal closeRequested()
 
     color: "#171a1f"
@@ -133,14 +135,20 @@ Rectangle {
         return controller.routeCandidates.filter(function(row) {
             if (row.scope !== routeCandidateScope)
                 return false
-            if (row.scope === "SWITCH" && !row.userDefined)
+            if (row.scope === "SWITCH" && !row.userDefined && !showUnnamedRouteSwitches)
                 return false
             return !query ||
                    String(row.tmccId).indexOf(query) >= 0 ||
                    row.name.toLowerCase().indexOf(query) >= 0 ||
                    row.roadNumber.toLowerCase().indexOf(query) >= 0
         }).sort(function(a, b) {
-            const result = a.name.toLowerCase().localeCompare(b.name.toLowerCase(), undefined, { numeric: true })
+            if (routeCandidateSortKey === "tmccId")
+                return a.tmccId - b.tmccId
+            let av = routeCandidateSortKey === "roadNumber" ? a.roadNumber : a.name
+            let bv = routeCandidateSortKey === "roadNumber" ? b.roadNumber : b.name
+            av = String(av || "").toLowerCase()
+            bv = String(bv || "").toLowerCase()
+            const result = av.localeCompare(bv, undefined, { numeric: true })
             return result !== 0 ? result : a.tmccId - b.tmccId
         })
     }
@@ -148,6 +156,8 @@ Rectangle {
     function openRoutePicker() {
         routeCandidateScope = "SWITCH"
         routeCandidateSearch = ""
+        routeCandidateSortKey = "roadName"
+        showUnnamedRouteSwitches = false
         routeCandidateSearchField.text = ""
         routePickerError.text = ""
         routePicker.open()
@@ -358,8 +368,6 @@ Rectangle {
                         Layout.preferredWidth: 96
                         Layout.preferredHeight: 46
                         text: "FIRE"
-                        font.pixelSize: 16
-                        font.bold: true
                         normalColor: "#a84418"
                         pressedColor: "#d65a20"
                         onClicked: controller.fireRoute(row.modelData.tmccId)
@@ -738,6 +746,38 @@ Rectangle {
                     text: "ROUTES"
                     selected: root.routeCandidateScope === "ROUTE"
                     onClicked: root.routeCandidateScope = "ROUTE"
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                Label {
+                    text: "Sort:"
+                    color: "#aeb5bf"
+                    font.pixelSize: 13
+                }
+                Repeater {
+                    model: [
+                        { key: "roadName", label: "Name" },
+                        { key: "roadNumber", label: "Road #" },
+                        { key: "tmccId", label: "TMCC ID" }
+                    ]
+                    CabButton {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 38
+                        text: modelData.label
+                        selected: root.routeCandidateSortKey === modelData.key
+                        onClicked: root.routeCandidateSortKey = modelData.key
+                    }
+                }
+                CabButton {
+                    visible: root.routeCandidateScope === "SWITCH"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+                    text: root.showUnnamedRouteSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
+                    selected: true
+                    onClicked: root.showUnnamedRouteSwitches = !root.showUnnamedRouteSwitches
                 }
             }
             TextField {
