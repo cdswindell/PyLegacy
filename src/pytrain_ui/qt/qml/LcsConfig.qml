@@ -294,8 +294,10 @@ Popup {
 
                 TapHandler {
                     onTapped: {
+                        root.controller.selectConfiguredModule(modelData.deviceKey, modelData.tmccId, modelData.scope)
                         root.showingModules = false
-                        root.controller.selectDevice(modelData.deviceKey)
+                        root.page = 1
+                        baseIdField.text = String(root.controller.baseId)
                     }
                 }
             }
@@ -333,6 +335,15 @@ Popup {
                     else
                         root.page = 0
                 }
+            }
+
+            CabButton {
+                visible: root.showingModules
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 52
+                text: "CANCEL"
+                onClicked: root.close()
             }
 
             CabButton {
