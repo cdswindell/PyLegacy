@@ -14,9 +14,11 @@ Popup {
     closePolicy: Popup.NoAutoClose
     property bool showingModules: false
     property string moduleSortKey: "module"
+    property int page: 0
 
     onOpened: {
         showingModules = false
+        page = 0
         controller.reset()
         controller.refreshModules()
     }
@@ -41,14 +43,14 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            text: root.showingModules ? "My LCS Modules" : "Which module are you configuring?"
-            color: root.showingModules ? "#f4f6f8" : "#aeb5bf"
-            font.pixelSize: root.showingModules ? 20 : 16
-            font.bold: root.showingModules
+            text: root.showingModules ? "My LCS Modules" : (root.page === 0 ? "Which module are you configuring?" : root.controller.deviceLabel + " TMCC ID")
+            color: root.showingModules || root.page === 1 ? "#f4f6f8" : "#aeb5bf"
+            font.pixelSize: root.showingModules || root.page === 1 ? 20 : 16
+            font.bold: root.showingModules || root.page === 1
         }
 
         Repeater {
-            model: root.showingModules || !root.controller ? [] : root.controller.devices
+            model: root.showingModules || root.page !== 0 || !root.controller ? [] : root.controller.devices
 
             delegate: CabButton {
                 required property var modelData
@@ -63,7 +65,7 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            visible: !root.showingModules && root.controller && root.controller.deviceKey.length > 0
+            visible: !root.showingModules && root.page === 0 && root.controller && root.controller.deviceKey.length > 0
             text: {
                 if (!root.controller)
                     return ""
@@ -77,6 +79,104 @@ Popup {
             color: "#f0c36a"
             font.pixelSize: 14
             wrapMode: Text.WordWrap
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: !root.showingModules && root.page === 1
+            spacing: 10
+
+            Label {
+                text: "Base TMCC ID (1-" + (root.controller && root.controller.modes.length ? root.controller.modes.find(function(m) { return m.key === root.controller.modeKey }).maxBase : 98) + ")"
+                color: "#aeb5bf"
+                font.pixelSize: 16
+            }
+
+            TextField {
+                id: baseIdField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 54
+                text: root.controller ? String(root.controller.baseId) : "1"
+                font.pixelSize: 20
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: IntValidator { bottom: 1; top: 98 }
+                onEditingFinished: {
+                    if (root.controller)
+                        root.controller.setBaseId(Number(text))
+                }
+            }
+
+            Label {
+                text: "Mode"
+                color: "#f4f6f8"
+                font.pixelSize: 18
+                font.bold: true
+            }
+
+            Repeater {
+                model: root.controller ? root.controller.modes : []
+                delegate: CabButton {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 52
+                    text: modelData.idsLabel
+                    selected: root.controller.modeKey === modelData.key
+                    onClicked: root.controller.selectMode(modelData.key)
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: root.controller && root.controller.modes.some(function(m) { return m.key === root.controller.modeKey && m.note.length > 0 })
+                text: {
+                    if (!root.controller)
+                        return ""
+                    const mode = root.controller.modes.find(function(m) { return m.key === root.controller.modeKey })
+                    return mode ? mode.note : ""
+                }
+                color: "#aeb5bf"
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: root.controller && root.controller.assignments.length ? "Currently Assigned" : "Currently Assigned: Unassigned"
+                color: root.controller && root.controller.assignments.length ? "#f0c36a" : "#62d98b"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            Repeater {
+                model: root.controller ? root.controller.assignments : []
+                delegate: Label {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData.text
+                    color: "#f0c36a"
+                    font.pixelSize: 14
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: root.controller && root.controller.conflicts.length > 0
+                text: "Overlaps"
+                color: "#f0c36a"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            Repeater {
+                model: root.controller ? root.controller.conflicts : []
+                delegate: Label {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData.text
+                    color: "#f0c36a"
+                    font.pixelSize: 14
+                }
+            }
         }
 
         RowLayout {
@@ -214,7 +314,7 @@ Popup {
 
         Item {
             Layout.fillHeight: true
-            visible: !root.showingModules
+            visible: !root.showingModules && root.page === 0
         }
 
         RowLayout {
@@ -226,14 +326,20 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
-                text: "CANCEL"
-                onClicked: root.close()
+                text: root.page === 0 ? "CANCEL" : "BACK"
+                onClicked: {
+                    if (root.page === 0)
+                        root.close()
+                    else
+                        root.page = 0
+                }
             }
 
             CabButton {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
+                visible: root.showingModules || root.page === 0
                 text: root.showingModules ? "BACK" : "MY MODULES"
                 onClicked: {
                     if (root.showingModules) {
@@ -253,8 +359,12 @@ Popup {
                 font.bold: !root.showingModules
                 enabled: root.showingModules || (root.controller && root.controller.deviceKey.length > 0)
                 onClicked: {
-                    if (root.showingModules)
+                    if (root.showingModules) {
                         root.close()
+                    } else if (root.page === 0) {
+                        root.page = 1
+                        baseIdField.text = String(root.controller.baseId)
+                    }
                 }
             }
         }
