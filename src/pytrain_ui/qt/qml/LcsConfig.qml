@@ -13,6 +13,7 @@ Popup {
     focus: true
     closePolicy: Popup.NoAutoClose
     property bool showingModules: false
+    property string moduleSortKey: "module"
 
     onOpened: {
         showingModules = false
@@ -78,13 +79,64 @@ Popup {
             wrapMode: Text.WordWrap
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.showingModules
+            spacing: 8
+
+            Label {
+                text: "Sort:"
+                color: "#aeb5bf"
+                font.pixelSize: 14
+            }
+
+            CabButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 42
+                text: "TMCC ID"
+                selected: root.moduleSortKey === "tmccId"
+                onClicked: root.moduleSortKey = "tmccId"
+            }
+
+            CabButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 42
+                text: "MODULE TYPE"
+                selected: root.moduleSortKey === "module"
+                onClicked: root.moduleSortKey = "module"
+            }
+
+            CabButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 42
+                text: "SCOPE"
+                selected: root.moduleSortKey === "scope"
+                onClicked: root.moduleSortKey = "scope"
+            }
+        }
+
         ListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.showingModules
             clip: true
             spacing: 8
-            model: root.controller ? root.controller.modules : []
+            model: {
+                if (!root.controller)
+                    return []
+                const rows = root.controller.modules.slice()
+                rows.sort(function(a, b) {
+                    if (root.moduleSortKey === "tmccId")
+                        return a.tmccId - b.tmccId || a.module.localeCompare(b.module) || a.scope.localeCompare(b.scope)
+                    if (root.moduleSortKey === "scope")
+                        return a.scope.localeCompare(b.scope) || a.module.localeCompare(b.module) || a.tmccId - b.tmccId
+                    return a.module.localeCompare(b.module) || a.tmccId - b.tmccId || a.scope.localeCompare(b.scope)
+                })
+                return rows
+            }
 
             delegate: Rectangle {
                 required property var modelData
@@ -130,6 +182,8 @@ Popup {
                                 parts.push(modelData.mode)
                             if (modelData.ids.length && modelData.ids !== String(modelData.tmccId))
                                 parts.push(modelData.scope + " " + modelData.ids)
+                            if (modelData.action.length)
+                                parts.push("Action: " + modelData.action)
                             return parts.join(" · ")
                         }
                         color: "#aeb5bf"
