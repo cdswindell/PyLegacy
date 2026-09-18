@@ -6,10 +6,11 @@ Popup {
     id: root
     required property var controller
 
-    anchors.centerIn: Overlay.overlay
+    anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+    y: Math.max(76, (Overlay.overlay.height - height) / 2)
     width: Math.min(parent ? parent.width - 32 : 688, 688)
-    height: Math.min(parent ? parent.height - 48 : 1180, 1180)
-    modal: true
+    height: Math.min(parent ? parent.height - 80 : 1150, 1150)
+    modal: false
     focus: true
     closePolicy: Popup.NoAutoClose
     property bool showingModules: false
