@@ -560,6 +560,7 @@ Rectangle {
                 spacing: 8
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "THRU"
                     enabled: controller && controller.routeComponentIndex >= 0 &&
@@ -570,6 +571,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "OUT"
                     enabled: controller && controller.routeComponentIndex >= 0 &&
@@ -607,6 +609,7 @@ Rectangle {
                 spacing: 8
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "ADD…"
                     enabled: controller && controller.routeComponents.length < 16
@@ -737,6 +740,7 @@ Rectangle {
                     CabButton {
                         required property var modelData
                         Layout.fillWidth: true
+                        Layout.preferredWidth: 0
                         Layout.preferredHeight: 38
                         text: modelData.label
                         selected: root.routeCandidateSortKey === modelData.key
@@ -745,7 +749,7 @@ Rectangle {
                 }
                 CabButton {
                     visible: root.routeCandidateScope === "SWITCH"
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: 180
                     Layout.preferredHeight: 38
                     text: root.showUnnamedRouteSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
                     selected: true
