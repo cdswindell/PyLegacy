@@ -641,6 +641,7 @@ Rectangle {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 10
+                uniformCellWidths: true
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 50
