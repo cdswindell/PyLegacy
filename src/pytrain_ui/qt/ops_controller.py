@@ -296,6 +296,17 @@ class OpsController(QObject):
         self.changed.emit()
         return ""
 
+    @Slot(int, result=str)
+    def assignRouteBuilderId(self, tmcc_id: int) -> str:
+        if self._route_draft is None:
+            return "Open a route before assigning its TMCC ID."
+        try:
+            self._route_draft.assign_tmcc_id(tmcc_id)
+        except ValueError as exc:
+            return str(exc)
+        self.changed.emit()
+        return ""
+
     @Slot(int, result=bool)
     def routeExists(self, tmcc_id: int) -> bool:
         return self._existing_route(self._lookup_route(tmcc_id))
