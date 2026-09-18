@@ -32,8 +32,8 @@ class RouteDraft:
         road_name: str = "",
         road_number: str = "",
     ) -> None:
-        if not isinstance(tmcc_id, int) or isinstance(tmcc_id, bool) or not 1 <= tmcc_id <= 99:
-            raise ValueError("Route ID must be an integer from 1 to 99.")
+        if not isinstance(tmcc_id, int) or isinstance(tmcc_id, bool) or not 0 <= tmcc_id <= 99:
+            raise ValueError("Route ID must be an integer from 0 to 99.")
         self._validate_metadata(road_name, road_number)
         self._tmcc_id = tmcc_id
         self._components = self._copy_components(components)
@@ -44,6 +44,12 @@ class RouteDraft:
     @property
     def tmcc_id(self) -> int:
         return self._tmcc_id
+
+    def assign_tmcc_id(self, tmcc_id: int) -> None:
+        """Assign a valid address to an unnumbered route draft."""
+        if not isinstance(tmcc_id, int) or isinstance(tmcc_id, bool) or not 1 <= tmcc_id <= 98:
+            raise ValueError("Route ID must be an integer from 1 to 98.")
+        self._tmcc_id = tmcc_id
 
     @property
     def components(self) -> tuple[RouteComponent, ...]:
@@ -105,6 +111,8 @@ class RouteDraft:
         self._components = ()
 
     def validate(self, lookup: RouteLookup) -> None:
+        if not 1 <= self.tmcc_id <= 98:
+            raise ValueError("Assign a Route ID from 1 to 98 before saving.")
         self._validate_metadata(self.road_name, self.road_number)
         self._validate_graph(self._components, lookup)
 
