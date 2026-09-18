@@ -96,36 +96,48 @@ Rectangle {
     }
 
     function openAddRoute() {
-        addRouteId.text = ""
-        addRouteError.text = ""
-        addRoutePopup.open()
-        addRouteId.forceActiveFocus()
+        controller.closeRouteBuilder()
+        routeIdField.text = ""
+        routeNameField.text = ""
+        routeNumberField.text = ""
+        routeBuilderError.text = ""
+        routeBuilder.open()
+        routeIdField.forceActiveFocus()
+    }
+
+    function loadRouteBuilder(tmccId) {
+        const error = controller.openRouteBuilder(tmccId)
+        if (error.length > 0) {
+            routeBuilderError.text = error
+            return false
+        }
+        routeIdField.text = String(controller.routeBuilderId)
+        routeNameField.text = controller.routeBuilderName
+        routeNumberField.text = controller.routeBuilderNumber
+        routeBuilderError.text = ""
+        return true
     }
 
     function editRoute(tmccId) {
-        const error = controller.openRouteBuilder(tmccId)
-        if (error.length > 0)
+        if (!root.loadRouteBuilder(tmccId))
             return
-        routeNameField.text = controller.routeBuilderName
-        routeNumberField.text = controller.routeBuilderNumber
         routeBuilder.open()
     }
 
-    function createRoute() {
-        const tmccId = Number(addRouteId.text)
-        if (controller.routeExists(tmccId)) {
-            addRouteError.text = "Route " + tmccId + " already exists. Use EDIT… to modify it."
+    function routeIdEditingFinished() {
+        const text = routeIdField.text.trim()
+        if (!text.length) {
+            controller.closeRouteBuilder()
+            routeNameField.text = ""
+            routeNumberField.text = ""
             return
         }
-        const error = controller.openRouteBuilder(tmccId)
-        if (error.length > 0) {
-            addRouteError.text = error
+        const tmccId = Number(text)
+        if (tmccId < 1 || tmccId > 98) {
+            routeBuilderError.text = "Route ID must be an integer from 1 to 98."
             return
         }
-        addRoutePopup.close()
-        routeNameField.text = ""
-        routeNumberField.text = ""
-        routeBuilder.open()
+        root.loadRouteBuilder(tmccId)
     }
 
     function routeCandidateRows() {
@@ -392,71 +404,6 @@ Rectangle {
     }
 
     Popup {
-        id: addRoutePopup
-        anchors.centerIn: Overlay.overlay
-        width: Math.min(root.width - 80, 520)
-        modal: true
-        focus: true
-        closePolicy: Popup.NoAutoClose
-
-        background: Rectangle {
-            color: "#20242a"
-            radius: 14
-            border.width: 1
-            border.color: "#59616c"
-        }
-
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                Layout.fillWidth: true
-                text: "Add Route"
-                color: "#f4f6f8"
-                font.pixelSize: 24
-                font.bold: true
-            }
-            Label {
-                text: "TMCC ID (1-98)"
-                color: "#aeb5bf"
-            }
-            TextField {
-                id: addRouteId
-                Layout.fillWidth: true
-                Layout.preferredHeight: 50
-                maximumLength: 2
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: IntValidator { bottom: 1; top: 98 }
-                font.pixelSize: 18
-            }
-            Label {
-                id: addRouteError
-                Layout.fillWidth: true
-                visible: text.length > 0
-                color: "#ff7777"
-                font.pixelSize: 13
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 50
-                    text: "CANCEL"
-                    onClicked: addRoutePopup.close()
-                }
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 50
-                    text: "CREATE"
-                    font.bold: true
-                    onClicked: root.createRoute()
-                }
-            }
-        }
-    }
-
-    Popup {
         id: routeBuilder
         anchors.centerIn: Overlay.overlay
         width: Math.min(root.width - 24, 690)
@@ -479,7 +426,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Label {
                     Layout.fillWidth: true
-                    text: "Route Builder — " + (controller ? controller.routeBuilderId : "")
+                    text: "Route Builder"
                     color: "#f4f6f8"
                     font.pixelSize: 24
                     font.bold: true
@@ -489,6 +436,21 @@ Rectangle {
                     color: "#aeb5bf"
                     font.pixelSize: 14
                 }
+            }
+
+            Label {
+                text: "TMCC ID (1-98)"
+                color: "#aeb5bf"
+            }
+            TextField {
+                id: routeIdField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 46
+                maximumLength: 2
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: IntValidator { bottom: 1; top: 98 }
+                font.pixelSize: 17
+                onEditingFinished: root.routeIdEditingFinished()
             }
 
             Label {
@@ -693,6 +655,7 @@ Rectangle {
                     Layout.preferredHeight: 50
                     text: "SAVE ROUTE"
                     font.bold: true
+                    enabled: controller && controller.routeBuilderOpen
                     onClicked: {
                         const error = controller.saveRouteBuilder(routeNameField.text, routeNumberField.text)
                         if (error.length > 0)
