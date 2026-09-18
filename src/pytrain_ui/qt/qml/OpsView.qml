@@ -8,6 +8,8 @@ Rectangle {
     required property var controller
     property string sortKey: "roadName"
     property int editingSwitchId: 0
+    property string editingSwitchOriginalName: ""
+    property string editingSwitchOriginalNumber: ""
     property int pendingOverwriteSwitchId: 0
     property string populatedSwitchName: ""
     property string populatedSwitchNumber: ""
@@ -54,6 +56,8 @@ Rectangle {
         editingSwitchId = tmccId
         roadNameField.text = controller.switchRoadName(tmccId)
         roadNumberField.text = controller.switchRoadNumber(tmccId)
+        editingSwitchOriginalName = roadNameField.text
+        editingSwitchOriginalNumber = roadNumberField.text
         switchEditor.open()
         roadNameField.forceActiveFocus()
     }
@@ -1105,6 +1109,8 @@ Rectangle {
                     Layout.preferredHeight: 50
                     text: "SAVE"
                     font.bold: true
+                    enabled: roadNameField.text !== root.editingSwitchOriginalName ||
+                             roadNumberField.text !== root.editingSwitchOriginalNumber
                     onClicked: {
                         controller.saveSwitchIdentity(root.editingSwitchId,
                                                       roadNameField.text,
