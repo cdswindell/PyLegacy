@@ -44,11 +44,13 @@ ApplicationWindow {
             }
 
             OpsView {
+                id: switchOpsView
                 controller: switchOpsController
                 lcsController: lcsConfigController
             }
 
             OpsView {
+                id: routeOpsView
                 controller: routeOpsController
             }
         }
@@ -65,6 +67,8 @@ ApplicationWindow {
             Layout.preferredHeight: 52
             currentScope: window.activeScope
             onScopePressed: function(scope) {
+                switchOpsView.cancelTransientPanels()
+                routeOpsView.cancelTransientPanels()
                 if (scope === "SWITCH") {
                     switchOpsController.reload()
                     window.activeScope = "SWITCH"
