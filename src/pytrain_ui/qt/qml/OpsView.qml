@@ -87,8 +87,13 @@ Rectangle {
         if (tmccId < 1 || tmccId > 98)
             return
         const identity = controller.switchIdentity(tmccId)
-        if (!identity.exists)
+        if (!identity.exists) {
+            if (!addRoadNumber.text.trim() || addRoadNumber.text === populatedSwitchNumber) {
+                addRoadNumber.text = String(tmccId).padStart(4, "0")
+                populatedSwitchNumber = addRoadNumber.text
+            }
             return
+        }
         if (!addRoadName.text.trim()) {
             addRoadName.text = identity.roadName
             populatedSwitchName = identity.roadName
@@ -974,6 +979,10 @@ Rectangle {
                     Layout.preferredHeight: 50
                     text: "ADD SWITCH"
                     font.bold: true
+                    enabled: addSwitchId.acceptableInput &&
+                             addRoadName.text.trim().length > 0 &&
+                             addRoadNumber.acceptableInput &&
+                             addRoadNumber.text.trim().length > 0
                     onClicked: root.submitAddSwitch(false)
                 }
             }
