@@ -274,8 +274,8 @@ class OpsController(QObject):
 
     @Slot(int, result=str)
     def openRouteBuilder(self, tmcc_id: int) -> str:
-        if self._scope != CommandScope.ROUTE or not 1 <= tmcc_id <= 99:
-            return "Route ID must be an integer from 1 to 99."
+        if self._scope != CommandScope.ROUTE or not 1 <= tmcc_id <= 98:
+            return "Route ID must be an integer from 1 to 98."
         state = self._lookup_route(tmcc_id)
         self._route_draft = RouteDraft(
             tmcc_id,
