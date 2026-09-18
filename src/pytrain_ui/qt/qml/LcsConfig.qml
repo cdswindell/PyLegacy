@@ -385,15 +385,57 @@ Popup {
                 wrapMode: Text.WordWrap
             }
 
-            Repeater {
-                model: root.controller ? root.controller.review : []
-                delegate: Label {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    text: modelData
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: manualSteps.implicitHeight + 38
+                color: "transparent"
+                radius: 8
+                border.width: 1
+                border.color: "#59616c"
+
+                Label {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 14
+                    anchors.top: parent.top
+                    anchors.topMargin: -11
+                    text: "Manual Configuration"
                     color: "#f4f6f8"
-                    font.pixelSize: 15
-                    wrapMode: Text.WordWrap
+                    font.pixelSize: 16
+                    font.bold: true
+
+                    background: Rectangle {
+                        color: "#171b20"
+                    }
+                }
+
+                ColumnLayout {
+                    id: manualSteps
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 14
+                    anchors.topMargin: 22
+                    spacing: 8
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: "These are the Cab-remote steps you would perform manually. CONFIGURE sends them automatically."
+                        color: "#aeb5bf"
+                        font.pixelSize: 14
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Repeater {
+                        model: root.controller ? root.controller.review : []
+                        delegate: Label {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            text: modelData
+                            color: "#f4f6f8"
+                            font.pixelSize: 15
+                            wrapMode: Text.WordWrap
+                        }
+                    }
                 }
             }
 
