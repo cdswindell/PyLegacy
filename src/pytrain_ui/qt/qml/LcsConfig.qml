@@ -15,6 +15,7 @@ Popup {
     property bool showingModules: false
     property string moduleSortKey: "module"
     property int page: 0
+    property string configureError: ""
 
     onOpened: {
         showingModules = false
@@ -179,6 +180,123 @@ Popup {
             }
         }
 
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !root.showingModules && root.page === 2
+            spacing: 10
+
+            Label {
+                text: "Options"
+                color: "#f4f6f8"
+                font.pixelSize: 20
+                font.bold: true
+            }
+
+            Repeater {
+                model: root.controller ? root.controller.options : []
+
+                delegate: ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: modelData.label
+                        color: "#f4f6f8"
+                        font.pixelSize: 16
+                        font.bold: true
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Repeater {
+                        model: modelData.choices
+                        delegate: CabButton {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 48
+                            text: modelData.label
+                            selected: modelData.selected
+                            onClicked: root.controller.selectOption(parent.parent.modelData.key, modelData.index)
+                        }
+                    }
+
+                    CheckBox {
+                        visible: modelData.kind === "CHECKBOX"
+                        text: modelData.label
+                        checked: modelData.checked
+                        onToggled: root.controller.setOptionChecked(modelData.key, checked)
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        visible: modelData.note.length > 0
+                        text: modelData.note
+                        color: "#aeb5bf"
+                        font.pixelSize: 14
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.controller && root.controller.options.length === 0
+                text: "No additional options are required for this module."
+                color: "#aeb5bf"
+                font.pixelSize: 16
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !root.showingModules && root.page === 3
+            spacing: 10
+
+            Label {
+                text: "Review and Configure"
+                color: "#f4f6f8"
+                font.pixelSize: 20
+                font.bold: true
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: root.controller ? root.controller.programInstruction : ""
+                color: "#f0c36a"
+                font.pixelSize: 15
+                wrapMode: Text.WordWrap
+            }
+
+            Repeater {
+                model: root.controller ? root.controller.review : []
+                delegate: Label {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData
+                    color: "#f4f6f8"
+                    font.pixelSize: 15
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: root.configureError.length > 0
+                text: root.configureError
+                color: "#ff9b78"
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             visible: root.showingModules
@@ -333,7 +451,7 @@ Popup {
                     if (root.page === 0)
                         root.close()
                     else
-                        root.page = 0
+                        root.page = root.page - 1
                 }
             }
 
@@ -366,7 +484,7 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
-                text: root.showingModules ? "CLOSE" : "NEXT"
+                text: root.showingModules ? "CLOSE" : (root.page === 3 ? "CONFIGURE" : "NEXT")
                 font.bold: !root.showingModules
                 enabled: root.showingModules || (root.controller && root.controller.deviceKey.length > 0)
                 onClicked: {
@@ -375,6 +493,12 @@ Popup {
                     } else if (root.page === 0) {
                         root.page = 1
                         baseIdField.text = String(root.controller.baseId)
+                    } else if (root.page === 1) {
+                        root.page = root.controller.options.length > 0 ? 2 : 3
+                    } else if (root.page === 2) {
+                        root.page = 3
+                    } else {
+                        root.configureError = root.controller.configure()
                     }
                 }
             }
