@@ -440,6 +440,31 @@ Popup {
                 }
             }
 
+            Rectangle {
+                Layout.fillWidth: true
+                visible: root.controller && root.controller.configureStatus.length > 0
+                implicitHeight: configureStatusLabel.implicitHeight + 24
+                radius: 8
+                color: "transparent"
+                border.width: 1
+                border.color: root.controller && root.controller.configureState === "success"
+                              ? "#62d98b"
+                              : (root.controller && root.controller.configureState === "error" ? "#ff9b78" : "#59616c")
+
+                Label {
+                    id: configureStatusLabel
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    text: root.controller ? root.controller.configureStatus : ""
+                    color: root.controller && root.controller.configureState === "success"
+                           ? "#62d98b"
+                           : (root.controller && root.controller.configureState === "error" ? "#ff9b78" : "#f0c36a")
+                    font.pixelSize: 15
+                    font.bold: root.controller && root.controller.configureState !== "polling"
+                    wrapMode: Text.WordWrap
+                }
+            }
+
             Label {
                 Layout.fillWidth: true
                 visible: root.configureError.length > 0
