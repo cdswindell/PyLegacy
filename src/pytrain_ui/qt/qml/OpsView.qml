@@ -204,6 +204,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
+                    Layout.preferredWidth: 0
             Label {
                 text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
                 color: "#f4f6f8"
@@ -584,6 +585,7 @@ Rectangle {
                 spacing: 8
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "MOVE LEFT"
                     enabled: controller && controller.routeComponentIndex > 0
@@ -591,6 +593,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "MOVE RIGHT"
                     enabled: controller && controller.routeComponentIndex >= 0 &&
@@ -611,6 +614,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "REMOVE"
                     enabled: controller && controller.routeComponentIndex >= 0
@@ -618,6 +622,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 46
                     text: "CLEAR ALL"
                     enabled: controller && controller.routeComponents.length > 0
@@ -643,6 +648,7 @@ Rectangle {
                 spacing: 10
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: {
@@ -652,6 +658,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "SAVE ROUTE"
                     font.bold: true
@@ -698,6 +705,7 @@ Rectangle {
                 spacing: 8
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 42
                     text: "SWITCHES"
                     selected: root.routeCandidateScope === "SWITCH"
@@ -705,6 +713,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 42
                     text: "ROUTES"
                     selected: root.routeCandidateScope === "ROUTE"
@@ -952,6 +961,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "ADD SWITCH"
                     font.bold: true
@@ -1004,6 +1014,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "REPLACE SWITCH"
                     font.bold: true
@@ -1083,6 +1094,7 @@ Rectangle {
                 }
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "SAVE"
                     font.bold: true
