@@ -5,14 +5,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
 
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
+from pytrain.gui.accessories.accessory_registry import PortBehavior
 from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.protocol.constants import CommandScope
+from pytrain.utils.path_utils import find_file
+
+from pytrain_ui.accessory_contracts import (
+    AccessoryOperationViewState,
+    AccessoryOperatingViewState,
+    AccessoryPowerState,
+    AnimationPolicy,
+    animation_policy,
+)
 
 
 class AccessoryViewKind(str, Enum):
@@ -163,6 +173,133 @@ class AccessoryCatalogController(QObject):
             preferred_view=AccessoryViewKind.LCS if lcs_labels else AccessoryViewKind.GENERIC,
             user_defined=bool(state.is_user_defined),
         )
+
+
+    @staticmethod
+    def _image_source(filename: str | None) -> str:
+        if not filename:
+            return ""
+        path = find_file(filename)
+        return QUrl.fromLocalFile(str(path)).toString() if path else ""
+
+    @staticmethod
+    def _power_state(state: AccessoryState | None) -> tuple[AccessoryPowerState, bool]:
+        if state is None or not state.is_known:
+            return AccessoryPowerState.UNKNOWN, False
+        if state.is_aux_on:
+            value = AccessoryPowerState.ON
+        elif state.is_aux_off:
+            value = AccessoryPowerState.OFF
+        else:
+            value = AccessoryPowerState.UNKNOWN
+        # LCS proxy state is authoritative once PDI control/config traffic has
+        # populated it. Generic TMCC state remains useful but is command-inferred.
+        authoritative = bool(getattr(state, "_pdi_source", False))
+        return value, authoritative
+
+    @classmethod
+    def _configured_operating_state(
+        cls,
+        key: str,
+        configured: ConfiguredAccessory,
+    ) -> AccessoryOperatingViewState:
+        registry = configured.registry
+        spec = registry.get_spec(configured.accessory_type)
+        operations: list[AccessoryOperationViewState] = []
+
+        for assets in configured.operation_assets:
+            tmcc_id = configured.tmcc_id_for(assets.key)
+            state = cls._state(tmcc_id)
+            power, authoritative = cls._power_state(state)
+            is_on = power == AccessoryPowerState.ON
+            label = registry.get_operation_label_for_state(
+                spec,
+                assets.key,
+                variant=configured.definition.variant,
+                is_on=is_on if power != AccessoryPowerState.UNKNOWN else None,
+            )
+            policy = animation_policy(assets.behavior)
+            operations.append(
+                AccessoryOperationViewState(
+                    key=assets.key,
+                    label=label,
+                    tmcc_id=tmcc_id,
+                    behavior=assets.behavior,
+                    state=power,
+                    state_authoritative=authoritative,
+                    image=cls._image_source(assets.image),
+                    off_image=cls._image_source(assets.off_image),
+                    on_image=cls._image_source(assets.on_image),
+                    animation_policy=policy,
+                    animation_running=is_on and policy in {AnimationPolicy.STATE, AnimationPolicy.MOMENTARY},
+                    width=assets.width,
+                    height=assets.height,
+                )
+            )
+
+        power_operation = next((op for op in operations if op.key.strip().lower() == "power"), None)
+        if power_operation is None and len(operations) == 1:
+            power_operation = operations[0]
+        power = power_operation.state if power_operation is not None else AccessoryPowerState.UNKNOWN
+        authoritative = power_operation.state_authoritative if power_operation is not None else False
+        return AccessoryOperatingViewState(
+            key=key,
+            title=configured.label,
+            artwork=cls._image_source(configured.image_path),
+            artwork_aspect_ratio=3.0,
+            power_state=power,
+            power_state_authoritative=authoritative,
+            operations=tuple(operations),
+        )
+
+    @staticmethod
+    def _operation_row(operation: AccessoryOperationViewState) -> dict:
+        return {
+            "key": operation.key,
+            "label": operation.label,
+            "tmccId": operation.tmcc_id,
+            "behavior": operation.behavior.value,
+            "state": operation.state.value,
+            "stateAuthoritative": operation.state_authoritative,
+            "imageSource": operation.image,
+            "offImageSource": operation.off_image,
+            "onImageSource": operation.on_image,
+            "animationPolicy": operation.animation_policy.value,
+            "animationRunning": operation.animation_running,
+            "width": operation.width or 0,
+            "height": operation.height or 0,
+        }
+
+    @Slot(str, result="QVariantMap")
+    def operatingView(self, key: str) -> dict:
+        """Return the common operating-view contract for a catalog accessory."""
+
+        descriptor = self._descriptors.get(key)
+        if descriptor is None:
+            return {}
+        if descriptor.configured_accessory is not None:
+            view = self._configured_operating_state(key, descriptor.configured_accessory)
+            return {
+                "key": view.key,
+                "title": view.title,
+                "artworkSource": view.artwork,
+                "artworkAspectRatio": view.artwork_aspect_ratio,
+                "powerState": view.power_state.value,
+                "powerStateAuthoritative": view.power_state_authoritative,
+                "operations": [self._operation_row(operation) for operation in view.operations],
+            }
+
+        state = self._state(descriptor.primary_tmcc_id)
+        power, authoritative = self._power_state(state)
+        return {
+            "key": key,
+            "title": descriptor.name,
+            "artworkSource": "",
+            "artworkAspectRatio": 3.0,
+            "powerState": power.value,
+            "powerStateAuthoritative": authoritative,
+            "operations": [],
+        }
 
     @Slot()
     def reload(self) -> None:
