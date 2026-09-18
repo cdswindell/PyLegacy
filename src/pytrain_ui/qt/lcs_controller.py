@@ -5,7 +5,12 @@ from __future__ import annotations
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from pytrain.gui.controller.lcs_config_panel import SCOPE_LABEL
-from pytrain.gui.controller.lcs_device_registry import MAX_TMCC_ID, SENSOR_TRACK_ACTION, configurable_devices, enabled_modes
+from pytrain.gui.controller.lcs_device_registry import (
+    MAX_TMCC_ID,
+    SENSOR_TRACK_ACTION,
+    configurable_devices,
+    enabled_modes,
+)
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of, overlaps, train_overlaps, trains_of
 
 
@@ -95,9 +100,18 @@ class LcsConfigController(QObject):
             return []
         rows = []
         for occupant in occupants_of(self._base_id, scope=mode.scope):
-            rows.append({"text": f"{occupant.device.label} {SCOPE_LABEL.get(occupant.effective_scope, '')} {occupant.base_id} - {occupant.last_id}"})
+            rows.append(
+                {
+                    "text": (
+                        f"{occupant.device.label} {SCOPE_LABEL.get(occupant.effective_scope, '')} "
+                        f"{occupant.base_id} - {occupant.last_id}"
+                    )
+                }
+            )
         if mode.scope.name == "TRAIN":
-            rows.extend({"text": f"Train {train.base_id}: {train.name}"} for train in trains_of(self._base_id))
+            rows.extend(
+                {"text": f"Train {train.base_id}: {train.name}"} for train in trains_of(self._base_id)
+            )
         return rows
 
     @Property("QVariantList", notify=changed)
@@ -107,9 +121,19 @@ class LcsConfigController(QObject):
             return []
         rows = []
         for occupant in overlaps(self._base_id, mode.ports, scope=mode.scope):
-            rows.append({"text": f"{occupant.device.label} {SCOPE_LABEL.get(occupant.effective_scope, '')} {occupant.base_id} - {occupant.last_id}"})
+            rows.append(
+                {
+                    "text": (
+                        f"{occupant.device.label} {SCOPE_LABEL.get(occupant.effective_scope, '')} "
+                        f"{occupant.base_id} - {occupant.last_id}"
+                    )
+                }
+            )
         if mode.scope.name == "TRAIN":
-            rows.extend({"text": f"Train {train.base_id}: {train.name}"} for train in train_overlaps(self._base_id, mode.ports))
+            rows.extend(
+                {"text": f"Train {train.base_id}: {train.name}"}
+                for train in train_overlaps(self._base_id, mode.ports)
+            )
         return rows
 
     @Slot(str)
@@ -172,7 +196,10 @@ class LcsConfigController(QObject):
         if device is None:
             return
         modes = enabled_modes(device)
-        mode = next((item for item in modes if SCOPE_LABEL.get(item.scope, item.scope.name) == scope), modes[0] if modes else None)
+        mode = next(
+            (item for item in modes if SCOPE_LABEL.get(item.scope, item.scope.name) == scope),
+            modes[0] if modes else None,
+        )
         self._device_key = key
         self._mode_key = mode.key if mode is not None else ""
         maximum = mode.max_base if mode is not None else MAX_TMCC_ID
