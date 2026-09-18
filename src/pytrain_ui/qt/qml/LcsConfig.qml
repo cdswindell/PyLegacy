@@ -47,9 +47,9 @@ Popup {
                 required property var modelData
                 Layout.fillWidth: true
                 Layout.preferredHeight: 70
-                highlighted: root.controller.deviceKey === modelData.key
+                selected: root.controller.deviceKey === modelData.key
                 text: modelData.label + (modelData.blurb.length ? "   " + modelData.blurb : "")
-                font.bold: highlighted
+                font.bold: selected
                 onClicked: root.controller.selectDevice(modelData.key)
             }
         }
