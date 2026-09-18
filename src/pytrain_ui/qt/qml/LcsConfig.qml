@@ -532,15 +532,13 @@ Popup {
             spacing: 10
 
             CabButton {
-                visible: !root.showingModules
+                visible: !root.showingModules && root.page > 0
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
-                text: root.page === 0 ? "CANCEL" : "BACK"
+                text: "BACK"
                 onClicked: {
-                    if (root.page === 0)
-                        root.close()
-                    else if (root.page === 3 && root.controller && root.controller.options.length <= 2)
+                    if (root.page === 3 && root.controller && root.controller.options.length <= 2)
                         root.page = 1
                     else
                         root.page = root.page - 1
@@ -548,7 +546,6 @@ Popup {
             }
 
             CabButton {
-                visible: root.showingModules
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
