@@ -470,6 +470,8 @@ Popup {
                     font.pixelSize: 15
                     font.bold: root.controller && root.controller.configureState !== "polling"
                     wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
                 }
             }
 
