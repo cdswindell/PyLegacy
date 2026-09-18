@@ -697,9 +697,9 @@ Rectangle {
                              Number(routeIdField.text) >= 1 && Number(routeIdField.text) <= 98
                     onClicked: {
                         if (controller.routeBuilderId !== Number(routeIdField.text)) {
-                            const openError = controller.openRouteBuilder(Number(routeIdField.text))
-                            if (openError.length > 0) {
-                                routeBuilderError.text = openError
+                            const idError = controller.assignRouteBuilderId(Number(routeIdField.text))
+                            if (idError.length > 0) {
+                                routeBuilderError.text = idError
                                 return
                             }
                         }
