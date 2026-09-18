@@ -955,6 +955,7 @@ Rectangle {
                 spacing: 10
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: addSwitchPopup.close()
@@ -1008,6 +1009,7 @@ Rectangle {
                 spacing: 10
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: overwriteSwitchPopup.close()
