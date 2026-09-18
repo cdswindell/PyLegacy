@@ -120,6 +120,60 @@ class LcsConfigController(QObject):
             )
         return rows
 
+    def _reported_occupant(self):
+        device = self._device()
+        mode = self._mode()
+        if device is None or mode is None:
+            return None
+        return next(
+            (
+                item
+                for item in occupants_of(self._base_id, scope=mode.scope)
+                if item.device is device and item.base_id == self._base_id
+            ),
+            None,
+        )
+
+    def _load_reported_options(self) -> None:
+        device = self._device()
+        mode = self._mode()
+        occupant = self._reported_occupant()
+        self._options = {}
+        if device is None or mode is None or occupant is None:
+            return
+        for option in programmed_options(device, mode):
+            value = option.reported_by(occupant.config)
+            if value is not None:
+                self._options[option.key] = value
+
+    @Property("QVariantList", notify=changed)
+    def currentConfiguration(self) -> list[str]:
+        """Describe the reported configuration at the address being edited."""
+        occupant = self._reported_occupant()
+        if occupant is None:
+            return ["No matching configured module reported at this address."]
+        scope = SCOPE_LABEL.get(occupant.effective_scope, occupant.effective_scope.name)
+        mode = occupant.mode
+        rows = [
+            f"Module: {occupant.device.label}",
+            f"TMCC ID: {occupant.base_id}",
+            f"Scope: {scope}",
+            f"Mode: {mode.name if mode is not None else scope}",
+        ]
+        device = self._device()
+        selected_mode = self._mode()
+        if device is not None and selected_mode is not None:
+            for option in programmed_options(device, selected_mode):
+                value = option.reported_by(occupant.config)
+                if value is None:
+                    continue
+                if option.kind.name == "CHECKBOX":
+                    display = "On" if bool(value) else "Off"
+                else:
+                    display = next((label for label, choice in option.choices if choice == value), str(value))
+                rows.append(f"{option.label}: {display}")
+        return rows
+
     @Property("QVariantList", notify=changed)
     def review(self) -> list[str]:
         device = self._device()
@@ -227,7 +281,7 @@ class LcsConfigController(QObject):
             return
         self._mode_key = mode.key
         self._base_id = min(self._base_id, mode.max_base)
-        self._options = {}
+        self._load_reported_options()
         self.changed.emit()
 
     @Slot(int)
@@ -237,6 +291,7 @@ class LcsConfigController(QObject):
         value = min(max(int(value), 1), maximum)
         if value != self._base_id:
             self._base_id = value
+            self._load_reported_options()
             self.changed.emit()
 
     @Property("QVariantList", notify=changed)
@@ -286,20 +341,7 @@ class LcsConfigController(QObject):
         self._mode_key = mode.key if mode is not None else ""
         maximum = mode.max_base if mode is not None else MAX_TMCC_ID
         self._base_id = min(max(int(base_id), 1), maximum)
-        self._options = {}
-        occupant = next(
-            (
-                item
-                for item in occupants_of(self._base_id, scope=mode.scope if mode is not None else None)
-                if item.device is device and item.base_id == self._base_id
-            ),
-            None,
-        )
-        if occupant is not None and mode is not None:
-            for option in programmed_options(device, mode):
-                value = option.reported_by(occupant.config)
-                if value is not None:
-                    self._options[option.key] = value
+        self._load_reported_options()
         self.changed.emit()
 
     @Slot(str)
