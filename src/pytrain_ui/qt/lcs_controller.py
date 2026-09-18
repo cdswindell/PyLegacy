@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+
+from pytrain.utils.path_utils import find_file
 
 from pytrain.gui.controller.lcs_config_panel import SCOPE_LABEL
 from pytrain.gui.controller.lcs_device_registry import (
@@ -68,6 +70,20 @@ class LcsConfigController(QObject):
     def deviceLabel(self) -> str:
         device = self._device()
         return device.label if device is not None else ""
+
+    @Property(str, notify=changed)
+    def deviceImage(self) -> str:
+        images = {
+            "amc2": "LCS-AMC2-6-81641.jpg",
+            "asc2": "LCS-ASC2-6-81639.jpg",
+            "bpc2": "LCS-BPC2-6-81640.jpg",
+            "sensor_track": "LCS-Sensor-Track-6-81294.jpg",
+        }
+        filename = images.get(self._device_key)
+        if not filename:
+            return ""
+        path = find_file(filename)
+        return QUrl.fromLocalFile(str(path)).toString() if path else ""
 
     @Property(str, notify=changed)
     def modeKey(self) -> str:
