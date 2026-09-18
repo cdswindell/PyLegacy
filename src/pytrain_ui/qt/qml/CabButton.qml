@@ -14,6 +14,7 @@ Control {
     readonly property bool pressed: tapHandler.pressed
 
     signal clicked()
+    signal doubleClicked()
 
     implicitHeight: 62
     font.pixelSize: 20
@@ -44,6 +45,7 @@ Control {
             if (pressed)
                 root.clicked()
         }
+        onDoubleTapped: root.doubleClicked()
     }
 
     Timer {
