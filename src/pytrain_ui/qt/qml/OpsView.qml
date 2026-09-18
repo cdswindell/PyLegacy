@@ -1094,6 +1094,7 @@ Rectangle {
 
                 CabButton {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "CANCEL"
                     onClicked: switchEditor.close()
