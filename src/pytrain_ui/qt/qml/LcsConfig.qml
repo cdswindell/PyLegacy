@@ -152,6 +152,86 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
+                text: "Current Device Configuration"
+                color: "#f4f6f8"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            Repeater {
+                model: root.controller ? root.controller.currentConfiguration : []
+                delegate: Label {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData
+                    color: "#aeb5bf"
+                    font.pixelSize: 14
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: root.controller && root.controller.options.length > 0 && root.controller.options.length <= 2
+                spacing: 8
+
+                Label {
+                    text: "Options"
+                    color: "#f4f6f8"
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Repeater {
+                    model: root.controller ? root.controller.options : []
+                    delegate: ColumnLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Label {
+                            Layout.fillWidth: true
+                            visible: modelData.kind !== "CHECKBOX"
+                            text: modelData.label
+                            color: "#f4f6f8"
+                            font.pixelSize: 16
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Repeater {
+                            model: modelData.choices
+                            delegate: CabButton {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 48
+                                text: modelData.label
+                                selected: modelData.selected
+                                onClicked: root.controller.selectOption(parent.parent.modelData.key, modelData.index)
+                            }
+                        }
+
+                        CheckBox {
+                            visible: modelData.kind === "CHECKBOX"
+                            text: modelData.label
+                            checked: modelData.checked
+                            onToggled: root.controller.setOptionChecked(modelData.key, checked)
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            visible: modelData.note.length > 0
+                            text: modelData.note
+                            color: "#aeb5bf"
+                            font.pixelSize: 14
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
                 text: root.controller && root.controller.assignments.length ? "Currently Assigned" : "Currently Assigned: Unassigned"
                 color: root.controller && root.controller.assignments.length ? "#f0c36a" : "#62d98b"
                 font.pixelSize: 16
@@ -460,6 +540,8 @@ Popup {
                 onClicked: {
                     if (root.page === 0)
                         root.close()
+                    else if (root.page === 3 && root.controller && root.controller.options.length <= 2)
+                        root.page = 1
                     else
                         root.page = root.page - 1
                 }
@@ -504,7 +586,7 @@ Popup {
                         root.page = 1
                         baseIdField.text = String(root.controller.baseId)
                     } else if (root.page === 1) {
-                        root.page = root.controller.options.length > 0 ? 2 : 3
+                        root.page = root.controller.options.length > 2 ? 2 : 3
                     } else if (root.page === 2) {
                         root.page = 3
                     } else {
