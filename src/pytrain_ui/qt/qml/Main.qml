@@ -45,6 +45,7 @@ ApplicationWindow {
 
             OpsView {
                 controller: switchOpsController
+                lcsController: lcsConfigController
             }
 
             OpsView {
