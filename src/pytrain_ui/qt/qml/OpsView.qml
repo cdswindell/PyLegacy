@@ -424,10 +424,11 @@ Rectangle {
 
     Popup {
         id: routeBuilder
-        anchors.centerIn: Overlay.overlay
+        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 24, 690)
-        height: Math.min(root.height - 24, 1160)
-        modal: true
+        height: Math.min(root.height - 64, 1160)
+        modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
 
@@ -698,10 +699,11 @@ Rectangle {
 
     Popup {
         id: routePicker
-        anchors.centerIn: Overlay.overlay
+        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 50, 640)
         height: Math.min(root.height - 100, 940)
-        modal: true
+        modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
 
@@ -873,9 +875,10 @@ Rectangle {
 
     Popup {
         id: addSwitchPopup
-        anchors.centerIn: Overlay.overlay
+        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 40, 620)
-        modal: true
+        modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
 
@@ -1000,9 +1003,10 @@ Rectangle {
 
     Popup {
         id: overwriteSwitchPopup
-        anchors.centerIn: Overlay.overlay
+        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 70, 560)
-        modal: true
+        modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
 
@@ -1054,9 +1058,10 @@ Rectangle {
 
     Popup {
         id: switchEditor
-        anchors.centerIn: Overlay.overlay
+        anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+        y: Math.max(76, (Overlay.overlay.height - height) / 2)
         width: Math.min(root.width - 40, 620)
-        modal: true
+        modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
 
