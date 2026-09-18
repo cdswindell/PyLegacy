@@ -523,8 +523,13 @@ Popup {
         }
 
         RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
+            CabButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 52
+                text: "CANCEL"
+                onClicked: root.close()
+            }
 
             CabButton {
                 visible: !root.showingModules && root.page > 0
@@ -540,13 +545,8 @@ Popup {
                 }
             }
 
-            CabButton {
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.preferredHeight: 52
-                text: "CANCEL"
-                onClicked: root.close()
-            }
+            Layout.fillWidth: true
+            spacing: 10
 
             CabButton {
                 Layout.fillWidth: true
