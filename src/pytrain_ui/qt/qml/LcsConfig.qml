@@ -383,8 +383,9 @@ Popup {
                 Layout.fillWidth: true
                 Layout.topMargin: 8
                 Layout.bottomMargin: 10
+                horizontalAlignment: Text.AlignHCenter
                 text: root.controller && root.controller.programInstruction.length > 0
-                      ? root.controller.programInstruction + ", then press CONFIGURE below"
+                      ? root.controller.programInstruction + " then press CONFIGURE below"
                       : ""
                 color: "#f0c36a"
                 font.pixelSize: 19
