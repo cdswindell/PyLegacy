@@ -165,6 +165,20 @@ class LcsConfigController(QObject):
             )
         return rows
 
+    @Slot(str, int, str)
+    def selectConfiguredModule(self, key: str, base_id: int, scope: str) -> None:
+        """Load a reported module into the configuration editor."""
+        device = next((item for item in configurable_devices() if item.key == key), None)
+        if device is None:
+            return
+        modes = enabled_modes(device)
+        mode = next((item for item in modes if SCOPE_LABEL.get(item.scope, item.scope.name) == scope), modes[0] if modes else None)
+        self._device_key = key
+        self._mode_key = mode.key if mode is not None else ""
+        maximum = mode.max_base if mode is not None else MAX_TMCC_ID
+        self._base_id = min(max(int(base_id), 1), maximum)
+        self.changed.emit()
+
     @Slot(str)
     def selectDevice(self, key: str) -> None:
         if key == self._device_key:
