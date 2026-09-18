@@ -10,7 +10,9 @@ from pytrain.gui.controller.lcs_device_registry import (
     SENSOR_TRACK_ACTION,
     configurable_devices,
     enabled_modes,
+    programmed_options,
 )
+from pytrain.gui.controller.lcs_sequence_builder import build_program
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of, overlaps, train_overlaps, trains_of
 
 
@@ -24,6 +26,7 @@ class LcsConfigController(QObject):
         self._device_key = ""
         self._mode_key = ""
         self._base_id = 1
+        self._options: dict[str, object] = {}
 
     @Property("QVariantList", notify=changed)
     def devices(self) -> list[dict]:
@@ -94,6 +97,87 @@ class LcsConfigController(QObject):
         ]
 
     @Property("QVariantList", notify=changed)
+    def options(self) -> list[dict]:
+        device = self._device()
+        mode = self._mode()
+        if device is None or mode is None:
+            return []
+        rows = []
+        for option in programmed_options(device, mode):
+            choices = [
+                {"index": index, "label": label, "selected": self._options.get(option.key, option.default) == value}
+                for index, (label, value) in enumerate(option.choices)
+            ]
+            rows.append(
+                {
+                    "key": option.key,
+                    "label": option.label,
+                    "kind": option.kind.name,
+                    "checked": bool(self._options.get(option.key, option.default)),
+                    "choices": choices,
+                    "note": option.note or "",
+                }
+            )
+        return rows
+
+    @Property("QVariantList", notify=changed)
+    def review(self) -> list[str]:
+        device = self._device()
+        mode = self._mode()
+        if device is None or mode is None:
+            return []
+        try:
+            return build_program(device, mode, self._base_id, self._options).display
+        except ValueError:
+            return []
+
+    @Property(str, notify=changed)
+    def programInstruction(self) -> str:
+        device = self._device()
+        mode = self._mode()
+        if device is None or mode is None:
+            return ""
+        try:
+            return build_program(device, mode, self._base_id, self._options).program_instruction
+        except ValueError:
+            return ""
+
+    @Slot(str, int)
+    def selectOption(self, key: str, index: int) -> None:
+        device = self._device()
+        if device is None:
+            return
+        try:
+            option = device.option(key)
+        except ValueError:
+            return
+        if not 0 <= index < len(option.choices):
+            return
+        self._options[key] = option.choices[index][1]
+        self.changed.emit()
+
+    @Slot(str, bool)
+    def setOptionChecked(self, key: str, checked: bool) -> None:
+        self._options[key] = checked
+        self.changed.emit()
+
+    @Slot(result=str)
+    def configure(self) -> str:
+        device = self._device()
+        mode = self._mode()
+        if device is None or mode is None:
+            return "Select a module and mode first."
+        try:
+            program = build_program(device, mode, self._base_id, self._options)
+        except ValueError as exc:
+            return str(exc)
+        for request in program.presses:
+            request.send()
+        for request in program.verify:
+            request.send()
+        return ""
+
+    @Property("QVariantList", notify=changed)
     def assignments(self) -> list[dict]:
         mode = self._mode()
         if mode is None:
@@ -143,6 +227,7 @@ class LcsConfigController(QObject):
             return
         self._mode_key = mode.key
         self._base_id = min(self._base_id, mode.max_base)
+        self._options = {}
         self.changed.emit()
 
     @Slot(int)
@@ -201,6 +286,20 @@ class LcsConfigController(QObject):
         self._mode_key = mode.key if mode is not None else ""
         maximum = mode.max_base if mode is not None else MAX_TMCC_ID
         self._base_id = min(max(int(base_id), 1), maximum)
+        self._options = {}
+        occupant = next(
+            (
+                item
+                for item in occupants_of(self._base_id, scope=mode.scope if mode is not None else None)
+                if item.device is device and item.base_id == self._base_id
+            ),
+            None,
+        )
+        if occupant is not None and mode is not None:
+            for option in programmed_options(device, mode):
+                value = option.reported_by(occupant.config)
+                if value is not None:
+                    self._options[option.key] = value
         self.changed.emit()
 
     @Slot(str)
@@ -213,6 +312,7 @@ class LcsConfigController(QObject):
         device = self._device()
         modes = enabled_modes(device) if device is not None else ()
         self._mode_key = modes[0].key if modes else ""
+        self._options = {}
         if modes:
             self._base_id = min(self._base_id, modes[0].max_base)
         self.changed.emit()
@@ -226,4 +326,5 @@ class LcsConfigController(QObject):
         self._device_key = ""
         self._mode_key = ""
         self._base_id = 1
+        self._options = {}
         self.changed.emit()
