@@ -185,6 +185,17 @@ Rectangle {
         routePicker.open()
     }
 
+    function cancelTransientPanels() {
+        routePicker.close()
+        routeBuilder.close()
+        addSwitchPopup.close()
+        overwriteSwitchPopup.close()
+        switchEditor.close()
+        lcsConfig.close()
+        if (controller && controller.scope === "ROUTE")
+            controller.closeRouteBuilder()
+    }
+
     function submitAddSwitch(overwrite) {
         const tmccId = Number(addSwitchId.text)
         const identity = controller.switchIdentity(tmccId)
