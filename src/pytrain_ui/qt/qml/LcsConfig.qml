@@ -61,10 +61,15 @@ Popup {
                 text: modelData.label + (modelData.blurb.length ? "   " + modelData.blurb : "")
                 font.bold: selected
                 onClicked: root.controller.selectDevice(modelData.key)
-                onDoubleClicked: {
-                    root.controller.selectDevice(modelData.key)
-                    root.page = 1
-                    baseIdField.text = String(root.controller.baseId)
+
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    gesturePolicy: TapHandler.ReleaseWithinBounds
+                    onDoubleTapped: {
+                        root.controller.selectDevice(modelData.key)
+                        root.page = 1
+                        baseIdField.text = String(root.controller.baseId)
+                    }
                 }
             }
         }
