@@ -206,11 +206,28 @@ Popup {
                             }
                         }
 
-                        CheckBox {
+                        RowLayout {
+                            Layout.fillWidth: true
                             visible: modelData.kind === "CHECKBOX"
-                            text: modelData.label
-                            checked: modelData.checked
-                            onToggled: root.controller.setOptionChecked(modelData.key, checked)
+                            spacing: 10
+
+                            CheckBox {
+                                id: inlineOptionCheck
+                                checked: modelData.checked
+                                onToggled: root.controller.setOptionChecked(modelData.key, checked)
+                            }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.label
+                                color: "#f4f6f8"
+                                font.pixelSize: 16
+                                wrapMode: Text.WordWrap
+
+                                TapHandler {
+                                    onTapped: inlineOptionCheck.toggle()
+                                }
+                            }
                         }
 
                         Label {
