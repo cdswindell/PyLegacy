@@ -228,7 +228,7 @@ Popup {
                             CheckBox {
                                 id: inlineOptionCheck
                                 checked: modelData.checked
-                                onToggled: root.controller.setOptionChecked(modelData.key, checked)
+                                onClicked: root.controller.setOptionChecked(modelData.key, checked)
                             }
 
                             Label {
@@ -342,7 +342,7 @@ Popup {
                         visible: modelData.kind === "CHECKBOX"
                         text: modelData.label
                         checked: modelData.checked
-                        onToggled: root.controller.setOptionChecked(modelData.key, checked)
+                        onClicked: root.controller.setOptionChecked(modelData.key, checked)
                     }
 
                     Label {
