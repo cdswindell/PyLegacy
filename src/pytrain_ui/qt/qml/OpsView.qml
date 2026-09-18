@@ -416,7 +416,7 @@ Rectangle {
                 font.bold: true
             }
             Label {
-                text: "TMCC ID (1-99)"
+                text: "TMCC ID (1-98)"
                 color: "#aeb5bf"
             }
             TextField {
