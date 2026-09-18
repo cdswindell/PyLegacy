@@ -6,7 +6,7 @@ Popup {
     id: root
     required property var controller
 
-    anchors.horizontalCenter: Overlay.overlay.horizontalCenter
+    x: Math.max(0, (Overlay.overlay.width - width) / 2)
     y: Math.max(76, (Overlay.overlay.height - height) / 2)
     width: Math.min(parent ? parent.width - 32 : 688, 688)
     height: Math.min(parent ? parent.height - 80 : 1150, 1150)
