@@ -106,7 +106,7 @@ Rectangle {
     }
 
     function openAddRoute() {
-        controller.closeRouteBuilder()
+        controller.openNewRouteBuilder()
         routeIdField.text = ""
         routeNameField.text = ""
         routeNumberField.text = ""
@@ -136,12 +136,8 @@ Rectangle {
 
     function routeIdEditingFinished() {
         const text = routeIdField.text.trim()
-        if (!text.length) {
-            controller.closeRouteBuilder()
-            routeNameField.text = ""
-            routeNumberField.text = ""
+        if (!text.length)
             return
-        }
         const tmccId = Number(text)
         if (tmccId < 1 || tmccId > 98) {
             routeBuilderError.text = "Route ID must be an integer from 1 to 98."
@@ -697,8 +693,16 @@ Rectangle {
                     Layout.preferredHeight: 50
                     text: "SAVE ROUTE"
                     font.bold: true
-                    enabled: controller && controller.routeBuilderOpen
+                    enabled: controller && controller.routeBuilderOpen &&
+                             Number(routeIdField.text) >= 1 && Number(routeIdField.text) <= 98
                     onClicked: {
+                        if (controller.routeBuilderId !== Number(routeIdField.text)) {
+                            const openError = controller.openRouteBuilder(Number(routeIdField.text))
+                            if (openError.length > 0) {
+                                routeBuilderError.text = openError
+                                return
+                            }
+                        }
                         const error = controller.saveRouteBuilder(routeNameField.text, routeNumberField.text)
                         if (error.length > 0)
                             routeBuilderError.text = error
