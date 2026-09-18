@@ -133,7 +133,7 @@ Popup {
                         return a.tmccId - b.tmccId || a.module.localeCompare(b.module) || a.scope.localeCompare(b.scope)
                     if (root.moduleSortKey === "scope")
                         return a.scope.localeCompare(b.scope) || a.module.localeCompare(b.module) || a.tmccId - b.tmccId
-                    return a.module.localeCompare(b.module) || a.tmccId - b.tmccId || a.scope.localeCompare(b.scope)
+                    return a.module.localeCompare(b.module) || a.tmccId - b.tmccId
                 })
                 return rows
             }
