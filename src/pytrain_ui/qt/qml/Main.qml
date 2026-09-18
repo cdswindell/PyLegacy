@@ -25,6 +25,7 @@ ApplicationWindow {
             Layout.fillHeight: true
             currentIndex: window.activeScope === "SWITCH" ? 2 :
                           window.activeScope === "ROUTE" ? 3 :
+                          window.activeScope === "ACCESSORY" ? 4 :
                           window.engineCatalogVisible ? 1 : 0
 
             CabView {
@@ -53,6 +54,10 @@ ApplicationWindow {
                 id: routeOpsView
                 controller: routeOpsController
             }
+
+            AccessoryCatalog {
+                controller: accessoryCatalogController
+            }
         }
 
         SelectedEngineBar {
@@ -76,6 +81,10 @@ ApplicationWindow {
                 } else if (scope === "ROUTE") {
                     routeOpsController.reload()
                     window.activeScope = "ROUTE"
+                    window.engineCatalogVisible = false
+                } else if (scope === "ACCESSORY") {
+                    accessoryCatalogController.reload()
+                    window.activeScope = "ACCESSORY"
                     window.engineCatalogVisible = false
                 } else if (scope === "ENGINE") {
                     if (window.activeScope === "ENGINE")
