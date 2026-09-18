@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from pytrain.gui.controller.lcs_config_panel import SCOPE_LABEL
-from pytrain.gui.controller.lcs_device_registry import configurable_devices, enabled_modes
+from pytrain.gui.controller.lcs_device_registry import SENSOR_TRACK_ACTION, configurable_devices, enabled_modes
 from pytrain.gui.controller.lcs_id_map import occupants
 
 
@@ -48,16 +48,17 @@ class LcsConfigController(QObject):
     def modules(self) -> list[dict]:
         """Return the LCS modules currently reported by the layout."""
         rows = []
-        for occupant in sorted(
-            occupants(),
-            key=lambda item: (
-                item.device.label.upper(),
-                item.base_id,
-                SCOPE_LABEL.get(item.effective_scope, ""),
-            ),
-        ):
+        for occupant in occupants():
             mode = occupant.mode
             scope = SCOPE_LABEL.get(occupant.effective_scope, "")
+            action = ""
+            if occupant.device.key == "sensor_track":
+                value = SENSOR_TRACK_ACTION.reported_by(occupant.config)
+                if value is not None:
+                    action = next(
+                        (label for label, choice in SENSOR_TRACK_ACTION.choices if choice == value),
+                        str(getattr(value, "name", value)),
+                    )
             rows.append(
                 {
                     "deviceKey": occupant.device.key,
@@ -70,6 +71,7 @@ class LcsConfigController(QObject):
                         if occupant.last_id == occupant.base_id
                         else f"{occupant.base_id} - {occupant.last_id}"
                     ),
+                    "action": action,
                 }
             )
         return rows
