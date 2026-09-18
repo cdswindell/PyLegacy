@@ -272,6 +272,15 @@ class OpsController(QObject):
         state = ComponentStateStore.get_state(CommandScope.ROUTE, tmcc_id, create=False)
         return state if isinstance(state, RouteState) else None
 
+    @Slot()
+    def openNewRouteBuilder(self) -> None:
+        """Open an unnumbered route draft so components can be selected before assigning its TMCC ID."""
+        if self._scope != CommandScope.ROUTE:
+            return
+        self._route_draft = RouteDraft(0, ())
+        self._route_component_index = -1
+        self.changed.emit()
+
     @Slot(int, result=str)
     def openRouteBuilder(self, tmcc_id: int) -> str:
         if self._scope != CommandScope.ROUTE or not 1 <= tmcc_id <= 98:
