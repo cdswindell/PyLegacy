@@ -2,18 +2,38 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Item {
+Rectangle {
     id: root
 
     property var controller
     property string searchText: ""
     property string sortMode: "NAME"
+    property string typeFilter: "OPERATING"
+
+    signal accessoryRequested(string key)
+    signal addRequested()
+    signal lcsRequested()
+
+    color: "#15191f"
+    radius: 10
+
+    function compareRoadNumbers(a, b) {
+        var an = Number(a)
+        var bn = Number(b)
+        var aNumeric = a.length > 0 && !isNaN(an)
+        var bNumeric = b.length > 0 && !isNaN(bn)
+        if (aNumeric && bNumeric)
+            return an - bn
+        return a.toLowerCase().localeCompare(b.toLowerCase())
+    }
 
     function visibleRows() {
         if (!controller)
             return []
         var needle = searchText.trim().toLowerCase()
         var rows = controller.rows.filter(function(row) {
+            if (typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
+                return false
             if (!needle)
                 return true
             return row.roadName.toLowerCase().indexOf(needle) >= 0 ||
@@ -24,84 +44,182 @@ Item {
         rows.sort(function(a, b) {
             if (sortMode === "TMCC")
                 return a.primaryTmccId - b.primaryTmccId
-            if (sortMode === "ROAD")
-                return a.roadNumber.localeCompare(b.roadNumber)
-            return a.roadName.localeCompare(b.roadName)
+            if (sortMode === "ROAD") {
+                var result = root.compareRoadNumbers(a.roadNumber, b.roadNumber)
+                if (result !== 0)
+                    return result
+            }
+            var result = a.roadName.toLowerCase().localeCompare(b.roadName.toLowerCase())
+            return result !== 0 ? result : a.primaryTmccId - b.primaryTmccId
         })
         return rows
     }
 
+    component ChoiceButton: CabButton {
+        font.pixelSize: 14
+        font.bold: selected
+    }
+
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        anchors.margins: 12
+        spacing: 10
 
         RowLayout {
             Layout.fillWidth: true
             Label {
-                text: "Accessory Operations"
+                text: "Operating Accessories"
                 color: "#f4f6f8"
                 font.pixelSize: 24
                 font.bold: true
+            }
+            CabButton {
+                Layout.preferredWidth: 92
+                Layout.preferredHeight: 46
+                text: "ADD…"
+                font.pixelSize: 14
+                onClicked: root.addRequested()
+            }
+            CabButton {
+                Layout.preferredWidth: 92
+                Layout.preferredHeight: 46
+                text: "LCS…"
+                font.pixelSize: 14
+                onClicked: root.lcsRequested()
             }
             Item { Layout.fillWidth: true }
             CabButton {
                 Layout.preferredWidth: 120
                 Layout.preferredHeight: 54
                 text: "HALT"
+                font.pixelSize: 17
+                font.bold: true
+                normalColor: "#8b2d32"
+                pressedColor: "#b43b42"
                 onClicked: cabController.halt()
             }
-        }
-
-        TextField {
-            Layout.fillWidth: true
-            placeholderText: "Search name, road number, TMCC ID, or LCS module"
-            text: root.searchText
-            onTextChanged: root.searchText = text
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
-            Label {
-                text: "Sort:"
-                color: "#b8c0ca"
+            TextField {
+                id: searchField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 54
+                placeholderText: "Search name, road number, TMCC ID, or LCS module"
+                font.pixelSize: 17
+                selectByMouse: true
+                text: root.searchText
+                onTextEdited: root.searchText = text
             }
-            Button {
+            CabButton {
+                Layout.preferredWidth: 72
+                Layout.preferredHeight: 54
+                text: "Clear"
+                font.pixelSize: 14
+                enabled: searchField.text.length > 0
+                onClicked: {
+                    root.searchText = ""
+                    searchField.forceActiveFocus()
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 7
+            Label { text: "Sort"; color: "#aeb7c2"; font.pixelSize: 13 }
+            ChoiceButton {
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 42
                 text: "Name"
-                checked: root.sortMode === "NAME"
-                checkable: true
+                selected: root.sortMode === "NAME"
                 onClicked: root.sortMode = "NAME"
             }
-            Button {
+            ChoiceButton {
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 42
                 text: "Road #"
-                checked: root.sortMode === "ROAD"
-                checkable: true
+                selected: root.sortMode === "ROAD"
                 onClicked: root.sortMode = "ROAD"
             }
-            Button {
+            ChoiceButton {
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 42
                 text: "TMCC ID"
-                checked: root.sortMode === "TMCC"
-                checkable: true
+                selected: root.sortMode === "TMCC"
                 onClicked: root.sortMode = "TMCC"
+            }
+            Item { Layout.fillWidth: true }
+            Label {
+                text: root.visibleRows().length + " accessories"
+                color: "#9ea6b0"
+                font.pixelSize: 12
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 7
+            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
+            ChoiceButton {
+                Layout.preferredWidth: 100
+                Layout.preferredHeight: 42
+                text: "Operating"
+                selected: root.typeFilter === "OPERATING"
+                onClicked: root.typeFilter = "OPERATING"
+            }
+            ChoiceButton {
+                Layout.preferredWidth: 82
+                Layout.preferredHeight: 42
+                text: "ASC2"
+                selected: root.typeFilter === "ASC2"
+                onClicked: root.typeFilter = "ASC2"
+            }
+            ChoiceButton {
+                Layout.preferredWidth: 82
+                Layout.preferredHeight: 42
+                text: "AMC2"
+                selected: root.typeFilter === "AMC2"
+                onClicked: root.typeFilter = "AMC2"
+            }
+            ChoiceButton {
+                Layout.preferredWidth: 82
+                Layout.preferredHeight: 42
+                text: "BPC2"
+                selected: root.typeFilter === "BPC2"
+                onClicked: root.typeFilter = "BPC2"
+            }
+            ChoiceButton {
+                Layout.preferredWidth: 122
+                Layout.preferredHeight: 42
+                text: "Sensor Track"
+                selected: root.typeFilter === "IRDA"
+                onClicked: root.typeFilter = "IRDA"
             }
             Item { Layout.fillWidth: true }
         }
 
         ListView {
+            id: listView
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            spacing: 5
+            spacing: 6
+            boundsBehavior: Flickable.StopAtBounds
+            flickDeceleration: 1800
             model: root.visibleRows()
 
             delegate: Rectangle {
+                id: row
                 required property var modelData
                 width: ListView.view.width
                 height: 82
                 radius: 8
-                color: "#20242a"
+                color: tapHandler.pressed ? "#354150" : "#272d35"
                 border.width: 1
-                border.color: "#3d444f"
+                border.color: "#4b5664"
 
                 RowLayout {
                     anchors.fill: parent
@@ -110,8 +228,8 @@ Item {
 
                     Label {
                         Layout.preferredWidth: 54
-                        text: modelData.primaryTmccId
-                        color: "#78bff0"
+                        text: row.modelData.primaryTmccId
+                        color: "#55bdf5"
                         font.pixelSize: 22
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
@@ -122,7 +240,7 @@ Item {
                         spacing: 2
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.roadName
+                            text: row.modelData.roadName
                             color: "#f4f6f8"
                             font.pixelSize: 17
                             font.bold: true
@@ -132,10 +250,10 @@ Item {
                             Layout.fillWidth: true
                             text: {
                                 var parts = []
-                                if (modelData.roadNumber)
-                                    parts.push("Road # " + modelData.roadNumber)
-                                if (modelData.lcsAssociations)
-                                    parts.push(modelData.lcsAssociations)
+                                if (row.modelData.roadNumber)
+                                    parts.push("Road # " + row.modelData.roadNumber)
+                                if (row.modelData.lcsAssociations)
+                                    parts.push(row.modelData.lcsAssociations)
                                 return parts.join(" · ")
                             }
                             color: "#b8c0ca"
@@ -144,19 +262,31 @@ Item {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.availableViews.join(" · ")
-                            color: modelData.configured ? "#e9c46a" : "#8fa2b5"
+                            text: row.modelData.availableViews.join(" · ")
+                            color: row.modelData.configured ? "#e9c46a" : "#8fa2b5"
                             font.pixelSize: 11
                             elide: Text.ElideRight
                         }
                     }
 
                     Label {
-                        text: modelData.preferredView
+                        text: row.modelData.preferredView
                         color: "#f4f6f8"
                         font.pixelSize: 13
                         font.bold: true
                     }
+                    Label {
+                        text: "›"
+                        color: "#8fc9ef"
+                        font.pixelSize: 28
+                    }
+                }
+
+                TapHandler {
+                    id: tapHandler
+                    gesturePolicy: TapHandler.DragThreshold
+                    onTapped: root.accessoryRequested(row.modelData.key)
+                    onDoubleTapped: root.accessoryRequested(row.modelData.key)
                 }
             }
         }
