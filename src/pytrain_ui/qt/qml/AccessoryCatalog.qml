@@ -269,9 +269,11 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: row.modelData.availableViews.join(" · ")
-                            color: row.modelData.configured ? "#e9c46a" : "#8fa2b5"
+                            text: row.modelData.stateSummary || row.modelData.availableViews.join(" · ")
+                            color: row.modelData.stateSummary ? "#8fc9ef" :
+                                   (row.modelData.configured ? "#e9c46a" : "#8fa2b5")
                             font.pixelSize: 11
+                            font.bold: row.modelData.stateSummary.length > 0
                             elide: Text.ElideRight
                         }
                     }
