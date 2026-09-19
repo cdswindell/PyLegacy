@@ -359,11 +359,6 @@ Rectangle {
                         if (hasAction("ON") && hasAction("OFF"))
                             root.controller.toggleQuickAction(row.modelData.primaryTmccId)
                     }
-                    onPressedChanged: {
-                        var inActionArea = point.position.x >= row.width - 250
-                        if (!inActionArea && (hasAction("HOLD") || hasAction("PULSE")))
-                            root.controller.holdQuickAction(row.modelData.primaryTmccId, pressed)
-                    }
                 }
             }
         }
