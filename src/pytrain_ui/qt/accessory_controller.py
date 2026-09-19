@@ -236,9 +236,21 @@ class AccessoryCatalogController(QObject):
             requires_power = operation.behavior != PortBehavior.LATCH and bool(power_ids) and tmcc_id not in power_ids
             enabled = not requires_power or power_on
             if operation.behavior == PortBehavior.LATCH:
+                on_label = registry.get_operation_label_for_state(
+                    spec,
+                    operation.key,
+                    variant=configured.definition.variant,
+                    is_on=True,
+                )
+                off_label = registry.get_operation_label_for_state(
+                    spec,
+                    operation.key,
+                    variant=configured.definition.variant,
+                    is_on=False,
+                )
                 actions = [
-                    {"key": "ON", "label": "ON", "selected": bool(state and state.is_aux_on), "enabled": enabled},
-                    {"key": "OFF", "label": "OFF", "selected": bool(state and state.is_aux_off), "enabled": enabled},
+                    {"key": "ON", "label": on_label, "selected": bool(state and state.is_aux_on), "enabled": enabled},
+                    {"key": "OFF", "label": off_label, "selected": bool(state and state.is_aux_off), "enabled": enabled},
                 ]
             else:
                 actions = [
@@ -254,7 +266,7 @@ class AccessoryCatalogController(QObject):
                     "tmccId": tmcc_id,
                     "label": f"{configured.label} {label}",
                     "operation": operation.key,
-                    "behavior": operation.behavior.value,
+                    "behavior": "ON/OFF" if operation.behavior == PortBehavior.LATCH else operation.behavior.value,
                     "enabled": enabled,
                     "quickActions": actions,
                 }
