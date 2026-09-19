@@ -31,7 +31,23 @@ Rectangle {
         if (!controller)
             return []
         var needle = searchText.trim().toLowerCase()
-        var rows = controller.rows.filter(function(row) {
+        var sourceRows = []
+        controller.rows.forEach(function(row) {
+            if (typeFilter === "ASC2" && row.componentRows.length > 0) {
+                row.componentRows.forEach(function(component) {
+                    var componentRow = Object.assign({}, row)
+                    componentRow.primaryTmccId = component.tmccId
+                    componentRow.roadName = component.label
+                    componentRow.stateSummary = component.behavior.replace("_", " ").toUpperCase()
+                    componentRow.quickActions = component.quickActions
+                    componentRow.componentEnabled = component.enabled
+                    sourceRows.push(componentRow)
+                })
+            } else {
+                sourceRows.push(row)
+            }
+        })
+        var rows = sourceRows.filter(function(row) {
             if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
                 return false
             if (!needle)
@@ -225,6 +241,7 @@ Rectangle {
                 height: 82
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#272d35"
+                opacity: row.modelData.componentEnabled === false ? 0.62 : 1.0
                 border.width: 1
                 border.color: "#4b5664"
 
@@ -291,6 +308,7 @@ Rectangle {
                                 font.pixelSize: 12
                                 font.bold: modelData.selected
                                 selected: modelData.selected
+                                enabled: modelData.enabled === undefined || modelData.enabled
                                 onClicked: function(mouse) {
                                     root.controller.quickAction(modelData.key, row.modelData.primaryTmccId)
                                 }
