@@ -14,9 +14,10 @@ from pytrain.db.irda_state import IrdaState
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
 from pytrain.gui.accessories.accessory_registry import PortBehavior
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
-from pytrain.protocol.command_req import CommandReq
+from pytrain.pdi.asc2_req import Asc2Req
+from pytrain.pdi.bpc2_req import Bpc2Req
+from pytrain.pdi.constants import Asc2Action, Bpc2Action, PdiCommand
 from pytrain.protocol.constants import CommandScope
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from pytrain.utils.path_utils import find_file
 
 from pytrain_ui.accessory_contracts import (
@@ -477,4 +478,17 @@ class AccessoryCatalogController(QObject):
 
     @Property(list, notify=changed)
     def rows(self) -> list[dict]:
-        return self._rows
+        return self._rows    @Slot(str, int)
+    def quickAction(self, action: str, tmcc_id: int) -> None:
+        """Send a direct PDI action to an ASC2/BPC2-backed accessory."""
+
+        state = self._state(tmcc_id)
+        if state is None:
+            return
+        value = 0 if action == "OFF" else 1
+        if state.is_bpc2:
+            Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=value).send()
+        elif state.is_asc2:
+            Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=value).send()
+
+
