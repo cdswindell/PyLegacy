@@ -10,12 +10,15 @@
 
 import re
 import types
-from unittest.mock import Mock
+from dataclasses import FrozenInstanceError
+from threading import RLock
+from unittest.mock import Mock, call
 
 import pytest
 
 from src.pytrain.db.comp_data import (
     AccessoryData,
+    BitUpdate,
     CompData,
     CompDataHandler,
     CompDataMixin,
@@ -72,6 +75,37 @@ def train_record(consist_flags_addr: int, consist_flags: int, tmcc_id: int = Non
     if tmcc_id is not None:
         buf[0xB8:0xBC] = str(tmcc_id).zfill(4).encode("ascii")
     return bytes(buf)
+
+
+class TestBitUpdate:
+    @pytest.mark.parametrize("bit", range(8))
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_preserves_other_bits_and_is_idempotent_for_every_byte(self, bit, enabled):
+        update = BitUpdate(bit=bit, enabled=enabled)
+        mask = 1 << bit
+        for current in range(256):
+            result = update(current)
+            assert 0 <= result <= 255
+            assert result & ~mask == current & ~mask
+            assert bool(result & mask) is enabled
+            assert update(result) == result
+
+    @pytest.mark.parametrize("bit", [-1, 8, 255, None, 1.0, "0", True, False])
+    def test_rejects_invalid_bit(self, bit):
+        with pytest.raises(ValueError, match="Bit position"):
+            BitUpdate(bit=bit, enabled=True)
+
+    @pytest.mark.parametrize("current", [-1, 256, None, 1.0, "0", b"\x00", True, False])
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_rejects_invalid_byte(self, current, enabled):
+        with pytest.raises(ValueError, match="Current byte"):
+            BitUpdate(bit=0, enabled=enabled)(current)
+
+    @pytest.mark.parametrize(("field", "value"), [("bit", 1), ("enabled", False)])
+    def test_is_immutable(self, field, value):
+        update = BitUpdate(bit=0, enabled=True)
+        with pytest.raises(FrozenInstanceError):
+            setattr(update, field, value)
 
 
 class TestCompData:
@@ -394,6 +428,228 @@ class TestCompData:
                     assert update.pdi_command == PdiCommand.BASE_MEMORY
                     assert update.tmcc_id == address
                     assert update.data_bytes == expected
+        get_state.assert_not_called()
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("data_cls, scope", [(EngineData, CommandScope.ENGINE), (TrainData, CommandScope.TRAIN)])
+    @pytest.mark.parametrize("current", [0x00, 0x01, 0xA4, 0xA5, 0xFE, 0xFF])
+    @pytest.mark.parametrize(
+        "command, address, reverse",
+        [
+            (TMCC1EngineCommandEnum.FORWARD_DIRECTION, 7, False),
+            (TMCC1EngineCommandEnum.REVERSE_DIRECTION, 7, True),
+            (TMCC2EngineCommandEnum.FORWARD_DIRECTION, 7, False),
+            (TMCC2EngineCommandEnum.REVERSE_DIRECTION, 7, True),
+            (TMCC2EngineCommandEnum.FORWARD_DIRECTION, 1234, False),
+            (TMCC2EngineCommandEnum.REVERSE_DIRECTION, 1234, True),
+        ],
+    )
+    def test_direction_updates_preserve_cached_bits_and_serialize(
+        self, monkeypatch, data_cls, scope, current, command, address, reverse
+    ):
+        comp_data = data_cls(b"\xff" * PdiReq.scope_record_length(scope), tmcc_id=address)
+        comp_data.soft_status = current
+        before = comp_data.as_bytes()
+        state = types.SimpleNamespace(comp_data=comp_data, synchronizer=RLock())
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, address, scope=scope)
+        expected = bytes([(current & 0xFE) | int(reverse)])
+
+        for pkgs in (
+            CompData.request_to_updates(req),
+            CompData.field_to_updates(command.name.lower(), address, scope, data=0x5A, legacy=command.is_legacy),
+        ):
+            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == [
+                ("soft_status", 0x0B, 1, expected)
+            ]
+            update = pkgs[0].as_request(address, scope, record_no=654)
+            assert update.scope == scope
+            assert update.start == 0x0B
+            assert update.data_length == 1
+            if address > 99:
+                assert isinstance(update, D4Req)
+                assert update.pdi_command == (
+                    PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+                )
+                assert update.action == D4Action.UPDATE
+                assert update.record_no == 654
+                assert update._data_bytes == expected
+                decoded = D4Req(update.as_bytes)
+                assert decoded.action == D4Action.UPDATE
+                assert decoded.record_no == 654
+                assert decoded._data_bytes == expected
+            else:
+                assert isinstance(update, BaseReq)
+                assert update.pdi_command == PdiCommand.BASE_MEMORY
+                assert update.tmcc_id == address
+                assert update.flags == 0xC3
+                assert update.data_bytes == expected
+                decoded = BaseReq(update.as_bytes)
+                assert decoded.tmcc_id == address
+                assert decoded.flags == 0xC3
+                assert decoded.data_bytes == expected
+            assert decoded.scope == scope
+            assert decoded.start == 0x0B
+            assert decoded.data_length == 1
+            assert state.comp_data is comp_data
+            assert comp_data.soft_status == current
+            assert comp_data.as_bytes() == before
+        assert get_state.call_args_list == [call(scope, address, False)] * 2
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("address", [7, 99, 1234])
+    @pytest.mark.parametrize(
+        "command", [TMCC2EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION]
+    )
+    def test_direction_updates_do_not_create_missing_state(self, caplog, scope, address, command):
+        store = CompData.state_store()
+        assert store.get_state(scope, address, False) is None
+        req = CommandReq.build(command, address, scope=scope)
+
+        assert CompData.request_to_updates(req) == []
+        assert CompData.field_to_updates(command.name, address, scope) == []
+
+        assert store.get_state(scope, address, False) is None
+        assert ("State not found" in caplog.text) is (address != 99)
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("comp_data", [None, types.SimpleNamespace()])
+    @pytest.mark.parametrize(
+        "command", [TMCC2EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION]
+    )
+    def test_direction_updates_skip_missing_component_data_or_field(
+        self, monkeypatch, caplog, scope, comp_data, command
+    ):
+        state = types.SimpleNamespace(comp_data=comp_data, synchronizer=RLock())
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, 7, scope=scope)
+
+        assert CompData.request_to_updates(req) == []
+        assert CompData.field_to_updates(command.name, 7, scope) == []
+
+        assert "soft_status" in caplog.text
+        assert get_state.call_args_list == [call(scope, 7, False)] * 2
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("data_cls, scope", [(EngineData, CommandScope.ENGINE), (TrainData, CommandScope.TRAIN)])
+    @pytest.mark.parametrize("current", [None, -1, 256, 1.0, "1", True])
+    @pytest.mark.parametrize(
+        "command", [TMCC2EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.REVERSE_DIRECTION]
+    )
+    def test_direction_updates_skip_unavailable_or_invalid_status(
+        self, monkeypatch, caplog, data_cls, scope, current, command
+    ):
+        comp_data = data_cls(bytes(8), tmcc_id=7)
+        assert comp_data.soft_status is None
+        if current is not None:
+            comp_data.soft_status = current
+        state = types.SimpleNamespace(comp_data=comp_data, synchronizer=RLock())
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, 7, scope=scope)
+
+        assert CompData.request_to_updates(req) == []
+        assert CompData.field_to_updates(command.name, 7, scope) == []
+
+        assert comp_data.soft_status == current
+        assert "soft_status" in caplog.text
+        assert get_state.call_args_list == [call(scope, 7, False)] * 2
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    def test_direction_reads_and_transforms_status_under_state_lock(self, monkeypatch, scope):
+        synchronizer = RLock()
+        reads = []
+
+        class GuardedData:
+            @property
+            def _soft_status(self):
+                assert synchronizer._is_owned()
+                reads.append("soft_status")
+                return 0xA5
+
+        class GuardedState:
+            @property
+            def comp_data(self):
+                assert synchronizer._is_owned()
+                reads.append("comp_data")
+                return GuardedData()
+
+        state = GuardedState()
+        state.synchronizer = synchronizer
+        monkeypatch.setattr(ComponentStateStore, "get_state", Mock(return_value=state))
+        original_call = BitUpdate.__call__
+
+        def checked_call(update, current):
+            assert synchronizer._is_owned()
+            reads.append("transform")
+            return original_call(update, current)
+
+        monkeypatch.setattr(BitUpdate, "__call__", checked_call)
+        req = CommandReq.build(TMCC2EngineCommandEnum.FORWARD_DIRECTION, 7, scope=scope)
+        for pkgs in (
+            CompData.request_to_updates(req),
+            CompData.field_to_updates("forward_direction", 7, scope),
+        ):
+            assert pkgs[0].data_bytes == b"\xa4"
+        assert reads == ["comp_data", "soft_status", "transform"] * 2
+        assert not synchronizer._is_owned()
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("command", [TMCC1EngineCommandEnum.RESET, TMCC2EngineCommandEnum.RESET])
+    def test_reset_still_writes_zero_without_cached_state(self, monkeypatch, scope, command):
+        get_state = Mock(return_value=None)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, 7, scope=scope)
+
+        for pkgs in (
+            CompData.request_to_updates(req),
+            CompData.field_to_updates("reset", 7, scope, legacy=command.is_legacy),
+        ):
+            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == [
+                ("speed", 0x07, 1, b"\x00"),
+                ("target_speed", 0x08, 1, b"\x00"),
+                ("rpm_labor", 0x0C, 1, b"\x00"),
+                ("soft_status", 0x0B, 1, b"\x00"),
+            ]
+        get_state.assert_not_called()
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize(
+        "command, data, expected",
+        [(TMCC2EngineCommandEnum.DIESEL_RPM, 5, b"\x15"), (TMCC2EngineCommandEnum.ENGINE_LABOR, 16, b"\x23")],
+    )
+    def test_rpm_labor_updates_preserve_the_other_cached_value(self, monkeypatch, scope, command, data, expected):
+        state = types.SimpleNamespace(rpm=3, labor=14, synchronizer=RLock())
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, 7, data=data, scope=scope)
+
+        for pkgs in (
+            CompData.request_to_updates(req),
+            CompData.field_to_updates(command.name, 7, scope, data=data),
+        ):
+            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == [
+                ("rpm_labor", 0x0C, 1, expected)
+            ]
+        assert (state.rpm, state.labor) == (3, 14)
+        assert get_state.call_args_list == [call(scope, 7, False)] * 2
+
+    def test_ordinary_transform_still_receives_command_data(self, monkeypatch):
+        get_state = Mock()
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        transform = Mock(return_value=0xAB)
+
+        pkg = CompData._create_update_pkg("soft_status", True, CommandScope.ENGINE, 7, 0x12, transform)
+
+        assert pkg.data_bytes == b"\xab"
+        transform.assert_called_once_with(0x12)
         get_state.assert_not_called()
 
     def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):

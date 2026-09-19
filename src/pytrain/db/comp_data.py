@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any, Callable, Generic, TYPE_CHECKING, TypeVar, cast
 
 from ..pdi.constants import D4Action, PdiCommand
@@ -80,6 +81,24 @@ def default_from_func(t: bytes) -> int:
 
 def default_to_func(t: int) -> bytes:
     return t.to_bytes(1, byteorder="little")
+
+
+@dataclass(frozen=True)
+class BitUpdate:
+    """Set or clear one bit in a stored byte, preserving all other bits."""
+
+    bit: int
+    enabled: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.bit, int) or isinstance(self.bit, bool) or not 0 <= self.bit <= 7:
+            raise ValueError("Bit position must be an integer from 0 to 7.")
+
+    def __call__(self, current: int) -> int:
+        if not isinstance(current, int) or isinstance(current, bool) or not 0 <= current <= 255:
+            raise ValueError("Current byte must be an integer from 0 to 255.")
+        mask = 1 << self.bit
+        return current | mask if self.enabled else current & ~mask
 
 
 C = TypeVar("C", bound="CompData")
@@ -488,8 +507,8 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
     ],
-    # "FORWARD_DIRECTION": [("soft_status", )],
-    # "REVERSE_DIRECTION": [("soft_status",)],
+    "FORWARD_DIRECTION": [("soft_status", BitUpdate(bit=0, enabled=False))],
+    "REVERSE_DIRECTION": [("soft_status", BitUpdate(bit=0, enabled=True))],
     "CONTROL_TYPE": [("control_type",)],
     "ENGINE_TYPE": [("engine_type",)],
     "SOUND_TYPE": [("sound_type",)],
@@ -729,12 +748,28 @@ class CompData(ABC, Generic[R]):
             else:
                 base_value = data
         else:
-            if transform == encode_tmcc_speed:
+            if isinstance(transform, BitUpdate):
+                state = cls.state_store().get_state(scope, address, False)
+                if state is None:
+                    if address != 99:
+                        log.warning(f"State not found for {scope}:{address}, continuing...")
+                    return None
+                with state.synchronizer:
+                    current = getattr(state.comp_data, handler.field, None)
+                    try:
+                        base_value = transform(current)
+                    except ValueError:
+                        if address != 99:
+                            log.warning(f"Valid {field} byte not found for {scope}:{address}, continuing...")
+                        return None
+                print(f"*** {scope}:{address} {field} {base_value}")
+            elif transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
             else:
                 base_value = transform(data)
         if base_value is None:
             return None
+        # noinspection unbound-local-variable
         data_bytes = handler.to_bytes(base_value)
         if len(data_bytes) < handler.length:
             data_bytes += b"\xff" * (handler.length - len(data_bytes))
