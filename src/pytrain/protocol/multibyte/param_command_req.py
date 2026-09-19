@@ -41,6 +41,7 @@ PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
 PARAMETER_INDEX_TO_ENUM_MAP = {s: p for p, s in PARAMETER_ENUM_TO_INDEX_MAP.items()}
 
 
+# noinspection none-function-assignment,argument-list,method-overriding
 class ParameterCommandReq(MultiByteReq):
     @classmethod
     def build(
