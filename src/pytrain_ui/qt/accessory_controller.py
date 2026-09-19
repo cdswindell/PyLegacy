@@ -234,7 +234,10 @@ class AccessoryCatalogController(QObject):
             tmcc_id = configured.tmcc_id_for(operation.key)
             state = AccessoryCatalogController._state(tmcc_id)
             label = registry.get_operation_label(spec, operation.key)
-            requires_power = operation.behavior != PortBehavior.LATCH and bool(power_ids) and tmcc_id not in power_ids
+            # Every non-power operation depends on the configured power
+            # operation, regardless of whether that dependent operation is
+            # latch, hold, or pulse.
+            requires_power = bool(power_ids) and tmcc_id not in power_ids
             enabled = not requires_power or power_on
             if operation.behavior == PortBehavior.LATCH:
                 if operation.key.strip().lower() == "power":
