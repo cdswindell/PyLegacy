@@ -14,6 +14,7 @@ Control {
     readonly property bool pressed: tapHandler.pressed
 
     signal clicked()
+    signal released()
     signal doubleClicked()
 
     implicitHeight: 62
@@ -44,6 +45,8 @@ Control {
         onPressedChanged: {
             if (pressed)
                 root.clicked()
+            else
+                root.released()
         }
         onDoubleTapped: root.doubleClicked()
     }
