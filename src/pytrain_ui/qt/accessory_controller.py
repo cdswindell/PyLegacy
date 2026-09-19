@@ -375,16 +375,16 @@ class AccessoryCatalogController(QObject):
 
     @Slot(str, int)
     def quickAction(self, action: str, tmcc_id: int) -> None:
-        """Send a direct catalog action to an ASC2/BPC2-backed accessory."""
+        """Send a direct PDI action to an ASC2/BPC2-backed accessory."""
 
-        commands = {
-            "ON": Aux.AUX1_ON,
-            "OFF": Aux.AUX1_OFF,
-            "MOMENTARY": Aux.AUX1_OPT_ONE,
-        }
-        command = commands.get(action)
-        if command is not None:
-            CommandReq.build(command, address=tmcc_id, scope=CommandScope.ACC).send()
+        state = self._state(tmcc_id)
+        if state is None:
+            return
+        value = 0 if action == "OFF" else 1
+        if state.is_bpc2:
+            Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=value).send()
+        elif state.is_asc2:
+            Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=value).send()
 
     @Slot(str, result="QVariantMap")
     def operatingView(self, key: str) -> dict:
