@@ -505,13 +505,16 @@ class AccessoryCatalogController(QObject):
             state = ComponentStateStore.get_state(CommandScope.IRDA, occupant.base_id, create=False)
             if not isinstance(state, IrdaState):
                 continue
-            name, road_number = self._identity(state)
+            _name, road_number = self._identity(state)
+            # ComponentState.road_name falls back to the scope moniker ("Irda")
+            # when no user-assigned name exists. Only use an actual Base name.
+            name = str(getattr(state, "_road_name", "") or "").strip() or "Sensor Track"
             descriptors.append(
                 AccessoryDescriptor(
                     key=f"irda:{occupant.base_id}",
                     tmcc_ids=(occupant.base_id,),
                     primary_tmcc_id=occupant.base_id,
-                    name=name or f"Sensor Track {occupant.base_id}",
+                    name=name,
                     road_number=road_number,
                     configured_accessory=None,
                     lcs_labels=(f"Sensor Track {occupant.base_id}",),
