@@ -14,6 +14,8 @@ ApplicationWindow {
 
     property bool engineCatalogVisible: showCatalogAtStartup
     property string activeScope: "ENGINE"
+    property var activeAccessory: ({})
+    property bool accessoryOperatingVisible: false
 
     ColumnLayout {
         anchors.fill: parent
@@ -56,7 +58,18 @@ ApplicationWindow {
             }
 
             AccessoryCatalog {
+                id: accessoryCatalog
                 controller: accessoryCatalogController
+                onAccessoryRequested: function(key) {
+                    window.activeAccessory = accessoryCatalogController.operatingView(key)
+                    window.accessoryOperatingVisible = true
+                }
+                onAddRequested: {
+                    // The add workflow is implemented with the accessory operating layer.
+                }
+                onLcsRequested: {
+                    switchOpsView.openLcsConfiguration()
+                }
             }
         }
 
@@ -85,6 +98,7 @@ ApplicationWindow {
                 } else if (scope === "ACCESSORY") {
                     accessoryCatalogController.reload()
                     window.activeScope = "ACCESSORY"
+                    window.accessoryOperatingVisible = false
                     window.engineCatalogVisible = false
                 } else if (scope === "ENGINE") {
                     if (window.activeScope === "ENGINE")
