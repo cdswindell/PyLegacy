@@ -499,7 +499,9 @@ class AccessoryCatalogController(QObject):
 
     @Property(list, notify=changed)
     def rows(self) -> list[dict]:
-        return self._rows    @Slot(str, int)
+        return self._rows
+
+    @Slot(str, int)
     def quickAction(self, action: str, tmcc_id: int) -> None:
         """Send a direct PDI action to an ASC2/BPC2-backed accessory."""
 
