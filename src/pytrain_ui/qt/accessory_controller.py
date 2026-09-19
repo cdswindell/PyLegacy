@@ -102,7 +102,8 @@ class AccessoryCatalogController(QObject):
             self._dispatcher.unsubscribe(self._accessory_command, CommandScope.ACC)
             self._dispatcher = None
         if self._pdi_dispatcher is not None:
-            self._pdi_dispatcher.unsubscribe_any(self._pdi_command)
+            self._pdi_dispatcher.unsubscribe(self._pdi_command, CommandScope.ACC)
+            self._pdi_dispatcher.unsubscribe(self._pdi_command, CommandScope.IRDA)
             self._pdi_dispatcher = None
 
     def _accessory_command(self, _command) -> None:
