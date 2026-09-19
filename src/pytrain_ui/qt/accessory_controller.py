@@ -56,6 +56,7 @@ class AccessoryDescriptor:
             "roadNumber": self.road_number,
             "configured": self.configured_accessory is not None,
             "lcsAssociations": " · ".join(self.lcs_labels),
+            "lcsTypes": sorted({label.split(" ", 1)[0] for label in self.lcs_labels}),
             "availableViews": [view.value for view in self.available_views],
             "preferredView": self.preferred_view.value,
             "userDefined": self.user_defined,
