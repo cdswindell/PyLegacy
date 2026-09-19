@@ -10,8 +10,9 @@ from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.irda_state import IrdaState
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
-from pytrain.gui.controller.lcs_id_map import occupants_of
+from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
@@ -60,6 +61,7 @@ class AccessoryDescriptor:
             "availableViews": [view.value for view in self.available_views],
             "preferredView": self.preferred_view.value,
             "userDefined": self.user_defined,
+            "stateSummary": AccessoryCatalogController._state_summary(self),
         }
 
 
@@ -173,6 +175,31 @@ class AccessoryCatalogController(QObject):
             preferred_view=AccessoryViewKind.LCS if lcs_labels else AccessoryViewKind.GENERIC,
             user_defined=bool(state.is_user_defined),
         )
+
+    @staticmethod
+    def _state_summary(descriptor: AccessoryDescriptor) -> str:
+        summaries: list[str] = []
+        for tmcc_id in descriptor.tmcc_ids:
+            state = AccessoryCatalogController._state(tmcc_id)
+            if state is None or not state.is_known:
+                continue
+            value = str(state.payload or "").strip()
+            if value and value not in summaries:
+                summaries.append(value)
+        return " · ".join(summaries)
+
+    @staticmethod
+    def _sensor_summary(state: IrdaState) -> str:
+        parts: list[str] = []
+        if state.sequence_str and state.sequence_str != "NA":
+            parts.append(state.sequence_str.replace("_", " "))
+        if state.is_train:
+            parts.append(f"Train {state.last_train_id}")
+        elif state.is_engine:
+            parts.append(f"Engine {state.last_engine_id}")
+        if state.last_direction.name != "UNKNOWN":
+            parts.append(state.last_direction.name)
+        return " · ".join(parts) or "Waiting for sensor activity"
 
     @staticmethod
     def _image_source(filename: str | None) -> str:
@@ -321,9 +348,37 @@ class AccessoryCatalogController(QObject):
                 continue
             descriptors.append(self._base_descriptor(state))
 
+        # Sensor Tracks are stored in IRDA scope rather than ACC.
+        for occupant in occupants():
+            if occupant.device.label != "IR Sensor Track":
+                continue
+            state = ComponentStateStore.get_state(CommandScope.IRDA, occupant.base_id, create=False)
+            if not isinstance(state, IrdaState):
+                continue
+            name, road_number = self._identity(state)
+            descriptors.append(
+                AccessoryDescriptor(
+                    key=f"irda:{occupant.base_id}",
+                    tmcc_ids=(occupant.base_id,),
+                    primary_tmcc_id=occupant.base_id,
+                    name=name or f"Sensor Track {occupant.base_id}",
+                    road_number=road_number,
+                    configured_accessory=None,
+                    lcs_labels=(f"Sensor Track {occupant.base_id}",),
+                    available_views=(AccessoryViewKind.LCS,),
+                    preferred_view=AccessoryViewKind.LCS,
+                    user_defined=True,
+                )
+            )
+
         descriptors.sort(key=lambda item: (item.name.lower(), item.primary_tmcc_id))
         self._descriptors = {descriptor.key: descriptor for descriptor in descriptors}
         self._rows = [descriptor.as_row() for descriptor in descriptors]
+        for row in self._rows:
+            if row["key"].startswith("irda:"):
+                state = ComponentStateStore.get_state(CommandScope.IRDA, row["primaryTmccId"], create=False)
+                row["lcsTypes"] = ["SENSOR_TRACK"]
+                row["stateSummary"] = self._sensor_summary(state) if isinstance(state, IrdaState) else ""
         self.changed.emit()
 
     @Slot(str, result="QVariantMap")
