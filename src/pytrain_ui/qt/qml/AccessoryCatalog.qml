@@ -8,7 +8,7 @@ Rectangle {
     property var controller
     property string searchText: ""
     property string sortMode: "NAME"
-    property string typeFilter: "OPERATING"
+    property string typeFilter: "ALL"
 
     signal accessoryRequested(string key)
     signal addRequested()
@@ -32,7 +32,7 @@ Rectangle {
             return []
         var needle = searchText.trim().toLowerCase()
         var rows = controller.rows.filter(function(row) {
-            if (typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
+            if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0
                 return false
             if (!needle)
                 return true
@@ -164,6 +164,13 @@ Rectangle {
             spacing: 7
             Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
             ChoiceButton {
+                Layout.preferredWidth: 70
+                Layout.preferredHeight: 42
+                text: "All"
+                selected: root.typeFilter === "ALL"
+                onClicked: root.typeFilter = "ALL"
+            }
+            ChoiceButton {
                 Layout.preferredWidth: 100
                 Layout.preferredHeight: 42
                 text: "Operating"
@@ -195,8 +202,8 @@ Rectangle {
                 Layout.preferredWidth: 122
                 Layout.preferredHeight: 42
                 text: "Sensor Track"
-                selected: root.typeFilter === "IRDA"
-                onClicked: root.typeFilter = "IRDA"
+                selected: root.typeFilter === "SENSOR_TRACK"
+                onClicked: root.typeFilter = "SENSOR_TRACK"
             }
             Item { Layout.fillWidth: true }
         }
