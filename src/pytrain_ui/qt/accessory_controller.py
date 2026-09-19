@@ -17,6 +17,7 @@ from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
 from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.bpc2_req import Bpc2Req
 from pytrain.pdi.constants import Asc2Action, Bpc2Action, PdiCommand
+from pytrain.pdi.pdi_listener import PdiDispatcher
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
@@ -84,19 +85,33 @@ class AccessoryCatalogController(QObject):
         self._rows: list[dict] = []
         self._descriptors: dict[str, AccessoryDescriptor] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
+        self._pdi_dispatcher = PdiDispatcher.get() if PdiDispatcher.is_built() else None
         self.commandReceived.connect(self.reload)
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._accessory_command, CommandScope.ACC)
+        if self._pdi_dispatcher is not None:
+            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.ASC2_RX)
+            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.BPC2_RX)
+            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.AMC2_RX)
+            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.IRDA_RX)
         self.reload()
 
     def close(self) -> None:
         if self._dispatcher is not None:
             self._dispatcher.unsubscribe(self._accessory_command, CommandScope.ACC)
             self._dispatcher = None
+        if self._pdi_dispatcher is not None:
+            self._pdi_dispatcher.unsubscribe_any(self._pdi_command)
+            self._pdi_dispatcher = None
 
     def _accessory_command(self, _command) -> None:
         # Queue the reload onto Qt's thread. Command traffic may introduce a new
         # accessory state, and ComponentStateStore is another dispatcher subscriber.
+        self.commandReceived.emit()
+
+    def _pdi_command(self, _command) -> None:
+        # LCS control packets are authoritative for ASC2/BPC2/AMC2 and Sensor
+        # Track state. Queue a catalog rebuild after the state store processes them.
         self.commandReceived.emit()
 
     @staticmethod
