@@ -332,8 +332,28 @@ Rectangle {
                 TapHandler {
                     id: tapHandler
                     gesturePolicy: TapHandler.DragThreshold
+                    longPressThreshold: 0.75
+
+                    function hasAction(key) {
+                        return row.modelData.quickActions.some(function(action) {
+                            return action.key === key &&
+                                   (action.enabled === undefined || action.enabled)
+                        })
+                    }
+
                     onTapped: root.accessoryRequested(row.modelData.key)
-                    onDoubleTapped: root.accessoryRequested(row.modelData.key)
+                    onDoubleTapped: {
+                        if (hasAction("ON") && hasAction("OFF"))
+                            root.controller.toggleQuickAction(row.modelData.primaryTmccId)
+                    }
+                    onLongPressed: {
+                        if (hasAction("MOMENTARY"))
+                            root.controller.holdQuickAction(row.modelData.primaryTmccId, true)
+                    }
+                    onPressedChanged: {
+                        if (!pressed && hasAction("MOMENTARY"))
+                            root.controller.holdQuickAction(row.modelData.primaryTmccId, false)
+                    }
                 }
             }
         }
