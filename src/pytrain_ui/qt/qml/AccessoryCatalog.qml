@@ -306,7 +306,7 @@ Rectangle {
                             model: row.modelData.quickActions
                             CabButton {
                                 required property var modelData
-                                Layout.preferredWidth: modelData.key === "MOMENTARY" ? 104 : 58
+                                Layout.preferredWidth: (modelData.key === "HOLD" || modelData.key === "PULSE") ? 104 : 58
                                 Layout.preferredHeight: 38
                                 text: modelData.label
                                 font.pixelSize: 12
@@ -314,14 +314,16 @@ Rectangle {
                                 selected: modelData.selected
                                 enabled: modelData.enabled === undefined || modelData.enabled
                                 onClicked: {
-                                    if (modelData.key === "HOLD")
-                                        root.controller.holdQuickAction(row.modelData.primaryTmccId, true)
+                                    var id = row.modelData.primaryTmccId
+                                    if (modelData.key === "HOLD" || modelData.key === "PULSE")
+                                        root.controller.holdQuickAction(id, true)
                                     else
-                                        root.controller.quickAction(modelData.key, row.modelData.primaryTmccId)
+                                        root.controller.quickAction(modelData.key, id)
                                 }
                                 onReleased: {
-                                    if (modelData.key === "HOLD")
-                                        root.controller.holdQuickAction(row.modelData.primaryTmccId, false)
+                                    var id = row.modelData.primaryTmccId
+                                    if (modelData.key === "HOLD" || modelData.key === "PULSE")
+                                        root.controller.holdQuickAction(id, false)
                                 }
                             }
                         }
@@ -357,14 +359,9 @@ Rectangle {
                         if (hasAction("ON") && hasAction("OFF"))
                             root.controller.toggleQuickAction(row.modelData.primaryTmccId)
                     }
-                    onLongPressed: {
-                        if (hasAction("PULSE"))
-                            root.controller.quickAction("MOMENTARY", row.modelData.primaryTmccId)
-                    }
                     onPressedChanged: {
-                        // CabButton owns its own press/release. Do not also fire
-                        // the row gesture when the pointer is over quick actions.
-                        if (point.position.x < row.width - 250 && hasAction("HOLD"))
+                        var inActionArea = point.position.x >= row.width - 250
+                        if (!inActionArea && (hasAction("HOLD") || hasAction("PULSE")))
                             root.controller.holdQuickAction(row.modelData.primaryTmccId, pressed)
                     }
                 }
