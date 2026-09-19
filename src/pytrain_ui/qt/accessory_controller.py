@@ -17,7 +17,9 @@ from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
 from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.bpc2_req import Bpc2Req
 from pytrain.pdi.constants import Asc2Action, Bpc2Action, PdiCommand
+from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 from pytrain.utils.path_utils import find_file
 
 from pytrain_ui.accessory_contracts import (
@@ -372,6 +374,10 @@ class AccessoryCatalogController(QObject):
             "width": operation.width or 0,
             "height": operation.height or 0,
         }
+
+    @Slot()
+    def halt(self) -> None:
+        CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
 
     @Slot(str, int)
     def quickAction(self, action: str, tmcc_id: int) -> None:
