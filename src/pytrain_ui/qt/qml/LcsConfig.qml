@@ -6,10 +6,13 @@ Popup {
     id: root
     required property var controller
 
-    x: Math.max(0, (Overlay.overlay.width - width) / 2)
-    y: Math.max(76, (Overlay.overlay.height - height) / 2)
-    width: Math.min(parent ? parent.width - 32 : 688, 688)
-    height: Math.min(parent ? parent.height - 80 : 1150, 1150)
+    // Popup coordinates are relative to the item that owns the popup. Using
+    // Overlay.overlay dimensions here mixed coordinate systems when this popup
+    // was opened from another page (for example, Accessories).
+    x: 16
+    y: 72
+    width: Math.max(0, (parent ? parent.width : 720) - 32)
+    height: Math.max(0, (parent ? parent.height : 1280) - y - 16)
     modal: false
     focus: true
     closePolicy: Popup.NoAutoClose
