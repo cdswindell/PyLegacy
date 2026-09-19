@@ -32,7 +32,7 @@ Rectangle {
             return []
         var needle = searchText.trim().toLowerCase()
         var rows = controller.rows.filter(function(row) {
-            if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0
+            if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
                 return false
             if (!needle)
                 return true
