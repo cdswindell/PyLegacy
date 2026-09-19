@@ -90,10 +90,11 @@ class AccessoryCatalogController(QObject):
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._accessory_command, CommandScope.ACC)
         if self._pdi_dispatcher is not None:
-            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.ASC2_RX)
-            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.BPC2_RX)
-            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.AMC2_RX)
-            self._pdi_dispatcher.subscribe(self._pdi_command, PdiCommand.IRDA_RX)
+            # PDI dispatch topics are scope-based (ACC/IRDA), not raw RX
+            # command values. Subscribe after ComponentStateStore so the
+            # queued Qt refresh reads the newly observed state.
+            self._pdi_dispatcher.subscribe(self._pdi_command, CommandScope.ACC)
+            self._pdi_dispatcher.subscribe(self._pdi_command, CommandScope.IRDA)
         self.reload()
 
     def close(self) -> None:
