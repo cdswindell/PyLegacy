@@ -313,8 +313,15 @@ Rectangle {
                                 font.bold: modelData.selected
                                 selected: modelData.selected
                                 enabled: modelData.enabled === undefined || modelData.enabled
-                                onClicked: function(mouse) {
-                                    root.controller.quickAction(modelData.key, row.modelData.primaryTmccId)
+                                onClicked: {
+                                    if (modelData.key === "HOLD")
+                                        root.controller.holdQuickAction(row.modelData.primaryTmccId, true)
+                                    else
+                                        root.controller.quickAction(modelData.key, row.modelData.primaryTmccId)
+                                }
+                                onReleased: {
+                                    if (modelData.key === "HOLD")
+                                        root.controller.holdQuickAction(row.modelData.primaryTmccId, false)
                                 }
                             }
                         }
@@ -355,7 +362,9 @@ Rectangle {
                             root.controller.quickAction("MOMENTARY", row.modelData.primaryTmccId)
                     }
                     onPressedChanged: {
-                        if (hasAction("HOLD"))
+                        // CabButton owns its own press/release. Do not also fire
+                        // the row gesture when the pointer is over quick actions.
+                        if (point.position.x < row.width - 250 && hasAction("HOLD"))
                             root.controller.holdQuickAction(row.modelData.primaryTmccId, pressed)
                     }
                 }
