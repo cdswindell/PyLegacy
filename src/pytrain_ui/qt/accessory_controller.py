@@ -256,21 +256,25 @@ class AccessoryCatalogController(QObject):
                     {"key": "ON", "label": on_label, "selected": bool(state and state.is_aux_on), "enabled": enabled},
                     {"key": "OFF", "label": off_label, "selected": bool(state and state.is_aux_off), "enabled": enabled},
                 ]
+            elif operation.behavior == PortBehavior.MOMENTARY_HOLD:
+                actions = [
+                    {"key": "HOLD", "label": "HOLD", "selected": False, "enabled": enabled}
+                ]
             else:
                 actions = [
-                    {
-                        "key": "MOMENTARY",
-                        "label": "MOMENTARY",
-                        "selected": False,
-                        "enabled": enabled,
-                    }
+                    {"key": "PULSE", "label": "PULSE", "selected": False, "enabled": enabled}
                 ]
+            behavior_label = {
+                PortBehavior.LATCH: "ON/OFF",
+                PortBehavior.MOMENTARY_HOLD: "HOLD",
+                PortBehavior.MOMENTARY_PULSE: "PULSE",
+            }.get(operation.behavior, operation.behavior.value)
             rows.append(
                 {
                     "tmccId": tmcc_id,
                     "label": f"{configured.label} {label}",
                     "operation": operation.key,
-                    "behavior": "ON/OFF" if operation.behavior == PortBehavior.LATCH else operation.behavior.value,
+                    "behavior": behavior_label,
                     "enabled": enabled,
                     "quickActions": actions,
                 }
