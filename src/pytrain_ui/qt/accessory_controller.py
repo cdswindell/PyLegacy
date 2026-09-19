@@ -395,6 +395,24 @@ class AccessoryCatalogController(QObject):
     def halt(self) -> None:
         CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
 
+    @Slot(int)
+    def toggleQuickAction(self, tmcc_id: int) -> None:
+        """Toggle a latch-capable ASC2/BPC2 port from its observed state."""
+
+        state = self._state(tmcc_id)
+        if state is None or not (state.is_asc2 or state.is_bpc2):
+            return
+        self.quickAction("OFF" if state.is_aux_on else "ON", tmcc_id)
+
+    @Slot(int, bool)
+    def holdQuickAction(self, tmcc_id: int, pressed: bool) -> None:
+        """Drive an ASC2 momentary-hold port for the duration of the press."""
+
+        state = self._state(tmcc_id)
+        if state is None or not state.is_asc2:
+            return
+        self.quickAction("ON" if pressed else "OFF", tmcc_id)
+
     @Slot(str, int)
     def quickAction(self, action: str, tmcc_id: int) -> None:
         """Send a direct PDI action to an ASC2/BPC2-backed accessory."""
