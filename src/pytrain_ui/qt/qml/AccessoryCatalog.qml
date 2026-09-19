@@ -112,7 +112,7 @@ Rectangle {
                 font.bold: true
                 normalColor: "#8b2d32"
                 pressedColor: "#b43b42"
-                onClicked: cabController.halt()
+                onClicked: root.controller.halt()
             }
         }
 
