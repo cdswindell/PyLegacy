@@ -351,12 +351,12 @@ Rectangle {
                             root.controller.toggleQuickAction(row.modelData.primaryTmccId)
                     }
                     onLongPressed: {
-                        if (hasAction("MOMENTARY"))
-                            root.controller.holdQuickAction(row.modelData.primaryTmccId, true)
+                        if (hasAction("PULSE"))
+                            root.controller.quickAction("MOMENTARY", row.modelData.primaryTmccId)
                     }
                     onPressedChanged: {
-                        if (!pressed && hasAction("MOMENTARY"))
-                            root.controller.holdQuickAction(row.modelData.primaryTmccId, false)
+                        if (hasAction("HOLD"))
+                            root.controller.holdQuickAction(row.modelData.primaryTmccId, pressed)
                     }
                 }
             }
