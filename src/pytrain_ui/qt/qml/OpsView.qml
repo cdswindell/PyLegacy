@@ -181,6 +181,11 @@ Rectangle {
         routePicker.open()
     }
 
+    function openLcsConfiguration() {
+        if (root.lcsController)
+            lcsConfig.open()
+    }
+
     function cancelTransientPanels() {
         routePicker.close()
         routeBuilder.close()
