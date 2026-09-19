@@ -232,22 +232,25 @@ class AccessoryCatalogController(QObject):
         for operation in configured.operation_assets:
             tmcc_id = configured.tmcc_id_for(operation.key)
             state = AccessoryCatalogController._state(tmcc_id)
-            label = registry.get_operation_label(spec, operation.key, variant=configured.definition.variant)
+            label = registry.get_operation_label(spec, operation.key)
             requires_power = operation.behavior != PortBehavior.LATCH and bool(power_ids) and tmcc_id not in power_ids
             enabled = not requires_power or power_on
             if operation.behavior == PortBehavior.LATCH:
-                on_label = registry.get_operation_label_for_state(
-                    spec,
-                    operation.key,
-                    variant=configured.definition.variant,
-                    is_on=True,
-                )
-                off_label = registry.get_operation_label_for_state(
-                    spec,
-                    operation.key,
-                    variant=configured.definition.variant,
-                    is_on=False,
-                )
+                if operation.key.strip().lower() == "power":
+                    on_label, off_label = "ON", "OFF"
+                else:
+                    on_label = registry.get_operation_label_for_state(
+                        spec,
+                        operation.key,
+                        variant=configured.definition.variant,
+                        is_on=True,
+                    )
+                    off_label = registry.get_operation_label_for_state(
+                        spec,
+                        operation.key,
+                        variant=configured.definition.variant,
+                        is_on=False,
+                    )
                 actions = [
                     {"key": "ON", "label": on_label, "selected": bool(state and state.is_aux_on), "enabled": enabled},
                     {"key": "OFF", "label": off_label, "selected": bool(state and state.is_aux_off), "enabled": enabled},
