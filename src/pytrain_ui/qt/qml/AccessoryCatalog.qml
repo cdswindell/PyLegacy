@@ -58,8 +58,12 @@ Rectangle {
                    row.lcsAssociations.toLowerCase().indexOf(needle) >= 0
         })
         rows.sort(function(a, b) {
-            if (sortMode === "TMCC")
-                return a.primaryTmccId - b.primaryTmccId
+            if (sortMode === "TMCC") {
+                var idResult = a.primaryTmccId - b.primaryTmccId
+                if (idResult !== 0)
+                    return idResult
+                return a.roadName.toLowerCase().localeCompare(b.roadName.toLowerCase())
+            }
             if (sortMode === "ROAD") {
                 var result = root.compareRoadNumbers(a.roadNumber, b.roadNumber)
                 if (result !== 0)
