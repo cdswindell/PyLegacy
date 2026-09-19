@@ -13,6 +13,7 @@ from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.gui.controller.route_draft import RouteDraft
 from pytrain.pdi.base_req import BaseReq
 from pytrain.pdi.constants import PdiCommand
+from pytrain.pdi.pdi_listener import PdiDispatcher
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
@@ -39,12 +40,18 @@ class OpsController(QObject):
         self._dispatcher.subscribe(self._command_received, self._scope)
         if self._scope == CommandScope.ROUTE:
             self._dispatcher.subscribe(self._command_received, CommandScope.SWITCH)
+        self._pdi_dispatcher = PdiDispatcher.get() if PdiDispatcher.is_built() else None
+        if self._pdi_dispatcher is not None and self._scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            self._pdi_dispatcher.subscribe(self._pdi_received, CommandScope.SWITCH)
         self.reload()
 
     def close(self) -> None:
         self._dispatcher.unsubscribe(self._command_received, self._scope)
         if self._scope == CommandScope.ROUTE:
             self._dispatcher.unsubscribe(self._command_received, CommandScope.SWITCH)
+        if self._pdi_dispatcher is not None:
+            self._pdi_dispatcher.unsubscribe(self._pdi_received, CommandScope.SWITCH)
+            self._pdi_dispatcher = None
 
     def _state(self):
         if not self._selected_id:
@@ -112,6 +119,12 @@ class OpsController(QObject):
         scope = getattr(command, "scope", None)
         if tmcc_id and scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             self.commandReceived.emit(tmcc_id, scope.name)
+
+    def _pdi_received(self, command) -> None:
+        """Refresh switch/route state when authoritative STM2/ASC2 feedback arrives."""
+        tmcc_id = int(getattr(command, "tmcc_id", 0) or 0)
+        if tmcc_id:
+            self.commandReceived.emit(tmcc_id, CommandScope.SWITCH.name)
 
     @Slot(int, str)
     def _refresh_after_command(self, tmcc_id: int, scope_name: str) -> None:
