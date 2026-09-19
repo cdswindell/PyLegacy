@@ -40,13 +40,19 @@ class TestRouteDraft:
         with pytest.raises(ValueError, match="Route ID"):
             RouteDraft(tmcc_id)
 
-    @pytest.mark.parametrize("tmcc_id", [1, 98, 99])
+    @pytest.mark.parametrize("tmcc_id", [1, 98])
     def test_route_id_boundaries(self, tmcc_id):
         draft = RouteDraft(tmcc_id)
         assert draft.tmcc_id == tmcc_id
         assert draft.components == ()
         assert not draft.dirty
         draft.validate({}.get)
+
+    def test_broadcast_route_id_cannot_be_saved(self):
+        draft = RouteDraft(99)
+        assert draft.tmcc_id == 99
+        with pytest.raises(ValueError, match="Assign a Route ID"):
+            draft.validate({}.get)
 
     def test_unnumbered_draft_requires_assignment_before_save(self):
         draft = RouteDraft(0)
