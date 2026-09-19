@@ -13,7 +13,9 @@ from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.irda_state import IrdaState
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
+from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from pytrain.utils.path_utils import find_file
 
 from pytrain_ui.accessory_contracts import (
@@ -62,6 +64,7 @@ class AccessoryDescriptor:
             "preferredView": self.preferred_view.value,
             "userDefined": self.user_defined,
             "stateSummary": AccessoryCatalogController._state_summary(self),
+            "quickActions": AccessoryCatalogController._quick_actions(self),
         }
 
 
@@ -189,6 +192,28 @@ class AccessoryCatalogController(QObject):
         return " · ".join(summaries)
 
     @staticmethod
+    def _quick_actions(descriptor: AccessoryDescriptor) -> list[dict]:
+        if descriptor.configured_accessory is not None:
+            return []
+        state = AccessoryCatalogController._state(descriptor.primary_tmcc_id)
+        if state is None:
+            return []
+        lcs_types = {label.split(" ", 1)[0] for label in descriptor.lcs_labels}
+        if "BPC2" in lcs_types:
+            return [
+                {"key": "ON", "label": "ON", "selected": state.is_aux_on},
+                {"key": "OFF", "label": "OFF", "selected": state.is_aux_off},
+            ]
+        if "ASC2" in lcs_types:
+            momentary = not state.is_aux_on and not state.is_aux_off
+            return [
+                {"key": "ON", "label": "ON", "selected": state.is_aux_on},
+                {"key": "OFF", "label": "OFF", "selected": state.is_aux_off},
+                {"key": "MOMENTARY", "label": "MOMENTARY", "selected": momentary},
+            ]
+        return []
+
+    @staticmethod
     def _sensor_summary(state: IrdaState) -> str:
         parts: list[str] = []
         if state.sequence_str and state.sequence_str != "NA":
@@ -295,6 +320,19 @@ class AccessoryCatalogController(QObject):
             "width": operation.width or 0,
             "height": operation.height or 0,
         }
+
+    @Slot(str, int)
+    def quickAction(self, action: str, tmcc_id: int) -> None:
+        """Send a direct catalog action to an ASC2/BPC2-backed accessory."""
+
+        commands = {
+            "ON": Aux.AUX1_ON,
+            "OFF": Aux.AUX1_OFF,
+            "MOMENTARY": Aux.AUX1_OPT_ONE,
+        }
+        command = commands.get(action)
+        if command is not None:
+            CommandReq.build(command, address=tmcc_id, scope=CommandScope.ACC).send()
 
     @Slot(str, result="QVariantMap")
     def operatingView(self, key: str) -> dict:
