@@ -256,8 +256,18 @@ class AccessoryCatalogController(QObject):
                         is_on=False,
                     )
                 actions = [
-                    {"key": "ON", "label": on_label, "selected": bool(state and state.is_aux_on), "enabled": enabled},
-                    {"key": "OFF", "label": off_label, "selected": bool(state and state.is_aux_off), "enabled": enabled},
+                    {
+                        "key": "ON",
+                        "label": on_label,
+                        "selected": bool(state and state.is_aux_on),
+                        "enabled": enabled,
+                    },
+                    {
+                        "key": "OFF",
+                        "label": off_label,
+                        "selected": bool(state and state.is_aux_off),
+                        "enabled": enabled,
+                    },
                 ]
             elif operation.behavior == PortBehavior.MOMENTARY_HOLD:
                 actions = [
@@ -546,17 +556,5 @@ class AccessoryCatalogController(QObject):
     def rows(self) -> list[dict]:
         return self._rows
 
-    @Slot(str, int)
-    def quickAction(self, action: str, tmcc_id: int) -> None:
-        """Send a direct PDI action to an ASC2/BPC2-backed accessory."""
-
-        state = self._state(tmcc_id)
-        if state is None:
-            return
-        value = 0 if action == "OFF" else 1
-        if state.is_bpc2:
-            Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=value).send()
-        elif state.is_asc2:
-            Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=value).send()
 
 
