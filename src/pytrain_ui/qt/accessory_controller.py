@@ -12,6 +12,7 @@ from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.irda_state import IrdaState
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
+from pytrain.gui.accessories.accessory_registry import PortBehavior
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
@@ -65,6 +66,7 @@ class AccessoryDescriptor:
             "userDefined": self.user_defined,
             "stateSummary": AccessoryCatalogController._state_summary(self),
             "quickActions": AccessoryCatalogController._quick_actions(self),
+            "componentRows": AccessoryCatalogController._component_rows(self),
         }
 
 
@@ -190,6 +192,55 @@ class AccessoryCatalogController(QObject):
             if value and value not in summaries:
                 summaries.append(value)
         return " · ".join(summaries)
+
+    @staticmethod
+    def _component_rows(descriptor: AccessoryDescriptor) -> list[dict]:
+        configured = descriptor.configured_accessory
+        if configured is None:
+            return []
+        rows: list[dict] = []
+        registry = configured.registry
+        spec = registry.get_spec(configured.accessory_type)
+        power_ids = {
+            configured.tmcc_id_for(op.key)
+            for op in configured.operation_assets
+            if op.behavior == PortBehavior.LATCH and op.key.strip().lower() == "power"
+        }
+        power_on = all(
+            (state := AccessoryCatalogController._state(tmcc_id)) is not None and state.is_aux_on
+            for tmcc_id in power_ids
+        )
+        for operation in configured.operation_assets:
+            tmcc_id = configured.tmcc_id_for(operation.key)
+            state = AccessoryCatalogController._state(tmcc_id)
+            label = registry.get_operation_label(spec, operation.key, variant=configured.definition.variant)
+            requires_power = operation.behavior != PortBehavior.LATCH and bool(power_ids) and tmcc_id not in power_ids
+            enabled = not requires_power or power_on
+            if operation.behavior == PortBehavior.LATCH:
+                actions = [
+                    {"key": "ON", "label": "ON", "selected": bool(state and state.is_aux_on), "enabled": enabled},
+                    {"key": "OFF", "label": "OFF", "selected": bool(state and state.is_aux_off), "enabled": enabled},
+                ]
+            else:
+                actions = [
+                    {
+                        "key": "MOMENTARY",
+                        "label": "MOMENTARY",
+                        "selected": False,
+                        "enabled": enabled,
+                    }
+                ]
+            rows.append(
+                {
+                    "tmccId": tmcc_id,
+                    "label": f"{configured.label} {label}",
+                    "operation": operation.key,
+                    "behavior": operation.behavior.value,
+                    "enabled": enabled,
+                    "quickActions": actions,
+                }
+            )
+        return rows
 
     @staticmethod
     def _quick_actions(descriptor: AccessoryDescriptor) -> list[dict]:
