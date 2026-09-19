@@ -278,7 +278,27 @@ Rectangle {
                         }
                     }
 
+                    RowLayout {
+                        visible: row.modelData.quickActions.length > 0
+                        spacing: 5
+                        Repeater {
+                            model: row.modelData.quickActions
+                            CabButton {
+                                required property var modelData
+                                Layout.preferredWidth: modelData.key === "MOMENTARY" ? 104 : 58
+                                Layout.preferredHeight: 38
+                                text: modelData.label
+                                font.pixelSize: 12
+                                font.bold: modelData.selected
+                                selected: modelData.selected
+                                onClicked: function(mouse) {
+                                    root.controller.quickAction(modelData.key, row.modelData.primaryTmccId)
+                                }
+                            }
+                        }
+                    }
                     Label {
+                        visible: row.modelData.quickActions.length === 0
                         text: row.modelData.preferredView
                         color: "#f4f6f8"
                         font.pixelSize: 13
