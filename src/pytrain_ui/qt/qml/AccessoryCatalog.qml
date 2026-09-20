@@ -107,6 +107,7 @@ Rectangle {
                 Layout.preferredWidth: 92
                 Layout.preferredHeight: 46
                 text: "ADD…"
+                enabled: !lcsConfig.visible
                 font.pixelSize: 14
                 onClicked: root.addRequested()
             }
@@ -114,6 +115,7 @@ Rectangle {
                 Layout.preferredWidth: 92
                 Layout.preferredHeight: 46
                 text: "LCS…"
+                enabled: !lcsConfig.visible
                 font.pixelSize: 14
                 onClicked: root.lcsRequested()
             }
