@@ -60,6 +60,7 @@ ApplicationWindow {
             AccessoryCatalog {
                 id: accessoryCatalog
                 controller: accessoryCatalogController
+                lcsController: lcsConfigController
                 onAccessoryRequested: function(key) {
                     window.activeAccessory = accessoryCatalogController.operatingView(key)
                     window.accessoryOperatingVisible = true
@@ -67,9 +68,7 @@ ApplicationWindow {
                 onAddRequested: {
                     // The add workflow is implemented with the accessory operating layer.
                 }
-                onLcsRequested: {
-                    switchOpsView.openLcsConfiguration()
-                }
+                onLcsRequested: accessoryCatalog.openLcsConfiguration()
             }
         }
 
@@ -87,6 +86,7 @@ ApplicationWindow {
             onScopePressed: function(scope) {
                 switchOpsView.cancelTransientPanels()
                 routeOpsView.cancelTransientPanels()
+                accessoryCatalog.cancelTransientPanels()
                 if (scope === "SWITCH") {
                     switchOpsController.reload()
                     window.activeScope = "SWITCH"
