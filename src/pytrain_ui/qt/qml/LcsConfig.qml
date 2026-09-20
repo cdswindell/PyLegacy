@@ -203,6 +203,7 @@ Popup {
                 Repeater {
                     model: root.controller ? root.controller.options : []
                     delegate: ColumnLayout {
+                        id: optionRow
                         required property var modelData
                         Layout.fillWidth: true
                         spacing: 6
@@ -225,7 +226,7 @@ Popup {
                                 Layout.preferredHeight: 48
                                 text: modelData.label
                                 selected: modelData.selected
-                                onClicked: root.controller.selectOption(parent.parent.modelData.key, modelData.index)
+                                onClicked: root.controller.selectOption(optionRow.modelData.key, modelData.index)
                             }
                         }
 
