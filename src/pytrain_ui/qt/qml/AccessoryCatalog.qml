@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     property var controller
+    property var lcsController: null
     property string searchText: ""
     property string sortMode: "NAME"
     property string typeFilter: "ALL"
@@ -13,6 +14,15 @@ Rectangle {
     signal accessoryRequested(string key)
     signal addRequested()
     signal lcsRequested()
+
+    function openLcsConfiguration() {
+        if (root.lcsController)
+            lcsConfig.open()
+    }
+
+    function cancelTransientPanels() {
+        lcsConfig.close()
+    }
 
     color: "#15191f"
     radius: 10
@@ -362,5 +372,9 @@ Rectangle {
                 }
             }
         }
+    }
+    LcsConfig {
+        id: lcsConfig
+        controller: root.lcsController
     }
 }
