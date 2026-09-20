@@ -57,8 +57,11 @@ ApplicationWindow {
                 controller: routeOpsController
             }
 
-            AccessoryCatalog {
-                id: accessoryCatalog
+            Item {
+                AccessoryCatalog {
+                    id: accessoryCatalog
+                    anchors.fill: parent
+                    visible: !window.accessoryOperatingVisible
                 controller: accessoryCatalogController
                 lcsController: lcsConfigController
                 onAccessoryRequested: function(key) {
@@ -68,7 +71,16 @@ ApplicationWindow {
                 onAddRequested: {
                     // The add workflow is implemented with the accessory operating layer.
                 }
-                onLcsRequested: accessoryCatalog.openLcsConfiguration()
+                    onLcsRequested: accessoryCatalog.openLcsConfiguration()
+                }
+
+                AccessoryOperatingView {
+                    anchors.fill: parent
+                    visible: window.accessoryOperatingVisible
+                    controller: accessoryCatalogController
+                    accessory: window.activeAccessory
+                    onCloseRequested: window.accessoryOperatingVisible = false
+                }
             }
         }
 
