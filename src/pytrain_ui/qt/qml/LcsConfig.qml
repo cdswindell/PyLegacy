@@ -93,10 +93,16 @@ Popup {
             wrapMode: Text.WordWrap
         }
 
-        ColumnLayout {
+        ScrollView {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             visible: !root.showingModules && root.page === 1
-            spacing: 10
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            ColumnLayout {
+                width: parent.width
+                spacing: 10
 
             Image {
                 Layout.alignment: Qt.AlignHCenter
@@ -296,6 +302,7 @@ Popup {
                     color: "#f0c36a"
                     font.pixelSize: 14
                 }
+            }
             }
         }
 
