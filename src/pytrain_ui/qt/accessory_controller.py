@@ -455,13 +455,9 @@ class AccessoryCatalogController(QObject):
             return
         value = 0 if action == "OFF" else 1
         if state.is_bpc2:
-            req = Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=value)
-            print(f"Accessory quick action: {action} -> {req} bytes={req.as_bytes.hex(' ').upper()}")
-            req.send()
+            Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=value).send()
         elif state.is_asc2:
-            req = Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=value)
-            print(f"Accessory quick action: {action} -> {req} bytes={req.as_bytes.hex(' ').upper()}")
-            req.send()
+            Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=value).send()
 
     @Slot(str, result="QVariantMap")
     def operatingView(self, key: str) -> dict:
