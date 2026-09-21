@@ -775,6 +775,7 @@ class EngineCli(CliBaseTMCC):
         return self._engine
 
     def _determine_command_format(self, scope: CommandScope, tmcc_id: int) -> None:
+        print(f"Engine: {self._engine} {scope} {tmcc_id} {self._args} {'format' in self._args}")
         if "format" in self._args and self._args.format:
             pass  # use user-provided format
         else:
