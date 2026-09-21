@@ -851,7 +851,7 @@ class PyTrain:
             package = installed_package() or PROGRAM_PACKAGE
             subprocess.run([sys.executable, "-m", "pip", "install", "-U", package], cwd=os.getcwd(), check=False)
         else:
-            # update from github
+            # update from GitHub
             subprocess.run(["git", "pull"], cwd=os.getcwd(), check=False)
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "-r", self.requirements_file], cwd=os.getcwd(), check=False
@@ -888,7 +888,7 @@ class PyTrain:
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
         # PyTrain updates first, while the machine is still up. `sudo reboot` returns as
         # soon as systemd accepts the shutdown job rather than blocking until the machine
-        # goes down, so anything sequenced after it races the teardown -- and a pip
+        # goes down. Anything sequenced after it races the teardown -- and a pip
         # install killed partway leaves a half-written package behind with nothing in the
         # log to say why. When the reboot follows, it is this path's relaunch, so update()
         # must not relaunch as well.
