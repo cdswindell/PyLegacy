@@ -1284,6 +1284,7 @@ class PyTrain:
                         state = self._state_store.get_state(
                             CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
                         )
+                        print(f"State: {state} {ui_parts[2:]}")
                         if state.is_tmcc if isinstance(state, EngineState) else True:
                             has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
