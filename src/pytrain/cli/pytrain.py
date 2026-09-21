@@ -204,7 +204,6 @@ class PyTrain:
             self._base_addr = self._base_port = None
 
         # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
-        print(f"Connecting to {self._server} on port {self._port}")
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, ser2=self._ser2 is True
         )

@@ -92,8 +92,8 @@ class CommBuffer(abc.ABC):
         cls,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         baudrate: int = DEFAULT_BAUDRATE,
-        port: str = DEFAULT_PORT,
-        server: str | None = None,
+        port: str | int = DEFAULT_PORT,
+        server: IPv4Address | IPv6Address | str | None = None,
         ser2=False,
     ) -> CommBufferSingleton | CommBufferProxy:
         if cls._instance:
