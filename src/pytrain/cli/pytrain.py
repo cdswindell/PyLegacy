@@ -1284,7 +1284,6 @@ class PyTrain:
                         state = self._state_store.get_state(
                             CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
                         )
-                        print(f"State: {state} {ui_parts[2:]}")
                         if state.is_tmcc if isinstance(state, EngineState) else True:
                             has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
@@ -1297,6 +1296,7 @@ class PyTrain:
                                     break  # we're into a subparser
                             if not has_tmcc_arg and not has_legacy_arg:
                                 ui_parts.insert(2, "-tmcc")
+                        print(f"State: {state} {ui_parts[2:]}")
 
                     # parse command line with the appropriate parser
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
