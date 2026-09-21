@@ -88,7 +88,7 @@ class CommandListener(Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = True,
         base3_receiver: bool = False,
-        server_port: int = None,
+        server_port: int | None = None,
     ) -> CommandListener:
         """
         Factory method to create a CommandListener instance
@@ -587,15 +587,15 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def signal_clients(
         self,
         option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT,
-        client: str = None,
-        port: int = None,
+        client: str | None = None,
+        port: int | None = None,
     ) -> None:
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         self.update_client_state(option, client=client, port=port)
 
     def signal_clients_on(
-        self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str = None
+        self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str | None = None
     ) -> None:
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)

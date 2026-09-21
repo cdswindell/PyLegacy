@@ -114,13 +114,13 @@ class PyTrain:
     _current: "PyTrain | None" = None
 
     @classmethod
-    def current(cls, raise_exception: bool = True) -> "PyTrain":
+    def current(cls, raise_exception: bool = True) -> "PyTrain | None":
         if cls._current is None and raise_exception is True:
             pn = PROGRAM_NAME
             raise RuntimeError(f"{pn}.current() called before {pn} was created")
         return cls._current
 
-    def __init__(self, cmd_line: List[str] = None) -> None:
+    def __init__(self, cmd_line: List[str] | None = None) -> None:
         from .. import get_version
 
         if cmd_line:
@@ -173,6 +173,7 @@ class PyTrain:
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
         # Unless we are running as a client, make sure one of those 2 devices is specified
+        # noinspection unreachable-code
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
                 base = args.base[0]
@@ -203,6 +204,7 @@ class PyTrain:
             self._base_addr = self._base_port = None
 
         # Based on the arguments, we are either connecting to an LCS Ser 2 or a named PyTrain server
+        print(f"Connecting to {self._server} on port {self._port}")
         self._tmcc_buffer = CommBuffer.build(
             baudrate=self._baudrate, port=self._port, server=self._server, ser2=self._ser2 is True
         )
@@ -709,7 +711,7 @@ class PyTrain:
             log.warning(f"Error closing GPIO, continuing shutdown: {e}")
 
     # noinspection PyUnreachableCode
-    def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
+    def do_admin_cmd(self, command: CommandDefEnum, args: List[str] | None = None):
         cmd = CommandReq(command)
         # special case to see if we want to operate on a different client node
         if self._server_ips and args and args[0] not in self._server_ips and args[0] != "me":
@@ -718,7 +720,8 @@ class PyTrain:
             addr = arg_parts[0] if len(arg_parts) > 0 else None
             port = int(arg_parts[1]) if len(arg_parts) > 1 else self._port
             log.info(f"Sending {command.name} request to {addr}:{port}...")
-            self._dispatcher.signal_clients(cmd, client=addr, port=port)
+            if self._dispatcher:
+                self._dispatcher.signal_clients(cmd, client=addr, port=int(port))
             return
 
         # exit pytrain, signaling the exit behavior by setting
@@ -873,7 +876,7 @@ class PyTrain:
         return REQUIREMENTS
 
     def upgrade(self) -> None:
-        # The Steam Deck keeps SteamOS updated itself and its root filesystem is
+        # The Steam Deck keeps SteamOS updated itself, and its root filesystem is
         # immutable, so apt and rpi-eeprom-update are both meaningless and unavailable
         # there. Skipping the OS half degrades upgrade() to a PyTrain update, the same
         # way it already behaves off Linux.
@@ -906,7 +909,7 @@ class PyTrain:
             subprocess.run(["sudo", "reboot"], check=False)
 
     def relaunch(self, exit_status: PyTrainExitStatus, delay: bool = True) -> None:
-        # if we're a client, we need to give the server time to respond, otherwise, we
+        # if we're a client, we need to give the server time to respond; otherwise, we
         # will connect to it as it is shutting down
         if self.is_client is True and delay is True:
             sleep(random.randint(8, 12))

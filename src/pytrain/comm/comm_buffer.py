@@ -29,7 +29,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
-    from typing import Any, Dict, Self, Set
+    from typing import Any, Dict, Set
 
 import serial
 from serial.serialutil import SerialException
@@ -71,8 +71,8 @@ class CommBuffer(abc.ABC):
 
     @staticmethod
     def parse_server(
-        server: str | IPv4Address | IPv6Address, port: str | int, server_port: int = 0
-    ) -> tuple[IPv4Address | IPv6Address | None, str]:
+        server: str | IPv4Address | IPv6Address | None, port: str | int, server_port: int = 0
+    ) -> tuple[IPv4Address | IPv6Address | None, str | int]:
         if server is not None:
             try:
                 if isinstance(server, str):
@@ -93,9 +93,9 @@ class CommBuffer(abc.ABC):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
-        server: str = None,
+        server: str | None = None,
         ser2=False,
-    ) -> Self:
+    ) -> CommBufferSingleton | CommBufferProxy:
         if cls._instance:
             return cls._instance
         """
@@ -103,7 +103,7 @@ class CommBuffer(abc.ABC):
         """
         server, port = cls.parse_server(server, port)
         if server is None:
-            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, ser2=ser2)
+            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=str(port), ser2=ser2)
         else:
             return CommBufferProxy(server, int(port))
 
