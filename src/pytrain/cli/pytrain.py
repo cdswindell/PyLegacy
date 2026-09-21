@@ -1279,20 +1279,22 @@ class PyTrain:
 
                     # if this is a train or engine command, check for tmcc mode
                     if (is_train_cmd or is_engine_cmd) and self._is_int(ui_parts[1]):
+                        assert self._state_store
                         tmcc_id = int(ui_parts[1])
                         state = self._state_store.get_state(
                             CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
                         )
                         if state.is_tmcc if isinstance(state, EngineState) else True:
-                            has_tmcc_arg = False
+                            has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
                                 if token.startswith("-"):
                                     if "-tmcc".startswith(token.lower()):
                                         has_tmcc_arg = True
-                                        break
+                                    elif "-legacy".startswith(token.lower()):
+                                        has_legacy_arg = True
                                 else:
                                     break  # we're into a subparser
-                            if not has_tmcc_arg:
+                            if not has_tmcc_arg and not has_legacy_arg:
                                 ui_parts.insert(2, "-tmcc")
 
                     # parse command line with the appropriate parser

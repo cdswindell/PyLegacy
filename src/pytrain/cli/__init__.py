@@ -112,7 +112,7 @@ class CliBase(ABC):
         return parser
 
     @staticmethod
-    def command_format_parser(default: CommandSyntax = None) -> ArgumentParser:
+    def command_format_parser(default: CommandSyntax | None = None) -> ArgumentParser:
         """
         Add command_def to run command using TMCC1 command syntax
         """
@@ -152,7 +152,9 @@ class CliBase(ABC):
         )
         return parser
 
-    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(
+        self, arg_parser: ArgumentParser | None = None, cmd_line: List[str] | None = None, do_fire: bool = True
+    ) -> None:
         """Initializes command parser; restores stripped arguments; determines server status"""
         if arg_parser is None:
             arg_parser = self.command_parser()
@@ -162,7 +164,7 @@ class CliBase(ABC):
             self._args = arg_parser.parse_args(cmd_line)
         self._command = None
         self._command_format = CommandSyntax.LEGACY  # Use TMCC2-style commands by default, if supported
-        self._command_line: List[str] = cmd_line
+        self._command_line: List[str] | None = cmd_line
         self._do_fire = do_fire
         # as the TrainControl cli strips out some commands, we need to restore them
         if "baudrate" in self._args:
@@ -217,7 +219,7 @@ class CliBase(ABC):
         return self._command
 
     @property
-    def command_line(self) -> List[str]:
+    def command_line(self) -> List[str] | None:
         return self._command_line
 
     @property
@@ -290,7 +292,7 @@ class CliBase(ABC):
 class CliBaseTMCC(CliBase):
     __metaclass__ = ABCMeta
 
-    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] | None = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         if "format" in self._args and self._args.format:
             self._command_format = self._args.format
