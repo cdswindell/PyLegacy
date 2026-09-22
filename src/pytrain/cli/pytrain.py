@@ -151,7 +151,6 @@ class PyTrain:
         self._service_info = None
         self._api = False
         self._api_thread = None
-        self._command_queue = None
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = Event()
@@ -296,6 +295,7 @@ class PyTrain:
             self._api_thread: Thread | None = Thread(target=self.run, daemon=True)
             self._api_thread.start()
         else:
+            self._command_queue = None
             self.run()
 
     def _load_client_state(self):
@@ -388,9 +388,11 @@ class PyTrain:
                     elif self._api:
                         cmd = None
                         try:
-                            assert self._command_queue is not None
-                            cmd = self._command_queue.get(block=True)
-                            self._handle_command(cmd)
+                            if self._command_queue is not None:
+                                cmd = self._command_queue.get(block=True)
+                                self._handle_command(cmd)
+                            else:
+                                raise RuntimeError("Command queue not created")
                         except Empty:
                             pass
                         finally:
@@ -1297,7 +1299,7 @@ class PyTrain:
 
                     # if this is a train or engine command, check for tmcc mode
                     if (is_train_cmd or is_engine_cmd) and self._is_int(ui_parts[1]):
-                        assert self._state_store
+                        assert self._state_store is not None
                         tmcc_id = int(ui_parts[1])
                         state = self._state_store.get_state(
                             CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
@@ -1338,9 +1340,9 @@ class PyTrain:
         Send PDI requests to get data on all engines, trains, switches, routes, and accessories
         from the Lionel Base 3
         """
-        assert self._state_store
-        assert self._pdi_buffer
-        assert self._dispatcher
+        assert self._state_store is not None
+        assert self._pdi_buffer is not None
+        assert self._dispatcher is not None
         sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._startup_state = StartupState(
             self._pdi_buffer,
@@ -1382,7 +1384,7 @@ class PyTrain:
 
     # noinspection unsupported-operator
     def _do_db(self, param) -> None:
-        assert self._state_store
+        assert self._state_store is not None
         try:
             if len(param) >= 1:
                 param0 = param[0].strip().lower()
@@ -1535,7 +1537,7 @@ class PyTrain:
         elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
             action = D4Action.by_prefix(param[1], raise_exception=True)
-            assert pdi
+            assert pdi is not None
             if action in {D4Action.COUNT, D4Action.FIRST_REC}:
                 agr = D4Req(0, pdi, action=action)
             # Builds D4 request with MAP, NEXT_REC, or QUERY/UPDATE parameters and validation

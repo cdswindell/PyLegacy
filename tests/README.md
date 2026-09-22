@@ -172,10 +172,10 @@ the compatibility follow-up's current source; earlier step references are histor
 | Missing line / branch arc | Reason and proposed cleanup |
 | --- | --- |
 | 200 / 199 → 200 | The real parser defaults to client discovery when no connection is supplied; SER2 is necessarily enabled in this remaining constructor arm. Remove the impossible missing-connection guard, retaining SER2 initialization. Line 199 itself is covered. |
-| 475 / 473 → 475 | Client is the negation of server. Remove the final fallback return and use an `else` for the client arm. |
-| 1196 → 1327 | A nonempty stripped string cannot split into an empty first token. Remove the redundant conditional and dedent its body. |
-| 1225 / 1224 → 1225 | Argparse handles help by exiting; it never returns `command="help"`. Remove the dead dispatch clause. |
-| 1639 → 1643 | Missing actions already raise before reaching this arm. Replace `elif ca is not None` with `else`. |
+| 478 / 476 → 478 | Client is the negation of server. Remove the final fallback return and use an `else` for the client arm. |
+| 1203 → 1334 | A nonempty stripped string cannot split into an empty first token. Remove the redundant conditional and dedent its body. |
+| 1232 / 1231 → 1232 | Argparse handles help by exiting; it never returns `command="help"`. Remove the dead dispatch clause. |
+| 1646 → 1650 | Missing actions already raise before reaching this arm. Replace `elif ca is not None` with `else`. |
 
 No production files were modified for this step. Earlier characterization findings
 remain unchanged and require separate review. Update tests also preserve the
@@ -226,7 +226,7 @@ The first two commands used 60-second bounds; remaining commands used 120 second
 The new regressions passed (6 tests, 0.28 seconds); both Python files passed
 formatting without reformatting. Focused Python 3.11.16 command/parser tests passed
 (104 tests, 0.40 seconds; tox 0.83 seconds). Python 3.13.15 CLI coverage passed
-(762 tests, 4.92 seconds); the full SDK suite passed (7,083 tests, 10.43 seconds).
+(762 tests, 4.42 seconds); the full SDK suite passed (7,083 tests, 10.43 seconds).
 
 The unchanged tox matrix actually ran every requested environment; none was
 missing or skipped:
@@ -239,9 +239,11 @@ missing or skipped:
 | py314 | Python 3.14.7 | 7,083 passed | 11.86 seconds |
 | lint | Ruff 0.16.8 | Check and format check passed; 444 files already formatted | — |
 
-Remeasured coverage (pytest-cov 7.1.0, coverage 7.10.7) is **1,187/1,190 lines
-(99.75%), 497/502 branches (99.00%), and 99.53% combined**. Both outcomes of the
-new guard are covered. The only missing lines are 200, 475, and 1225; the five
-unreachable branch arcs are listed in the updated blocker table above. No gaps
-were excluded, no cleanup was implemented, and no 100% gate was added. Existing
-JSON/HTML reports were not regenerated as part of this follow-up.
+The fresh CLI coverage command above (pytest-cov 7.1.0) measured **1,194/1,197
+lines (99.75%), 497/502 branches (99.00%), and 99.53% combined**. Both outcomes
+of the new guard are covered. The only missing lines are 200, 478, and 1232; the
+partial arcs reported are 1203 → 1334 and 1646 → 1650. These three missing lines
+and two partial arcs are listed as the five uncovered paths in the updated blocker
+table above. No gaps were excluded, no cleanup was implemented, and no 100% gate
+was added. Existing JSON/HTML reports were not regenerated as part of this
+follow-up.

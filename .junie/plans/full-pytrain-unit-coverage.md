@@ -85,7 +85,7 @@ Unknown and ambiguous commands return error strings through the existing excepti
 - Reuse real parsers and existing isolated fixtures; do not introduce version-based skips, alternate expectations, or broad `SystemExit` handling.
 - Check formatting and run the focused command/parser tests in the existing Python 3.11 tox environment after the change.
 
-### * Step 2: Protect parser-mode boundaries and document compatibility
+### ✓ Step 2: Protect parser-mode boundaries and document compatibility
 Regression coverage protects interactive behavior and parser isolation, with actual supported-version and coverage results documented.
 - Add same-instance parse-only failure followed by successful parsing and normal help cases in `tests/cli/test_pytrain_commands.py`.
 - Verify both branches of the new guard using real parser behavior or narrowly scoped spies; preserve existing command-specific restoration and normal-send tests.
