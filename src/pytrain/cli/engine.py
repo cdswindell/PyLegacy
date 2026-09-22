@@ -50,7 +50,6 @@ class ClearStateCmd(CommandBase):
 
         # this argument is a safety to make sure user action is confirmed
         if self.tmcc_id != self._cli.data:
-            print(f"TMCC ID: {self.tmcc_id} confirm: {self._cli.data}")
             raise ArgumentError(None, f"Must specify matching {self.scope.title} TMCC ID for -clear; use -h for help")
 
         CommandBase.__init__(
@@ -726,7 +725,6 @@ class EngineCli(CliBaseTMCC):
             self._scope = scope = self._determine_scope()
             self._determine_command_format(scope, engine)
             option = self._decode_engine_option()  # raise ValueError if you can't decode
-            print(f"Engine: {engine} {option} {'format' in self._args} {self.is_tmcc2} {self.is_tmcc1}")
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             option_data: int = self._args.data if "data" in self._args else 0
@@ -776,7 +774,6 @@ class EngineCli(CliBaseTMCC):
         return self._engine
 
     def _determine_command_format(self, scope: CommandScope, tmcc_id: int) -> None:
-        print(f"Engine: {self._engine} {scope} {tmcc_id} {self._args} {'format' in self._args}")
         if "format" in self._args and self._args.format:
             pass  # use user-provided format
         else:
