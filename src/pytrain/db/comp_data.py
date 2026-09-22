@@ -254,7 +254,7 @@ class CompDataMixin(Generic[C]):
         self._empty: bool = True
 
     @property
-    def comp_data(self) -> C:
+    def comp_data(self) -> C | None:
         return self._comp_data
 
     @property

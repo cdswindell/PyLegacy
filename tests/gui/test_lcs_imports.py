@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from types import ModuleType
+from types import MappingProxyType, ModuleType
 
 import pytest
 
@@ -42,6 +42,11 @@ LCS_MODULES = (
     lcs_sequence_builder,
 )
 
+# Shared source analysis is read-only; each check builds its own results.
+_SOURCE_NODES = MappingProxyType(
+    {module: tuple(ast.walk(ast.parse(Path(module.__file__).read_text(encoding="utf-8")))) for module in LCS_MODULES}
+)
+
 
 def _package_root(module: ModuleType) -> str:
     """The dotted name of the pytrain package itself, as this run imported it."""
@@ -52,9 +57,8 @@ def _package_root(module: ModuleType) -> str:
 def _resolved_targets(module: ModuleType) -> list[tuple[int, str]]:
     """Every module a source file imports, as (line, absolute dotted name)."""
     package = module.__name__.split(".")[:-1]
-    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
     targets: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
+    for node in _SOURCE_NODES[module]:
         if isinstance(node, ast.Import):
             targets.extend((node.lineno, alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
@@ -80,9 +84,8 @@ def test_every_lcs_project_import_is_relative(module: ModuleType) -> None:
     # inside the package, reaches the root __init__ on the way in.
     root = _package_root(module)
     package = module.__name__.split(".")[:-1]
-    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
     offenders: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
+    for node in _SOURCE_NODES[module]:
         if isinstance(node, ast.Import):
             offenders.extend(
                 (node.lineno, alias.name) for alias in node.names if alias.name.split(".")[0] in {"pytrain", "src"}

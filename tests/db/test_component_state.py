@@ -7,6 +7,7 @@
 #
 
 from collections import defaultdict
+from io import StringIO
 from typing import Any, Generator
 from unittest import mock
 
@@ -31,9 +32,10 @@ from src.pytrain.pdi.amc2_req import Amc2Req
 from src.pytrain.pdi.asc2_req import Asc2Req
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.bpc2_req import Bpc2Req
-from src.pytrain.pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
+from src.pytrain.pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand, Stm2Action
 from src.pytrain.pdi.irda_req import IrdaReq
 from src.pytrain.pdi.pdi_req import PdiReq
+from src.pytrain.pdi.stm2_req import Stm2Req
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
@@ -85,6 +87,106 @@ class TestComponentState(TestBase):
         with pytest.raises(TypeError):
             # noinspection PyTypeChecker
             ComponentState(None)
+
+    @pytest.mark.parametrize("include_state", [False, True])
+    @pytest.mark.parametrize("use_subclass", [False, True])
+    @pytest.mark.parametrize("position, label", [(None, "unknown"), (Switch.THRU, "thru"), (Switch.OUT, "out")])
+    def test_switch_csv(self, include_state, use_subclass, position, label) -> None:
+        class DerivedSwitchState(SwitchState):
+            pass
+
+        state_cls = DerivedSwitchState if use_subclass else SwitchState
+        state = state_cls()
+        state._address = 12
+        state._road_number = "42"
+        state._road_name = "Test, Road"
+        state._state = position
+        headers = ["address", "road_number", "road_name", "lcs", "port"]
+        if include_state:
+            headers.append("state")
+        assert state_cls._csv_headers(include_state=include_state) == headers
+        assert list(state.as_csv(include_state=include_state)) == headers
+        output = StringIO()
+        with mock.patch.dict(SCOPE_TO_STATE_MAP, {CommandScope.SWITCH: state_cls}):
+            writer = state_cls.get_cvs_dict_writer(CommandScope.SWITCH, output, include_state=include_state)
+            writer.writeheader()
+            writer.writerow(state.as_csv(include_state=include_state))
+        row = '12,42,"Test, Road",,1'
+        if include_state:
+            row += f",{label}"
+        assert output.getvalue() == f"{','.join(headers)}\r\n{row}\r\n"
+
+    @pytest.mark.parametrize("state_cls", [SwitchState, EngineState, TrainState])
+    def test_unknown_address_repr(self, state_cls) -> None:
+        state = state_cls()
+        assert state.address is None
+        assert state.tmcc_id is None
+        assert ComponentState.__repr__(state).startswith(f"{state.scope.title} NA:")
+        if isinstance(state, SwitchState):
+            assert repr(state).startswith(f"{state.scope.title} NA:")
+
+    @pytest.mark.parametrize("state_cls", [SwitchState, EngineState, TrainState])
+    @pytest.mark.parametrize("address", [1, 12, 1234])
+    def test_initialized_address_repr(self, state_cls, address) -> None:
+        state = state_cls()
+        state._address = address
+        state._road_name = "Test Road"
+        state._road_number = "42"
+        formatted = f"{address:04}" if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else f"{address:>2}"
+        payload = f" {state.payload}" if state.payload else ""
+        assert ComponentState.__repr__(state) == f"{state.scope.title} {formatted}:{payload} Test Road #42"
+        if isinstance(state, EngineState):
+            assert repr(state) == f"{state.scope.title} {formatted}: no information provided from Base 2/3"
+        else:
+            assert repr(state) == f"{state.scope.title} {formatted}:{payload} Test Road #42"
+
+    def test_initial_broadcast_error(self) -> None:
+        state = SwitchState()
+        with pytest.raises(AttributeError, match="Received broadcast address.*not been initialized Switch NA:"):
+            state.update(CommandReq.build(Switch.THRU, BROADCAST_ADDRESS))
+        assert state.address is None
+        assert state.state is None
+
+    @pytest.mark.parametrize("mode", [None, 0, 1])
+    @pytest.mark.parametrize(
+        "req_cls,command,action",
+        [
+            (Asc2Req, PdiCommand.ASC2_GET, Asc2Action.CONFIG),
+            (Bpc2Req, PdiCommand.BPC2_GET, Bpc2Action.CONFIG),
+            (Stm2Req, PdiCommand.STM2_GET, Stm2Action.CONFIG),
+        ],
+    )
+    def test_lcs_mode_and_parent_delegation(self, mode, req_cls, command, action) -> None:
+        parent = SwitchState()
+        child = SwitchState()
+        child._parent = parent
+        assert parent.mode == child.mode == "NA"
+        parent._config_req = req_cls(1, command, action, mode=mode)
+        assert parent.mode == mode
+        assert child.mode == mode
+
+    @pytest.mark.parametrize("state_cls", [SwitchState])
+    def test_serialization_requires_address(self, state_cls) -> None:
+        with pytest.raises(ValueError, match="without an address"):
+            state_cls().as_bytes()
+
+    def test_optional_address_links_and_order(self) -> None:
+        first = SwitchState()
+        second = SwitchState()
+        assert first.prev_link == first.next_link == 0xFF
+        with pytest.raises(TypeError):
+            _ = first < second
+        first._address, second._address = 1, 2
+        assert first < second
+
+    def test_parent_port_requires_addresses(self) -> None:
+        parent, child = SwitchState(), SwitchState()
+        assert child.port == 1
+        child._parent = parent
+        with pytest.raises(ValueError, match="without component and parent addresses"):
+            _ = child.port
+        parent._address, child._address = 10, 12
+        assert child.port == 3
 
     @pytest.mark.parametrize(
         ("state_cls", "scope"),

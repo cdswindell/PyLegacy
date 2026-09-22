@@ -1,5 +1,3 @@
-import time
-
 import pytest
 
 import src.pytrain.db.startup_state as startup_state_module
@@ -11,6 +9,24 @@ from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import AllReq, PdiReq
 from src.pytrain.protocol.constants import CommandScope
+from tests.test_base import wait_until
+
+
+def initial_memory_scopes(listener):
+    return {
+        req.scope
+        for req in tuple(listener.enqueued)
+        if isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY and req.tmcc_id == 1
+    }
+
+
+INITIAL_MEMORY_SCOPES = {
+    CommandScope.ENGINE,
+    CommandScope.TRAIN,
+    CommandScope.SWITCH,
+    CommandScope.ACC,
+    CommandScope.ROUTE,
+}
 
 
 class MockDispatcher:
@@ -300,26 +316,13 @@ def test_run_enqueues_base_memory_requests_for_all_scopes():
     # noinspection PyTypeChecker
     ss = StartupState(listener, dispatcher, pdi_state_store)
 
-    # Give the background thread a brief moment to enqueue initial requests
-    time.sleep(0.05)
-
-    # Collect BASE_MEMORY requests created by StartupState.run() for tmcc_id 1
-    scopes_found = set()
-    for req in listener.enqueued:
-        if isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY and req.tmcc_id == 1:
-            scopes_found.add(req.scope)
-
-    assert scopes_found == {
-        CommandScope.ENGINE,
-        CommandScope.TRAIN,
-        CommandScope.SWITCH,
-        CommandScope.ACC,
-        CommandScope.ROUTE,
-    }
-
-    # Unblock the thread's wait loop and allow it to finish
-    ss._ev.set()
-    ss.join(timeout=1)
+    try:
+        assert wait_until(lambda: initial_memory_scopes(listener) == INITIAL_MEMORY_SCOPES, timeout=1)
+        assert initial_memory_scopes(listener) == INITIAL_MEMORY_SCOPES
+    finally:
+        ss._ev.set()
+        ss.join(timeout=1)
+        assert not ss.is_alive()
 
 
 @pytest.mark.allow_thread
@@ -339,9 +342,12 @@ def test_run_skips_amc2_sync_when_listener_has_no_dispatcher(monkeypatch):
     # noinspection PyTypeChecker
     ss = StartupState(listener, dispatcher, pdi_state_store)
 
-    time.sleep(0.05)
-    ss._ev.set()
-    ss.join(timeout=1)
+    try:
+        assert wait_until(lambda: initial_memory_scopes(listener) == INITIAL_MEMORY_SCOPES, timeout=1)
+    finally:
+        ss._ev.set()
+        ss.join(timeout=1)
+        assert not ss.is_alive()
 
     assert amc2_sync_calls == []
 

@@ -92,7 +92,7 @@ class ComponentState(ABC, CompDataMixin):
         return ["address", "road_number", "road_name"]
 
     @abstractmethod
-    def __init__(self, scope: CommandScope = None) -> None:
+    def __init__(self, scope: CommandScope) -> None:
         from .component_state_store import DependencyCache
 
         super().__init__()
@@ -120,13 +120,20 @@ class ComponentState(ABC, CompDataMixin):
         nm = f" {self.road_name}" if self.road_name else ""
         nu = f" #{self.road_number}" if self.road_number else ""
         pk = f" {self.payload}" if self.payload else ""
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            return f"{self.scope.title} {self._address:04}:{pk}{nm}{nu}"
+        address = self.address
+        if address is None:
+            return f"{self.scope.title} NA:{pk}{nm}{nu}"
+        elif self.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            return f"{self.scope.title} {address:04}:{pk}{nm}{nu}"
         else:
-            return f"{self.scope.title} {self._address:>2}:{pk}{nm}{nu}"
+            return f"{self.scope.title} {address:>2}:{pk}{nm}{nu}"
 
     def __lt__(self, other):
-        return self.address < other.address
+        address = self.address
+        other_address = other.address
+        if address is None or other_address is None:
+            return NotImplemented
+        return address < other_address
 
     def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
         return {
@@ -155,19 +162,19 @@ class ComponentState(ABC, CompDataMixin):
         return self.scope.name.title()
 
     @property
-    def address(self) -> int:
+    def address(self) -> int | None:
         return self._address
 
     @property
-    def tmcc_id(self) -> int:
+    def tmcc_id(self) -> int | None:
         return self.address
 
     @property
-    def last_command(self) -> CommandReq:
+    def last_command(self) -> CommandReq | None:
         return self._last_command
 
     @property
-    def last_updated(self) -> float:
+    def last_updated(self) -> float | None:
         return self._last_updated
 
     @property
@@ -227,18 +234,20 @@ class ComponentState(ABC, CompDataMixin):
         return self.scope.title
 
     @property
-    def spare_1(self) -> int:
+    def spare_1(self) -> int | None:
         return self._spare_1
 
     @property
     def prev_link(self) -> int:
-        if self._comp_data and 1 <= self.tmcc_id <= 101:
+        address = self.tmcc_id
+        if self._comp_data and address is not None and 1 <= address <= 101:
             return self._comp_data.prev_link
         return 0xFF
 
     @property
     def next_link(self) -> int:
-        if self._comp_data and 1 <= self.tmcc_id <= 101:
+        address = self.tmcc_id
+        if self._comp_data and address is not None and 1 <= address <= 101:
             return self._comp_data.next_link
         return 0xFF
 
@@ -264,6 +273,7 @@ class ComponentState(ABC, CompDataMixin):
     def _update_state(self, command: L | P) -> UpdateResult:
         return UpdateResult.UPDATED
 
+    # noinspection unreachable-code
     def update(self, command: L | P) -> None:
         if command is None:
             return
@@ -286,7 +296,7 @@ class ComponentState(ABC, CompDataMixin):
             self.changed.set()
             self.synchronizer.notify_all()
 
-    # noinspection PyTypeChecker
+    # noinspection PyTypeChecker,unreachable-code
     def _prepare_update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
         from ..pdi.block_req import BlockReq
@@ -356,13 +366,14 @@ class ComponentState(ABC, CompDataMixin):
         from ..pdi.base_req import BaseReq
 
         # Only request config if we're synchronized and running on the server
-        if self.is_synchronized() and CommBuffer.is_server():
+        address = self.tmcc_id
+        if address is not None and self.is_synchronized() and CommBuffer.is_server():
             # print(f"Request config for component {self}? prior: {self._config_requested}")
             if not self._config_requested:
                 scope = command.scope
                 # if we're synchronized, this component may be new; request initial config
                 if not self.is_comp_data_record and scope in BASE3_SCOPES:
-                    self.initialize(scope, self.tmcc_id)
+                    self.initialize(scope, address)
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"{scope} {command.address} not known, will request config and retry {command}...")
                 if 1 <= command.address < 99:
@@ -417,6 +428,7 @@ class ComponentState(ABC, CompDataMixin):
         else:
             return BIG_NUMBER
 
+    # noinspection unreachable-code
     @staticmethod
     def time_delta(last_updated: float, recv_time: float) -> float:
         if last_updated is None or recv_time is None:
@@ -454,7 +466,10 @@ class ComponentState(ABC, CompDataMixin):
         Used to synchronizer component state when client connects to the server.
         """
         with self.synchronizer:
-            req = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
+            address = self.address
+            if address is None:
+                raise ValueError("Cannot serialize a component without an address")
+            req = BaseReq(address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
             return req.as_bytes if req.data_bytes else bytes()
 
     @property
@@ -462,7 +477,7 @@ class ComponentState(ABC, CompDataMixin):
         """
         Returns True if the component's state is known, False otherwise.
         """
-        return self.comp_data and self.comp_data.is_user_defined()
+        return self.comp_data is not None and self.comp_data.is_user_defined()
 
     def _update_comp_data(self, comp_data: CompData):
         with self._cv:
@@ -470,7 +485,8 @@ class ComponentState(ABC, CompDataMixin):
             self._comp_data_record = True
             self._empty = False if comp_data and comp_data.is_active() else True
 
-    def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
+    def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int | None] | None:
+        """Extracts matching effect from the set based on syntax"""
         for effect in effects:
             if isinstance(effect, tuple):
                 effect_enum = effect[0]
@@ -533,7 +549,7 @@ class ComponentState(ABC, CompDataMixin):
 class TmccState(ComponentState, ABC):
     __metaclass__ = ABCMeta
 
-    def __init__(self, scope: CommandScope = None) -> None:
+    def __init__(self, scope: CommandScope) -> None:
         super().__init__(scope)
 
     @property
@@ -554,7 +570,7 @@ class TmccState(ComponentState, ABC):
 class LcsState(ComponentState, ABC):
     __metaclass__ = ABCMeta
 
-    def __init__(self, scope: CommandScope = None) -> None:
+    def __init__(self, scope: CommandScope) -> None:
         super().__init__(scope)
         self._config_req_count = 0
         self._config_req = self._status_req = self._info_req = self._firmware_req = self._control_req = None
@@ -576,6 +592,8 @@ class LcsState(ComponentState, ABC):
 
     def as_bytes(self) -> bytes:
         byte_str = super().as_bytes()
+        if isinstance(byte_str, list):
+            byte_str = b"".join(byte_str)
         if self._config_req:
             byte_str += self._config_req.as_bytes
         if self._firmware_req:
@@ -624,7 +642,7 @@ class LcsState(ComponentState, ABC):
 class LcsProxyState(LcsState, ABC):
     __metaclass__ = ABCMeta
 
-    def __init__(self, scope: CommandScope = None) -> None:
+    def __init__(self, scope: CommandScope) -> None:
         super().__init__(scope)
         self._parent = None
         self._pdi_source = False
@@ -688,6 +706,7 @@ class LcsProxyState(LcsState, ABC):
 
         return isinstance(self._control_req, Stm2Req) or isinstance(self._config_req, Stm2Req)
 
+    # noinspection unresolved-references
     @property
     def is_sensor_track(self):
         from ..pdi.irda_req import IrdaReq
@@ -749,7 +768,7 @@ class LcsProxyState(LcsState, ABC):
         return self._info_req.model if self._info_req else None
 
     @property
-    def mode(self) -> int:
+    def mode(self) -> int | str | None:
         if self._parent:
             return self._parent.mode
         return self._config_req.mode if self._config_req and hasattr(self._config_req, "mode") else "NA"
@@ -757,7 +776,11 @@ class LcsProxyState(LcsState, ABC):
     @property
     def port(self) -> int:
         if self._parent:
-            return self.address - self._parent.address + 1
+            address = self.address
+            parent_address = self._parent.address
+            if address is None or parent_address is None:
+                raise ValueError("Cannot determine a port without component and parent addresses")
+            return address - parent_address + 1
         else:
             return 1
 
@@ -779,7 +802,8 @@ class SwitchState(TmccState, LcsProxyState):
 
     @classmethod
     def _csv_headers(cls, include_state: bool = False) -> list[str]:
-        cols = super()._csv_headers(include_state=include_state)
+        inherited_headers = super(SwitchState, cls)._csv_headers
+        cols = inherited_headers(include_state=include_state)
         cols.extend(["lcs", "port"])
         if include_state:
             cols.extend(["state"])
@@ -802,6 +826,7 @@ class SwitchState(TmccState, LcsProxyState):
             data["state"] = "thru" if self.is_thru else "out" if self.is_out else "unknown"
         return data
 
+    # noinspection bad-argument-type
     def _update_state(self, command: L | P) -> UpdateResult:
         # Dispatches state updates by command variant; notifies observers
         result = super()._update_state(command)
@@ -830,7 +855,7 @@ class SwitchState(TmccState, LcsProxyState):
         return UpdateResult.UPDATED if handled else result
 
     @property
-    def state(self) -> Switch:
+    def state(self) -> Switch | None:
         return self._state
 
     @property
@@ -875,11 +900,17 @@ class SwitchState(TmccState, LcsProxyState):
 
     def as_bytes(self) -> bytes:
         """Converts object state to serialized byte representation"""
+        address = self.address
+        if address is None:
+            raise ValueError("Cannot serialize a component without an address")
         if self.comp_data is None:
-            self.initialize(self.scope, self.address)
+            self.initialize(self.scope, address)
         byte_str = super().as_bytes()
-        if self.is_known:
-            byte_str += CommandReq.build(self.state, self.address).as_bytes
+        if isinstance(byte_str, list):
+            byte_str = b"".join(byte_str)
+        state = self.state
+        if state is not None:
+            byte_str += CommandReq.build(state, address).as_bytes
         return byte_str
 
     def as_dict(self) -> Dict[str, Any]:
@@ -925,6 +956,7 @@ class RouteState(TmccState):
             data["aligned"] = self.is_aligned
         return data
 
+    # noinspection bad-argument-type
     def _update_state(self, command: L | P) -> UpdateResult:
         from .comp_data import CompDataMixin
 
@@ -970,14 +1002,16 @@ class RouteState(TmccState):
             for route in tuple(self._routes):
                 route.update_route_state(self, {self})
 
+    # noinspection unresolved-references
     @property
     def components(self) -> List[RouteComponent] | None:
         return self.comp_data.components.copy() if self.comp_data and self.comp_data.components else None
 
+    # noinspection unresolved-references
     @property
     def payload(self) -> str:
         pl = f"Active: {'True ' if self.is_active else 'False'}"
-        pl += f" {self.comp_data.payload()}" if self.comp_data else ""
+        pl += f" {self.comp_data.payload()}" if self.comp_data is not None else ""
         return pl
 
     @property
@@ -1028,6 +1062,7 @@ class RouteState(TmccState):
             self.changed.set()
             self._cv.notify_all()
 
+    # noinspection not-iterable
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         d["active"] = self.is_active

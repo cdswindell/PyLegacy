@@ -9,11 +9,14 @@
 # src/tests/pdi/test_base3_buffer.py
 import threading
 import time
+from queue import Queue
+from types import SimpleNamespace
 
 import pytest
 
+import src.pytrain.pdi.base3_buffer as base3_buffer_module
 from src.pytrain import ComponentStateStore
-from src.pytrain.pdi.base3_buffer import Base3Buffer
+from src.pytrain.pdi.base3_buffer import Base3Buffer, KeepAlive
 from src.pytrain.pdi.constants import KEEP_ALIVE_CMD, PDI_EOP, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
 from src.pytrain.pdi.pdi_req import PdiReq, TmccReq
 from src.pytrain.protocol.command_req import CommandReq
@@ -55,9 +58,13 @@ class _CapturingBuffer(Base3Buffer):
         super().__init__(*args, **kwargs)
 
     def run(self) -> None:
-        # No socket IO; just keep thread alive enough for KeepAlive to work
-        while self._is_running:
-            time.sleep(0.01)
+        # Captures are synchronous; there is no socket queue to drain.
+        pass
+
+    def shutdown(self) -> None:
+        super().shutdown()
+        self.join(timeout=1)
+        assert not self.is_alive()
 
     def send(self, data: bytes) -> None:
         # call parent logic to exercise multibyte logic and queueing
@@ -80,10 +87,39 @@ class _CapturingBuffer(Base3Buffer):
 
 
 @pytest.fixture(autouse=True)
-def clean_singletons():
+def clean_singletons(monkeypatch):
     Base3Buffer.stop()
+    # Only keepalive-specific tests start this worker.
+    monkeypatch.setattr(KeepAlive, "start", lambda self: None)
     yield
     Base3Buffer.stop()
+
+
+@pytest.fixture
+def controlled_keepalive(monkeypatch, clean_singletons):
+    intervals = Queue()
+    resume = threading.Semaphore(0)
+    workers = []
+
+    def sleep(seconds):
+        intervals.put(seconds)
+        resume.acquire()
+
+    # Replace only this module's clock reference, not the shared time module.
+    monkeypatch.setattr(base3_buffer_module, "time", SimpleNamespace(sleep=sleep))
+
+    def start(buffer):
+        worker = buffer._keep_alive
+        workers.append(worker)
+        threading.Thread.start(worker)
+        return intervals, resume
+
+    yield start
+    for worker in workers:
+        worker._is_running = False
+        resume.release()
+        worker.join(timeout=1)
+        assert not worker.is_alive()
 
 
 # noinspection PyProtectedMember
@@ -104,7 +140,7 @@ def test_singleton_lifecycle_and_accessors():
         Base3Buffer.get()
 
 
-def test_enqueue_command_sends_bytes_and_keepalive_triggers(monkeypatch, reset_singletons):
+def test_enqueue_command_sends_bytes_and_keepalive_triggers(controlled_keepalive, reset_singletons):
     listener = _DummyListener()
     b = _CapturingBuffer("127.0.0.1", listener=listener)
 
@@ -114,8 +150,8 @@ def test_enqueue_command_sends_bytes_and_keepalive_triggers(monkeypatch, reset_s
 
     # Enqueue through class method
     Base3Buffer.enqueue_command(packet)
-    # Allow async keepalive to also run
-    time.sleep(0.05)
+    intervals, _ = controlled_keepalive(b)
+    assert intervals.get(timeout=1) == 2.0
 
     # We should have at least the command and one keepalive
     assert any(x == packet for x in b.sent)
@@ -144,9 +180,6 @@ def test_multibyte_tmcc_command_is_packetized_and_sync_state_called(reset_single
     # Spy on sync_state being invoked by capturing added packets later
     Base3Buffer.enqueue_command(pdi_tmcc)
 
-    # Allow thread to process recursion
-    time.sleep(0.02)
-
     # Expect multiple 7-byte-chunk PDI packets sent (at least 1), all starting with SOP and command byte TMCC4_TX
     tmcc4_sent = [x for x in b.sent if len(x) >= 4 and x[0] == PDI_SOP and x[1] == TMCC4_TX and x[-1] == PDI_EOP]
     assert len(tmcc4_sent) >= 1
@@ -160,13 +193,11 @@ def test_request_state_update_enqueues_when_valid_id_and_scope():
 
     # Valid engine id 20 triggers a BaseReq(BASE_MEMORY) state read (we can only assert that something was sent)
     Base3Buffer.request_state_update(20, CommandScope.ENGINE)
-    time.sleep(0.01)
     assert len(b.sent) >= 1
 
     # Invalid id outside 1..99 should not enqueue anything new
     prev = len(b.sent)
     Base3Buffer.request_state_update(0, CommandScope.ENGINE)
-    time.sleep(0.01)
     assert len(b.sent) == prev
 
     Base3Buffer.stop()
@@ -183,8 +214,6 @@ def test_sync_state_parses_tmcc_stream_and_may_emit_update_requests(monkeypatch,
     stream = c1 + c2
 
     Base3Buffer.sync_state(stream)
-    # Allow any enqueues to flow
-    time.sleep(0.01)
 
     # We cannot strictly assert exact content without coupling; assert no exceptions and possibly some sends
     # Either zero (no sync needed) or some number of follow-up BaseReq packets
@@ -193,28 +222,12 @@ def test_sync_state_parses_tmcc_stream_and_may_emit_update_requests(monkeypatch,
     Base3Buffer.stop()
 
 
-def test_keepalive_thread_sends_every_two_seconds(monkeypatch):
+def test_keepalive_thread_sends_every_two_seconds(controlled_keepalive):
     listener = _DummyListener()
     b = _CapturingBuffer("127.0.0.1", listener=listener)
-
-    # Speed up sleep to simulate time passing
-    orig_sleep = time.sleep
-
-    calls = {"sleep_calls": 0}
-
-    # noinspection PyUnusedLocal
-    def fast_sleep(sec: int):
-        calls["sleep_calls"] += 1
-        # accelerate: each call acts as 2 seconds chunk
-        orig_sleep(0.001)
-
-    monkeypatch.setattr(time, "sleep", fast_sleep)
-    try:
-        # Wait a few iterations
-        time.sleep(0.01)
-        # We should see several keepalives
-        assert any(x == KEEP_ALIVE_CMD for x in b.sent)
-    finally:
-        monkeypatch.setattr(time, "sleep", orig_sleep)
-
-    Base3Buffer.stop()
+    intervals, resume = controlled_keepalive(b)
+    for count in range(1, 4):
+        assert intervals.get(timeout=1) == 2.0
+        assert b.sent == [KEEP_ALIVE_CMD] * count
+        if count < 3:
+            resume.release()
