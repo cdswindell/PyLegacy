@@ -33,7 +33,7 @@ from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange,
 from .cache import CacheCli
 from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
-from ..comm.command_listener import CommandDispatcher, CommandListener
+from ..comm.command_listener import CommandDispatcher, CommandListener, Subscriber
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.cache_sync import CacheSyncManager, default_cache_sync_port
 from ..db.client_state_listener import ClientStateListener
@@ -229,12 +229,12 @@ class PyTrain:
 
             if self._base_addr is not None and self._base_port is not None:
                 log.info(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
-                self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
+                self._pdi_buffer = PdiListener.build(self._base_addr, int(self._base_port))
                 listeners.append(self._pdi_buffer)
                 self._tmcc_buffer.is_use_base3 = True
 
-                if isinstance(self._receiver, EnqueueProxyRequests):
-                    self._receiver.base3_dispatcher = self._pdi_buffer
+                # if isinstance(self._receiver, EnqueueProxyRequests):
+                #     self._receiver.base3_listener = self._pdi_buffer
 
             if self._ser2 is True:
                 log.info("Listening for Lionel LCS Ser2 broadcasts...")
@@ -275,7 +275,7 @@ class PyTrain:
 
         # Subscribe this instance of PyTrain to sync updates so we can receive
         # Update and Reboot command directives from clients
-        self._tmcc_listener.subscribe(self, CommandScope.SYNC)
+        self._tmcc_listener.subscribe(cast(Subscriber, cast(object, self)), CommandScope.SYNC)
 
         # Command dispatcher should be built by now, the "get" call will
         # throw an exception if it is not
@@ -972,7 +972,7 @@ class PyTrain:
         base3,
         server_port,
         cache_sync: bool = False,
-        cache_sync_port: int = None,
+        cache_sync_port: int | None = None,
     ) -> ServiceInfo:
         port = server_port
         properties = {

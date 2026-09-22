@@ -718,5 +718,6 @@ class CacheSyncManager(Thread):
         return tuple(sorted(entries))
 
 
-def default_cache_sync_port(server_port: int = DEFAULT_SERVER_PORT) -> int:
+def default_cache_sync_port(server_port: int | None = DEFAULT_SERVER_PORT) -> int:
+    server_port = server_port or DEFAULT_SERVER_PORT
     return int(server_port) + 100

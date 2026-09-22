@@ -16,12 +16,15 @@ import threading
 import uuid
 from threading import Thread
 from time import time
-from typing import Dict, Set, Tuple, cast
+from typing import Dict, Set, TYPE_CHECKING, Tuple, cast
 
 from ..comm.comm_buffer import CommBuffer
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import DEFAULT_SERVER_PORT, PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..pdi.pdi_listener import PdiListener
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +150,7 @@ class EnqueueProxyRequests(Thread):
         self._server_ip = None
         self._lock = threading.RLock()
         self._clients: Dict[Tuple[str, int, uuid.UUID | None], float] = dict()
+        self._base3_listener = None
         self.start()
 
     def __new__(cls, *args, **kwargs):
@@ -159,6 +163,10 @@ class EnqueueProxyRequests(Thread):
                 EnqueueProxyRequests._instance = super(EnqueueProxyRequests, cls).__new__(cls)
                 EnqueueProxyRequests._instance._initialized = False
             return EnqueueProxyRequests._instance
+
+    @property
+    def base3_listener(self) -> "PdiListener":
+        return self._base3_listener
 
     def client_connect(
         self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID | None = None
