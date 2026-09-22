@@ -33,11 +33,10 @@ from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange,
 from .cache import CacheCli
 from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
-from ..comm.command_listener import CommandDispatcher, CommandListener, Subscriber
+from ..comm.command_listener import CommandDispatcher, CommandListener, Subscriber, Message
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.cache_sync import CacheSyncManager, default_cache_sync_port
 from ..db.client_state_listener import ClientStateListener
-from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
@@ -97,7 +96,7 @@ DEFAULT_HISTORY_FILE: str = f".{PROGRAM_NAME.lower()}.history"
 REQUIREMENTS: str = "requirements.txt"
 REQUIREMENTS_NO_GPIO: str = "requirements-nogpio.txt"
 
-ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
+ADMIN_COMMAND_TO_ACTION_MAP: dict[str, CommandDefEnum] = {
     "quit": TMCC1SyncCommandEnum.QUIT,
     "reboot": TMCC1SyncCommandEnum.REBOOT,
     "restart": TMCC1SyncCommandEnum.RESTART,
@@ -137,7 +136,7 @@ class PyTrain:
         self._no_d4 = args.no_d4
         self._listener: CommandListener | ClientStateListener
         self._receiver = None
-        self._state_store = None
+        # self._state_store = None
         self._debug = args.debug
         self._echo = args.echo
         self._headless = args.headless
@@ -233,9 +232,6 @@ class PyTrain:
                 listeners.append(self._pdi_buffer)
                 self._tmcc_buffer.is_use_base3 = True
 
-                # if isinstance(self._receiver, EnqueueProxyRequests):
-                #     self._receiver.base3_listener = self._pdi_buffer
-
             if self._ser2 is True:
                 log.info("Listening for Lionel LCS Ser2 broadcasts...")
 
@@ -249,6 +245,7 @@ class PyTrain:
             listeners.append(self._tmcc_listener)
             log.info(f"Listening for state updates on port {self._tmcc_listener.port}...")
             self._client_ip: str = self._tmcc_buffer.server_ip()
+
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
@@ -257,6 +254,7 @@ class PyTrain:
             is_base=self._is_base,
             is_ser2=self._is_ser2,
         )
+        assert self._state_store is not None
         if self._args.debug:
             self._enable_debug()
         if self._args.echo:
@@ -447,7 +445,7 @@ class PyTrain:
         return self._state_store
 
     @property
-    def pdi_listener(self) -> PdiListener | ClientStateListener | None:
+    def pdi_listener(self) -> PdiListener | ClientStateListener | CommandListener | None:
         if self.is_server and self._pdi_buffer is not None:
             return self._pdi_buffer
         else:
@@ -611,13 +609,13 @@ class PyTrain:
         ver = f"{self.__class__.__qualname__} {get_version()}"
         return ver
 
-    def __call__(self, cmd: CommandReq | PdiReq) -> None:
+    def __call__(self, message: Message) -> None:
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         try:
             if self._echo:
-                log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+                log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {message}")
         except Exception as e:
             log.exception(f"Failed to echo command to console: {e}")
 
@@ -627,20 +625,20 @@ class PyTrain:
         if self.is_client:
             self._command_processor_available.wait()
 
-        if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
-            if cmd.command == TMCC1SyncCommandEnum.RESYNC:
+        if message.command in ACTION_TO_ADMIN_COMMAND_MAP:
+            if message.command == TMCC1SyncCommandEnum.RESYNC:
                 if self.is_server:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
             # Handles authorized admin commands; interrupts main loop; sets exit status
-            if cmd.command not in self._received_admin_cmds:
-                self._received_admin_cmds.add(cmd.command)
-                if self.is_client and cmd.command == TMCC1SyncCommandEnum.QUIT:
+            if message.command not in self._received_admin_cmds:
+                self._received_admin_cmds.add(message.command)
+                if self.is_client and message.command == TMCC1SyncCommandEnum.QUIT:
                     log.info("Client exiting...")
                 # record the admin command and send the interrupt signal
                 # this will interrupt the comment prompt loop and call
                 # the appropriate handler
-                self._admin_action = cmd.command
+                self._admin_action = message.command
                 if self._api_thread:
                     self.shutdown()
                 if self.is_api:
@@ -1112,6 +1110,7 @@ class PyTrain:
 
         if an_info:
             self._server_cache_sync_capable, self._server_cache_sync_port = self.cache_sync_properties(an_info)
+            assert an_info.port  # Port can't be None
             return an_info.parsed_addresses()[0], an_info.port
         else:
             return None
@@ -1148,7 +1147,7 @@ class PyTrain:
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
 
-    def parse_cli(self, command_line: str) -> str | None:
+    def parse_cli(self, command_line: str) -> CommandReq | str | None:
         """
         Parse a command line to determine ig it's a valid command, if so,
         return the command. If not, return an informative error message
@@ -1172,6 +1171,13 @@ class PyTrain:
         except ValueError:
             return False
 
+    @staticmethod
+    def _admin_enum(admin_cmd: str) -> CommandDefEnum:
+        if admin_cmd and admin_cmd.lower() in ADMIN_COMMAND_TO_ACTION_MAP:
+            return cast(CommandDefEnum, ADMIN_COMMAND_TO_ACTION_MAP.get(admin_cmd.lower()))
+        raise ValueError(f"Unrecognized admin command: {admin_cmd}")
+
+    # noinspection unreachable-code
     def _handle_command(self, ui: str, parse_only: bool = False) -> str | CommandReq | None:
         """
         Parse the user's input, reusing the individual CLI command parsers.
@@ -1196,12 +1202,12 @@ class PyTrain:
                     args = self._command_parser().parse_args(["-" + ui_parts[0]])
                     if parse_only is False and args.command == "quit":
                         # if server, signal clients to disconnect
-                        if self.is_server:
+                        if self.is_server and self._dispatcher:
                             self._dispatcher.signal_clients()
                         elif self.is_client and len(ui_parts) > 1 and ui_parts[1] == "server":
                             # signal server to quit
                             log.info(f"Sending Quit request to {PROGRAM_NAME} server...")
-                            cmd = CommandReq(ADMIN_COMMAND_TO_ACTION_MAP.get("quit"))
+                            cmd = CommandReq(self._admin_enum("quit"))
                             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
                             return None
                         # if client quits, remaining nodes continue to run
@@ -1210,7 +1216,7 @@ class PyTrain:
                         self._get_system_state()
                         return None
                     elif parse_only is False and args.command in ADMIN_COMMAND_TO_ACTION_MAP:
-                        self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
+                        self.do_admin_cmd(self._admin_enum(args.command), ui_parts[1:])
                         return None
                     elif parse_only is False and args.command == "help":
                         self._command_parser().parse_args(["-help"])
@@ -1322,6 +1328,9 @@ class PyTrain:
         Send PDI requests to get data on all engines, trains, switches, routes, and accessories
         from the Lionel Base 3
         """
+        assert self._state_store
+        assert self._pdi_buffer
+        assert self._dispatcher
         sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._startup_state = StartupState(
             self._pdi_buffer,
@@ -1361,7 +1370,9 @@ class PyTrain:
         except Exception as e:
             log.exception(e)
 
+    # noinspection unsupported-operator
     def _do_db(self, param) -> None:
+        assert self._state_store
         try:
             if len(param) >= 1:
                 param0 = param[0].strip().lower()
@@ -1371,7 +1382,8 @@ class PyTrain:
                     if len(param) > 1:
                         if param[1].isdigit():
                             address = int(param[1])
-                            state: ComponentState = self._state_store.query(scope, address)
+
+                            state = self._state_store.query(scope, address)
                             if state:
                                 print(state)
                                 return
@@ -1383,6 +1395,7 @@ class PyTrain:
                     if scope in self._state_store:
                         no_data = True
                         for state in self._state_store.get_all(scope):
+                            # Filters and displays component states matching search query
                             if (
                                 query is None
                                 or query in state.name.lower()
@@ -1426,7 +1439,7 @@ class PyTrain:
         except Exception as e:
             log.exception(e)
 
-    def _handle_debug(self, ui_parts: List[str] = None):
+    def _handle_debug(self, ui_parts: List[str] | None = None):
         if ui_parts is None:
             ui_parts = ["debug"]
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
@@ -1463,7 +1476,7 @@ class PyTrain:
             if self._debug:
                 self._disable_debug()
 
-    def _handle_echo(self, ui_parts: List[str] = None):
+    def _handle_echo(self, ui_parts: List[str] | None = None):
         if ui_parts is None:
             ui_parts = ["echo"]
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
@@ -1512,6 +1525,7 @@ class PyTrain:
         elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
             action = D4Action.by_prefix(param[1], raise_exception=True)
+            assert pdi
             if action in {D4Action.COUNT, D4Action.FIRST_REC}:
                 agr = D4Req(0, pdi, action=action)
             # Builds D4 request with MAP, NEXT_REC, or QUERY/UPDATE parameters and validation
