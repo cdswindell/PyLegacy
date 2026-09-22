@@ -47,7 +47,12 @@ class ClientStateListener(threading.Thread):
 
     @classmethod
     def listen_for(
-        cls, listener: Subscriber, channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+        cls,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 
@@ -156,9 +161,9 @@ class ClientStateListener(threading.Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ) -> None:
         self._tmcc_listener.subscribe(listener, channel, address, command, data)
         self._pdi_listener.subscribe(listener, channel, address)
@@ -167,9 +172,9 @@ class ClientStateListener(threading.Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ):
         self._tmcc_listener.unsubscribe(listener, channel, address, command, data)
         self._pdi_listener.unsubscribe(listener, channel, address)
@@ -192,7 +197,7 @@ class ClientStateListener(threading.Thread):
             (PdiCommand.STM2_RX, Stm2Action.CONFIG),
             (PdiCommand.WIFI_RX, WiFiAction.CONFIG),
         ):
-            self._pdi_listener.subscribe(self, channel=dev[0], action=dev[1])
+            self._pdi_listener.subscribe(cast(Subscriber, cast(object, self)), channel=dev[0], action=dev[1])
 
 
 class ClientStateHandler(socketserver.BaseRequestHandler):

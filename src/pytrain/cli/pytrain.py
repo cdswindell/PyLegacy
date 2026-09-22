@@ -227,13 +227,13 @@ class PyTrain:
             log.info(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
 
-            if self._base_addr is not None:
+            if self._base_addr is not None and self._base_port is not None:
                 log.info(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
-                self.tmcc_buffer.is_use_base3 = True
+                self._tmcc_buffer.is_use_base3 = True
 
-                if self._receiver:
+                if isinstance(self._receiver, EnqueueProxyRequests):
                     self._receiver.base3_dispatcher = self._pdi_buffer
 
             if self._ser2 is True:
@@ -413,21 +413,23 @@ class PyTrain:
             self.shutdown_service()
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
+
             if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
+                aa = cast(TMCC1SyncCommandEnum, self._admin_action)
+                if aa == TMCC1SyncCommandEnum.UPGRADE:
                     self.upgrade()
-                elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
+                elif aa == TMCC1SyncCommandEnum.UPDATE:
                     self.update()
-                elif self._admin_action == TMCC1SyncCommandEnum.RESTART:
+                elif aa == TMCC1SyncCommandEnum.RESTART:
                     self.restart()
-                elif self._admin_action == TMCC1SyncCommandEnum.REBOOT:
+                elif aa == TMCC1SyncCommandEnum.REBOOT:
                     self.reboot()
-                elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
+                elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
                     self.reboot(reboot=False)
 
     def queue_command(self, cmd: str) -> None:
         if cmd:
-            if self._api:
+            if self._api and self._command_queue:
                 self._command_queue.put(cmd)
             else:
                 self._handle_command(cmd)
@@ -441,7 +443,7 @@ class PyTrain:
         return get_native_id()
 
     @property
-    def store(self) -> ComponentStateStore:
+    def store(self) -> ComponentStateStore | None:
         return self._state_store
 
     @property
@@ -459,7 +461,7 @@ class PyTrain:
             return self._tmcc_buffer
 
     @property
-    def command_dispatcher(self) -> CommandDispatcher:
+    def command_dispatcher(self) -> CommandDispatcher | None:
         return self._dispatcher
 
     @property

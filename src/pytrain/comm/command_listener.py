@@ -309,9 +309,9 @@ class CommandListener(Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ) -> None:
         self._dispatcher.subscribe(listener, channel, address, command, data)
 
@@ -319,9 +319,9 @@ class CommandListener(Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ) -> None:
         self._dispatcher.unsubscribe(listener, channel, address, command, data)
 

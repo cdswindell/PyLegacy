@@ -55,37 +55,48 @@ class PdiListener(Thread):
             build_base3_reader = False
         return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
+    # noinspection unreachable-code
     @classmethod
     def get(cls) -> PdiListener:
-        if cls._instance is None:
-            raise AttributeError("PdiListener has not been initialized")
-        return cls._instance
+        with cls._lock:
+            if isinstance(cls._instance, PdiListener):
+                return cls._instance
+        raise AttributeError("PdiListener has not been initialized")
 
     @classmethod
     def is_built(cls) -> bool:
         return cls._instance is not None
 
+    # noinspection PyProtectedMember,unresolved-references
     @classmethod
     def is_running(cls) -> bool:
-        # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._is_running is True
+        with cls._lock:
+            return isinstance(cls._instance, PdiListener) and cls._instance._is_running is True
 
+    # noinspection unreachable-code
     @classmethod
     def stop(cls) -> None:
         with cls._lock:
-            if cls._instance:
+            if isinstance(cls._instance, PdiListener):
                 cls._instance.shutdown()
 
+    # noinspection unreachable-code
     @classmethod
     def enqueue_command(cls, data: bytes | PdiReq) -> None:
-        if cls._instance is not None and data:
+        if isinstance(cls._instance, PdiListener) and data:
             if isinstance(data, PdiReq):
                 data = data.as_bytes
             # noinspection PyProtectedMember
             cls._instance._base3.send(data)
 
     @classmethod
-    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None):
+    def listen_for(
+        cls,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ):
         if cls._instance is not None:
             cls._instance.dispatcher.subscribe(listener, channel, address, action)
         else:

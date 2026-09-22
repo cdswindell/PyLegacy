@@ -519,7 +519,7 @@ class CommBufferProxy(CommBuffer):
     from ..db.component_state import ComponentState
 
     @classmethod
-    def server_port(cls) -> int | None:
+    def server_port(cls) -> int:
         # noinspection PyProtectedMember
         if cls.is_built() is True and cls.is_client() is True:
             # noinspection PyProtectedMember
