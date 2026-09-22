@@ -726,6 +726,7 @@ class EngineCli(CliBaseTMCC):
             self._scope = scope = self._determine_scope()
             self._determine_command_format(scope, engine)
             option = self._decode_engine_option()  # raise ValueError if you can't decode
+            print(f"Engine: {engine} {option} {'format' in self._args} {self.is_tmcc2} {self.is_tmcc1}")
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             option_data: int = self._args.data if "data" in self._args else 0
