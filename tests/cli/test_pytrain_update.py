@@ -10,6 +10,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -22,6 +23,48 @@ from src.pytrain.utils.host_info import PLATFORM_ENV_VAR, STEAM_DECK_PLATFORM
 def _pytrain() -> PyTrain:
     # requirements_file needs no instance state, so skip the CLI's __init__ entirely.
     return PyTrain.__new__(PyTrain)
+
+
+@pytest.mark.parametrize("reboot,status", [(True, PyTrainExitStatus.REBOOT), (False, PyTrainExitStatus.SHUTDOWN)])
+def test_api_power_records_status_without_subprocess(monkeypatch, commands, reboot, status):
+    obj = _shell_out_pytrain(monkeypatch, is_api=True)
+    with pytest.raises(mod.PyTrainExitException):
+        obj.reboot(reboot)
+    assert obj.exit_status == status
+    assert commands == []
+
+
+def test_api_update_upgrades_pip_before_exit(monkeypatch, commands):
+    obj = _shell_out_pytrain(monkeypatch, is_api=True)
+    with pytest.raises(mod.PyTrainExitException):
+        obj.update()
+    assert obj.exit_status == PyTrainExitStatus.UPDATE
+    assert commands == [[sys.executable, "-m", "pip", "install", "-U", "pip"]]
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_package_update_fallback_and_failed_commands(monkeypatch, returncode):
+    obj = _shell_out_pytrain(monkeypatch)
+    monkeypatch.setattr("src.pytrain.is_package", lambda: True)
+    monkeypatch.setattr("src.pytrain.installed_package", lambda: None)
+    run = Mock(return_value=subprocess.CompletedProcess([], returncode))
+    monkeypatch.setattr(mod.subprocess, "run", run)
+    obj.relaunch = Mock()
+    obj.update()
+    assert run.call_args_list == [
+        call([sys.executable, "-m", "pip", "install", "-U", package], cwd=mod.os.getcwd(), check=False)
+        for package in ["pip", PROGRAM_PACKAGE]
+    ]
+    obj.relaunch.assert_called_once_with(PyTrainExitStatus.UPDATE)
+
+
+def test_update_subprocess_exception_propagates(monkeypatch):
+    obj = _shell_out_pytrain(monkeypatch)
+    monkeypatch.setattr(mod.subprocess, "run", Mock(side_effect=OSError("pip unavailable")))
+    obj.relaunch = Mock()
+    with pytest.raises(OSError, match="pip unavailable"):
+        obj.update()
+    obj.relaunch.assert_not_called()
 
 
 @pytest.fixture

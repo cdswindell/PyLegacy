@@ -717,7 +717,7 @@ class LcsProxyState(LcsState, ABC):
         return None
 
     @property
-    def parent(self) -> Self:
+    def parent(self) -> Self | None:
         return self._parent
 
     @property

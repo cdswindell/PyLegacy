@@ -351,6 +351,7 @@ class PyTrain:
 
             # Load client state. Must be done before button file is processed
             if self.is_client:
+                assert isinstance(self._tmcc_listener, ClientStateListener)
                 if self._tmcc_listener.update_client_if_needed():
                     self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
                 else:
@@ -359,6 +360,7 @@ class PyTrain:
             # process startup script; need state loaded before doing this
             if self._buttons_file:
                 self._buttons_loader = ButtonsFileLoader(self._buttons_file, self)
+                assert self._buttons_loader is not None
                 self._buttons_loader.join()
 
             # print opening line
@@ -386,6 +388,7 @@ class PyTrain:
                     elif self._api:
                         cmd = None
                         try:
+                            assert self._command_queue is not None
                             cmd = self._command_queue.get(block=True)
                             self._handle_command(cmd)
                         except Empty:
@@ -639,10 +642,11 @@ class PyTrain:
                 # this will interrupt the comment prompt loop and call
                 # the appropriate handler
                 self._admin_action = message.command
+                aa = message.command.name
                 if self._api_thread:
                     self.shutdown()
                 if self.is_api:
-                    self._exit_status = PyTrainExitStatus.by_name(self._admin_action.name, raise_exception=False)
+                    self._exit_status = PyTrainExitStatus.by_name(aa, raise_exception=False)
                 os.kill(os.getpid(), signal.SIGINT)
 
     def __repr__(self) -> str:
@@ -730,6 +734,8 @@ class PyTrain:
         # if we're a client, send command to all instances on the client host
         if args and args[0] == "me" and self.is_client:
             # If the client is on the server node, send command to the server
+            assert self._client_ip is not None
+            assert self._server_ips is not None
             if self._client_ip in self._server_ips:
                 log.info(f"Sending {command.name} to {PROGRAM_NAME} server...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes)
@@ -745,6 +751,7 @@ class PyTrain:
                 return
             else:
                 # if server, signal all clients as well as the server
+                assert self._dispatcher is not None
                 self._dispatcher.signal_clients(cmd)
         else:
             # send command to server, it will send it to all clients
@@ -1199,7 +1206,10 @@ class PyTrain:
                 try:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class or the verb 'quit'
-                    args = self._command_parser().parse_args(["-" + ui_parts[0]])
+                    command_parser = self._command_parser()
+                    if parse_only and isinstance(command_parser, PyTrainArgumentParser):
+                        command_parser.clear_exit_on_error()
+                    args = command_parser.parse_args(["-" + ui_parts[0]])
                     if parse_only is False and args.command == "quit":
                         # if server, signal clients to disconnect
                         if self.is_server and self._dispatcher:

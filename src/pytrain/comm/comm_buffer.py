@@ -128,8 +128,8 @@ class CommBuffer(abc.ABC):
     def cancel_delayed_requests(
         cls,
         motive: Any = DEFAULT_ADDRESS,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None:
         if cls.is_built():
             from ..db.engine_state import EngineState
@@ -183,8 +183,8 @@ class CommBuffer(abc.ABC):
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None: ...
 
     @abc.abstractmethod
@@ -290,8 +290,8 @@ class CommBufferSingleton(CommBuffer, Thread):
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None:
         self._scheduler.cancel_delayed_requests(tmcc_id, scope, requests)
 
@@ -533,7 +533,7 @@ class CommBufferProxy(CommBuffer):
             return cls._instance._ephemeral_port[0]
         raise AttributeError("CommBufferProxy must be built first")
 
-    def __init__(self, server: IPv4Address | IPv6Address = None, port: int = DEFAULT_SERVER_PORT) -> None:
+    def __init__(self, server: IPv4Address | IPv6Address | None = None, port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
         else:
@@ -558,8 +558,8 @@ class CommBufferProxy(CommBuffer):
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None:
         self._scheduler.cancel_delayed_requests(tmcc_id, scope, requests)
 
@@ -634,7 +634,12 @@ class CommBufferProxy(CommBuffer):
                     if retries < 90:
                         retries += 1
                         if retries % 5 == 0:
-                            e_msg = COMM_ERROR_CODES.get(oe.errno, f"UNKNOWN ({oe.errno if oe.errno else oe})")
+                            errno = oe.errno
+                            e_msg = (
+                                COMM_ERROR_CODES.get(errno, f"UNKNOWN ({errno})")
+                                if errno is not None
+                                else f"UNKNOWN ({oe})"
+                            )
                             log.info(f"Looking for {PROGRAM_NAME} server at {self._server}... [{e_msg}]")
                         if not isinstance(oe, TimeoutError):
                             time.sleep(1)
@@ -682,7 +687,7 @@ class CommBufferProxy(CommBuffer):
             )
             return
 
-    def disconnect(self, port: int = None) -> None:
+    def disconnect(self, port: int | None = None) -> None:
         port = self._client_port if port is None else port
         try:
             from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -694,7 +699,7 @@ class CommBufferProxy(CommBuffer):
         except ConnectionError as ce:
             raise ce
 
-    def sync_state(self, port: int = None) -> None:
+    def sync_state(self, port: int | None = None) -> None:
         """
         Called at client start-up to retrieve current state from server
         """
@@ -820,7 +825,7 @@ class DelayHandler(Thread):
         ce.add(event)
 
     def cancel_delayed_requests(
-        self, tmcc_id: int, scope: CommandScope = None, requests: set[CommandDefEnum] = None
+        self, tmcc_id: int, scope: CommandScope | None = None, requests: set[CommandDefEnum] | None = None
     ) -> None:
         with self._cv:
             deleted = 0
@@ -878,6 +883,7 @@ class TrackedEvent:
         self.action = action
         self.arguments = arguments
         self.kwargs = kwargs or {}
+        self.request = None
 
         self._ran = False
         self._canceled = False
