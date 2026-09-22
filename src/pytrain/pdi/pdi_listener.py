@@ -43,7 +43,7 @@ class PdiListener(Thread):
     @classmethod
     def build(
         cls,
-        base3: str = None,
+        base3: str | None = None,
         base3_port: int = DEFAULT_BASE_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         build_base3_reader: bool = True,

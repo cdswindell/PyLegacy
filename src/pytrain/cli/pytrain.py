@@ -216,7 +216,7 @@ class PyTrain:
             self._tmcc_buffer.base3_address = self._base_addr
             self._tmcc_listener = CommandListener.build(
                 baudrate=self._baudrate,
-                port=self._port,
+                port=str(self._port),
                 ser2_receiver=self._ser2,
                 base3_receiver=self._base_addr is not None,
                 server_port=self._args.server_port,
@@ -1296,7 +1296,6 @@ class PyTrain:
                                     break  # we're into a subparser
                             if not has_tmcc_arg and not has_legacy_arg:
                                 ui_parts.insert(2, "-tmcc")
-                        print(f"State: {state} {ui_parts[2:]}")
 
                     # parse command line with the appropriate parser
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
