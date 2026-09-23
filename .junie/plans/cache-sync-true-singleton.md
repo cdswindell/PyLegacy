@@ -2,166 +2,93 @@
 sessionId: session-260923-133427-1hck
 ---
 
-# Findings and Scope
+# Requirements
 
-### Goal: fix interrupted UPDATE, not explain it as two managers
-The user clarified that the UPDATE crash is the real problem and confirmed **no Ctrl+C was pressed**. The traceback shows repeated interrupts in the main thread, not an exception raised by the cache worker.
+### Updated cache shutdown policy
+Cache ownership belongs exclusively to `PyTrain`; `PyTrainApi` does not create an independent cache server. The user's clarification supersedes the previous requirement to block API handoff when cache cleanup is incomplete: ordinary cache-stop failures should be logged without preventing the remaining PyTrain shutdown or API notification.
 
-1. **Intentional exit:** `PyTrain.do_admin_cmd()` raises `KeyboardInterrupt` at `src/pytrain/cli/pytrain.py:773` after forwarding UPDATE.
-2. **Interrupted cleanup:** a second `KeyboardInterrupt` arrives while `CacheSyncManager.shutdown()` waits in `socketserver.shutdown()` (`src/pytrain/db/cache_sync.py:523`). This is a normal shutdown wait, not by itself evidence of a cache failure or deadlock.
-3. **Unsafe finalization:** `PyTrain.shutdown()` catches `Exception`, which excludes `KeyboardInterrupt`. Cleanup can stop before disconnecting the client and stopping command listeners. `run()` retries service/cache cleanup, then calls `update()` from its unconditional `finally` block (`pytrain.py:414–428`) despite the interrupted full shutdown.
-4. **Another interrupt:** the final traceback shows interruption while waiting for `git pull`. Its sender is not established by the traceback. No manual Ctrl+C occurred, but that does not identify the exact signal source.
+The current follow-up is **test and test-documentation changes** for the user's production warning change. `src/pytrain/cli/pytrain.py:673` already logs `Cache sync cleanup is incomplete` in `PyTrain.__call__()`. Do not overwrite the user's production edits or change the external API checkout.
 
-### Verified race and remaining uncertainty
-`PyTrain.__call__()` sends process-directed `SIGINT` at `pytrain.py:656`. Its `_received_admin_cmds` guard covers previously received commands, not locally issued ones; `do_admin_cmd()` never records the local UPDATE there. An echoed UPDATE can therefore interrupt teardown. The earlier `Message: UPDATE...` output supports this path.
+### Acceptance criteria for the callback change
+- An ordinary cache-stop error produces warning diagnostics, but the accepted API callback continues through status publication and exactly one host notification in both server and client roles.
+- Other shutdown work still runs. The selected admin action remains unchanged and its `exit_status` is visible before the mocked `SIGINT` send.
+- Failed cache cleanup retains the same manager for an explicit retry; notification does not imply that cache resources were successfully released. Retrying cleanup or receiving late callbacks must not produce another notification or host action.
+- A genuine `KeyboardInterrupt` remains cancellation, not an ordinary cache error; retain propagation and no-notification coverage for that path.
+- Existing no-error shutdown, duplicate suppression, update/relaunch mappings, and low-level cache ownership protections remain intact.
 
-One sequential UPDATE echo explains **one** additional interrupt, not both later interrupts in this traceback: the callback records the command before signaling. Other accepted admin commands can still signal and overwrite `_admin_action`, and the check/add is not explicitly synchronized. These are paths to test, not proven explanations for the final Git interruption. Add signal-source and phase diagnostics instead of asserting an unverified third-signal cause.
+### Remaining queued-exit gap
+The callback edit does not yet satisfy the broader warning-only goal for all exit paths. `PyTrain.run()` still calls `shutdown_cache()` unguarded at line 425 and raises for retained ownership at lines 426–427. Replacing that explicit raise alone would still allow an ordinary cache-stop exception to escape final cleanup.
 
-RESTART shares the vulnerable shutdown path. Unlike UPDATE, it does not run the Git/pip update sequence and catches `KeyboardInterrupt` around its initial log message (`pytrain.py:843–879`). Different timing and that narrow catch can hide the symptom; neither makes RESTART inherently safe.
+This test-only follow-up must report that gap, not silently change production behavior or weaken current queued-path assertions. Completing warning-only queued exits requires a corresponding production adjustment at the final-cleanup boundary, followed by updating the affected runtime tests. Until then, do not claim cache failures are nonfatal for every exit route.
 
-### Acceptance criteria
-- One committed local exit action per PyTrain lifecycle. Local UPDATE and its echoes do not produce redundant internal interrupts; later exiting admin commands cannot change the selected action during teardown or updating.
-- Callback-only commands still wake the command loop once. Preserve API exit status **and host notification**, startup-triggered client UPDATE, targeted-node and client `me` routing, and normal RESYNC behavior. A queued API exit must publish its status before exactly one host notification after successful cleanup; a background-thread exception alone does not satisfy this contract.
-- UPDATE executes once, after normal shutdown and final cleanup return successfully. An escaping cleanup interruption/error must not launch Git, pip, or a deferred relaunch from `finally`.
-- Interrupted cache cleanup retains the same manager and resources for a safe retry. Successful cleanup releases ownership only after owned threads terminate.
-- Preserve disabled-cache behavior, capability checks, cache transfer contracts, and existing update subprocess arguments.
+### Preserved prior work and scope
+The original issue was a shutdown race, not evidence of duplicate cache managers. Keep the implemented first-exit guard, late-echo suppression, deferred-action ordering, one-shot API notification, retryable cache ownership, and isolated receiver tests. Constructor-level singleton hardening remains deferred.
 
-### Relationship to the original singleton plan
-The duplicate startup print is already removed from `PyTrain`; preserve that change. Repeated shutdown messages can come from retries on one object and do not prove duplicate construction.
+Previous implementation validation recorded **7,333 passing tests**, including **34 opt-in integration cases**; that predates the current warning change and is not validation of this revision.
 
-`CacheSyncManager.build()` already serializes factory creation. Direct construction can bypass it, but no normal bypass call site was found. **Defer the previously proposed constructor metaclass/true-singleton rewrite**; it is separate hardening, not a prerequisite or explanation for this crash. Retain the relevant shutdown-ownership safeguards in this focused fix. Shared singleton utilities, command protocols, global signal masking, and a replacement event-loop architecture remain out of scope.
-
-### Server/API compatibility review after implementation
-- **Standalone server mode:** `do_admin_cmd()` claims the local exit before `CommandDispatcher.signal_clients()`. Client-originated requests are broadcast and published to `CommandScope.SYNC` in `src/pytrain/comm/enqueue_proxy_requests.py`, reaching the same guarded `PyTrain.__call__()` path. `tests/cli/test_pytrain_admin.py` parameterizes server/client roles.
-- **API callback path:** `__call__()` still calls shutdown, assigns `exit_status`, and sends `SIGINT` to the hosting process. The callback tests verify status-before-signal ordering with mocked shutdown.
-- **Queued API gap resolved on the PyTrain side:** `run()` executes on `_api_thread`; worker exceptions alone cannot notify the host's main thread. The implemented `_notify_api_exit()` publishes status before one host SIGINT, and `run()` handles deferred `PyTrainExitException.reason` plus explicit queued QUIT after successful cleanup. Echoes remain suppressed.
-- All four delivery milestones below are implemented. Queued API tests cover server/client roles, status-before-notification, duplicate suppression, and failure paths with mocked `os.kill()`. Prior implementation validation recorded passing formatting checks and **7,295 passing tests**; these checks were not rerun during this review.
-- `PyTrainApi` is available on the user's computer and GitHub, but its location and revision have not yet been supplied. Its actual signal handler, exit-status reader, and any thread exception hook have not been inspected. Do not claim end-to-end host compatibility without that code. This is an in-process `PyTrainExitStatus` contract, not an automatically generated OS process exit code.
+Leave `tests/requirements.txt`, production dependencies, and the external API checkout unchanged. Integration tests remain opt-in through `PYTRAIN_API_CHECKOUT`, use an existing local checkout, and never clone, fetch, pull, install dependencies, or start API children in a normal unit-test run.
 
 # Technical Design
 
-### Extend the existing admin guard locally
-Keep coordination inside `src/pytrain/cli/pytrain.py`; preserve existing routing, callback delivery, and the first interrupt used to wake `run()`. No new cross-module coordinator or transport API is needed.
+### Callback unit tests
+In `tests/cli/test_pytrain_admin.py`, replace the combined `test_api_callback_cache_failure_blocks_handoff_and_allows_retry` expectations with separate ordinary-failure and interruption scenarios. Reuse the existing server/client `admin` fixture, real `PyTrain.shutdown()` and `shutdown_cache()`, mocked resource boundaries, and controlled `CacheSyncManager.stop()` failure followed by success.
 
-- Initialize a short-lived admin-state lock and exit-request/shutdown-started flags before callback registration. Use a private helper such as `_claim_admin_exit(command, *, source) -> bool` to atomically accept the first exiting action, record `_admin_action`, and update `_received_admin_cmds`.
-- In `do_admin_cmd()`, classify routing before committing a local exit. Claim and record locally exiting commands **before** `signal_clients()` or `enqueue_command()` can synchronously or asynchronously echo them; only the winning local request raises the intentional interrupt.
-- Do not pre-claim targeted remote requests, RESYNC, or returning client `me` branches; those may rely on a callback to exit. `_admin_action == command` alone is not an adequate guard. Ensure incidental routing assignments cannot overwrite an already committed exit action.
-- In `__call__()`, accept callback-only exiting requests through the same guard. The winner retains existing API shutdown/exit-status handling and its single wakeup signal; duplicate or different exiting commands after commitment must not signal, repeat callback shutdown, or replace the action.
-- At the start of `shutdown()`, mark teardown underway even when it originated from ordinary Ctrl+C rather than an admin command. Retain the guard through the update/relaunch phase. Marking teardown must not suppress the already accepted callback's required initial wakeup.
-- Roll back only the newly reserved local bookkeeping if dispatch fails before teardown begins. Do not hold the admin-state lock across networking, cleanup, joins, or signal delivery; keep it separate from `_shutdown_lock`.
+- For `RuntimeError`, expect the callback to return normally. Capture the `WARNING` record containing `Cache sync cleanup is incomplete` with `caplog`; allow the existing detailed warning from `shutdown()` as well.
+- Check API queue disposal, remaining component cleanup, client disconnect when applicable, unchanged selected action, and retained manager identity. Use a mocked `os.kill` side effect to assert the expected `exit_status` and `_api_exit_notified` before the signal is recorded.
+- Cover UPDATE plus inexpensive RESTART and QUIT cases in the unit test, with the corresponding status for each action. Require exactly one signal throughout callback completion, duplicate/late requests, and explicit successful cache retry.
+- Keep the `KeyboardInterrupt` case separate: the interrupt propagates before notification, the manager and selected action remain available for retry, and no success status is published. Do not change genuine cancellation into warning-only behavior.
+- Keep successful-cleanup tests and low-level ownership/error tests in `tests/cli/test_cache_sync_service.py` and `tests/db/test_cache_sync.py`; the warning changes high-level exit policy, not whether a failed `stop()` actually released resources.
 
-### Make deferred actions conditional on completed control flow
-Refactor `PyTrain.run()` without rewriting `update()` or changing its Git/pip commands:
-- Handle the initial expected `KeyboardInterrupt` around both startup processing and the command loop, then call full `shutdown()` once on that normal exit path. Moving only the existing action block is insufficient: client version checks call `__call__(UPDATE)` before entering the loop.
-- Keep final history/service/cache cleanup as a safety net, but move deferred admin-action dispatch **after**, not inside, the cleanup `finally` block.
-- Allow an interruption/error that escapes shutdown or final cleanup to propagate without invoking UPDATE, UPGRADE, RESTART, or power actions. Preserve existing best-effort handling of ordinary individual cleanup errors; do not equate a still-retained cache manager after a failed stop with completed cache cleanup.
-- Do not broadly catch `BaseException`, swallow `KeyboardInterrupt` inside `update()`, ignore SIGINT process-wide, or retry a partially executed Git/pip update automatically. Genuine external cancellation remains distinct from the internal duplicate-signal bug.
+### Existing API receiver integration
+Update the two existing server/client cache-failure cases in `tests/integration/test_pytrain_api_exit.py` and `tests/integration/_pytrain_api_exit_child.py`; do not add a new integration subsystem or routinely expand the slow matrix.
 
-```mermaid
-graph LR
-    L[Local admin] --> G[PyTrain exit guard]
-    C[Admin callback] --> G
-    G -->|first request| R[Run exits]
-    G -->|later requests| I[Ignore and log]
-    R --> S[Full shutdown]
-    S --> F[Final cleanup]
-    F -->|normal return| U[Deferred update]
-    F -->|escaping error| X[Propagate without update]
-```
+- Replace the expected callback `RuntimeError` and early failure return with normal status publication and recorded host dispatch. Capture the incomplete-cleanup warning in the child.
+- In `notify()`, allow the original retained manager only for the injected cache-failure scenario; keep the no-manager assertion for successful-cleanup cases. Preserve assertions for queue disposal, other cleanup, selected status, and one notification.
+- Let the real `PyTrainApi` receiver consume UPDATE and follow the existing recorded update/relaunch path. Adjust `Relaunched` sentinel handling so this scenario is a terminal successful handoff, not a blocked exit. Keep destructive operations stubbed.
+- After the controlled terminal boundary, verify the same retained manager can be explicitly cleaned up. Assert that late echoes and retry add neither host actions nor notifications and do not change the published status.
+- Keep canonical import/enum identity checks, subprocess timeouts, the existing success action matrix, and real Uvicorn signal tests unchanged. No separate API cache is introduced or simulated.
+- Update `tests/integration/README.md` to describe warning-and-continue with retained ownership, replacing the obsolete claim that a cache error blocks status publication and host action. Distinguish this callback coverage from the remaining queued-exit limitation.
 
-### Complete the existing API handoff (implemented)
-Keep the existing `exit_status` plus `SIGINT` interface; do not introduce a new host protocol, coordinator, or event-loop architecture.
+### Runtime tests and unchanged behavior
+`tests/cli/test_pytrain_runtime.py` currently includes `test_failed_cache_stop_blocks_update_until_retry_finishes`, `test_escaping_cleanup_error_never_dispatches_action`, and `test_queued_api_exit_skips_notification_when_cleanup_escapes`. These describe the still-blocking queued implementation, not the edited callback. Do not blindly invert all error assertions or remove cancellation/non-cache error coverage to accommodate a callback-only change. Any subsequent user edit to `run()` requires targeted changes for ordinary cache errors while preserving escaping non-cache errors, deferred-action failures, and genuine interrupts.
 
-- Separate accepting an exit request from notifying the API host. A local request already owning `_exit_requested` must still deliver its one final host notification; late callbacks must remain suppressed.
-- Add a private, one-shot API notification helper, such as `_notify_api_exit(status: PyTrainExitStatus) -> None`. Under the short-lived admin lock, publish `_exit_status` and reserve notification once; release the lock before sending the existing signal. Log status and notification source before signal delivery.
-- Reuse this handoff for the accepted API callback and the successful queued-command exit. The queued path must reach full shutdown and final cleanup before notification; a retained cache manager or escaping cleanup exception must prevent a success handoff. Preserve the initial non-API wakeup signal separately.
-- Handle `PyTrainExitException` narrowly at the API worker's deferred-action boundary, using its `reason` for notification rather than relying on that worker exception to reach the main thread. Do not catch unrelated errors or genuine cancellation as successful exits. Explicitly publish `PyTrainExitStatus.QUIT` for queued QUIT, which has no deferred action.
-- Keep enum numeric values, the public property, and direct deferred-method exception contracts compatible. Preserve current update/relaunch behavior rather than changing Git/pip ownership in this follow-up. Check the external host before altering existing status mappings, including the current callback UPGRADE versus deferred `upgrade()` distinction.
-- This is a localized completion of the existing PyTrain handoff, not a change to transport routing or the `PyTrainApi` interface. External host validation remains a stated limitation until its implementation is available.
-
-### Preserve cache ownership until cleanup succeeds
-In `src/pytrain/db/cache_sync.py`, retain the existing factory registry and locking rather than adding constructor enforcement:
-- Set `_shutdown` even if the sidecar never bound. Keep `shutdown()` idempotent and join both the worker and the serving thread; guard against self-join and unstarted threads.
-- Preserve valid server/thread references across an interrupted `server.shutdown()` or `server_close()` so a retry continues on the same manager. Clear references only when the corresponding resource is actually released.
-- Clean up a bound socket if `_start_sidecar()` fails to start its serving thread. Never call `socketserver.shutdown()` on a server whose serving loop was never started; the normal shutdown wait must not be mistaken for a timeout API.
-- Keep `stop()` serialized against `build()`. Clear `_instance` only after successful cleanup and confirmed thread termination. If a bounded join expires, raise a cleanup failure and retain ownership; enabled `build()` must not hand out that stopping manager as an active one or create a replacement.
-- Preserve `PyTrain.shutdown_cache()`'s reference-on-failure behavior, including `KeyboardInterrupt`. Release locks on exceptional exit, allow subsequent `stop()` to finish, and permit a fresh factory instance only after successful stop.
-
-### Diagnose interrupt sources and lifecycle phases
-- Replace the ad hoc admin print with debug records for accepted/suppressed requests and a record immediately before the internal `os.kill()`. Include action, local/callback source, selected action, phase, process ID, PyTrain identity, and current thread; do not imply knowledge of a remote sender that the callback does not provide.
-- Log entry/completion of full teardown and entry into deferred UPDATE. These records distinguish late callback signals from an interrupt with no matching internal-send record; they cannot by themselves identify an external signal sender.
-- Replace cache lifecycle prints with creation, stop-attempt, and stop-completion records including PID, manager identity, thread, role, and port. Preserve the distinct listener-bound message and the already removed PyTrain startup print. Completion must only be logged after confirmed cleanup.
-
-### Affected files and existing patterns
-Production changes are limited to `src/pytrain/cli/pytrain.py` and `src/pytrain/db/cache_sync.py`. Extend the existing callback-deduplication tests in `tests/cli/test_pytrain_admin.py`, shutdown ordering/retry tests in `tests/cli/test_pytrain_runtime.py`, mocked subprocess tests in `tests/cli/test_pytrain_update.py`, and ownership tests in `tests/cli/test_cache_sync_service.py` and `tests/db/test_cache_sync.py`. Initialize new lifecycle state in the relevant bare-object test fixtures, using `tests/cli/conftest.py` where shared initialization is appropriate.
+The existing first-request guard, `exit_status`/`SIGINT` contract, and API update ownership are unchanged. No production source changes are part of these delivery steps.
 
 # Validation
 
-### Deterministic admin/UPDATE regressions
-- In `tests/cli/test_pytrain_admin.py`, inject the local command's echo from inside mocked dispatch and again during teardown. Expect one local intentional exit and no callback `os.kill()`; parameterize UPDATE and RESTART, client/server, and API/non-API behavior.
-- Test callback-only commands still signal once, simultaneous exiting callbacks accept only one action, and a different late action cannot overwrite UPDATE or signal during cleanup/update. Verify rollback after dispatch failure and preserve targeted routing, both client `me` branches, RESYNC, and API exit status.
-- In `tests/cli/test_pytrain_runtime.py`, use real routing/cleanup methods with fake external resources. Inject an echo while cache-server shutdown is waiting; assert downstream disconnect/listener cleanup completes before one UPDATE dispatch.
-- Inject an independent `KeyboardInterrupt` during full shutdown and during final cleanup. Assert no deferred action or subprocess starts, the interruption is not silently swallowed, and retained resources remain retryable. Keep ordinary cleanup-failure isolation and unexpected-runtime-error coverage.
-- Cover startup-triggered client UPDATE before the command loop, ordinary Ctrl+C, headless/API mode, and existing deferred-action ordering for all supported actions.
-- In `tests/cli/test_pytrain_update.py`, invoke late admin callbacks during mocked pip/Git waits and verify no internal signal is emitted. Preserve subprocess arguments and relaunch behavior. Separately verify a genuine injected subprocess interruption propagates without relaunch or automatic update retry.
+### Regression checks
+- Run the focused callback/admin tests: ordinary failure warns and notifies once; successful cleanup still works; interruption propagates; retry and echoes do not notify again.
+- Retain runtime, update-method, and low-level cache tests to detect unintended changes outside the callback policy.
+- Run the revised receiver cases using the existing local API checkout, then the existing integration group to check shared harness assertions and real-signal coverage. No live updates, networking, hardware, or host relaunches are permitted.
+- With `PYTRAIN_API_CHECKOUT` unset, verify the integration group still skips before API imports or child startup. Do not add default-suite dependency probes or downloads.
 
-### API handoff regressions (implemented on the PyTrain side)
-- Extend `tests/cli/test_pytrain_runtime.py` with a real queued admin command processed on a controlled worker, using real PyTrain routing/cleanup and mocked external resources. Parameterize server/client roles and UPDATE, RESTART, QUIT, and other supported exit actions.
-- Mock `os.kill()` as the host-observation boundary: at notification time, verify full cleanup has completed, the expected `exit_status` is readable, and the selected action remains unchanged. Do not model a signal by raising in the sending worker; actual Python signal handling belongs to the main thread.
-- Inject immediate echoes, callbacks during cleanup, and late different actions. Assert exactly one final API notification, not zero notifications as in the incomplete local-command test. Retain zero redundant signals for standalone local exits and one initial signal for callback-only standalone exits.
-- Assert escaping cleanup/action errors do not publish a successful handoff. Preserve retryable cache ownership and the existing direct-method `PyTrainExitException.reason` assertions.
-- Validate against the actual `PyTrainApi` receiving code when available; tests confined to this repository verify only the PyTrain side of that boundary.
+### Required implementation commands
+Consult the Python environment tooling before running Python commands. After Python edits, run `../bin/python -m ruff format --check <changed Python files>`; if needed, format those files and repeat the check. Run all unit tests with `../bin/python -m pytest`.
 
-### External API verification prerequisites and approach
-- Start with the absolute local `PyTrainApi` checkout path, or an accessible GitHub URL plus the branch/commit matching the installed API. Record the normal API launch command and runtime configuration. Source inspection does not require installing a new dependency.
-- Inspect real API initialization, queued-command dispatch, main-thread signal/exception handling, exit-status consumption, and update/relaunch ownership. Compare callback and queued paths, including existing UPGRADE/UPDATE mappings, before changing either contract.
-- A test-only dependency is feasible: `tox.ini` already consumes `tests/requirements.txt`. Review the API's package metadata first; use a pinned release or Git commit for shared reproducible tests. A local editable install is an optional developer convenience, not a portable committed requirement. Keep any private-repository credentials outside requirement URLs.
-- Ensure the API imports the modified PyTrain checkout rather than a separately installed release; inspect import identity and dependency constraints before trusting integration results. Adding a requirement alone does not verify the receiving contract or automatically install it for direct pytest runs.
-- Exercise the real host receiver for queued and callback exits across server/client roles, including QUIT, UPDATE, RESTART, and the remaining supported actions. Assert status visibility before exactly one notification, compatible status/action mappings, appropriate cleanup ordering for each path, and no successful queued handoff after an escaping cleanup/deferred-action error.
-- Keep external hardware, networking, Git/pip updates, reboot, and relaunch boundaries mocked or disabled. If actual SIGINT delivery is tested, run the host and PyTrain in an isolated child process with bounded waits and guaranteed cleanup; never signal the test runner. Confirm main-thread handling and the API's actual consumption of `exit_status`, not just a mock of the sender.
-- These are prerequisites and validation guidance, not evidence that external integration has passed. No dependency installation or external API changes are authorized by this source-access discussion.
+For the separate opt-in receiver run, use the existing checkout and interpreter:
 
-### Cache cleanup and diagnostic regressions
-- In `tests/db/test_cache_sync.py`, inject a single interruption from fake server shutdown using real `stop()`/`shutdown()` logic. Check manager/resource identity, lock release, retry success, and no premature registry clearing.
-- Cover unavailable sidecar, serving-thread start failure, repeated stop, worker/serving-thread join timeout, and concurrent factory build/stop. A failed stop retains ownership; a successful stop permits a fresh factory instance.
-- In `tests/cli/test_cache_sync_service.py`, check PyTrain retains its manager reference when stop raises, including `KeyboardInterrupt`, and clears it only after success. Preserve disabled-cache and capability tests.
-- Assert signal-send diagnostics precede mocked `os.kill()` and record the accepted source/action. Assert cache retry logs carry the same PID/object identity and do not claim completion prematurely.
+```sh
+PYTRAIN_API_CHECKOUT=/Users/davids/Documents/dev/PyTrainApiEnv/PyTrainApi \
+PYTRAIN_API_PYTHON=/Users/davids/Documents/dev/PyTrainApiEnv/bin/python \
+../bin/python -m pytest tests/integration/test_pytrain_api_exit.py
+```
 
-Use events/barriers and bounded waits, not sleep-based timing assertions. Mock signals, subprocesses, relaunch, networking, and hardware boundaries; never send SIGINT to the test runner or execute Git/pip updates. Restore singleton state and terminate test-owned threads. No reproduction run against the user's live system is required.
-
-### Implementation checks
-After Python edits, run `../bin/python -m ruff format --check <changed Python files>`. If it fails, run `../bin/python -m ruff format <changed Python files>` and repeat the check. Run all unit tests with `../bin/python -m pytest`. Consult the Python environment tooling before executing these commands.
-
-This planning session changes only this plan file; it does not modify Python files, execute update commands, or run tests.
+Report newly executed tests separately from skips and prior results. This planning revision edits only this plan file; it does not change Python files or run tests.
 
 # Delivery Steps
 
-### ✓ Step 1: Accept one admin exit request and suppress late callback signals
-Local UPDATE and its echoes share one committed exit action without repeated internal interrupts.
-- Extend `PyTrain.do_admin_cmd()`, `__call__()`, and shutdown-entry bookkeeping in `src/pytrain/cli/pytrain.py` with atomic first-request acceptance and pre-dispatch local deduplication.
-- Preserve targeted requests, callback-dependent `me` routing, RESYNC, callback-only wakeup, and API exit status; roll back a failed local dispatch reservation safely.
-- Add accepted/suppressed request and pre-SIGINT diagnostics with source, phase, process, object, and thread identity.
-- Extend `tests/cli/test_pytrain_admin.py` and relevant bare-object fixtures for immediate echoes, concurrent callbacks, late different commands, dispatch failure, and UPDATE/RESTART parity.
+### ✓ Step 1: Encode warning-only callback shutdown in unit tests
+Server/client callback tests verify continued API notification after an ordinary cache failure without losing cancellation or retry coverage.
+- Split the ordinary-failure and `KeyboardInterrupt` expectations in `tests/cli/test_pytrain_admin.py`, retaining real shutdown/cache-wrapper behavior.
+- Assert warning severity/message, remaining cleanup, retained manager identity, and status-before-signal ordering for UPDATE, RESTART, and QUIT.
+- Verify duplicate/late callbacks and explicit cache retry preserve the selected status and exactly one notification.
+- Preserve existing low-level ownership and queued-path regressions; report the remaining queued production gap rather than changing source or concealing it.
+- Run focused admin/cache tests and the required formatting check for changed Python files.
 
-### ✓ Step 2: Run deferred UPDATE only after uninterrupted shutdown and final cleanup
-Git/pip update work cannot start while an exception is escaping teardown.
-- Restructure `PyTrain.run()` to handle the expected initial interrupt from startup or command processing and then perform full shutdown.
-- Retain final cleanup but move deferred-action dispatch outside `finally`; preserve ordinary cleanup-error isolation and do not swallow genuine cancellation.
-- Add teardown/update phase diagnostics and keep existing update/relaunch subprocess contracts unchanged.
-- Extend `tests/cli/test_pytrain_runtime.py` and `tests/cli/test_pytrain_update.py` for an echo during cache shutdown, interruptions during cleanup, startup-triggered UPDATE, and late callbacks during mocked Git/pip waits.
-
-### ✓ Step 3: Make cache shutdown retryable and report completion accurately
-Interrupted or incomplete cache shutdown retains the same manager until owned resources actually terminate.
-- Update `CacheSyncManager.shutdown()`, `stop()`, `_start_sidecar()`, and the factory's stopping-instance guard in `src/pytrain/db/cache_sync.py`; keep constructor enforcement deferred.
-- Signal termination without a listener, clean partial sidecar startup, check both owned threads after joins, and preserve resources/registry ownership across interruptions or timeouts.
-- Preserve `PyTrain.shutdown_cache()` reference-on-failure semantics and replace ambiguous lifecycle prints with identity-tagged attempt/completion logs.
-- Extend `tests/db/test_cache_sync.py` and `tests/cli/test_cache_sync_service.py` for same-instance retries, lock release, factory stop/build races, partial startup, and log accuracy.
-- Run the required Ruff formatting checks, correct formatting if needed, and run the complete unit test suite.
-
-### ✓ Step 4: Complete queued API exit-status delivery
-A successful queued API exit publishes its status and notifies the host once without depending on an echoed command.
-- Add one-shot status publication/notification in `src/pytrain/cli/pytrain.py`, keeping the existing signal/property interface and suppressing redundant callback signals.
-- Connect completed API-worker teardown and deferred-action results to that handoff; explicitly handle queued QUIT and prevent success notification on escaping cleanup errors.
-- Preserve standalone server/client behavior, public exit-status values, and direct deferred-method exception contracts.
-- Extend `tests/cli/test_pytrain_admin.py` and `tests/cli/test_pytrain_runtime.py` with server/client queued exits, status-before-notification assertions, echoes, and failure paths; retain update-method coverage in `tests/cli/test_pytrain_update.py`.
-- Run the required formatting checks and full unit suite after implementation. Keep external PyTrainApi integration unverified until its receiving code is available.
+### ✓ Step 2: Align the opt-in API receiver harness with continued handoff
+The existing cache-failure integration cases verify real API status dispatch despite a retained PyTrain cache manager.
+- Update `tests/integration/test_pytrain_api_exit.py` and `_pytrain_api_exit_child.py` to expect the warning, one notification, normal recorded UPDATE/relaunch, and same-manager retry without another host action.
+- Adjust only scenario-specific ownership and terminal-sentinel assertions; retain strict successful-cleanup checks, canonical imports, bounded child execution, and safe external-operation stubs.
+- Revise `tests/integration/README.md` to distinguish best-effort callback shutdown from the remaining queued-exit limitation and keep opt-in instructions intact.
+- Run the separate local-checkout integration group, verify opt-out skipping, run Ruff formatting checks, and run the complete normal unit suite with `../bin/python -m pytest`.
+- Leave production files, API sources, requirements, and normal-test startup costs unchanged.

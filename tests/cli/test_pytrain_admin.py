@@ -1,6 +1,8 @@
+import logging
 import signal
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
+from threading import Barrier, Lock
+from queue import Queue
 from types import SimpleNamespace
 from unittest.mock import Mock, call
 
@@ -71,6 +73,130 @@ def test_callback_echo_non_admin(admin, monkeypatch, echo_error):
     admin(message)
     assert str(message) in info.call_args.args[0]
     assert exception.call_count == int(echo_error)
+    mod.os.kill.assert_not_called()
+
+
+@pytest.fixture
+def api_cache_shutdown(admin, monkeypatch):
+    del admin.shutdown
+    admin._api = True
+    admin._api_thread = Mock()
+    admin._shutdown_lock = Lock()
+    admin._cache_sync_manager = Mock(spec=mod.CacheSyncManager)
+    admin._service_info = admin._zeroconf = None
+    admin._command_queue = Queue()
+    admin._tmcc_listener = Mock(port=5111)
+    stop = Mock()
+    monkeypatch.setattr(mod.CacheSyncManager, "stop", stop)
+    cleanup = []
+    for owner, name in [
+        (mod.CommBuffer, "stop"),
+        (mod.CommandListener, "stop"),
+        (mod.PdiListener, "stop"),
+        (mod.ComponentStateStore, "reset"),
+        (mod.GpioHandler, "reset_all"),
+    ]:
+        double = Mock()
+        monkeypatch.setattr(owner, name, double)
+        cleanup.append(double)
+    return stop, cleanup
+
+
+@pytest.mark.parametrize(
+    "command,status",
+    [
+        (mod.TMCC1SyncCommandEnum.UPDATE, mod.PyTrainExitStatus.UPDATE),
+        (mod.TMCC1SyncCommandEnum.RESTART, mod.PyTrainExitStatus.RESTART),
+        (mod.TMCC1SyncCommandEnum.QUIT, mod.PyTrainExitStatus.QUIT),
+    ],
+)
+def test_api_callback_cache_failure_warns_and_notifies_once(admin, api_cache_shutdown, caplog, command, status):
+    stop, cleanup = api_cache_shutdown
+    manager = admin._cache_sync_manager
+    queue = admin._command_queue
+    queue.put("pending command")
+    stop.side_effect = [RuntimeError("stop failed"), None]
+    signals = []
+
+    def notify(pid, sig):
+        assert admin.exit_status is status
+        assert admin._api_exit_notified
+        assert admin._admin_action is command
+        assert admin._cache_sync_manager is manager
+        assert admin._command_queue is None
+        assert queue.empty()
+        assert queue.unfinished_tasks == 0
+        for double in cleanup:
+            double.assert_called_once_with()
+        if admin.is_client:
+            admin._tmcc_buffer.disconnect.assert_called_once_with(5111)
+        signals.append((pid, sig))
+
+    mod.os.kill.side_effect = notify
+    with caplog.at_level(logging.WARNING, logger=mod.log.name):
+        admin(mod.CommandReq(command))
+    assert any(
+        record.levelno == logging.WARNING and record.getMessage() == "Cache sync cleanup is incomplete"
+        for record in caplog.records
+    )
+    assert admin._cache_sync_manager is manager
+    for late_command in (
+        command,
+        mod.TMCC1SyncCommandEnum.UPDATE,
+        mod.TMCC1SyncCommandEnum.RESTART,
+        mod.TMCC1SyncCommandEnum.QUIT,
+    ):
+        admin(mod.CommandReq(late_command))
+    stop.assert_called_once_with()
+    assert admin._cache_sync_manager is manager
+    admin.shutdown_cache()
+    assert stop.call_args_list == [call(), call()]
+    assert admin._cache_sync_manager is None
+    for late_command in (command, mod.TMCC1SyncCommandEnum.RESTART, mod.TMCC1SyncCommandEnum.QUIT):
+        admin(mod.CommandReq(late_command))
+    assert admin._admin_action is command
+    assert admin._received_admin_cmds == {command}
+    assert admin.exit_status is status
+    assert admin._api_exit_notified
+    assert signals == [(1234, signal.SIGINT)]
+    mod.os.kill.assert_called_once_with(1234, signal.SIGINT)
+    mod.os.execv.assert_not_called()
+    mod.subprocess.run.assert_not_called()
+    for double in cleanup:
+        double.assert_called_once_with()
+    assert stop.call_count == 2
+
+
+def test_api_callback_cache_failure_blocks_handoff_and_allows_retry(admin, api_cache_shutdown, caplog):
+    """A genuine interrupt remains cancellation, unlike an ordinary cache-stop error."""
+    stop, cleanup = api_cache_shutdown
+    manager = admin._cache_sync_manager
+    queue = admin._command_queue
+    stop.side_effect = [KeyboardInterrupt("stop interrupted"), None]
+    with pytest.raises(KeyboardInterrupt, match="stop interrupted"):
+        admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    assert admin._cache_sync_manager is manager
+    assert admin._admin_action is mod.TMCC1SyncCommandEnum.UPDATE
+    assert admin.exit_status is None
+    assert not admin._api_exit_notified
+    mod.os.kill.assert_not_called()
+    assert admin._command_queue is queue
+    for double in cleanup:
+        double.assert_not_called()
+    assert not any("Cache sync cleanup is incomplete" in record.getMessage() for record in caplog.records)
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.RESTART))
+    stop.assert_called_once_with()
+    admin.shutdown_cache()
+    assert stop.call_count == 2
+    assert admin._cache_sync_manager is None
+    assert admin._admin_action is mod.TMCC1SyncCommandEnum.UPDATE
+    assert admin.exit_status is None
+    assert not admin._api_exit_notified
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.QUIT))
+    assert admin._admin_action is mod.TMCC1SyncCommandEnum.UPDATE
+    assert admin.exit_status is None
+    assert stop.call_count == 2
     mod.os.kill.assert_not_called()
 
 

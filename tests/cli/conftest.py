@@ -60,6 +60,7 @@ def bare_pytrain(pytrain_isolation):
     obj._admin_action = None
     obj._received_admin_cmds = set()
     obj._exit_status = None
+    obj._cache_sync_manager = None
     return obj
 
 

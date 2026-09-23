@@ -424,7 +424,7 @@ class PyTrain:
             self.shutdown_service()
             self.shutdown_cache()
             if self._cache_sync_manager is not None:
-                raise RuntimeError("Cache sync cleanup is incomplete")
+                log.warning("Cache sync cleanup is incomplete")
 
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
@@ -669,6 +669,8 @@ class PyTrain:
                 if self._api_thread:
                     self.shutdown()
                 if self.is_api:
+                    if self._cache_sync_manager is not None:
+                        log.warning("Cache sync cleanup is incomplete")
                     status = PyTrainExitStatus.by_name(message.command.name, raise_exception=False)
                     if status is not None:
                         self._notify_api_exit(status)
@@ -681,7 +683,7 @@ class PyTrain:
 
         Accepting an exit request is separate from host notification. Local/queued API
         exits reach this helper only after successful cleanup (and any deferred action),
-        while callback-only API exits may notify immediately after claiming. Either way,
+        while callback-only API exits notify after shutdown releases cache ownership. Either way,
         only one notification is delivered per PyTrain lifecycle.
         """
         with self._admin_state_lock:
