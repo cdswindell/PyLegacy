@@ -34,9 +34,9 @@ The duplicate startup print is already removed from `PyTrain`; preserve that cha
 ### Server/API compatibility review after implementation
 - **Standalone server mode:** `do_admin_cmd()` claims the local exit before `CommandDispatcher.signal_clients()`. Client-originated requests are broadcast and published to `CommandScope.SYNC` in `src/pytrain/comm/enqueue_proxy_requests.py`, reaching the same guarded `PyTrain.__call__()` path. `tests/cli/test_pytrain_admin.py` parameterizes server/client roles.
 - **API callback path:** `__call__()` still calls shutdown, assigns `exit_status`, and sends `SIGINT` to the hosting process. The callback tests verify status-before-signal ordering with mocked shutdown.
-- **Queued API gap:** API mode starts `run()` on `_api_thread` (`pytrain.py:294–304`). A locally queued command raises `KeyboardInterrupt` on that worker, while the guard now suppresses its echoed callback and associated host notification. Deferred methods can assign status and raise `PyTrainExitException`, but an exception on this worker does not propagate to the host's main thread. Queued QUIT reaches no deferred method and leaves `_exit_status` unset.
-- Existing API-mode tests do not connect a real queued exit through cleanup to host notification. Prior passing tests therefore do not establish complete API compatibility. The first three milestones below were implemented; the API handoff follow-up remains outstanding.
-- `PyTrainApi` is not present in this repository. Its actual signal handler, exit-status reader, and any thread exception hook have not been inspected. Do not claim end-to-end host compatibility without that code. This is an in-process `PyTrainExitStatus` contract, not an automatically generated OS process exit code.
+- **Queued API gap resolved on the PyTrain side:** `run()` executes on `_api_thread`; worker exceptions alone cannot notify the host's main thread. The implemented `_notify_api_exit()` publishes status before one host SIGINT, and `run()` handles deferred `PyTrainExitException.reason` plus explicit queued QUIT after successful cleanup. Echoes remain suppressed.
+- All four delivery milestones below are implemented. Queued API tests cover server/client roles, status-before-notification, duplicate suppression, and failure paths with mocked `os.kill()`. Prior implementation validation recorded passing formatting checks and **7,295 passing tests**; these checks were not rerun during this review.
+- `PyTrainApi` is available on the user's computer and GitHub, but its location and revision have not yet been supplied. Its actual signal handler, exit-status reader, and any thread exception hook have not been inspected. Do not claim end-to-end host compatibility without that code. This is an in-process `PyTrainExitStatus` contract, not an automatically generated OS process exit code.
 
 # Technical Design
 
@@ -69,7 +69,7 @@ graph LR
     F -->|escaping error| X[Propagate without update]
 ```
 
-### Complete the existing API handoff (pending)
+### Complete the existing API handoff (implemented)
 Keep the existing `exit_status` plus `SIGINT` interface; do not introduce a new host protocol, coordinator, or event-loop architecture.
 
 - Separate accepting an exit request from notifying the API host. A local request already owning `_exit_requested` must still deliver its one final host notification; late callbacks must remain suppressed.
@@ -105,12 +105,21 @@ Production changes are limited to `src/pytrain/cli/pytrain.py` and `src/pytrain/
 - Cover startup-triggered client UPDATE before the command loop, ordinary Ctrl+C, headless/API mode, and existing deferred-action ordering for all supported actions.
 - In `tests/cli/test_pytrain_update.py`, invoke late admin callbacks during mocked pip/Git waits and verify no internal signal is emitted. Preserve subprocess arguments and relaunch behavior. Separately verify a genuine injected subprocess interruption propagates without relaunch or automatic update retry.
 
-### API handoff regressions (pending)
+### API handoff regressions (implemented on the PyTrain side)
 - Extend `tests/cli/test_pytrain_runtime.py` with a real queued admin command processed on a controlled worker, using real PyTrain routing/cleanup and mocked external resources. Parameterize server/client roles and UPDATE, RESTART, QUIT, and other supported exit actions.
 - Mock `os.kill()` as the host-observation boundary: at notification time, verify full cleanup has completed, the expected `exit_status` is readable, and the selected action remains unchanged. Do not model a signal by raising in the sending worker; actual Python signal handling belongs to the main thread.
 - Inject immediate echoes, callbacks during cleanup, and late different actions. Assert exactly one final API notification, not zero notifications as in the incomplete local-command test. Retain zero redundant signals for standalone local exits and one initial signal for callback-only standalone exits.
 - Assert escaping cleanup/action errors do not publish a successful handoff. Preserve retryable cache ownership and the existing direct-method `PyTrainExitException.reason` assertions.
 - Validate against the actual `PyTrainApi` receiving code when available; tests confined to this repository verify only the PyTrain side of that boundary.
+
+### External API verification prerequisites and approach
+- Start with the absolute local `PyTrainApi` checkout path, or an accessible GitHub URL plus the branch/commit matching the installed API. Record the normal API launch command and runtime configuration. Source inspection does not require installing a new dependency.
+- Inspect real API initialization, queued-command dispatch, main-thread signal/exception handling, exit-status consumption, and update/relaunch ownership. Compare callback and queued paths, including existing UPGRADE/UPDATE mappings, before changing either contract.
+- A test-only dependency is feasible: `tox.ini` already consumes `tests/requirements.txt`. Review the API's package metadata first; use a pinned release or Git commit for shared reproducible tests. A local editable install is an optional developer convenience, not a portable committed requirement. Keep any private-repository credentials outside requirement URLs.
+- Ensure the API imports the modified PyTrain checkout rather than a separately installed release; inspect import identity and dependency constraints before trusting integration results. Adding a requirement alone does not verify the receiving contract or automatically install it for direct pytest runs.
+- Exercise the real host receiver for queued and callback exits across server/client roles, including QUIT, UPDATE, RESTART, and the remaining supported actions. Assert status visibility before exactly one notification, compatible status/action mappings, appropriate cleanup ordering for each path, and no successful queued handoff after an escaping cleanup/deferred-action error.
+- Keep external hardware, networking, Git/pip updates, reboot, and relaunch boundaries mocked or disabled. If actual SIGINT delivery is tested, run the host and PyTrain in an isolated child process with bounded waits and guaranteed cleanup; never signal the test runner. Confirm main-thread handling and the API's actual consumption of `exit_status`, not just a mock of the sender.
+- These are prerequisites and validation guidance, not evidence that external integration has passed. No dependency installation or external API changes are authorized by this source-access discussion.
 
 ### Cache cleanup and diagnostic regressions
 - In `tests/db/test_cache_sync.py`, inject a single interruption from fake server shutdown using real `stop()`/`shutdown()` logic. Check manager/resource identity, lock release, retry success, and no premature registry clearing.
