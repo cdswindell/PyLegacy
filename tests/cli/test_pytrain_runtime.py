@@ -14,6 +14,7 @@ from src.pytrain.comm.comm_buffer import CommBufferProxy
 @pytest.fixture
 def runtime(bare_pytrain, monkeypatch):
     p = bare_pytrain
+    p._shutdown_lock = threading.Lock()
     p._tmcc_buffer = Mock(spec=CommBufferProxy)
     p._tmcc_listener = Mock(spec=module.ClientStateListener)
     p._tmcc_listener.update_client_if_needed.return_value = False
@@ -37,6 +38,7 @@ def runtime(bare_pytrain, monkeypatch):
         "_handle_command",
         "shutdown",
         "shutdown_service",
+        "shutdown_cache",
         "upgrade",
         "update",
         "restart",
@@ -78,6 +80,8 @@ def test_runtime_modes(runtime, mode):
     p._load_client_state.assert_called_once_with()
     p.shutdown.assert_called_once_with()
     p.shutdown_service.assert_called_once_with()
+    p.shutdown_cache.assert_called_once_with()
+    assert runtime.effects.mock_calls[-2:] == [call.shutdown_service(), call.shutdown_cache()]
     assert module.readline.set_auto_history.call_count == (mode != "headless")
     assert module.readline.write_history_file.call_count == (mode == "interactive")
     if mode == "interactive":
@@ -205,16 +209,20 @@ def test_deferred_actions_after_cleanup(runtime, action, method, kwargs):
     p._admin_action = module.TMCC1SyncCommandEnum[action]
     p.run()
     calls = runtime.effects.mock_calls
+    p.shutdown_service.assert_called_once_with()
+    p.shutdown_cache.assert_called_once_with()
+    cleanup_index = calls.index(call.shutdown_service())
+    assert calls[cleanup_index : cleanup_index + 2] == [call.shutdown_service(), call.shutdown_cache()]
     if method:
         getattr(p, method).assert_called_once_with(**kwargs)
-        assert calls.index(call.shutdown_service()) < calls.index(getattr(call, method)(**kwargs))
+        assert calls.index(call.shutdown_cache()) < calls.index(getattr(call, method)(**kwargs))
     else:
         for name in ("upgrade", "update", "restart", "reboot"):
             getattr(p, name).assert_not_called()
 
 
 @pytest.mark.parametrize("source", ["state", "buttons", "command"])
-def test_unexpected_runtime_errors_still_close_service(runtime, source):
+def test_unexpected_runtime_errors_still_close_service_and_cache(runtime, source):
     p = runtime.p
     error = RuntimeError("runtime failure")
     if source == "state":
@@ -226,12 +234,77 @@ def test_unexpected_runtime_errors_still_close_service(runtime, source):
         p._api = True
         p._command_queue = Mock(get=Mock(return_value="command"))
         p._handle_command.side_effect = error
-    with pytest.raises(RuntimeError, match="runtime failure"):
+    with pytest.raises(RuntimeError, match="runtime failure") as exc:
         p.run()
+    assert exc.value is error
     p.shutdown_service.assert_called_once_with()
+    p.shutdown_cache.assert_called_once_with()
+    assert runtime.effects.mock_calls[-2:] == [call.shutdown_service(), call.shutdown_cache()]
     p.shutdown.assert_not_called()
     if source == "command":
         p._command_queue.task_done.assert_called_once_with()
+
+
+@pytest.mark.parametrize("cache_failure", [False, True])
+def test_runtime_finalization_repeats_helpers_without_repeating_successful_cleanup(
+    runtime, monkeypatch, caplog, cache_failure
+):
+    caplog.set_level(logging.WARNING, logger=module.__name__)
+    p = runtime.p
+    info = p._service_info = object()
+    zeroconf = p._zeroconf = Mock()
+    p._cache_sync_manager = object()
+    effects = Mock()
+    for name in ("shutdown", "shutdown_service", "shutdown_cache"):
+        double = Mock(wraps=getattr(module.PyTrain, name).__get__(p))
+        monkeypatch.setattr(p, name, double)
+        effects.attach_mock(double, name)
+    operations = [
+        (zeroconf, "unregister_service", "unregister"),
+        (zeroconf, "close", "close"),
+        (module.CacheSyncManager, "stop", "cache"),
+        (p._tmcc_buffer, "disconnect", "disconnect"),
+        (module.CommBuffer, "stop", "buffer"),
+        (module.CommandListener, "stop", "tmcc"),
+        (module.PdiListener, "stop", "pdi"),
+        (module.ComponentStateStore, "reset", "state"),
+        (module.GpioHandler, "reset_all", "gpio"),
+    ]
+    for owner, method, name in operations:
+        double = Mock(side_effect=[RuntimeError("cache"), None] if name == "cache" and cache_failure else None)
+        monkeypatch.setattr(owner, method, double)
+        effects.attach_mock(double, name)
+
+    p.run()
+
+    expected_calls = [
+        call.shutdown(),
+        call.shutdown_service(),
+        call.unregister(info),
+        call.close(),
+        call.shutdown_cache(),
+        call.cache(),
+        call.disconnect(5111),
+        call.buffer(),
+        call.tmcc(),
+        call.pdi(),
+        call.state(),
+        call.gpio(),
+        call.shutdown_service(),
+        call.shutdown_cache(),
+    ]
+    if cache_failure:
+        expected_calls.append(call.cache())
+    assert effects.mock_calls == expected_calls
+    p.shutdown.assert_called_once_with()
+    assert p.shutdown_service.call_count == p.shutdown_cache.call_count == 2
+    zeroconf.unregister_service.assert_called_once_with(info)
+    zeroconf.close.assert_called_once_with()
+    assert module.CacheSyncManager.stop.call_count == (2 if cache_failure else 1)
+    assert p._service_info is p._zeroconf is p._cache_sync_manager is None
+    assert caplog.messages == (
+        ["Error closing cache sync manager, continuing shutdown: cache"] if cache_failure else []
+    )
 
 
 @pytest.mark.parametrize(
@@ -287,7 +360,9 @@ def test_buttons_loader(bare_pytrain, monkeypatch, tmp_path, caplog, script, exp
         assert "Buttons registered" in caplog.text
 
 
-@pytest.mark.parametrize("failure", [None, "service", "api", "disconnect", "buffer", "tmcc", "pdi", "state", "gpio"])
+@pytest.mark.parametrize(
+    "failure", [None, "service", "cache", "api", "disconnect", "buffer", "tmcc", "pdi", "state", "gpio"]
+)
 def test_shutdown_continues_after_individual_failure(runtime, monkeypatch, caplog, failure):
     p = runtime.p
     p._api = True
@@ -296,6 +371,7 @@ def test_shutdown_continues_after_individual_failure(runtime, monkeypatch, caplo
     effects = Mock()
     operations = [
         (p, "shutdown_service", "service"),
+        (p, "shutdown_cache", "cache"),
         (p._tmcc_buffer, "disconnect", "disconnect"),
         (module.CommBuffer, "stop", "buffer"),
         (module.CommandListener, "stop", "tmcc"),
@@ -312,6 +388,7 @@ def test_shutdown_continues_after_individual_failure(runtime, monkeypatch, caplo
     module.PyTrain.shutdown(p)
     assert effects.mock_calls == [
         call.service(),
+        call.cache(),
         call.disconnect(5111),
         call.buffer(),
         call.tmcc(),
@@ -325,6 +402,71 @@ def test_shutdown_continues_after_individual_failure(runtime, monkeypatch, caplo
         assert p._command_queue is None
     if failure:
         assert "continuing shutdown" in caplog.text
+    assert ("Error closing zeroconf, continuing shutdown: service" in caplog.messages) == (failure == "service")
+    assert ("Error closing cache sync manager, continuing shutdown: cache" in caplog.messages) == (failure == "cache")
+
+
+@pytest.mark.parametrize("service_failure", [None, "unregister", "close"])
+@pytest.mark.parametrize("cache_failure", [False, True])
+def test_shutdown_real_helpers_isolate_failures_and_retry(runtime, monkeypatch, caplog, service_failure, cache_failure):
+    p = runtime.p
+    p._api = True
+    queue = p._command_queue = Queue()
+    queue.put("pending")
+    info = p._service_info = object()
+    zeroconf = p._zeroconf = Mock()
+    manager = p._cache_sync_manager = object()
+    monkeypatch.setattr(p, "shutdown_service", module.PyTrain.shutdown_service.__get__(p))
+    monkeypatch.setattr(p, "shutdown_cache", module.PyTrain.shutdown_cache.__get__(p))
+    effects = Mock()
+    operations = [
+        (zeroconf, "unregister_service", "unregister"),
+        (zeroconf, "close", "close"),
+        (module.CacheSyncManager, "stop", "cache"),
+        (p._tmcc_buffer, "disconnect", "disconnect"),
+        (module.CommBuffer, "stop", "buffer"),
+        (module.CommandListener, "stop", "tmcc"),
+        (module.PdiListener, "stop", "pdi"),
+        (module.ComponentStateStore, "reset", "state"),
+        (module.GpioHandler, "reset_all", "gpio"),
+    ]
+    for owner, method, name in operations:
+        fails = name == service_failure or (name == "cache" and cache_failure)
+        double = Mock(side_effect=[RuntimeError(name), None] if fails else None)
+        monkeypatch.setattr(owner, method, double)
+        effects.attach_mock(double, name)
+
+    module.PyTrain.shutdown(p)
+
+    downstream = [call.disconnect(5111), call.buffer(), call.tmcc(), call.pdi(), call.state(), call.gpio()]
+    service_calls = [call.unregister(info)]
+    if service_failure != "unregister":
+        service_calls.append(call.close())
+    assert effects.mock_calls == service_calls + [call.cache()] + downstream
+    assert queue.empty()
+    assert queue.unfinished_tasks == 0
+    assert p._command_queue is None
+    assert p._service_info is (info if service_failure else None)
+    assert p._zeroconf is (zeroconf if service_failure else None)
+    assert p._cache_sync_manager is (manager if cache_failure else None)
+    expected_warnings = []
+    if service_failure:
+        expected_warnings.append(f"Error closing zeroconf, continuing shutdown: {service_failure}")
+    if cache_failure:
+        expected_warnings.append("Error closing cache sync manager, continuing shutdown: cache")
+    assert caplog.messages == expected_warnings
+
+    effects.reset_mock()
+    caplog.clear()
+    module.PyTrain.shutdown(p)
+
+    retry_calls = [call.unregister(info), call.close()] if service_failure else []
+    if cache_failure:
+        retry_calls.append(call.cache())
+    assert effects.mock_calls == retry_calls + downstream
+    assert p._service_info is p._zeroconf is p._cache_sync_manager is None
+    assert p._command_queue is None
+    assert not caplog.messages
 
 
 @pytest.mark.parametrize("server,port,api", [(True, 5111, False), (False, None, True), (False, 0, False)])
@@ -348,13 +490,13 @@ def test_shutdown_without_client_or_queue(runtime, monkeypatch, server, port, ap
     module.GpioHandler.reset_all.assert_called_once_with()
 
 
-@pytest.mark.parametrize("failure", [None, "cache", "unregister", "close"])
-def test_service_shutdown_failure_boundaries(runtime, monkeypatch, caplog, failure):
+@pytest.mark.parametrize("failure", [None, "unregister", "close"])
+def test_service_shutdown_failure_boundaries(runtime, monkeypatch, failure):
     p = runtime.p
     manager = p._cache_sync_manager = Mock()
     info = p._service_info = object()
     zeroconf = p._zeroconf = Mock()
-    stop = Mock(side_effect=RuntimeError("cache") if failure == "cache" else None)
+    stop = Mock()
     monkeypatch.setattr(module.CacheSyncManager, "stop", stop)
     if failure in ("unregister", "close"):
         getattr(zeroconf, "unregister_service" if failure == "unregister" else "close").side_effect = RuntimeError(
@@ -367,24 +509,29 @@ def test_service_shutdown_failure_boundaries(runtime, monkeypatch, caplog, failu
         assert zeroconf.close.call_count == (failure == "close")
     else:
         module.PyTrain.shutdown_service(p)
+        assert p._service_info is p._zeroconf is None
+        module.PyTrain.shutdown_service(p)
         zeroconf.close.assert_called_once_with()
         assert p._service_info is p._zeroconf is None
-    stop.assert_called_once_with()
+    stop.assert_not_called()
     zeroconf.unregister_service.assert_called_once_with(info)
-    assert p._cache_sync_manager is (manager if failure == "cache" else None)
-    if failure == "cache":
-        assert "continuing shutdown" in caplog.text
+    assert p._cache_sync_manager is manager
+    assert manager.mock_calls == []
 
 
 @pytest.mark.parametrize("info,zeroconf", [(None, None), (object(), None), (None, Mock())])
 def test_service_shutdown_without_registration(runtime, monkeypatch, info, zeroconf):
     p = runtime.p
+    manager = p._cache_sync_manager = Mock()
     p._service_info, p._zeroconf = info, zeroconf
     stop = Mock()
     monkeypatch.setattr(module.CacheSyncManager, "stop", stop)
     module.PyTrain.shutdown_service(p)
-    stop.assert_called_once_with()
-    assert p._cache_sync_manager is None
+    stop.assert_not_called()
+    assert p._cache_sync_manager is manager
+    assert manager.mock_calls == []
+    assert p._service_info is info
+    assert p._zeroconf is zeroconf
     if zeroconf is not None:
         zeroconf.assert_not_called()
         assert zeroconf.mock_calls == []

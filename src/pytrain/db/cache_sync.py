@@ -397,8 +397,9 @@ class CacheSyncManager(Thread):
         from ..cli.pytrain import PyTrain
 
         if cls._instance is None:
-            if PyTrain.current(raise_exception=False):
-                if PyTrain.current().is_client:
+            pytrain = PyTrain.current(raise_exception=False)
+            if pytrain:
+                if pytrain.is_client:
                     log.warning(
                         "Cache sync skipped: the connected server does not advertise cache sync support. "
                         "Upgrade the server or restart it with cache sync enabled to accept client cache files."
@@ -423,6 +424,7 @@ class CacheSyncManager(Thread):
     def stop(cls) -> None:
         with cls._lock:
             if cls._instance is not None:
+                print("********* Shutting down cache sync")
                 cls._instance.shutdown()
                 cls._instance = None
 
@@ -439,6 +441,7 @@ class CacheSyncManager(Thread):
         debounce: float = DEFAULT_CACHE_SYNC_DEBOUNCE,
         poll_interval: float = DEFAULT_CACHE_SYNC_POLL,
     ) -> None:
+        print("*** Starting cacher ***")
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Cache Sync Manager")
         self._is_server = is_server
         self._sync_port = sync_port
@@ -455,6 +458,7 @@ class CacheSyncManager(Thread):
         self._server_thread: Thread | None = None
         self._delete_tombstones: dict[str, int] = {}
         self._delete_tombstone_lock = Lock()
+        self._shutdown_lock = Lock()
         self._manifest = self._cache_manifest()
         self._sidecar_available = self._start_sidecar()
         self.start()
@@ -512,25 +516,31 @@ class CacheSyncManager(Thread):
         return deleted
 
     def shutdown(self) -> None:
-        self._shutdown.set()
-        if self._server is not None:
-            self._server.shutdown()
-            self._server.server_close()
-        if self.is_alive():
-            self.join(timeout=2.0)
+        with self._shutdown_lock:
+            if self._server is not None:
+                print("********* Stopping cache sync")
+                self._shutdown.set()
+                self._server.shutdown()
+                self._server.server_close()
+                self._server = None
+            if self.is_alive():
+                self.join(timeout=2.0)
 
     def _start_sidecar(self) -> bool:
         try:
             self._server = CacheSyncTCPServer(("", self._sync_port), CacheSyncHandler, self)
-            self._server_thread = Thread(
-                target=self._server.serve_forever,
-                daemon=True,
-                name=f"{PROGRAM_NAME} Cache",
-            )
-            self._server_thread.start()
-            log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
-            return True
-        except OSError as e:
+            if self._server:
+                self._server_thread = Thread(
+                    target=self._server.serve_forever,
+                    daemon=True,
+                    name=f"{PROGRAM_NAME} Cache",
+                )
+            if self._server_thread:
+                self._server_thread.start()
+                log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
+                return True
+            raise RuntimeError("Cache sync thread failed to start")
+        except (OSError, RuntimeError) as e:
             log.warning("Cache sync disabled: unable to listen on port %s: %s", self._sync_port, e)
             return False
 

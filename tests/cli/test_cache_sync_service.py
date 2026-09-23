@@ -1,3 +1,4 @@
+import threading
 import socket
 from ipaddress import IPv4Address
 from types import SimpleNamespace
@@ -56,6 +57,7 @@ def test_invalid_utf8_service_properties_raise(properties):
 @pytest.fixture
 def cache_service(bare_pytrain, monkeypatch):
     p = bare_pytrain
+    p._shutdown_lock = threading.Lock()
     p._cache_sync_started = False
     p._cache_sync_enabled = True
     p._cache_sync_manager = None
@@ -192,18 +194,50 @@ def test_failed_cache_sync_start_is_not_retried(cache_service):
     assert p._cache_sync_manager is None
 
 
-def test_cache_stop_failure_still_unregisters_service_and_can_be_retried(cache_service, caplog):
+@pytest.mark.parametrize("has_manager", [False, True])
+def test_shutdown_cache_preserves_service_and_is_idempotent(cache_service, has_manager):
+    p = cache_service.p
+    p._cache_sync_manager = Mock() if has_manager else None
+    p._service_info = info = _service_info({})
+    zeroconf = p._zeroconf
+    for _ in range(2):
+        p.shutdown_cache()
+        assert not p._shutdown_lock.locked()
+        assert p._cache_sync_manager is None
+        if has_manager:
+            cache_service.stop.assert_called_once_with()
+        else:
+            cache_service.stop.assert_not_called()
+        assert p._service_info is info
+        assert p._zeroconf is zeroconf
+        assert zeroconf.mock_calls == []
+
+
+def test_shutdown_cache_retains_manager_on_failure_then_retries(cache_service):
     p = cache_service.p
     p._cache_sync_manager = manager = Mock()
     p._service_info = info = _service_info({})
     zeroconf = p._zeroconf
-    cache_service.stop.side_effect = [RuntimeError("cache stop failed"), None]
-    p.shutdown_service()
-    assert "cache stop failed" in caplog.text
+    error = RuntimeError("cache stop failed")
+    cache_service.stop.side_effect = [error, None]
+    with pytest.raises(RuntimeError, match="cache stop failed") as exc:
+        p.shutdown_cache()
+    assert exc.value is error
+    assert not p._shutdown_lock.locked()
+    cache_service.stop.assert_called_once_with()
     assert p._cache_sync_manager is manager
-    assert p._service_info is p._zeroconf is None
-    assert zeroconf.mock_calls == [call.unregister_service(info), call.close()]
-    p.shutdown_service()
-    assert cache_service.stop.call_count == 2
+    assert p._service_info is info
+    assert p._zeroconf is zeroconf
+    assert zeroconf.mock_calls == []
+
+    p.shutdown_cache()
+    assert not p._shutdown_lock.locked()
+    assert cache_service.stop.mock_calls == [call(), call()]
     assert p._cache_sync_manager is None
-    assert zeroconf.mock_calls == [call.unregister_service(info), call.close()]
+    p.shutdown_cache()
+    assert not p._shutdown_lock.locked()
+    assert cache_service.stop.mock_calls == [call(), call()]
+    assert p._cache_sync_manager is None
+    assert p._service_info is info
+    assert p._zeroconf is zeroconf
+    assert zeroconf.mock_calls == []

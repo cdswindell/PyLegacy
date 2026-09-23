@@ -23,7 +23,7 @@ from argparse import SUPPRESS, ArgumentError, ArgumentParser
 from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Thread, get_native_id
+from threading import Event, Lock, Thread, get_native_id
 from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
@@ -167,6 +167,7 @@ class PyTrain:
         self._started_at = timer()
         self._exit_status = None
         self._version = get_version()
+        self._shutdown_lock = Lock()
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
@@ -414,6 +415,8 @@ class PyTrain:
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
             self.shutdown_service()
+            self.shutdown_cache()
+
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
 
@@ -645,6 +648,7 @@ class PyTrain:
                 # the appropriate handler
                 self._admin_action = message.command
                 aa = message.command.name
+                print(f"Message: {message.command.name} aa: {aa} {self._admin_action.name}")
                 if self._api_thread:
                     self.shutdown()
                 if self.is_api:
@@ -680,6 +684,10 @@ class PyTrain:
             self.shutdown_service()
         except Exception as e:
             log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
+        try:
+            self.shutdown_cache()
+        except Exception as e:
+            log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
         try:
             if self._api is True and self._command_queue is not None:
                 with self._command_queue.mutex:
@@ -954,6 +962,7 @@ class PyTrain:
         return stat.returncode == 0
 
     def _start_cache_sync(self) -> None:
+        print("*** Starting cacher ***")
         if self._cache_sync_started:
             return
         self._cache_sync_started = True
@@ -1146,15 +1155,16 @@ class PyTrain:
                 self._server_discovered.set()
 
     def shutdown_service(self):
-        try:
-            CacheSyncManager.stop()
-            self._cache_sync_manager = None
-        except Exception as e:
-            log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
         if self._service_info and self._zeroconf:
             self._zeroconf.unregister_service(self._service_info)
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
+
+    def shutdown_cache(self):
+        with self._shutdown_lock:
+            if self._cache_sync_manager is not None:
+                CacheSyncManager.stop()
+                self._cache_sync_manager = None
 
     def parse_cli(self, command_line: str) -> CommandReq | str | None:
         """
