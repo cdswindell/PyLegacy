@@ -55,9 +55,11 @@ def bare_pytrain(pytrain_isolation):
     obj._admin_state_lock = threading.Lock()
     obj._exit_requested = False
     obj._shutdown_started = False
+    obj._api_exit_notified = False
     obj._lifecycle_phase = "running"
     obj._admin_action = None
     obj._received_admin_cmds = set()
+    obj._exit_status = None
     return obj
 
 

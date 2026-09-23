@@ -680,3 +680,201 @@ def test_service_shutdown_without_registration(runtime, monkeypatch, info, zeroc
     if zeroconf is not None:
         zeroconf.assert_not_called()
         assert zeroconf.mock_calls == []
+
+
+def _api_status_for_action(action: module.TMCC1SyncCommandEnum) -> module.PyTrainExitStatus:
+    # Deferred upgrade() historically publishes UPDATE to the API host, not UPGRADE.
+    if action == module.TMCC1SyncCommandEnum.UPGRADE:
+        return module.PyTrainExitStatus.UPDATE
+    return module.PyTrainExitStatus.by_name(action.name, raise_exception=True)
+
+
+def _wire_api_deferred_methods(p, monkeypatch):
+    """Match real API deferred methods: set status then raise PyTrainExitException."""
+
+    def install(name, status):
+        def method(*_args, **_kwargs):
+            p._exit_status = status
+            raise module.PyTrainExitException(status)
+
+        monkeypatch.setattr(p, name, method)
+
+    install("upgrade", module.PyTrainExitStatus.UPDATE)
+    install("update", module.PyTrainExitStatus.UPDATE)
+    install("restart", module.PyTrainExitStatus.RESTART)
+
+    def reboot(reboot=True):
+        status = module.PyTrainExitStatus.REBOOT if reboot else module.PyTrainExitStatus.SHUTDOWN
+        p._exit_status = status
+        raise module.PyTrainExitException(status)
+
+    monkeypatch.setattr(p, "reboot", reboot)
+
+
+@pytest.mark.parametrize("server", [False, True], ids=["client", "server"])
+@pytest.mark.parametrize(
+    "action",
+    [
+        module.TMCC1SyncCommandEnum.UPDATE,
+        module.TMCC1SyncCommandEnum.RESTART,
+        module.TMCC1SyncCommandEnum.REBOOT,
+        module.TMCC1SyncCommandEnum.SHUTDOWN,
+        module.TMCC1SyncCommandEnum.UPGRADE,
+        module.TMCC1SyncCommandEnum.QUIT,
+    ],
+)
+def test_queued_api_exit_publishes_status_before_one_host_notification(runtime, monkeypatch, server, action):
+    p = runtime.p
+    p._api = True
+    p._api_thread = Mock()
+    p._dispatcher = Mock()
+    if server:
+        p._tmcc_buffer = Mock(spec=module.CommBufferSingleton)
+    expected = _api_status_for_action(action)
+    _wire_api_deferred_methods(p, monkeypatch)
+    monkeypatch.setattr(module.os, "kill", Mock())
+    monkeypatch.setattr(module.os, "getpid", lambda: 4321)
+
+    def handle(_cmd):
+        p.do_admin_cmd(action)
+
+    if action == module.TMCC1SyncCommandEnum.QUIT:
+        # Plain quit is claimed inside _handle_command, not do_admin_cmd.
+        p._handle_command = Mock(side_effect=lambda _cmd: module.PyTrain._handle_command(p, "quit"))
+    else:
+        p._handle_command = Mock(side_effect=handle)
+    p._command_queue = Mock(get=Mock(return_value=action.name.lower()))
+
+    observed = []
+
+    def notify_probe(status):
+        observed.append(
+            {
+                "status_arg": status,
+                "notified_before": p._api_exit_notified,
+                "cache": p._cache_sync_manager,
+                "phase": p._lifecycle_phase,
+                "action": p._admin_action,
+            }
+        )
+        assert p._api_exit_notified is False
+        module.PyTrain._notify_api_exit(p, status)
+        assert p.exit_status == status
+        assert p._api_exit_notified is True
+
+    monkeypatch.setattr(p, "_notify_api_exit", notify_probe)
+    p.shutdown_cache.side_effect = lambda: setattr(p, "_cache_sync_manager", None)
+
+    p.run()
+
+    assert len(observed) == 1
+    snapshot = observed[0]
+    assert snapshot["status_arg"] == expected
+    assert snapshot["cache"] is None
+    assert snapshot["action"] == action
+    assert snapshot["phase"] == "deferred-action"
+    assert p.exit_status == expected
+    assert p._api_exit_notified is True
+    assert p._admin_action == action
+    module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
+    p.shutdown.assert_called_once_with()
+    p.shutdown_service.assert_called_once_with()
+    p.shutdown_cache.assert_called_once_with()
+
+
+@pytest.mark.parametrize("server", [False, True], ids=["client", "server"])
+def test_queued_api_exit_suppresses_echoes_and_late_actions(runtime, monkeypatch, server):
+    p = runtime.p
+    p._api = True
+    p._api_thread = Mock()
+    p._dispatcher = Mock()
+    if server:
+        p._tmcc_buffer = Mock(spec=module.CommBufferSingleton)
+        p._dispatcher.signal_clients.side_effect = lambda *_a, **_k: p(
+            module.CommandReq(module.TMCC1SyncCommandEnum.UPDATE)
+        )
+    else:
+        p._tmcc_buffer.enqueue_command.side_effect = lambda *_a, **_k: p(
+            module.CommandReq(module.TMCC1SyncCommandEnum.UPDATE)
+        )
+    _wire_api_deferred_methods(p, monkeypatch)
+    monkeypatch.setattr(module.os, "kill", Mock())
+    monkeypatch.setattr(module.os, "getpid", lambda: 4321)
+
+    def handle(_cmd):
+        p.do_admin_cmd(module.TMCC1SyncCommandEnum.UPDATE)
+
+    p._handle_command = Mock(side_effect=handle)
+    p._command_queue = Mock(get=Mock(return_value="update"))
+
+    def during_shutdown():
+        # Echo and a different late action during teardown must not notify or replace.
+        p(module.CommandReq(module.TMCC1SyncCommandEnum.UPDATE))
+        p(module.CommandReq(module.TMCC1SyncCommandEnum.RESTART))
+        try:
+            p.do_admin_cmd(module.TMCC1SyncCommandEnum.SHUTDOWN)
+        except KeyboardInterrupt:
+            pytest.fail("late local exit raised a redundant interrupt")
+
+    p.shutdown.side_effect = during_shutdown
+    p.run()
+
+    assert p._admin_action == module.TMCC1SyncCommandEnum.UPDATE
+    assert p.exit_status == module.PyTrainExitStatus.UPDATE
+    assert p._api_exit_notified is True
+    module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
+
+
+@pytest.mark.parametrize("stage", ["shutdown", "shutdown_cache"])
+@pytest.mark.parametrize("error", [KeyboardInterrupt, RuntimeError])
+def test_queued_api_exit_skips_notification_when_cleanup_escapes(runtime, monkeypatch, stage, error):
+    p = runtime.p
+    p._api = True
+    p._api_thread = Mock()
+    p._dispatcher = Mock()
+    p._tmcc_buffer = Mock(spec=module.CommBufferSingleton)
+    monkeypatch.setattr(module.os, "kill", Mock())
+    p._handle_command = Mock(side_effect=lambda _cmd: p.do_admin_cmd(module.TMCC1SyncCommandEnum.UPDATE))
+    p._command_queue = Mock(get=Mock(return_value="update"))
+    getattr(p, stage).side_effect = error("cleanup failed")
+    with pytest.raises(error, match="cleanup failed"):
+        p.run()
+    assert p.exit_status is None
+    assert p._api_exit_notified is False
+    module.os.kill.assert_not_called()
+    p.update.assert_not_called()
+
+
+def test_queued_api_exit_skips_notification_when_deferred_action_fails(runtime, monkeypatch):
+    p = runtime.p
+    p._api = True
+    p._api_thread = Mock()
+    p._dispatcher = Mock()
+    monkeypatch.setattr(module.os, "kill", Mock())
+    p._handle_command = Mock(side_effect=lambda _cmd: p.do_admin_cmd(module.TMCC1SyncCommandEnum.UPDATE))
+    p._command_queue = Mock(get=Mock(return_value="update"))
+    p.update.side_effect = RuntimeError("update failed")
+    with pytest.raises(RuntimeError, match="update failed"):
+        p.run()
+    assert p.exit_status is None
+    assert p._api_exit_notified is False
+    module.os.kill.assert_not_called()
+
+
+def test_callback_only_api_exit_still_notifies_once(runtime, monkeypatch):
+    p = runtime.p
+    p._api = True
+    p._api_thread = Mock()
+    monkeypatch.setattr(module.os, "kill", Mock())
+    monkeypatch.setattr(module.os, "getpid", lambda: 4321)
+    # Callback-only path: no queued command; host notification happens in __call__.
+    p._command_queue = Mock(get=Mock(side_effect=KeyboardInterrupt))
+    p(module.CommandReq(module.TMCC1SyncCommandEnum.RESTART))
+    assert p.exit_status == module.PyTrainExitStatus.RESTART
+    assert p._api_exit_notified is True
+    module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
+    p.shutdown.assert_called_once_with()
+    # run() then exits without a second notification.
+    p.run()
+    module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
+    assert p.exit_status == module.PyTrainExitStatus.RESTART

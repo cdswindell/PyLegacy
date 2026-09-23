@@ -328,6 +328,52 @@ def test_signal_diagnostic_precedes_send(admin, caplog):
     mod.os.kill.assert_called_once()
 
 
+def test_api_callback_notification_is_one_shot(admin, caplog):
+    admin._api = True
+    admin._api_thread = Mock()
+    caplog.set_level("DEBUG", logger=mod.log.name)
+
+    def observe(pid, sig):
+        assert (pid, sig) == (1234, signal.SIGINT)
+        assert admin.exit_status == mod.PyTrainExitStatus.UPDATE
+        assert admin._api_exit_notified is True
+        assert any("Sending API exit notification status=UPDATE" in r.getMessage() for r in caplog.records)
+
+    mod.os.kill.side_effect = observe
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    admin._notify_api_exit(mod.PyTrainExitStatus.RESTART)
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.RESTART))
+    assert admin.exit_status == mod.PyTrainExitStatus.UPDATE
+    assert admin._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
+    mod.os.kill.assert_called_once_with(1234, signal.SIGINT)
+    admin.shutdown.assert_called_once_with()
+    assert "Suppressed API exit notification" in caplog.text
+
+
+def test_local_api_exit_does_not_notify_until_handoff(admin):
+    admin._api = True
+    admin._api_thread = Mock()
+    with pytest.raises(KeyboardInterrupt):
+        admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.UPDATE)
+    assert admin._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
+    assert admin.exit_status is None
+    assert admin._api_exit_notified is False
+    admin.shutdown.assert_not_called()
+    mod.os.kill.assert_not_called()
+
+    observed = []
+
+    def observe(pid, sig):
+        observed.append((admin.exit_status, admin._api_exit_notified))
+        assert (pid, sig) == (1234, signal.SIGINT)
+
+    mod.os.kill.side_effect = observe
+    admin._notify_api_exit(mod.PyTrainExitStatus.UPDATE)
+    assert observed == [(mod.PyTrainExitStatus.UPDATE, True)]
+    assert admin.exit_status == mod.PyTrainExitStatus.UPDATE
+    mod.os.kill.assert_called_once_with(1234, signal.SIGINT)
+
+
 @pytest.mark.parametrize("service", [False, True])
 def test_relaunch_os_errors_propagate(admin, monkeypatch, service):
     monkeypatch.setattr("src.pytrain.is_linux", lambda: service)

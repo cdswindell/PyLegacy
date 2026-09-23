@@ -161,6 +161,7 @@ class PyTrain:
         self._admin_state_lock = Lock()
         self._exit_requested = False
         self._shutdown_started = False
+        self._api_exit_notified = False
         self._lifecycle_phase = "running"
         self._buttons_loader: ButtonsFileLoader | None = None
         self._client_ip = None
@@ -428,21 +429,33 @@ class PyTrain:
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
 
+        api_status: PyTrainExitStatus | None = None
         if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
             aa = cast(TMCC1SyncCommandEnum, self._admin_action)
-            with self._admin_state_lock:
-                self._lifecycle_phase = "deferred-action"
-            self._log_admin_exit("Entering deferred action", aa, source="run")
-            if aa == TMCC1SyncCommandEnum.UPGRADE:
-                self.upgrade()
-            elif aa == TMCC1SyncCommandEnum.UPDATE:
-                self.update()
-            elif aa == TMCC1SyncCommandEnum.RESTART:
-                self.restart()
-            elif aa == TMCC1SyncCommandEnum.REBOOT:
-                self.reboot()
-            elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
-                self.reboot(reboot=False)
+            if aa != TMCC1SyncCommandEnum.RESYNC:
+                with self._admin_state_lock:
+                    self._lifecycle_phase = "deferred-action"
+                self._log_admin_exit("Entering deferred action", aa, source="run")
+                try:
+                    if aa == TMCC1SyncCommandEnum.UPGRADE:
+                        self.upgrade()
+                    elif aa == TMCC1SyncCommandEnum.UPDATE:
+                        self.update()
+                    elif aa == TMCC1SyncCommandEnum.RESTART:
+                        self.restart()
+                    elif aa == TMCC1SyncCommandEnum.REBOOT:
+                        self.reboot()
+                    elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
+                        self.reboot(reboot=False)
+                    elif aa == TMCC1SyncCommandEnum.QUIT:
+                        api_status = PyTrainExitStatus.QUIT
+                except PyTrainExitException as exc:
+                    if not self.is_api:
+                        raise
+                    api_status = exc.reason
+
+        if self.is_api and api_status is not None:
+            self._notify_api_exit(api_status)
 
     def queue_command(self, cmd: str) -> None:
         if cmd:
@@ -653,13 +666,36 @@ class PyTrain:
             if self._claim_admin_exit(message.command, source="callback"):
                 if self.is_client and message.command == TMCC1SyncCommandEnum.QUIT:
                     log.info("Client exiting...")
-                aa = message.command.name
                 if self._api_thread:
                     self.shutdown()
                 if self.is_api:
-                    self._exit_status = PyTrainExitStatus.by_name(aa, raise_exception=False)
+                    status = PyTrainExitStatus.by_name(message.command.name, raise_exception=False)
+                    if status is not None:
+                        self._notify_api_exit(status)
+                        return
                 self._log_admin_exit("Sending internal SIGINT", message.command, source="callback")
                 os.kill(os.getpid(), signal.SIGINT)
+
+    def _notify_api_exit(self, status: PyTrainExitStatus) -> None:
+        """Publish exit status once and notify the API host process.
+
+        Accepting an exit request is separate from host notification. Local/queued API
+        exits reach this helper only after successful cleanup (and any deferred action),
+        while callback-only API exits may notify immediately after claiming. Either way,
+        only one notification is delivered per PyTrain lifecycle.
+        """
+        with self._admin_state_lock:
+            if self._api_exit_notified:
+                self._log_admin_exit("Suppressed API exit notification", self._admin_action, source="api")
+                return
+            self._api_exit_notified = True
+            self._exit_status = status
+        self._log_admin_exit(
+            f"Sending API exit notification status={status.name}",
+            self._admin_action,
+            source="api",
+        )
+        os.kill(os.getpid(), signal.SIGINT)
 
     # noinspection unresolved-references
     def _log_admin_exit(self, event: str, command: CommandDefEnum | None, *, source: str) -> None:
@@ -1282,7 +1318,9 @@ class PyTrain:
                             cmd = CommandReq(self._admin_enum("quit"))
                             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
                             return None
-                        # if client quits, remaining nodes continue to run
+                        # Local quit: claim so teardown guards and the API host handoff
+                        # see a committed QUIT. Remaining nodes keep running for clients.
+                        self._claim_admin_exit(self._admin_enum("quit"), source="local")
                         raise KeyboardInterrupt()
                     elif parse_only is False and args.command == "resync" and self.is_server:
                         self._get_system_state()

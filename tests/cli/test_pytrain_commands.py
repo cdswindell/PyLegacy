@@ -248,10 +248,14 @@ def test_quit_routing(command_train, server, target):
         command_train._handle_command("quit server")
         expected = module.CommandReq(module.TMCC1SyncCommandEnum.QUIT)
         command_train._tmcc_buffer.enqueue_command.assert_called_once_with(expected.as_bytes)
+        assert command_train._admin_action is None
+        assert command_train._exit_requested is False
     else:
         with pytest.raises(KeyboardInterrupt):
             command_train._handle_command("quit")
         assert command_train._dispatcher.signal_clients.call_count == int(server)
+        assert command_train._admin_action == module.TMCC1SyncCommandEnum.QUIT
+        assert command_train._exit_requested is True
 
 
 def test_admin_routing(command_train, monkeypatch):
