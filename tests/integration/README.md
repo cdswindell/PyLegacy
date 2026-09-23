@@ -45,10 +45,13 @@ released: the same manager remains owned until an explicit successful cleanup re
 Late callbacks and retry add no notifications or host actions and preserve the status.
 Cache stop itself is a controlled boundary; no independent API cache is simulated.
 
-This warning-and-continue coverage applies only to callback shutdown. Queued exits
-still call `shutdown_cache()` unguarded in `PyTrain.run()` final cleanup and raise
-if ownership remains. Ordinary cache-stop errors can therefore still block queued
-handoff; the runtime regression assertions for that limitation remain unchanged.
+Queued cache-failure coverage belongs to fast unit tests (e.g.,
+`test_failed_cache_stop_warns_and_continues_to_update`). The existing opt-in
+integration failure cases remain callback-specific. Both callback and queued
+shutdown now apply warning-and-continue policy: final cleanup independently logs
+ordinary cache-stop failures and continues, ensuring that retained cache ownership
+does not impede queued API handoff. Retained managers remain retryable, and exactly
+one notification occurs.
 
 Eight additional POSIX cases deliver **real SIGINT only to the isolated child**:
 server/client system UPDATE endpoint delivery and queued UPDATE, RESTART, and QUIT.

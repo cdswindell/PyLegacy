@@ -421,8 +421,15 @@ class PyTrain:
                 self._lifecycle_phase = "final-cleanup"
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
-            self.shutdown_service()
-            self.shutdown_cache()
+            # Teardown is best effort; retained ownership allows retry, not an exit veto.
+            try:
+                self.shutdown_service()
+            except Exception as e:
+                log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
+            try:
+                self.shutdown_cache()
+            except Exception as e:
+                log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
             if self._cache_sync_manager is not None:
                 log.warning("Cache sync cleanup is incomplete")
 
@@ -681,10 +688,9 @@ class PyTrain:
     def _notify_api_exit(self, status: PyTrainExitStatus) -> None:
         """Publish exit status once and notify the API host process.
 
-        Accepting an exit request is separate from host notification. Local/queued API
-        exits reach this helper only after successful cleanup (and any deferred action),
-        while callback-only API exits notify after shutdown releases cache ownership. Either way,
-        only one notification is delivered per PyTrain lifecycle.
+        Accepting an exit request is separate from host notification. Notification follows
+        attempted teardown and any applicable deferred action, even when cache ownership
+        remains for an explicit retry. Only one notification is delivered per PyTrain lifecycle.
         """
         with self._admin_state_lock:
             if self._api_exit_notified:
@@ -701,17 +707,18 @@ class PyTrain:
 
     # noinspection unresolved-references
     def _log_admin_exit(self, event: str, command: CommandDefEnum | None, *, source: str) -> None:
-        log.debug(
-            "%s action=%s source=%s selected=%s phase=%s pid=%s pytrain=%#x thread=%s",
-            event,
-            command.name if command else None,
-            source,
-            self._admin_action.name if self._admin_action else None,
-            self._lifecycle_phase,
-            os.getpid(),
-            id(self),
-            current_thread().name,
-        )
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "%s action=%s source=%s selected=%s phase=%s pid=%s pytrain=%#x thread=%s",
+                event,
+                command.name if command else None,
+                source,
+                self._admin_action.name if self._admin_action else None,
+                self._lifecycle_phase,
+                os.getpid(),
+                id(self),
+                current_thread().name,
+            )
 
     def _claim_admin_exit(self, command: CommandDefEnum, *, source: str) -> bool:
         with self._admin_state_lock:
@@ -751,6 +758,7 @@ class PyTrain:
         return state.is_synchronized() if state else False
 
     def shutdown(self):
+        """Attempt every subsystem's teardown despite ordinary failures; let cancellation propagate."""
         with self._admin_state_lock:
             self._shutdown_started = True
             self._lifecycle_phase = "shutdown"

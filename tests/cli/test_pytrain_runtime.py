@@ -160,8 +160,15 @@ def test_startup_update_interrupt_runs_full_shutdown(runtime):
     assert calls.index(call.shutdown()) < calls.index(call.shutdown_cache()) < calls.index(call.update())
 
 
-@pytest.mark.parametrize("stage", ["shutdown", "shutdown_service", "shutdown_cache", "write_history_file"])
-@pytest.mark.parametrize("error", [KeyboardInterrupt, RuntimeError])
+@pytest.mark.parametrize(
+    "stage,error",
+    [
+        (stage, error)
+        for stage in ("shutdown", "shutdown_service", "shutdown_cache", "write_history_file")
+        for error in (KeyboardInterrupt, SystemExit)
+    ]
+    + [(stage, RuntimeError) for stage in ("shutdown", "write_history_file")],
+)
 @pytest.mark.parametrize("action", ["UPDATE", "UPGRADE", "RESTART", "REBOOT", "SHUTDOWN"])
 def test_escaping_cleanup_error_never_dispatches_action(runtime, stage, error, action):
     p = runtime.p
@@ -267,18 +274,67 @@ def test_interrupted_full_shutdown_retries_cache_but_never_updates(real_exit_run
     p.update.assert_not_called()
 
 
-def test_failed_cache_stop_blocks_update_until_retry_finishes(real_exit_runtime):
-    p = real_exit_runtime.p
+def test_failed_cache_stop_warns_and_continues_to_update(real_exit_runtime, caplog):
+    p, effects = real_exit_runtime.p, real_exit_runtime.effects
     manager = p._cache_sync_manager
     module.CacheSyncManager.stop.side_effect = RuntimeError("still stopping")
-    with pytest.raises(RuntimeError, match="still stopping"):
-        p.run()
+    p.run()
     assert p._cache_sync_manager is manager
-    p._tmcc_buffer.disconnect.assert_called_once_with(5111)
-    p.update.assert_not_called()
+    assert effects.mock_calls == [
+        call.cache(),
+        call.disconnect(5111),
+        call.buffer(),
+        call.tmcc(),
+        call.pdi(),
+        call.state(),
+        call.gpio(),
+        call.cache(),
+        call.update(),
+    ]
+    assert not p._shutdown_lock.locked()
+    assert caplog.messages.count("Error closing cache sync manager, continuing shutdown: still stopping") == 2
+    assert (module.log.name, logging.WARNING, "Cache sync cleanup is incomplete") in caplog.record_tuples
     module.CacheSyncManager.stop.side_effect = None
     p.shutdown_cache()
     assert p._cache_sync_manager is None
+    p.update.assert_called_once_with()
+
+
+def test_retained_cache_without_exception_warns_and_continues(runtime, caplog):
+    p = runtime.p
+    manager = p._cache_sync_manager = object()
+    p.shutdown_cache.side_effect = None
+    p._admin_action = module.TMCC1SyncCommandEnum.UPDATE
+    p.run()
+    assert p._cache_sync_manager is manager
+    assert (module.log.name, logging.WARNING, "Cache sync cleanup is incomplete") in caplog.record_tuples
+    assert runtime.effects.mock_calls[-3:] == [call.shutdown_service(), call.shutdown_cache(), call.update()]
+
+
+@pytest.mark.parametrize("service_failure,cache_failure", [(True, False), (False, True), (True, True)])
+def test_final_subsystem_failures_are_independent(runtime, caplog, service_failure, cache_failure):
+    p = runtime.p
+    caplog.set_level(logging.INFO, logger=module.log.name)
+    p._admin_action = module.TMCC1SyncCommandEnum.UPDATE
+    if service_failure:
+        p.shutdown_service.side_effect = RuntimeError("service failed")
+    if cache_failure:
+        p.shutdown_cache.side_effect = RuntimeError("cache failed")
+    p.run()
+    assert runtime.effects.mock_calls[-3:] == [call.shutdown_service(), call.shutdown_cache(), call.update()]
+    if service_failure:
+        assert (
+            module.log.name,
+            logging.WARNING,
+            "Error closing zeroconf, continuing shutdown: service failed",
+        ) in caplog.record_tuples
+    if cache_failure:
+        assert (
+            module.log.name,
+            logging.WARNING,
+            "Error closing cache sync manager, continuing shutdown: cache failed",
+        ) in caplog.record_tuples
+    assert f"{module.PROGRAM_NAME} exiting..." in caplog.messages
 
 
 @pytest.mark.parametrize("error", [SystemExit(), ArgumentError(None, "bad argument")])
@@ -365,9 +421,12 @@ def test_deferred_actions_after_cleanup(runtime, action, method, kwargs):
 
 
 @pytest.mark.parametrize("source", ["state", "buttons", "command"])
-def test_unexpected_runtime_errors_still_close_service_and_cache(runtime, source):
+@pytest.mark.parametrize("cache_failure", [False, True])
+def test_unexpected_runtime_errors_still_close_service_and_cache(runtime, source, cache_failure):
     p = runtime.p
     p._admin_action = module.TMCC1SyncCommandEnum.UPDATE
+    if cache_failure:
+        p.shutdown_cache.side_effect = RuntimeError("cache failed")
     error = RuntimeError("runtime failure")
     if source == "state":
         p._load_client_state.side_effect = error
@@ -825,8 +884,15 @@ def test_queued_api_exit_suppresses_echoes_and_late_actions(runtime, monkeypatch
     module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
 
 
-@pytest.mark.parametrize("stage", ["shutdown", "shutdown_cache"])
-@pytest.mark.parametrize("error", [KeyboardInterrupt, RuntimeError])
+@pytest.mark.parametrize(
+    "stage,error",
+    [
+        (stage, error)
+        for stage in ("shutdown", "shutdown_service", "shutdown_cache")
+        for error in (KeyboardInterrupt, SystemExit)
+    ]
+    + [("shutdown", RuntimeError)],
+)
 def test_queued_api_exit_skips_notification_when_cleanup_escapes(runtime, monkeypatch, stage, error):
     p = runtime.p
     p._api = True
