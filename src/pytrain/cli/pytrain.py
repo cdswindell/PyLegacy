@@ -965,7 +965,9 @@ class PyTrain:
             # update from Pypi; the Steam Deck runs a distribution of its own
             # (pytrain-ogr-deck), so update whichever one is actually installed
             package = installed_package() or PROGRAM_PACKAGE
-            subprocess.run([sys.executable, "-m", "pip", "install", "-U", package], cwd=os.getcwd(), check=False)
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-U", "--no-cache-dir", package], cwd=os.getcwd(), check=False
+            )
         else:
             # update from GitHub
             subprocess.run(["git", "pull"], cwd=os.getcwd(), check=False)

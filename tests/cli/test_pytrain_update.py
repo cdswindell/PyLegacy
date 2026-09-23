@@ -25,7 +25,11 @@ UPDATE_SUBPROCESS_WAITS = [
     pytest.param(False, [sys.executable, "-m", "pip", "install", "-U", "pip"], id="source-pip"),
     pytest.param(False, [sys.executable, "-m", "pip", "install", "-r", REQUIREMENTS], id="source-requirements"),
     pytest.param(True, [sys.executable, "-m", "pip", "install", "-U", "pip"], id="package-pip"),
-    pytest.param(True, [sys.executable, "-m", "pip", "install", "-U", PROGRAM_PACKAGE], id="package-distribution"),
+    pytest.param(
+        True,
+        [sys.executable, "-m", "pip", "install", "-U", "--no-cache-dir", PROGRAM_PACKAGE],
+        id="package-distribution",
+    ),
 ]
 
 
@@ -61,8 +65,16 @@ def test_package_update_fallback_and_failed_commands(monkeypatch, returncode):
     obj.relaunch = Mock()
     obj.update()
     assert run.call_args_list == [
-        call([sys.executable, "-m", "pip", "install", "-U", package], cwd=mod.os.getcwd(), check=False)
-        for package in ["pip", PROGRAM_PACKAGE]
+        call(
+            [sys.executable, "-m", "pip", "install", "-U", "pip"],
+            cwd=mod.os.getcwd(),
+            check=False,
+        ),
+        call(
+            [sys.executable, "-m", "pip", "install", "-U", "--no-cache-dir", PROGRAM_PACKAGE],
+            cwd=mod.os.getcwd(),
+            check=False,
+        ),
     ]
     obj.relaunch.assert_called_once_with(PyTrainExitStatus.UPDATE)
 
@@ -252,7 +264,7 @@ def test_package_update_reinstalls_the_installed_distribution(monkeypatch, comma
 
     pytrain.update(do_inform=False)
 
-    assert [sys.executable, "-m", "pip", "install", "-U", package] in commands
+    assert [sys.executable, "-m", "pip", "install", "-U", "--no-cache-dir", package] in commands
     # A package install updates from PyPI, never from the checkout.
     assert ["git", "pull"] not in commands
 
