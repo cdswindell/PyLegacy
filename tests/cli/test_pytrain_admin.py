@@ -1,4 +1,6 @@
 import signal
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from types import SimpleNamespace
 from unittest.mock import Mock, call
 
@@ -208,6 +210,122 @@ def test_callback_records_action_and_shuts_down_before_interrupt(admin):
     mod.os.kill.side_effect = interrupt
     with pytest.raises(KeyboardInterrupt):
         admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.RESTART))
+
+
+@pytest.mark.parametrize("command", [mod.TMCC1SyncCommandEnum.UPDATE, mod.TMCC1SyncCommandEnum.RESTART])
+@pytest.mark.parametrize("api", [False, True])
+def test_local_exit_suppresses_immediate_and_late_echoes(admin, command, api):
+    admin._api = api
+    admin._api_thread = Mock() if api else None
+    dispatch = admin._dispatcher.signal_clients if admin.is_server else admin._tmcc_buffer.enqueue_command
+    dispatch.side_effect = lambda *args: admin(mod.CommandReq(command))
+    with pytest.raises(KeyboardInterrupt):
+        admin.do_admin_cmd(command)
+    admin._shutdown_started = True
+    for late in [command, mod.TMCC1SyncCommandEnum.SHUTDOWN]:
+        admin(mod.CommandReq(late))
+        try:
+            admin.do_admin_cmd(late)
+        except KeyboardInterrupt:
+            pytest.fail("Late local exit raised a redundant interrupt")
+    assert admin._admin_action == command
+    assert admin._received_admin_cmds == {command}
+    dispatch.assert_called_once()
+    admin.shutdown.assert_not_called()
+    mod.os.kill.assert_not_called()
+
+
+def test_simultaneous_exiting_callbacks_accept_one_action(admin):
+    barrier = Barrier(2)
+
+    def callback(command):
+        barrier.wait(timeout=2)
+        admin(mod.CommandReq(command))
+
+    commands = [mod.TMCC1SyncCommandEnum.UPDATE, mod.TMCC1SyncCommandEnum.RESTART]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(callback, commands))
+    assert admin._admin_action in commands
+    assert admin._received_admin_cmds == {admin._admin_action}
+    mod.os.kill.assert_called_once_with(1234, signal.SIGINT)
+
+
+def test_failed_local_dispatch_can_be_retried(admin):
+    dispatch = admin._dispatcher.signal_clients if admin.is_server else admin._tmcc_buffer.enqueue_command
+    dispatch.side_effect = OSError("dispatch failed")
+    with pytest.raises(OSError, match="dispatch failed"):
+        admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.UPDATE)
+    assert admin._admin_action is None
+    assert not admin._received_admin_cmds
+    assert not admin._exit_requested
+    dispatch.side_effect = None
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.RESTART))
+    assert admin._admin_action == mod.TMCC1SyncCommandEnum.RESTART
+    mod.os.kill.assert_called_once()
+
+
+@pytest.mark.parametrize("same_host", [False, True])
+def test_client_me_waits_for_callback(admin, same_host):
+    if admin.is_server:
+        return
+    if same_host:
+        admin._client_ip = admin._server_ips[0]
+    admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.UPDATE, ["me"])
+    assert not admin._exit_requested
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    assert admin._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
+    mod.os.kill.assert_called_once()
+
+
+def test_routing_cannot_replace_committed_action(admin):
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.RESYNC)
+    admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.QUIT, ["192.0.2.9"])
+    if admin.is_client:
+        admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.RESTART, ["me"])
+    assert admin._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
+    mod.os.kill.assert_called_once()
+
+
+def test_shutdown_suppresses_unclaimed_callback(admin, monkeypatch):
+    admin.shutdown_service = Mock()
+    admin.shutdown_cache = Mock()
+    admin._cache_sync_manager = None
+    admin._tmcc_listener = Mock(port=None)
+    for owner, name in [
+        (mod.CommBuffer, "stop"),
+        (mod.CommandListener, "stop"),
+        (mod.PdiListener, "stop"),
+        (mod.ComponentStateStore, "reset"),
+        (mod.GpioHandler, "reset_all"),
+    ]:
+        monkeypatch.setattr(owner, name, Mock())
+    mod.PyTrain.shutdown(admin)
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    assert admin._admin_action is None
+    mod.os.kill.assert_not_called()
+
+
+def test_signal_diagnostic_precedes_send(admin, caplog):
+    caplog.set_level("DEBUG", logger=mod.log.name)
+
+    def sent(*args):
+        message = caplog.records[-1].getMessage()
+        assert "Sending internal SIGINT" in message
+        for value in [
+            "action=UPDATE",
+            "source=callback",
+            "selected=UPDATE",
+            "phase=running",
+            "pid=1234",
+            f"pytrain={id(admin):#x}",
+            "thread=",
+        ]:
+            assert value in message
+
+    mod.os.kill.side_effect = sent
+    admin(mod.CommandReq(mod.TMCC1SyncCommandEnum.UPDATE))
+    mod.os.kill.assert_called_once()
 
 
 @pytest.mark.parametrize("service", [False, True])

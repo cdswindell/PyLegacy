@@ -20,6 +20,15 @@ from src.pytrain.cli.pytrain import REQUIREMENTS, REQUIREMENTS_NO_GPIO, PyTrain,
 from src.pytrain.utils.host_info import PLATFORM_ENV_VAR, STEAM_DECK_PLATFORM
 
 
+UPDATE_SUBPROCESS_WAITS = [
+    pytest.param(False, ["git", "pull"], id="source-git"),
+    pytest.param(False, [sys.executable, "-m", "pip", "install", "-U", "pip"], id="source-pip"),
+    pytest.param(False, [sys.executable, "-m", "pip", "install", "-r", REQUIREMENTS], id="source-requirements"),
+    pytest.param(True, [sys.executable, "-m", "pip", "install", "-U", "pip"], id="package-pip"),
+    pytest.param(True, [sys.executable, "-m", "pip", "install", "-U", PROGRAM_PACKAGE], id="package-distribution"),
+]
+
+
 def _pytrain() -> PyTrain:
     # requirements_file needs no instance state, so skip the CLI's __init__ entirely.
     return PyTrain.__new__(PyTrain)
@@ -65,6 +74,95 @@ def test_update_subprocess_exception_propagates(monkeypatch):
     with pytest.raises(OSError, match="pip unavailable"):
         obj.update()
     obj.relaunch.assert_not_called()
+
+
+@pytest.fixture
+def claimed_update(bare_pytrain, monkeypatch):
+    pytrain = bare_pytrain
+    pytrain._exit_status = None
+    pytrain._echo = False
+    pytrain._api_thread = None
+    monkeypatch.setattr(type(pytrain), "is_server", property(lambda _self: True))
+    monkeypatch.setattr(type(pytrain), "is_api", property(lambda _self: False))
+    monkeypatch.setattr(pytrain, "relaunch", Mock())
+    monkeypatch.setattr(mod.os, "kill", Mock())
+    assert pytrain._claim_admin_exit(mod.TMCC1SyncCommandEnum.UPDATE, source="local")
+    pytrain._shutdown_started = True
+    pytrain._lifecycle_phase = "shutdown"
+    return pytrain
+
+
+@pytest.mark.parametrize("is_package,wait_command", UPDATE_SUBPROCESS_WAITS)
+@pytest.mark.parametrize(
+    "late_action",
+    [
+        mod.TMCC1SyncCommandEnum.UPDATE,
+        mod.TMCC1SyncCommandEnum.RESTART,
+        mod.TMCC1SyncCommandEnum.REBOOT,
+        mod.TMCC1SyncCommandEnum.SHUTDOWN,
+        mod.TMCC1SyncCommandEnum.QUIT,
+        mod.TMCC1SyncCommandEnum.UPGRADE,
+    ],
+)
+def test_update_ignores_late_exit_callbacks_during_subprocess_wait(
+    monkeypatch, repo_root, claimed_update, is_package, wait_command, late_action
+):
+    monkeypatch.delenv(PLATFORM_ENV_VAR, raising=False)
+    monkeypatch.setattr("src.pytrain.is_package", lambda: is_package)
+    monkeypatch.setattr("src.pytrain.installed_package", lambda: PROGRAM_PACKAGE)
+    callbacks = []
+
+    def fake_run(command, **_kwargs):
+        if command == wait_command:
+            # Inject callbacks before the subprocess returns, without real signals or threads.
+            for _ in range(2):
+                claimed_update(mod.CommandReq(late_action))
+                callbacks.append(late_action)
+                mod.os.kill.assert_not_called()
+                assert claimed_update._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
+                assert claimed_update._received_admin_cmds == {mod.TMCC1SyncCommandEnum.UPDATE}
+                assert claimed_update._exit_requested is True
+                assert claimed_update._shutdown_started is True
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    run = Mock(side_effect=fake_run)
+    monkeypatch.setattr(mod.subprocess, "run", run)
+
+    claimed_update.update(do_inform=False)
+
+    assert callbacks == [late_action, late_action]
+    assert sum(args.args[0] == wait_command for args in run.call_args_list) == 1
+    mod.os.kill.assert_not_called()
+    assert claimed_update._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
+    claimed_update.relaunch.assert_called_once_with(PyTrainExitStatus.UPDATE)
+
+
+@pytest.mark.parametrize("is_package,wait_command", UPDATE_SUBPROCESS_WAITS)
+def test_update_subprocess_keyboard_interrupt_propagates_without_retry_or_relaunch(
+    monkeypatch, repo_root, claimed_update, is_package, wait_command
+):
+    monkeypatch.delenv(PLATFORM_ENV_VAR, raising=False)
+    monkeypatch.setattr("src.pytrain.is_package", lambda: is_package)
+    monkeypatch.setattr("src.pytrain.installed_package", lambda: PROGRAM_PACKAGE)
+    interruption = KeyboardInterrupt("independent subprocess interruption")
+
+    def fake_run(command, **_kwargs):
+        if command == wait_command:
+            raise interruption
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    run = Mock(side_effect=fake_run)
+    monkeypatch.setattr(mod.subprocess, "run", run)
+
+    with pytest.raises(KeyboardInterrupt) as exc_info:
+        claimed_update.update(do_inform=False)
+
+    assert exc_info.value is interruption
+    assert run.call_args_list[-1].args[0] == wait_command
+    assert sum(args.args[0] == wait_command for args in run.call_args_list) == 1
+    claimed_update.relaunch.assert_not_called()
+    mod.os.kill.assert_not_called()
+    assert claimed_update._admin_action == mod.TMCC1SyncCommandEnum.UPDATE
 
 
 @pytest.fixture

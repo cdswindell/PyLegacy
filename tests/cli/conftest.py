@@ -51,7 +51,14 @@ def pytrain_isolation():
 def bare_pytrain(pytrain_isolation):
     from src.pytrain.cli import pytrain as module
 
-    return module.PyTrain.__new__(module.PyTrain)
+    obj = module.PyTrain.__new__(module.PyTrain)
+    obj._admin_state_lock = threading.Lock()
+    obj._exit_requested = False
+    obj._shutdown_started = False
+    obj._lifecycle_phase = "running"
+    obj._admin_action = None
+    obj._received_admin_cmds = set()
+    return obj
 
 
 @pytest.fixture

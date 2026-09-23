@@ -23,7 +23,7 @@ from argparse import SUPPRESS, ArgumentError, ArgumentParser
 from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Lock, Thread, get_native_id
+from threading import Event, Lock, Thread, current_thread, get_native_id
 from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
@@ -158,6 +158,10 @@ class PyTrain:
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._received_admin_cmds = set()
+        self._admin_state_lock = Lock()
+        self._exit_requested = False
+        self._shutdown_started = False
+        self._lifecycle_phase = "running"
         self._buttons_loader: ButtonsFileLoader | None = None
         self._client_ip = None
         self._server_ips = None
@@ -328,25 +332,25 @@ class PyTrain:
             log.info(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
     def run(self) -> None:
-        self._start_cache_sync()
-
-        # register server so clients can connect without IP addr
-        if self.is_server:
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._ser2 is True,
-                self._base_addr is not None,
-                self._args.server_port,
-                self._cache_sync_enabled
-                and self._cache_sync_manager is not None
-                and self._cache_sync_manager.available,
-                self._cache_sync_port,
-            )
-
         processed_replay = False
-        if self._headless:
-            log.info("Not accepting keyboard input; background mode")
         try:
+            self._start_cache_sync()
+
+            # register server so clients can connect without IP addr
+            if self.is_server:
+                self._zeroconf = Zeroconf()
+                self._service_info = self.register_service(
+                    self._ser2 is True,
+                    self._base_addr is not None,
+                    self._args.server_port,
+                    self._cache_sync_enabled
+                    and self._cache_sync_manager is not None
+                    and self._cache_sync_manager.available,
+                    self._cache_sync_port,
+                )
+
+            if self._headless:
+                log.info("Not accepting keyboard input; background mode")
             # signal that we can now accept commands and process admin requests
             self._command_processor_available.set()
 
@@ -408,30 +412,37 @@ class PyTrain:
                     pass
                 except ArgumentError:
                     pass
-                except KeyboardInterrupt:
-                    self.shutdown()
-                    break
+        except KeyboardInterrupt:
+            self.shutdown()
         finally:
+            with self._admin_state_lock:
+                self._shutdown_started = True
+                self._lifecycle_phase = "final-cleanup"
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
             self.shutdown_service()
             self.shutdown_cache()
+            if self._cache_sync_manager is not None:
+                raise RuntimeError("Cache sync cleanup is incomplete")
 
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
 
-            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                aa = cast(TMCC1SyncCommandEnum, self._admin_action)
-                if aa == TMCC1SyncCommandEnum.UPGRADE:
-                    self.upgrade()
-                elif aa == TMCC1SyncCommandEnum.UPDATE:
-                    self.update()
-                elif aa == TMCC1SyncCommandEnum.RESTART:
-                    self.restart()
-                elif aa == TMCC1SyncCommandEnum.REBOOT:
-                    self.reboot()
-                elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
-                    self.reboot(reboot=False)
+        if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+            aa = cast(TMCC1SyncCommandEnum, self._admin_action)
+            with self._admin_state_lock:
+                self._lifecycle_phase = "deferred-action"
+            self._log_admin_exit("Entering deferred action", aa, source="run")
+            if aa == TMCC1SyncCommandEnum.UPGRADE:
+                self.upgrade()
+            elif aa == TMCC1SyncCommandEnum.UPDATE:
+                self.update()
+            elif aa == TMCC1SyncCommandEnum.RESTART:
+                self.restart()
+            elif aa == TMCC1SyncCommandEnum.REBOOT:
+                self.reboot()
+            elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
+                self.reboot(reboot=False)
 
     def queue_command(self, cmd: str) -> None:
         if cmd:
@@ -639,21 +650,43 @@ class PyTrain:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
             # Handles authorized admin commands; interrupts main loop; sets exit status
-            if message.command not in self._received_admin_cmds:
-                self._received_admin_cmds.add(message.command)
+            if self._claim_admin_exit(message.command, source="callback"):
                 if self.is_client and message.command == TMCC1SyncCommandEnum.QUIT:
                     log.info("Client exiting...")
-                # record the admin command and send the interrupt signal
-                # this will interrupt the comment prompt loop and call
-                # the appropriate handler
-                self._admin_action = message.command
                 aa = message.command.name
-                print(f"Message: {message.command.name} aa: {aa} {self._admin_action.name}")
                 if self._api_thread:
                     self.shutdown()
                 if self.is_api:
                     self._exit_status = PyTrainExitStatus.by_name(aa, raise_exception=False)
+                self._log_admin_exit("Sending internal SIGINT", message.command, source="callback")
                 os.kill(os.getpid(), signal.SIGINT)
+
+    # noinspection unresolved-references
+    def _log_admin_exit(self, event: str, command: CommandDefEnum | None, *, source: str) -> None:
+        log.debug(
+            "%s action=%s source=%s selected=%s phase=%s pid=%s pytrain=%#x thread=%s",
+            event,
+            command.name if command else None,
+            source,
+            self._admin_action.name if self._admin_action else None,
+            self._lifecycle_phase,
+            os.getpid(),
+            id(self),
+            current_thread().name,
+        )
+
+    def _claim_admin_exit(self, command: CommandDefEnum, *, source: str) -> bool:
+        with self._admin_state_lock:
+            if self._exit_requested or self._shutdown_started:
+                self._log_admin_exit("Suppressed admin exit", command, source=source)
+                return False
+            if source == "local":
+                self._admin_exit_previous = (self._admin_action, command in self._received_admin_cmds)
+            self._exit_requested = True
+            self._admin_action = command
+            self._received_admin_cmds.add(command)
+            self._log_admin_exit("Accepted admin exit", command, source=source)
+            return True
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -680,6 +713,10 @@ class PyTrain:
         return state.is_synchronized() if state else False
 
     def shutdown(self):
+        with self._admin_state_lock:
+            self._shutdown_started = True
+            self._lifecycle_phase = "shutdown"
+        self._log_admin_exit("Full teardown entered", self._admin_action, source="shutdown")
         try:
             self.shutdown_service()
         except Exception as e:
@@ -722,6 +759,8 @@ class PyTrain:
             GpioHandler.reset_all()
         except Exception as e:
             log.warning(f"Error closing GPIO, continuing shutdown: {e}")
+        if self._cache_sync_manager is None:
+            self._log_admin_exit("Full teardown completed", self._admin_action, source="shutdown")
 
     # noinspection PyUnreachableCode
     def do_admin_cmd(self, command: CommandDefEnum, args: List[str] | None = None):
@@ -737,39 +776,51 @@ class PyTrain:
                 self._dispatcher.signal_clients(cmd, client=addr, port=int(port))
             return
 
-        # exit pytrain, signaling the exit behavior by setting
-        # self._admin_action to the requested operation
-        self._admin_action = command
-
         # if we're a client, send command to all instances on the client host
         if args and args[0] == "me" and self.is_client:
             # If the client is on the server node, send command to the server
             assert self._client_ip is not None
             assert self._server_ips is not None
             if self._client_ip in self._server_ips:
+                with self._admin_state_lock:
+                    if not self._exit_requested and not self._shutdown_started:
+                        self._admin_action = command
                 log.info(f"Sending {command.name} to {PROGRAM_NAME} server...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes)
             else:
                 log.info(f"Sending {command.name} to all clients on this system ({self._client_ip})...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes + self._client_ip.encode())
-                self._admin_action = None
             return
-        elif self.is_server:
-            if command == TMCC1SyncCommandEnum.RESYNC:
-                self._admin_action = None
+        if command == TMCC1SyncCommandEnum.RESYNC:
+            if self.is_server:
                 self._get_system_state()
-                return
             else:
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            return
+
+        if not self._claim_admin_exit(command, source="local"):
+            return
+        dispatched = False
+        try:
+            if self.is_server:
                 # if server, signal all clients as well as the server
                 assert self._dispatcher is not None
                 self._dispatcher.signal_clients(cmd)
-        else:
-            # send command to server, it will send it to all clients
-            # then will execute it on the server itself
-            self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            if command == TMCC1SyncCommandEnum.RESYNC:
-                self._admin_action = None
-                return  # don't exit
+            else:
+                # send command to server, it will send it to all clients
+                # then will execute it on the server itself
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            dispatched = True
+        finally:
+            if not dispatched:
+                with self._admin_state_lock:
+                    if not self._shutdown_started:
+                        previous_action, previously_received = self._admin_exit_previous
+                        self._exit_requested = False
+                        self._admin_action = previous_action
+                        if not previously_received:
+                            self._received_admin_cmds.discard(command)
+                        self._log_admin_exit("Rolled back admin exit", command, source="local")
         raise KeyboardInterrupt()
 
     @staticmethod
@@ -962,7 +1013,6 @@ class PyTrain:
         return stat.returncode == 0
 
     def _start_cache_sync(self) -> None:
-        print("*** Starting cacher ***")
         if self._cache_sync_started:
             return
         self._cache_sync_started = True

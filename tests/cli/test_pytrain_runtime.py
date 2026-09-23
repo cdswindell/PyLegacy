@@ -1,6 +1,7 @@
 import logging
 import threading
 from argparse import ArgumentError
+from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
 from types import SimpleNamespace
 from unittest.mock import Mock, call
@@ -9,6 +10,8 @@ import pytest
 
 from src.pytrain.cli import pytrain as module
 from src.pytrain.comm.comm_buffer import CommBufferProxy
+
+THREAD_START = threading.Thread.start
 
 
 @pytest.fixture
@@ -20,6 +23,9 @@ def runtime(bare_pytrain, monkeypatch):
     p._tmcc_listener.update_client_if_needed.return_value = False
     p._tmcc_listener.port = 5111
     p._headless = p._api = False
+    p._echo = False
+    p._api_thread = None
+    p._server_ips = ["192.0.2.1"]
     p._buttons_file = p._replay_file = p._admin_action = None
     p._service_info = p._zeroconf = p._cache_sync_manager = None
     p._version = "test"
@@ -47,6 +53,7 @@ def runtime(bare_pytrain, monkeypatch):
         double = Mock()
         monkeypatch.setattr(p, name, double)
         effects.attach_mock(double, name)
+    p.shutdown_cache.side_effect = lambda: setattr(p, "_cache_sync_manager", None)
     for owner, name in [
         (module, "Zeroconf"),
         (module, "ButtonsFileLoader"),
@@ -138,6 +145,142 @@ def test_update_required_client(runtime, monkeypatch):
     p._command_processor_available.set.assert_called_once_with()
 
 
+def test_startup_update_interrupt_runs_full_shutdown(runtime):
+    p = runtime.p
+    p._tmcc_listener.update_client_if_needed.return_value = True
+    module.os.kill.side_effect = KeyboardInterrupt
+    try:
+        p.run()
+    except KeyboardInterrupt:
+        pytest.fail("Startup UPDATE interrupt escaped before full shutdown")
+    p.shutdown.assert_called_once_with()
+    p.update.assert_called_once_with()
+    p._handle_command.assert_not_called()
+    calls = runtime.effects.mock_calls
+    assert calls.index(call.shutdown()) < calls.index(call.shutdown_cache()) < calls.index(call.update())
+
+
+@pytest.mark.parametrize("stage", ["shutdown", "shutdown_service", "shutdown_cache", "write_history_file"])
+@pytest.mark.parametrize("error", [KeyboardInterrupt, RuntimeError])
+@pytest.mark.parametrize("action", ["UPDATE", "UPGRADE", "RESTART", "REBOOT", "SHUTDOWN"])
+def test_escaping_cleanup_error_never_dispatches_action(runtime, stage, error, action):
+    p = runtime.p
+    p._admin_action = module.TMCC1SyncCommandEnum[action]
+    target = module.readline.write_history_file if stage == "write_history_file" else getattr(p, stage)
+    target.side_effect = error("independent cancellation")
+    with pytest.raises(error, match="independent cancellation"):
+        p.run()
+    for name in ("update", "upgrade", "restart", "reboot"):
+        getattr(p, name).assert_not_called()
+    module.subprocess.run.assert_not_called()
+    module.os.execv.assert_not_called()
+
+
+@pytest.fixture
+def real_exit_runtime(runtime, monkeypatch):
+    p = runtime.p
+    for name in ("shutdown", "shutdown_service", "shutdown_cache"):
+        monkeypatch.setattr(p, name, getattr(module.PyTrain, name).__get__(p))
+    effects = Mock()
+    for owner, method, name in [
+        (module.CacheSyncManager, "stop", "cache"),
+        (p._tmcc_buffer, "disconnect", "disconnect"),
+        (module.CommBuffer, "stop", "buffer"),
+        (module.CommandListener, "stop", "tmcc"),
+        (module.PdiListener, "stop", "pdi"),
+        (module.ComponentStateStore, "reset", "state"),
+        (module.GpioHandler, "reset_all", "gpio"),
+        (p, "update", "update"),
+    ]:
+        double = Mock()
+        monkeypatch.setattr(owner, method, double)
+        effects.attach_mock(double, name)
+    p._cache_sync_manager = object()
+    p._handle_command.side_effect = lambda _: p.do_admin_cmd(module.TMCC1SyncCommandEnum.UPDATE)
+    monkeypatch.setattr("builtins.input", Mock(return_value="update"))
+    return SimpleNamespace(p=p, effects=effects)
+
+
+def test_echo_while_cache_shutdown_waits_finishes_cleanup_before_update(real_exit_runtime, caplog, monkeypatch):
+    p, effects = real_exit_runtime.p, real_exit_runtime.effects
+    monkeypatch.setattr(threading.Thread, "start", THREAD_START)
+    caplog.set_level(logging.DEBUG, logger=module.log.name)
+    waiting = threading.Event()
+    echoed = threading.Event()
+
+    def echo():
+        assert waiting.wait(2)
+        try:
+            p(module.CommandReq(module.TMCC1SyncCommandEnum.UPDATE))
+            p(module.CommandReq(module.TMCC1SyncCommandEnum.RESTART))
+        finally:
+            echoed.set()
+
+    def stop():
+        waiting.set()
+        assert echoed.wait(2)
+
+    module.CacheSyncManager.stop.side_effect = stop
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(echo)
+        p.run()
+        future.result(timeout=2)
+    assert effects.mock_calls == [
+        call.cache(),
+        call.disconnect(5111),
+        call.buffer(),
+        call.tmcc(),
+        call.pdi(),
+        call.state(),
+        call.gpio(),
+        call.update(),
+    ]
+    assert p._cache_sync_manager is None
+    assert p._admin_action == module.TMCC1SyncCommandEnum.UPDATE
+    module.os.kill.assert_not_called()
+    assert "Full teardown entered" in caplog.text
+    assert "Full teardown completed" in caplog.text
+    assert "Entering deferred action action=UPDATE" in caplog.text
+
+
+@pytest.mark.parametrize("retry_interrupted", [False, True])
+def test_interrupted_full_shutdown_retries_cache_but_never_updates(real_exit_runtime, retry_interrupted):
+    p, effects = real_exit_runtime.p, real_exit_runtime.effects
+    manager = p._cache_sync_manager
+
+    def interrupted():
+        if module.CacheSyncManager.stop.call_count == 1 or retry_interrupted:
+            assert p._cache_sync_manager is manager
+            raise KeyboardInterrupt("cache interrupted")
+
+    module.CacheSyncManager.stop.side_effect = interrupted
+    with pytest.raises(KeyboardInterrupt, match="cache interrupted"):
+        p.run()
+    assert p._cache_sync_manager is (manager if retry_interrupted else None)
+    assert not p._shutdown_lock.locked()
+    assert effects.mock_calls == [call.cache(), call.cache()]
+    p.update.assert_not_called()
+    module.CacheSyncManager.stop.side_effect = None
+    p.shutdown()
+    assert p._cache_sync_manager is None
+    p._tmcc_buffer.disconnect.assert_called_once_with(5111)
+    p.update.assert_not_called()
+
+
+def test_failed_cache_stop_blocks_update_until_retry_finishes(real_exit_runtime):
+    p = real_exit_runtime.p
+    manager = p._cache_sync_manager
+    module.CacheSyncManager.stop.side_effect = RuntimeError("still stopping")
+    with pytest.raises(RuntimeError, match="still stopping"):
+        p.run()
+    assert p._cache_sync_manager is manager
+    p._tmcc_buffer.disconnect.assert_called_once_with(5111)
+    p.update.assert_not_called()
+    module.CacheSyncManager.stop.side_effect = None
+    p.shutdown_cache()
+    assert p._cache_sync_manager is None
+
+
 @pytest.mark.parametrize("error", [SystemExit(), ArgumentError(None, "bad argument")])
 def test_interactive_parser_errors_continue(runtime, monkeypatch, error):
     prompt = Mock(side_effect=["invalid", "valid", KeyboardInterrupt()])
@@ -224,6 +367,7 @@ def test_deferred_actions_after_cleanup(runtime, action, method, kwargs):
 @pytest.mark.parametrize("source", ["state", "buttons", "command"])
 def test_unexpected_runtime_errors_still_close_service_and_cache(runtime, source):
     p = runtime.p
+    p._admin_action = module.TMCC1SyncCommandEnum.UPDATE
     error = RuntimeError("runtime failure")
     if source == "state":
         p._load_client_state.side_effect = error
@@ -241,6 +385,7 @@ def test_unexpected_runtime_errors_still_close_service_and_cache(runtime, source
     p.shutdown_cache.assert_called_once_with()
     assert runtime.effects.mock_calls[-2:] == [call.shutdown_service(), call.shutdown_cache()]
     p.shutdown.assert_not_called()
+    p.update.assert_not_called()
     if source == "command":
         p._command_queue.task_done.assert_called_once_with()
 

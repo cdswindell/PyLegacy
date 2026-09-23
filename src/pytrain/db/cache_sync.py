@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
-from threading import Event, Lock, Thread
+from threading import Event, Lock, Thread, current_thread
 from time import monotonic
 from typing import Callable
 
@@ -390,6 +390,8 @@ class CacheSyncManager(Thread):
                     clients_provider=clients_provider,
                     transport=transport,
                 )
+            elif cls._instance._shutdown.is_set():
+                raise RuntimeError("Cache sync manager is stopping; retry stop before building a replacement")
             return cls._instance
 
     @classmethod
@@ -424,7 +426,6 @@ class CacheSyncManager(Thread):
     def stop(cls) -> None:
         with cls._lock:
             if cls._instance is not None:
-                print("********* Shutting down cache sync")
                 cls._instance.shutdown()
                 cls._instance = None
 
@@ -441,7 +442,6 @@ class CacheSyncManager(Thread):
         debounce: float = DEFAULT_CACHE_SYNC_DEBOUNCE,
         poll_interval: float = DEFAULT_CACHE_SYNC_POLL,
     ) -> None:
-        print("*** Starting cacher ***")
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Cache Sync Manager")
         self._is_server = is_server
         self._sync_port = sync_port
@@ -462,6 +462,18 @@ class CacheSyncManager(Thread):
         self._manifest = self._cache_manifest()
         self._sidecar_available = self._start_sidecar()
         self.start()
+        self._log_lifecycle("Cache sync manager created")
+
+    def _log_lifecycle(self, event: str) -> None:
+        log.debug(
+            "%s pid=%s manager=%#x thread=%s role=%s port=%s",
+            event,
+            os.getpid(),
+            id(self),
+            current_thread().name,
+            "server" if self._is_server else "client",
+            self._sync_port,
+        )
 
     @property
     def sidecar_available(self) -> bool:
@@ -517,32 +529,51 @@ class CacheSyncManager(Thread):
 
     def shutdown(self) -> None:
         with self._shutdown_lock:
+            self._shutdown.set()
+            self._sidecar_available = False
+            self._log_lifecycle("Cache sync stop attempt")
+            if current_thread() is self or current_thread() is self._server_thread:
+                raise RuntimeError("Cache sync cannot stop from its own thread")
             if self._server is not None:
-                print("********* Stopping cache sync")
-                self._shutdown.set()
-                self._server.shutdown()
+                if self._server_thread is not None and self._server_thread.ident is not None:
+                    self._server.shutdown()
                 self._server.server_close()
                 self._server = None
-            if self.is_alive():
-                self.join(timeout=2.0)
+            if self._server_thread is not None:
+                self._join_owned_thread(self._server_thread)
+                self._server_thread = None
+            self._join_owned_thread(self)
+            self._log_lifecycle("Cache sync stop completed")
+
+    @staticmethod
+    def _join_owned_thread(thread: Thread) -> None:
+        if thread.ident is not None:
+            thread.join(timeout=2.0)
+        if thread.is_alive():
+            raise RuntimeError(f"Cache sync thread did not terminate: {thread.name}")
 
     def _start_sidecar(self) -> bool:
+        started = False
         try:
             self._server = CacheSyncTCPServer(("", self._sync_port), CacheSyncHandler, self)
-            if self._server:
-                self._server_thread = Thread(
-                    target=self._server.serve_forever,
-                    daemon=True,
-                    name=f"{PROGRAM_NAME} Cache",
-                )
-            if self._server_thread:
-                self._server_thread.start()
-                log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
-                return True
-            raise RuntimeError("Cache sync thread failed to start")
+            self._server_thread = Thread(
+                target=self._server.serve_forever,
+                daemon=True,
+                name=f"{PROGRAM_NAME} Cache",
+            )
+            self._server_thread.start()
+            started = True
         except (OSError, RuntimeError) as e:
             log.warning("Cache sync disabled: unable to listen on port %s: %s", self._sync_port, e)
             return False
+        finally:
+            if not started and self._server is not None:
+                if self._server_thread is None or self._server_thread.ident is None:
+                    self._server.server_close()
+                    self._server = None
+                    self._server_thread = None
+        log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
+        return True
 
     def run(self) -> None:
         if not self._is_server and self._server_ip and self._server_advertised_sync is not False:

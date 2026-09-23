@@ -195,7 +195,7 @@ def test_failed_cache_sync_start_is_not_retried(cache_service):
 
 
 @pytest.mark.parametrize("has_manager", [False, True])
-def test_shutdown_cache_preserves_service_and_is_idempotent(cache_service, has_manager):
+def test_shutdown_cache_preserves_service_and_is_idempotent(cache_service, capsys, has_manager):
     p = cache_service.p
     p._cache_sync_manager = Mock() if has_manager else None
     p._service_info = info = _service_info({})
@@ -211,33 +211,47 @@ def test_shutdown_cache_preserves_service_and_is_idempotent(cache_service, has_m
         assert p._service_info is info
         assert p._zeroconf is zeroconf
         assert zeroconf.mock_calls == []
+        captured = capsys.readouterr()
+        assert captured.out == captured.err == ""
 
 
-def test_shutdown_cache_retains_manager_on_failure_then_retries(cache_service):
+@pytest.mark.parametrize("error_type", [RuntimeError, KeyboardInterrupt])
+@pytest.mark.parametrize("failures", [1, 2])
+def test_shutdown_cache_retains_manager_on_failure_then_retries(cache_service, capsys, error_type, failures):
     p = cache_service.p
     p._cache_sync_manager = manager = Mock()
     p._service_info = info = _service_info({})
     zeroconf = p._zeroconf
-    error = RuntimeError("cache stop failed")
-    cache_service.stop.side_effect = [error, None]
-    with pytest.raises(RuntimeError, match="cache stop failed") as exc:
-        p.shutdown_cache()
-    assert exc.value is error
-    assert not p._shutdown_lock.locked()
-    cache_service.stop.assert_called_once_with()
-    assert p._cache_sync_manager is manager
-    assert p._service_info is info
-    assert p._zeroconf is zeroconf
-    assert zeroconf.mock_calls == []
+    error = error_type("cache stop failed")
+
+    def stop():
+        assert p._cache_sync_manager is manager
+        assert p._shutdown_lock.locked()
+        if cache_service.stop.call_count <= failures:
+            raise error
+
+    cache_service.stop.side_effect = stop
+    for attempt in range(1, failures + 1):
+        with pytest.raises(error_type, match="cache stop failed") as exc:
+            p.shutdown_cache()
+        assert exc.value is error
+        assert not p._shutdown_lock.locked()
+        assert cache_service.stop.mock_calls == [call()] * attempt
+        assert p._cache_sync_manager is manager
+        assert p._service_info is info
+        assert p._zeroconf is zeroconf
+        assert zeroconf.mock_calls == []
 
     p.shutdown_cache()
     assert not p._shutdown_lock.locked()
-    assert cache_service.stop.mock_calls == [call(), call()]
+    assert cache_service.stop.mock_calls == [call()] * (failures + 1)
     assert p._cache_sync_manager is None
     p.shutdown_cache()
     assert not p._shutdown_lock.locked()
-    assert cache_service.stop.mock_calls == [call(), call()]
+    assert cache_service.stop.mock_calls == [call()] * (failures + 1)
     assert p._cache_sync_manager is None
     assert p._service_info is info
     assert p._zeroconf is zeroconf
     assert zeroconf.mock_calls == []
+    captured = capsys.readouterr()
+    assert captured.out == captured.err == ""
