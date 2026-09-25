@@ -22,7 +22,7 @@ from typing import Dict
 
 import psutil
 
-from .. import find_dir, find_file, is_package, get_version
+from .. import find_file, is_package, get_version
 from ..protocol.constants import PROGRAM_NAME
 from ..utils.argument_parser import PyTrainArgumentParser
 
