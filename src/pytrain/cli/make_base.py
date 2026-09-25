@@ -73,7 +73,7 @@ class _MakeBase(ABC):
         # verify the template directory exists
         # self._template_dir = find_dir("installation", (".", "../", "src"))
         self._template_dir = Path(__file__).resolve().parents[1] / "installation"
-        print(f"{self._template_dir} {find_dir('installation', ('.', '../', 'src'))}")
+        # print(f"{self._template_dir} {find_dir('installation', ('.', '../', 'src'))}")
         if self._template_dir is None:
             print("\nUnable to locate directory with installation templates. Exiting")
             return
