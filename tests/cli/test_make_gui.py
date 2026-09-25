@@ -199,6 +199,7 @@ def test_make_gui_parser_constructs_landscape_controller() -> None:
     )
 
 
+# noinspection unresolved-references
 def test_font_install_uses_xdg_directory_refreshes_and_verifies(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     source = tmp_path / "source"
     source.mkdir()

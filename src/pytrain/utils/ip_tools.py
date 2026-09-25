@@ -8,10 +8,13 @@
 #
 import ipaddress
 import logging
+import shutil
 import socket
 import subprocess
+import sysconfig
 import time
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
 from typing import List
 
 from ..protocol.constants import DEFAULT_BASE_PORT
@@ -20,6 +23,25 @@ log = logging.getLogger(__name__)
 
 
 TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the public Internet)
+
+
+def _find_hostname_script() -> Path | None:
+    script_path = shutil.which("hostname.sh")
+    if script_path:
+        script = Path(script_path)
+        if script.is_file():
+            return script
+
+    scripts_dir = sysconfig.get_path("scripts")
+    if scripts_dir:
+        script = Path(scripts_dir) / "hostname.sh"
+        if script.is_file():
+            return script
+
+    script = Path(__file__).resolve().parents[1] / "installation" / "hostname.sh"
+    if script.is_file():
+        return script
+    return None
 
 
 def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
@@ -78,8 +100,17 @@ def get_ip_address(max_attempts: int = 32) -> List[str]:
 
     # if on linux, use hostname to get IP addr
     if is_linux():
-        result = subprocess.run("hostname -I".split(), capture_output=True, text=True)
-        if result.returncode == 0:
+        try:
+            result = subprocess.run("hostname -I".split(), capture_output=True, text=True)
+        except FileNotFoundError:
+            result = None
+            script_path = _find_hostname_script()
+            if script_path is not None:
+                try:
+                    result = subprocess.run(["/bin/bash", str(script_path), "-I"], capture_output=True, text=True)
+                except OSError:
+                    pass
+        if result is not None and result.returncode == 0:
             output = result.stdout.strip().split()
             if output and output[0]:
                 return [output[0]]
