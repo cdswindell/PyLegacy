@@ -18,7 +18,30 @@ from src.pytrain.cli.make_gui import MakeGui
 from src.pytrain.gui.component_state_gui import ComponentStateGui
 from src.pytrain.gui.controller.engine_gui import EngineGui
 from src.pytrain.gui.controller.steam_deck_gui import SteamDeckGui
-from src.pytrain.utils.path_utils import find_file
+
+
+@pytest.fixture
+def launcher_factory(tmp_path):
+    def create_launcher(gui_class=None, no_cache_sync: bool = False) -> MakeGui:
+        mg = MakeGui.__new__(MakeGui)
+        mg._template_dir = Path(mod.__file__).resolve().parents[1] / "installation"
+        mg._gui_class = gui_class
+        mg._launch_path = tmp_path / "launch_pytrain.bash"
+        mg._config = {
+            "___ACTIVATE___": "/venv/bin/activate",
+            "___BUTTONS___": "",
+            "___CACHE_SYNC___": " -no_cache_sync" if no_cache_sync else "",
+            "___CLIENT___": " -client",
+            "___ECHO___": "",
+            "___LCSSER2___": "",
+            "___LIONELBASE___": "",
+            "___PLATFORM___": mg.platform,
+            "___PYTRAIN___": "pytrain",
+            "___PYTRAINHOME___": "/opt/pytrain",
+        }
+        return mg
+
+    return create_launcher
 
 
 def test_parse_wide_screen_set_normalizes_aliases_and_dedupes() -> None:
@@ -87,32 +110,48 @@ def test_make_gui_command_line_can_disable_cache_sync() -> None:
     assert mg.command_line == "pytrain -headless -client -no_cache_sync"
 
 
-def test_make_gui_shell_script_includes_cache_sync_switch_only_when_disabled(tmp_path) -> None:
-    mg = MakeGui.__new__(MakeGui)
-    mg._gui_class = None  # no GUI class selected -> the default launch template
-    mg._launch_path = tmp_path / "launch_pytrain.bash"
-    mg._config = {
-        "___ACTIVATE___": "/venv/bin/activate",
-        "___BUTTONS___": "",
-        "___CACHE_SYNC___": " -no_cache_sync",
-        "___CLIENT___": " -client",
-        "___ECHO___": "",
-        "___LCSSER2___": "",
-        "___LIONELBASE___": "",
-        "___PYTRAIN___": "pytrain",
-        "___PYTRAINHOME___": "/opt/pytrain",
-    }
+def test_make_gui_shell_script_includes_cache_sync_switch_only_when_disabled(launcher_factory) -> None:
+    mg = launcher_factory(no_cache_sync=True)
 
     path = mg.make_shell_script()
 
     assert path is not None
-    assert "-no_cache_sync" in path.read_text(encoding="utf-8")
+    written = path.read_text(encoding="utf-8")
+    assert "-no_cache_sync" in written
+    assert 'export PYTRAIN_PLATFORM=""' in written
+    assert "___" not in written
 
     mg._config["___CACHE_SYNC___"] = ""
     path = mg.make_shell_script()
 
     assert path is not None
-    assert "-no_cache_sync" not in path.read_text(encoding="utf-8")
+    written = path.read_text(encoding="utf-8")
+    assert "-no_cache_sync" not in written
+    assert 'export PYTRAIN_PLATFORM=""' in written
+    assert "___" not in written
+
+
+def test_shell_script_renders_packaged_template_from_another_working_directory(
+    launcher_factory, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    working_dir = tmp_path / "working"
+    working_dir.mkdir()
+    monkeypatch.chdir(working_dir)
+    mg = launcher_factory()
+    template = Path(mod.__file__).resolve().parents[1] / "installation" / "launch_pytrain.bash.template"
+
+    found = mg.find_installation_file("launch_pytrain.bash.template")
+
+    assert found is not None
+    assert Path(found).resolve() == template
+
+    path = mg.make_shell_script()
+
+    assert path == tmp_path / "launch_pytrain.bash"
+    written = path.read_text(encoding="utf-8")
+    assert 'export PYTRAIN_PLATFORM=""' in written
+    assert "pytrain  -headless -client" in written
+    assert "___" not in written
 
 
 def test_landscape_aliases_template_and_font_selection() -> None:
@@ -197,10 +236,10 @@ def test_other_guis_imply_no_platform(gui_class) -> None:
 def test_launch_template_exposes_the_platform_placeholder() -> None:
     # make_shell_script() substitutes one config dict into the template, so a missing
     # placeholder would silently emit a launcher with no platform set.
-    template = find_file("launch_pytrain.bash.template", (".", "../", "src"))
-    assert template is not None
+    template = Path(mod.__file__).resolve().parents[1] / "installation" / "launch_pytrain.bash.template"
+    assert template.is_file()
 
-    body = Path(template).read_text(encoding="utf-8")
+    body = template.read_text(encoding="utf-8")
     assert 'export PYTRAIN_PLATFORM="___PLATFORM___"' in body
 
 
@@ -208,22 +247,8 @@ def test_launch_template_exposes_the_platform_placeholder() -> None:
     "gui_class, expected",
     [(SteamDeckGui, "steamdeck"), (EngineGui, "")],
 )
-def test_shell_script_exports_the_platform_it_was_generated_for(tmp_path, gui_class, expected) -> None:
-    mg = MakeGui.__new__(MakeGui)
-    mg._gui_class = gui_class
-    mg._launch_path = tmp_path / "launch_pytrain.bash"
-    mg._config = {
-        "___ACTIVATE___": "/venv/bin/activate",
-        "___BUTTONS___": "",
-        "___CACHE_SYNC___": "",
-        "___CLIENT___": " -client",
-        "___ECHO___": "",
-        "___LCSSER2___": "",
-        "___LIONELBASE___": "",
-        "___PLATFORM___": mg.platform,
-        "___PYTRAIN___": "pytrain",
-        "___PYTRAINHOME___": "/opt/pytrain",
-    }
+def test_shell_script_exports_the_platform_it_was_generated_for(launcher_factory, gui_class, expected) -> None:
+    mg = launcher_factory(gui_class=gui_class)
 
     path = mg.make_shell_script()
 

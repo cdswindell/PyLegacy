@@ -36,7 +36,7 @@ from ..gui.wide_component_state_gui import WideComponentStateGui
 from ..protocol.constants import CommandScope, PROGRAM_BASE, PROGRAM_NAME
 from ..utils.argument_parser import IntRange, PyTrainArgumentParser, UniqueChoice
 from ..utils.host_info import STEAM_DECK_PLATFORM
-from ..utils.path_utils import find_dir, find_file
+from ..utils.path_utils import find_dir
 
 GUI_ARG_TO_CLASS = {
     "ac": AccessoriesGui,
@@ -657,7 +657,7 @@ class MakeGui(_MakeBase):
         )
 
     def make_shell_script(self) -> Path | None:
-        template = find_file(LAUNCH_TEMPLATE, (".", "../", "src"))
+        template = self.find_installation_file(LAUNCH_TEMPLATE)
         if template is None:
             print(f"\nUnable to locate shell script template {LAUNCH_TEMPLATE}. Exiting")
             return None
@@ -677,7 +677,7 @@ class MakeGui(_MakeBase):
         return path
 
     def make_python_desktop_file(self) -> Path | None:
-        template = find_file("pytrain_desktop.template", (".", "../", "src"))
+        template = self.find_installation_file("pytrain_desktop.template")
         if template is None:
             print("\nUnable to locate desktop template. Exiting")
             return None
@@ -699,7 +699,7 @@ class MakeGui(_MakeBase):
         return path
 
     def make_buttons_file(self) -> Path | None:
-        template = find_file("buttons_gui.py.template", (".", "../", "src"))
+        template = self.find_installation_file("buttons_gui.py.template")
         if template is None:
             print("\nUnable to locate buttons template. Exiting")
             return None

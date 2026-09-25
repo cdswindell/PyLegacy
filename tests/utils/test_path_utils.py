@@ -163,7 +163,7 @@ def test_venv_style_dirs_are_pruned(tmp_path: Path, monkeypatch):
     """A site-packages tree under a recognized prefix is not searched."""
     reset_path_index()
     env_root = tmp_path / "env"
-    site = env_root / "lib" / "site-packages"
+    site = env_root / "bin" / "site-packages"
     site.mkdir(parents=True)
     (site / "pkgfile.txt").write_text("pkg")
 

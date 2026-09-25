@@ -179,6 +179,13 @@ class _MakeBase(ABC):
             cmd_line += f" -buttons {self._buttons_file}"
         return cmd_line
 
+    @property
+    def template_dir(self) -> Path:
+        return self._template_dir
+
+    def find_installation_file(self, file_name: str) -> str | None:
+        return find_file(file_name, (str(self.template_dir), ".", "../"))
+
     def confirm_environment(self) -> bool:
         for line in self.config_header():
             print(line)

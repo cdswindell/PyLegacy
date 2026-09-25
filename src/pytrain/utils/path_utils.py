@@ -24,7 +24,7 @@ DEFAULT_PLACES: Tuple[str, ...] = (".", "../")
 # into site-packages and the thousands of files it contains.
 _ENV_SUBDIRS = {
     "bin",
-    "lib",
+    # "lib",
     "lib64",
     "include",
     "share",
