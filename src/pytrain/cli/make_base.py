@@ -79,7 +79,8 @@ class _MakeBase(ABC):
             return
 
         # verify we can activate the virtual environment
-        self._activate_cmd = find_file("activate", (".", "../"))
+        # self._activate_cmd = find_file("activate", (".", "../"))
+        self._activate_cmd = find_file(Path(sys.prefix) / "bin" / "activate")
         if self._activate_cmd is None:
             print("\nUnable to locate virtual environment 'activate' command. Exiting")
             return
