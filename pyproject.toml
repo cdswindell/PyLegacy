@@ -88,6 +88,8 @@ install = ["*.template", "*.jpg", "*.png", "*.ttf"]
 "pytrain.gui.controller" = ["*.json"]
 "pytrain.gui.images" = ["en-US_pycab_*.png"]
 
+[tool.setuptools]
+script-files = ["src/pytrain/installation/hostname.sh"]
 
 [project.scripts]
 pytrain = "pytrain:main"
