@@ -659,7 +659,7 @@ class MakeGui(_MakeBase):
     def make_shell_script(self) -> Path | None:
         template = self.find_installation_file(LAUNCH_TEMPLATE)
         if template is None:
-            print(f"\nUnable to locate shell script template {LAUNCH_TEMPLATE}. Exiting")
+            print(f"\nUnable to locate shell script template {LAUNCH_TEMPLATE}. Exiting ({self.template_dir})")
             return None
         template_data = ""
         with open(template, "r") as f:
