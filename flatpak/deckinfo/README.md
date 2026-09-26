@@ -9,7 +9,7 @@ path from inside a Flatpak sandbox.
 Run these commands from the root of the PyLegacy checkout:
 
 ```bash
-flatpak install --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+flatpak install --user flathub org.freedesktop.Platform//26.08 org.freedesktop.Sdk//26.08
 flatpak install --user flathub org.flatpak.Builder
 
 flatpak run org.flatpak.Builder --user --install --force-clean \
