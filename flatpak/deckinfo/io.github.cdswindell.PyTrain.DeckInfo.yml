@@ -1,0 +1,33 @@
+app-id: io.github.cdswindell.PyTrain.DeckInfo
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+command: deckinfo
+
+# This is deliberately a diagnostic Flatpak, not a production sandbox.
+# --device=all is required for the proof: deckinfo.py opens the Steam Deck
+# controller's /dev/hidraw* node directly, in addition to using SDL/pygame.
+finish-args:
+  - --device=all
+  - --share=ipc
+  - --socket=x11
+
+modules:
+  - name: pygame-ce
+    buildsystem: simple
+    build-options:
+      # Prototype only. A distributable Flatpak should use pinned, offline
+      # sources instead of downloading a wheel during the build.
+      build-args:
+        - --share=network
+    build-commands:
+      - python3 -m pip install --prefix=/app --no-cache-dir "pygame-ce>=2.5.6"
+
+  - name: deckinfo
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 scripts/deckinfo.py /app/share/pytrain/deckinfo.py
+      - install -Dm755 flatpak/deckinfo/deckinfo /app/bin/deckinfo
+    sources:
+      - type: dir
+        path: ../..
