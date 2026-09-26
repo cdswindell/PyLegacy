@@ -1,0 +1,4 @@
+#!/bin/sh
+# Keep the diagnostic output unbuffered when launched from Steam or a terminal.
+export PYTHONUNBUFFERED=1
+exec python3 /app/share/pytrain/deckinfo.py "$@"
