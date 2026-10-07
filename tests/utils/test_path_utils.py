@@ -178,3 +178,15 @@ def test_venv_style_dirs_are_pruned(tmp_path: Path, monkeypatch):
     assert find_file("pkgfile.txt", (str(tmp_path),)) is None
     # Legitimate project asset still resolves.
     assert norm(find_file("asset.txt", (str(tmp_path),))) == norm(str(proj / "asset.txt"))
+
+
+def test_find_packaged_asset_outside_working_directory(tmp_path: Path, monkeypatch):
+    """Bundled PyTrain resources resolve even when launched outside the source tree."""
+    reset_path_index()
+    monkeypatch.chdir(tmp_path)
+
+    path = find_file("RR-Speeds.jpg")
+
+    assert path is not None
+    assert Path(path).name == "RR-Speeds.jpg"
+    assert Path(path).is_file()
