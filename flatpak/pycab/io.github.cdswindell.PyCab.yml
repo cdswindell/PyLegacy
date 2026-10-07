@@ -81,8 +81,8 @@ modules:
     buildsystem: simple
     build-commands:
       # Install PyLegacy itself without resolving dependencies again: the Deck
-      # dependency set above deliberately omits the Pi-only rpi-lgpio/spidev pair.
-      - SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 /app/bin/python3 -m pip install --prefix=/app --no-deps .
+      # dependency set above deliberately omits the Pi-only rpi-lgpio/spidev pair.\n      # --no-build-isolation is required here: Flatpak build modules have no network\n      # unless explicitly granted it, and the preceding module already installed the\n      # exact setuptools/setuptools-scm versions this local project build needs.
+      - SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 /app/bin/python3 -m pip install --prefix=/app --no-deps --no-build-isolation .
       - install -Dm755 flatpak/pycab/pycab-flatpak /app/bin/pycab-flatpak
       - install -Dm644 flatpak/pycab/buttons.py /app/share/pycab/buttons.py
       - install -Dm644 flatpak/pycab/io.github.cdswindell.PyCab.desktop /app/share/applications/io.github.cdswindell.PyCab.desktop
