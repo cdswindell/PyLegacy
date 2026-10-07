@@ -1,0 +1,93 @@
+app-id: io.github.cdswindell.PyCab
+runtime: org.freedesktop.Platform
+runtime-version: "26.08"
+sdk: org.freedesktop.Sdk
+command: pycab-flatpak
+
+# Keep the permissions known to work in the DeckInfo proof until the complete
+# controller has been validated. Network sharing is required for PyTrain server
+# discovery/cache sync; device access is required for the raw Deck hidraw path.
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=x11
+  - --device=all
+
+build-options:
+  env:
+    PKG_CONFIG_PATH: /app/lib/pkgconfig:/app/share/pkgconfig
+    LD_LIBRARY_PATH: /app/lib
+
+modules:
+  - name: tcl
+    buildsystem: autotools
+    subdir: unix
+    post-install:
+      - chmod 755 /app/lib/libtcl*.so
+    sources:
+      - type: archive
+        url: https://downloads.sourceforge.net/project/tcl/Tcl/8.6.18/tcl8.6.18-src.tar.gz
+        sha256: 14f9af32b1767ff718477a8f974ad03c34341097e6b43f4ce54644ee974e268e
+
+  - name: tk
+    buildsystem: autotools
+    subdir: unix
+    config-opts:
+      - --with-tcl=/app/lib
+      - --enable-xft
+    post-install:
+      - chmod 755 /app/lib/libtk*.so
+    sources:
+      - type: archive
+        url: https://downloads.sourceforge.net/project/tcl/Tcl/8.6.18/tk8.6.18-src.tar.gz
+        sha256: 95cd528a80f5e4bdb557af9b14a7197d6860793a3894e25e7c9fad2ed05d4c3c
+
+  # Build our own Python so _tkinter is linked against the Tcl/Tk shipped above.
+  # This is what replaces the Miniforge/Conda Python + special Tk installation.
+  - name: python
+    buildsystem: autotools
+    config-opts:
+      - --prefix=/app
+      - --enable-shared
+      - --with-ensurepip=install
+    build-options:
+      env:
+        CPPFLAGS: -I/app/include
+        LDFLAGS: -L/app/lib
+        LD_LIBRARY_PATH: /app/lib
+        PKG_CONFIG_PATH: /app/lib/pkgconfig:/app/share/pkgconfig
+    post-install:
+      - /app/bin/python3 -c "import tkinter; print('Tk', tkinter.TkVersion)"
+    sources:
+      - type: archive
+        url: https://www.python.org/ftp/python/3.14.8/Python-3.14.8.tar.xz
+        sha256: c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73
+
+  - name: pycab-python-dependencies
+    buildsystem: simple
+    build-options:
+      # Prototype phase: versions are pinned, but pip still downloads them.
+      # Once the full application is proven, convert these to offline Flatpak
+      # sources/hashes for a distributable build.
+      build-args:
+        - --share=network
+    build-commands:
+      - /app/bin/python3 -m pip install --prefix=/app --no-cache-dir -r flatpak/pycab/requirements-pinned.txt
+    sources:
+      - type: dir
+        path: ../..
+
+  - name: pycab
+    buildsystem: simple
+    build-commands:
+      # Install PyLegacy itself without resolving dependencies again: the Deck
+      # dependency set above deliberately omits the Pi-only rpi-lgpio/spidev pair.
+      - SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 /app/bin/python3 -m pip install --prefix=/app --no-deps .
+      - install -Dm755 flatpak/pycab/pycab-flatpak /app/bin/pycab-flatpak
+      - install -Dm644 flatpak/pycab/buttons.py /app/share/pycab/buttons.py
+      - install -Dm644 flatpak/pycab/io.github.cdswindell.PyCab.desktop /app/share/applications/io.github.cdswindell.PyCab.desktop
+      - mkdir -p /app/share/fonts/pytrain
+      - find src/pytrain/gui/fonts -type f -name '*.ttf' -exec install -m644 {} /app/share/fonts/pytrain/ \;
+    sources:
+      - type: dir
+        path: ../..
