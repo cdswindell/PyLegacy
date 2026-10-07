@@ -1,0 +1,21 @@
+# PyCab / Steam Deck top-level Python dependency pins.
+# These are intentionally exact so a rebuild does not silently change the
+# application dependency versions. Raspberry-Pi-only rpi-lgpio and spidev are
+# omitted, matching the pytrain-ogr-deck package.
+RPLCD==1.4.0
+colorzero==2.0
+gpiozero==2.0.1.post3
+guizero==1.6.0
+luma.oled==3.16.0
+psutil==7.2.2
+pygame-ce==2.5.8
+python-dotenv==1.2.4
+pyserial==3.5
+range-key-dict==1.1
+requests==2.34.2
+setuptools==84.0.0
+setuptools-scm==10.2.0
+smbus2==0.6.1
+sortedcontainers==2.4.0
+sortedcontainers-stubs==2.4.3
+zeroconf==0.151.5
