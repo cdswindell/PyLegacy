@@ -16,7 +16,9 @@ EXCLUDE = {
 # use exactly these roots are served from the process-lifetime index; any other
 # places (e.g. cache directories that may be written to at runtime) are walked
 # fresh on every call so newly-written files are always found.
-PYTRAIN_ROOT = Path(__file__).resolve().parents[1]\n\nDEFAULT_PLACES: Tuple[str | Path, ...] = (".", "../", PYTRAIN_ROOT)
+PYTRAIN_ROOT = Path(__file__).resolve().parents[1]
+
+DEFAULT_PLACES: Tuple[str | Path, ...] = (".", "../", PYTRAIN_ROOT)
 
 # Directory names that make up a Python virtual environment / installation prefix.
 # When one of these lives directly under an interpreter prefix (sys.prefix,
