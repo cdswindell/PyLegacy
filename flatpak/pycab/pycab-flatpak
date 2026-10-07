@@ -1,0 +1,10 @@
+#!/bin/sh
+export PYTRAIN_PLATFORM=steamdeck
+export PYTHONUNBUFFERED=1
+
+# Steam's overlay is irrelevant to this Tk application and can generate noise
+# in child processes. Steam Input itself does not depend on LD_PRELOAD.
+unset LD_PRELOAD
+
+# Gamescope/KDE supplies DISPLAY when launched normally. Do not replace it.
+exec /app/bin/pytrain -headless -client -buttons /app/share/pycab/buttons.py "$@"
