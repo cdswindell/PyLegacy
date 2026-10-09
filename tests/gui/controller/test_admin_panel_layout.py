@@ -2,6 +2,8 @@ import threading
 from threading import Event, RLock
 from types import SimpleNamespace
 
+import pytest
+
 import src.pytrain.gui.controller.admin_panel as mod
 import src.pytrain.gui.controller.popup_manager as popup_manager
 
@@ -36,6 +38,12 @@ class _Tk:
 
     def pack_propagate(self, value) -> None:
         self.pack_propagates.append(value)
+
+    def update_idletasks(self) -> None:
+        pass
+
+    def winfo_reqheight(self) -> int:
+        return 1
 
 
 class _TitleBox:
@@ -236,6 +244,41 @@ def test_portrait_database_height_retains_button_size() -> None:
     panel = _panel(compact=False)
 
     assert panel.compact_database_height == 79
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_admin_footer_keeps_default_spacing_unless_the_host_requests_less(compact) -> None:
+    panel = _panel(compact=compact)
+
+    assert panel.footer_pad_px is None
+    panel._gui.admin_footer_pad_px = 8
+    assert panel.footer_pad_px == 8
+
+
+@pytest.mark.parametrize(
+    "compact, button_size, required_height, expected_height",
+    [(False, 68, 81, 81), (False, 79, 88, 88), (False, 133, 103, 133), (True, 79, 88, 72)],
+    ids=["small-mac-window", "desktop-window", "pi-design-size", "compact-unchanged"],
+)
+def test_database_section_fits_its_controls_without_shrinking_the_pi_layout(
+    compact, button_size, required_height, expected_height
+) -> None:
+    panel = _panel(compact=compact)
+    panel._gui.button_size = button_size
+    calls = []
+    section = SimpleNamespace(
+        height=panel.compact_database_height,
+        tk=SimpleNamespace(
+            grid_propagate=lambda value: calls.append(("propagate", value)),
+            update_idletasks=lambda: calls.append("measure"),
+            winfo_reqheight=lambda: required_height,
+        ),
+    )
+
+    panel._fit_database_height(section)
+
+    assert section.height == expected_height
+    assert calls == ([] if compact else [("propagate", True), "measure", ("propagate", False)])
 
 
 def test_portrait_titlebox_retains_natural_height_and_existing_grid(monkeypatch) -> None:
@@ -848,3 +891,7 @@ def test_the_compact_admin_box_carries_no_chrome_of_its_own(monkeypatch) -> None
         )
         assert admin_box.kwargs["border"] == border, f"compact={compact}"
         assert admin_box.tk.pack_configs[-1]["padx"] == padx, f"compact={compact}"
+        database = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Base 3 Database")
+        if not compact:
+            assert database.height == panel._gui.button_size
+            assert database.tk.grid_propagates == [True, False]

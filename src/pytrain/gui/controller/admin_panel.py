@@ -367,6 +367,7 @@ class AdminPanel(OverlayPanel):
         )
         self._fit_compact_control(pb)
         self._gui.add_hover_action(pb)
+        self._fit_database_height(tb)
 
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
@@ -563,6 +564,10 @@ class AdminPanel(OverlayPanel):
         # centered Close button, leaving the portrait panel exactly as it was before this
         # panel grew a footer at all.
         return self.controls_available
+
+    @property
+    def footer_pad_px(self) -> int | None:
+        return getattr(self._gui, "admin_footer_pad_px", None)
 
     def build_footer(self, footer: Box) -> None:
         """Put the Controls button in the footer, to the left of Close.
@@ -968,6 +973,17 @@ class AdminPanel(OverlayPanel):
         else:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
+
+    def _fit_database_height(self, section: TitleBox) -> None:
+        if self._compact:
+            return
+        # PyCab's desktop keys are smaller than the Pi's, but its native controls and
+        # section label can need more than button_size. Measure the completed grid;
+        # retain the Pi's existing height whenever it already has enough room.
+        section.tk.grid_propagate(True)
+        section.tk.update_idletasks()
+        section.height = max(self.compact_database_height, section.tk.winfo_reqheight())
+        section.tk.grid_propagate(False)
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
         text_size = kwargs.pop("text_size", self._gui.s_18)

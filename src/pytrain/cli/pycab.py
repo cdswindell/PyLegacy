@@ -33,6 +33,7 @@ from ..gui.controller.engine_gui import EngineGui
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from ..utils.argument_parser import PyTrainArgumentParser
+from ..utils.ip_tools import find_base_address
 from . import CliBase
 
 log = logging.getLogger(__name__)
@@ -246,6 +247,12 @@ class PyCabPanelGui(EngineGui):
         return max(measured_height, required_height)
 
     @property
+    def admin_footer_pad_px(self) -> int:
+        # Leave room for native controls in a shorter desktop window. The touchscreen
+        # keeps its larger footer spacing; this only changes the stand-alone cab.
+        return 8
+
+    @property
     def popup_may_cover_info_box(self) -> bool:
         """True: a panel that will not fit may have the ID/road-name row's height.
 
@@ -313,6 +320,15 @@ class PyCabGuiCmd(CommandBase):
         self._scope: CommandScope = cli.scope
         self._gui = None
 
+        server = getattr(cli.args, "server", None)
+        client = getattr(cli.args, "client", False)
+        base = getattr(cli.args, "base", None)
+        if base == "" and not client and not server:
+            log.info("Looking for Lionel Base on local network...")
+            base = find_base_address()
+            if base is None:
+                raise RuntimeError("pycab could not find a Lionel Base on the local network")
+
         # with PyTrain initialization sorted out, initialize CommandBase.
         # If we are stand-alone, set daemon to False, as we need the process to continue running.
         CommandBase.__init__(
@@ -321,9 +337,9 @@ class PyCabGuiCmd(CommandBase):
             None,
             1,
             scope=self._scope,
-            server=self._cli.args.server if "server" in self._cli.args else None,
-            client=self._cli.args.client if "client" in self._cli.args else False,
-            base=self._cli.args.base if "base" in self._cli.args else None,
+            server=server,
+            client=client,
+            base=base,
             cache_sync=True,
         )
         self._command = self._build_command()
@@ -416,8 +432,17 @@ class PyCabCli(CliBase):
             help="Open the window full screen",
         )
 
-        # Return parser
-        return PyTrainArgumentParser("Cab control panel options", parents=[parser, cls.cli_parser()])
+        parser = PyTrainArgumentParser(
+            "Cab control panel options", parents=[parser, cls.cli_parser()], conflict_handler="resolve"
+        )
+        parser.add_argument(
+            "-base",
+            nargs="?",
+            const="",
+            default=None,
+            help="IP Address of the Lionel Base 3 (discovered on the local network if omitted)",
+        )
+        return parser
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
