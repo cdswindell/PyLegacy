@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from tkinter import TclError
+from tkinter import Canvas, TclError
 from typing import Any, Callable, Literal
 
 from guizero import Box, PushButton, Text
@@ -42,11 +42,8 @@ DIVIDER_WIDTH = 2
 FOCUS_BORDER = 3
 FOCUS_COLOR = "#3B82F6"
 UNFOCUSED_COLOR = "#555555"
-# Append the text-presentation variation selector (U+FE0E) to the triangle
-# heads so the OS renders them as monochrome text honoring FOCUS_COLOR
-# instead of as black color-emoji (the ▬ shaft is not emoji-eligible).
-FOCUS_ARROW_LEFT = "◀\ufe0e▬"
-FOCUS_ARROW_RIGHT = "▬▶\ufe0e"
+# Pixel dimensions, independent of font metrics and Tk's points-to-pixels scaling.
+FOCUS_ARROW_WIDTH = 48
 FOCUS_ARROW_SIZE = 26
 # Controls-screen chrome. The header band reuses FOCUS_COLOR, the accent this GUI
 # already uses for the focused pane and the focus arrow.
@@ -183,8 +180,9 @@ class SteamDeckGui(GuiZeroBase):
 
         self.left_gui = self._build_controller("left", self.left_root, self._left_options)
         self.right_gui = self._build_controller("right", self.right_root, self._right_options)
-        self._build_focus_arrow()
+        # Apply the highlight borders before measuring the header's final position.
         self._refresh_focus_indicator()
+        self._build_focus_arrow()
         self._start_controller_input()
         # Have the help screen ready before it is asked for -- see CONTROLS_PREWARM_MS.
         # Scheduled here rather than built here so the panes reach the display first: the
@@ -236,10 +234,7 @@ class SteamDeckGui(GuiZeroBase):
     def on_show_controls(self) -> None:
         """Show the controls help screen across both panes."""
         self._ensure_controls_overlay().show()
-        # show()/hide() run body.display_widgets(), which re-grids every child of body --
-        # including the focus arrow, canceling the place() that tucks it into the
-        # divider. Without this it drops back into its full-height grid cell and floats
-        # at mid-screen.
+        # Recheck the header geometry after the overlay changes the body's layout.
         self._position_focus_arrow()
 
     def _ensure_controls_overlay(self) -> Box:
@@ -389,22 +384,18 @@ class SteamDeckGui(GuiZeroBase):
 
     def _build_focus_arrow(self) -> None:
         # An arrow that sits on the divider, in the same row as each pane's top
-        # pulldown, pointing toward whichever pane currently has focus.
-        #
-        # visible=False deliberately: the arrow is positioned by place() into the
-        # divider, and guizero only grids children it considers visible. Left visible it
-        # would be re-gridded by every body.display_widgets() -- which both canceled the
-        # place() (dropping the arrow to mid-screen) and widened the divider's grid
-        # column to the arrow's own width. place() is unaffected by guizero visibility,
-        # so the arrow still shows.
-        self.focus_arrow = Text(
-            self.body,
-            text=FOCUS_ARROW_RIGHT,
-            grid=[1, 0],
-            size=FOCUS_ARROW_SIZE,
-            color=FOCUS_COLOR,
-            visible=False,
+        # pulldown. A native Canvas avoids font substitution and stays outside
+        # guizero's automatic gridding, which would widen the divider's column.
+        self.focus_arrow = Canvas(
+            self.body.tk,
+            width=FOCUS_ARROW_WIDTH,
+            height=FOCUS_ARROW_SIZE,
+            background=self.body.bg,
+            borderwidth=0,
+            highlightthickness=0,
+            takefocus=False,
         )
+        self.focus_arrow.create_polygon(0, 0, 0, 0, 0, 0, fill=FOCUS_COLOR, outline="", tags="arrow")
         self._position_focus_arrow()
 
     def _position_focus_arrow(self) -> None:
@@ -412,17 +403,48 @@ class SteamDeckGui(GuiZeroBase):
         divider = getattr(self, "divider", None)
         if arrow is None or divider is None:
             return
-        arrow.tk.place(in_=divider.tk, relx=0.5, y=self._focus_arrow_y(), anchor="center")
-
-    def _focus_arrow_y(self) -> int:
+        top, header_height = FOCUS_BORDER, FOCUS_ARROW_SIZE
         header = getattr(self.left_gui, "header", None) if self.left_gui is not None else None
-        if header is None:
-            return FOCUS_BORDER + FOCUS_ARROW_SIZE
-        try:
-            self.body.tk.update_idletasks()
-            return FOCUS_BORDER + max(1, int(header.tk.winfo_reqheight()) // 2)
-        except (AttributeError, TclError, TypeError, ValueError):
-            return FOCUS_BORDER + FOCUS_ARROW_SIZE
+        if header is not None:
+            try:
+                self.body.tk.update_idletasks()
+                top = int(header.tk.winfo_rooty()) - int(divider.tk.winfo_rooty())
+                header_height = max(1, int(header.tk.winfo_height()))
+                if header_height == 1:
+                    header_height = max(1, int(header.tk.winfo_reqheight()))
+            except (AttributeError, TclError, TypeError, ValueError):
+                top, header_height = FOCUS_BORDER, FOCUS_ARROW_SIZE
+        # The opaque canvas must fit inside the header, even with very small fonts.
+        height = min(FOCUS_ARROW_SIZE, header_height)
+        arrow.configure(height=height)
+        arrow.place(
+            in_=divider.tk,
+            relx=0.5,
+            y=top + (header_height - height) // 2,
+            anchor="n",
+            bordermode="outside",
+            width=FOCUS_ARROW_WIDTH,
+            height=height,
+        )
+        self._draw_focus_arrow()
+
+    def _draw_focus_arrow(self) -> None:
+        arrow = getattr(self, "focus_arrow", None)
+        if arrow is None:
+            return
+        height = int(arrow.cget("height"))
+        points = (
+            (2, height * 0.35),
+            (FOCUS_ARROW_WIDTH * 0.6, height * 0.35),
+            (FOCUS_ARROW_WIDTH * 0.6, height * 0.1),
+            (FOCUS_ARROW_WIDTH - 2, height * 0.5),
+            (FOCUS_ARROW_WIDTH * 0.6, height * 0.9),
+            (FOCUS_ARROW_WIDTH * 0.6, height * 0.65),
+            (2, height * 0.65),
+        )
+        if self._focused_panel == "left":
+            points = tuple((FOCUS_ARROW_WIDTH - x, y) for x, y in points)
+        arrow.coords("arrow", *(coordinate for point in points for coordinate in point))
 
     def _refresh_focus_indicator(self) -> None:
         panes = (("left", getattr(self, "left_pane", None)), ("right", getattr(self, "right_pane", None)))
@@ -435,9 +457,7 @@ class SteamDeckGui(GuiZeroBase):
                 highlightbackground=color,
                 highlightcolor=color,
             )
-        arrow = getattr(self, "focus_arrow", None)
-        if arrow is not None:
-            arrow.value = FOCUS_ARROW_LEFT if self._focused_panel == "left" else FOCUS_ARROW_RIGHT
+        self._draw_focus_arrow()
 
     def transfer_linked_car(self, source_panel: PanelName, state: EngineState) -> bool:
         if source_panel not in ("left", "right"):
