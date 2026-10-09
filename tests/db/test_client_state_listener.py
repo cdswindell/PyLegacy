@@ -238,9 +238,7 @@ def test_handler_handles_multiple_recv_chunks(monkeypatch):
 
 
 @pytest.mark.parametrize("server_version", [(1, 3, 0), None])
-def test_managed_client_warns_about_newer_or_unknown_server_version(
-    monkeypatch, caplog, server_version
-) -> None:
+def test_managed_client_warns_about_newer_or_unknown_server_version(monkeypatch, caplog, server_version) -> None:
     import src.pytrain as pytrain_pkg
 
     monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1")
