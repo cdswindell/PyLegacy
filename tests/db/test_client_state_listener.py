@@ -235,3 +235,36 @@ def test_handler_handles_multiple_recv_chunks(monkeypatch):
 
     handler = ClientStateHandler.__new__(ClientStateHandler)
     handler.request = FakeReq
+
+
+@pytest.mark.parametrize("server_version", [(1, 3, 0), None])
+def test_managed_client_warns_about_newer_or_unknown_server_version(
+    monkeypatch, caplog, server_version
+) -> None:
+    import src.pytrain as pytrain_pkg
+
+    monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1")
+    monkeypatch.setattr(pytrain_pkg, "get_version", lambda: "1.2.3")
+    monkeypatch.setattr(pytrain_pkg, "get_version_tuple", lambda: (1, 2, 3))
+    listener = build_minimal_csl_with_fakes()
+    listener._tmcc_buffer.server_version = server_version
+
+    with caplog.at_level("WARNING"):
+        assert listener.update_client_if_needed() is True
+
+    assert "Client needs update" in caplog.text
+    assert "Update the Flatpak via your distributor" in caplog.text
+
+
+def test_managed_client_with_matching_version_has_no_update_warning(monkeypatch, caplog) -> None:
+    import src.pytrain as pytrain_pkg
+
+    monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1")
+    monkeypatch.setattr(pytrain_pkg, "get_version_tuple", lambda: (1, 2, 3))
+    listener = build_minimal_csl_with_fakes()
+    listener._tmcc_buffer.server_version = (1, 2, 3)
+
+    with caplog.at_level("WARNING"):
+        assert listener.update_client_if_needed() is False
+
+    assert "Client needs update" not in caplog.text
