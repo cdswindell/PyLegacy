@@ -137,7 +137,11 @@ class ClientStateListener(threading.Thread):
             if do_upgrade:
                 cv = f"{get_version()}"
                 sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
-                log.warning(f"Client needs update: {cv}{sv}. Update the Flatpak via your distributor." if self_update_disabled() else f"Client needs update: {cv}{sv}")
+                log.warning(
+                    f"Client needs update: {cv}{sv}. Update the Flatpak via your distributor."
+                    if self_update_disabled()
+                    else f"Client needs update: {cv}{sv}"
+                )
             return True
         return False
 
