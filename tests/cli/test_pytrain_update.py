@@ -505,3 +505,41 @@ def test_a_failed_power_command_is_logged(monkeypatch, caplog) -> None:
 
     assert "systemctl reboot" in caplog.text
     assert "exited 1" in caplog.text
+
+
+@pytest.mark.parametrize("is_api", [False, True])
+@pytest.mark.parametrize("is_package", [False, True])
+def test_externally_managed_update_never_runs_commands_or_relaunches(
+    monkeypatch, commands, is_api, is_package, caplog
+) -> None:
+    monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1")
+    monkeypatch.setattr("src.pytrain.is_package", lambda: is_package)
+    pytrain = _shell_out_pytrain(monkeypatch, is_api=is_api)
+    pytrain.relaunch = Mock()
+
+    with caplog.at_level(logging.WARNING):
+        pytrain.update()
+
+    assert commands == []
+    pytrain.relaunch.assert_not_called()
+    assert pytrain._exit_status is None
+    assert "self-update is disabled" in caplog.text
+
+
+@pytest.mark.parametrize("is_api", [False, True])
+def test_externally_managed_upgrade_never_runs_commands_or_reboots(
+    monkeypatch, commands, is_api, caplog
+) -> None:
+    monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1")
+    pytrain = _shell_out_pytrain(monkeypatch, is_api=is_api)
+    pytrain.update = Mock()
+    pytrain.relaunch = Mock()
+
+    with caplog.at_level(logging.WARNING):
+        pytrain.upgrade()
+
+    assert commands == []
+    pytrain.update.assert_not_called()
+    pytrain.relaunch.assert_not_called()
+    assert pytrain._exit_status is None
+    assert "self-update/upgrade is disabled" in caplog.text
