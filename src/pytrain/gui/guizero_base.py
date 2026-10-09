@@ -47,6 +47,7 @@ from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
+from .bundled_fonts import DIGITAL_DREAM_FAMILY, register_digital_font
 from .components.hold_button import HoldButton
 from .controller.engine_gui_conf import FONT_SIZE_EXCEPTIONS
 from .pycab_app import PyCabApp
@@ -66,7 +67,9 @@ MAX_GUI_MESSAGES_PER_POLL = 5
 DEFAULT_LAYOUT_TITLE = "My Layout"
 
 
-def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -> str:
+def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont", *, load_bundled: bool = False) -> str:
+    """Prefer installed fonts; optionally register Digital Dream before building its widgets."""
+
     def normalize(value: str) -> str:
         return "".join(character for character in value.casefold() if character.isalnum())
 
@@ -75,7 +78,21 @@ def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -
     except (AttributeError, RuntimeError, TclError):
         return fallback
     available = {normalize(family): family for family in families}
-    return available.get(normalize(preferred), fallback)
+    family = available.get(normalize(preferred))
+    if family is not None:
+        return family
+    if load_bundled and normalize(preferred) == normalize(DIGITAL_DREAM_FAMILY) and register_digital_font():
+        try:
+            # Aqua caches font families before registration. Ask for the font's real
+            # embedded family and check what Tk selected instead of trusting that list.
+            font = tkfont.Font(root=root, family=DIGITAL_DREAM_FAMILY)
+            family = font.actual("family")
+            if normalize(family) == normalize(preferred):
+                return family
+        except (AttributeError, RuntimeError, TclError) as exc:
+            log.warning("Unable to use bundled Digital Dream font: %s", exc)
+        log.warning("Digital Dream is not available to Tk; using %s", fallback)
+    return fallback
 
 
 # noinspection PyUnresolvedReferences

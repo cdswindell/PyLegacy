@@ -637,7 +637,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def build_gui(self) -> None:
         app = self.app
         root = self.root
-        self.digital_font = resolve_font_family(app.tk, "DigitalDream", fallback="DigitalDream")
+        self.digital_font = resolve_font_family(app.tk, "DigitalDream", fallback="TkDefaultFont", load_bundled=True)
 
         # customize label
         self.header = cb = Combo(

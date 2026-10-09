@@ -784,7 +784,7 @@ def test_destroy_embedded_finalizes_child_without_destroying_shared_app() -> Non
 
 def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: pytest.MonkeyPatch) -> None:
     roots: list[tuple[str, object]] = []
-    font_requests: list[tuple[str, str]] = []
+    font_requests: list[tuple[str, str, bool]] = []
     pane = SimpleNamespace(tk=SimpleNamespace(winfo_rootx=lambda: 100, winfo_rooty=lambda: 200))
     app_tk = SimpleNamespace(after_idle=lambda _func: None, after=lambda *_args: None)
     app = SimpleNamespace(tk=app_tk)
@@ -798,7 +798,9 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
     monkeypatch.setattr(
         mod,
         "resolve_font_family",
-        lambda _root, preferred, fallback: font_requests.append((preferred, fallback)) or fallback,
+        lambda _root, preferred, fallback, *, load_bundled: (
+            font_requests.append((preferred, fallback, load_bundled)) or fallback
+        ),
     )
     monkeypatch.setattr(
         mod.PdiDispatcher,
@@ -858,8 +860,8 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
         ("controller", pane),
         ("scope", pane),
     ]
-    assert font_requests == [("DigitalDream", "DigitalDream")]
-    assert gui.digital_font == "DigitalDream"
+    assert font_requests == [("DigitalDream", "TkDefaultFont", True)]
+    assert gui.digital_font == "TkDefaultFont"
     assert gui.popup_position == (10, 50)
 
 
@@ -881,7 +883,7 @@ def test_portrait_build_reserves_the_bottom_edge_before_anything_is_packed(
     monkeypatch.setattr(
         mod,
         "resolve_font_family",
-        lambda _root, preferred, fallback: fallback,
+        lambda _root, preferred, fallback, *, load_bundled: fallback,
     )
     monkeypatch.setattr(
         mod.PdiDispatcher,

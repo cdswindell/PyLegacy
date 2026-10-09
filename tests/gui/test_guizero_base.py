@@ -489,6 +489,70 @@ def test_resolve_font_family_uses_readable_fallback(monkeypatch: pytest.MonkeyPa
     assert mod.resolve_font_family(object(), "DigitalDream") == "TkDefaultFont"
 
 
+@pytest.mark.parametrize("family", ["Digital dream", "DigitalDream", "DIGITAL DREAM"])
+def test_installed_digital_font_takes_priority_over_the_bundle(monkeypatch, family) -> None:
+    register = Mock()
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica", family))
+    monkeypatch.setattr(mod, "register_digital_font", register)
+
+    assert mod.resolve_font_family(object(), "DigitalDream", load_bundled=True) == family
+    register.assert_not_called()
+
+
+def test_bundled_font_is_checked_even_when_tk_caches_its_family_list(monkeypatch) -> None:
+    root = object()
+    register = Mock(return_value=True)
+    font = Mock(return_value=SimpleNamespace(actual=lambda _option: "Digital dream"))
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica",))
+    monkeypatch.setattr(mod.tkfont, "Font", font)
+    monkeypatch.setattr(mod, "register_digital_font", register)
+
+    assert mod.resolve_font_family(root, "DigitalDream", load_bundled=True) == "Digital dream"
+    register.assert_called_once_with()
+    font.assert_called_once_with(root=root, family="Digital dream")
+
+
+@pytest.mark.parametrize("registered", [False, True])
+def test_bundled_font_never_returns_a_silently_substituted_font(monkeypatch, caplog, registered) -> None:
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica",))
+    monkeypatch.setattr(mod, "register_digital_font", Mock(return_value=registered))
+    font = Mock(return_value=SimpleNamespace(actual=lambda _option: "Helvetica"))
+    monkeypatch.setattr(mod.tkfont, "Font", font)
+
+    assert mod.resolve_font_family(object(), "DigitalDream", load_bundled=True) == "TkDefaultFont"
+    assert font.call_count == int(registered)
+    if registered:
+        assert "Digital Dream is not available to Tk" in caplog.text
+
+
+@pytest.mark.parametrize("preferred,load_bundled", [("DigitalDream", False), ("Helvetica", True)])
+def test_font_lookup_does_not_register_unless_requested_for_digital_dream(monkeypatch, preferred, load_bundled) -> None:
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ())
+    register = Mock()
+    monkeypatch.setattr(mod, "register_digital_font", register)
+
+    assert mod.resolve_font_family(object(), preferred, load_bundled=load_bundled) == "TkDefaultFont"
+    register.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["families", "Font"])
+def test_tk_font_errors_use_the_default_font(monkeypatch, operation) -> None:
+    monkeypatch.setattr(mod.tkfont, "families", Mock(return_value=()))
+    monkeypatch.setattr(mod, "register_digital_font", Mock(return_value=True))
+    monkeypatch.setattr(mod.tkfont, operation, Mock(side_effect=mod.TclError("font unavailable")))
+
+    assert mod.resolve_font_family(object(), "DigitalDream", load_bundled=True) == "TkDefaultFont"
+
+
+@pytest.mark.parametrize("error", [KeyboardInterrupt, SystemExit])
+def test_font_lookup_preserves_cancellation(monkeypatch, error) -> None:
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ())
+    monkeypatch.setattr(mod, "register_digital_font", Mock(side_effect=error))
+
+    with pytest.raises(error):
+        mod.resolve_font_family(object(), "DigitalDream", load_bundled=True)
+
+
 def _sized_png(tmp_path, name: str, size: tuple[int, int] = (200, 200)) -> str:
     path = tmp_path / name
     Image.new("RGB", size, "white").save(path, format="PNG")
