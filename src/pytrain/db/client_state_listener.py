@@ -33,6 +33,7 @@ from ..pdi.constants import (
 )
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
+from ..utils.update_policy import self_update_disabled
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class ClientStateListener(threading.Thread):
 
         # See if this client needs an upgrade. If it does, the actual upgrade
         # will be done by the PyTrain main program
-        if self.update_client_if_needed(False):
+        if self.update_client_if_needed(False) and not self_update_disabled():
             return
 
         self._tmcc_buffer.sync_state()  # request initial state from server
@@ -136,7 +137,7 @@ class ClientStateListener(threading.Thread):
             if do_upgrade:
                 cv = f"{get_version()}"
                 sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
-                log.info(f"Client needs update: {cv}{sv}")
+                log.warning(f"Client needs update: {cv}{sv}. Update the Flatpak via your distributor." if self_update_disabled() else f"Client needs update: {cv}{sv}")
             return True
         return False
 
