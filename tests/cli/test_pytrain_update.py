@@ -527,9 +527,7 @@ def test_externally_managed_update_never_runs_commands_or_relaunches(
 
 
 @pytest.mark.parametrize("is_api", [False, True])
-def test_externally_managed_upgrade_never_runs_commands_or_reboots(
-    monkeypatch, commands, is_api, caplog
-) -> None:
+def test_externally_managed_upgrade_never_runs_commands_or_reboots(monkeypatch, commands, is_api, caplog) -> None:
     monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1")
     pytrain = _shell_out_pytrain(monkeypatch, is_api=is_api)
     pytrain.update = Mock()
