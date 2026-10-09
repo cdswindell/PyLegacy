@@ -68,6 +68,7 @@ from ..protocol.constants import (
     Mixins,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from ..utils.update_policy import self_update_disabled
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_log_level, set_up_logging
 from ..utils.host_info import is_steam_deck
@@ -358,7 +359,7 @@ class PyTrain:
             # Load client state. Must be done before button file is processed
             if self.is_client:
                 assert isinstance(self._tmcc_listener, ClientStateListener)
-                if self._tmcc_listener.update_client_if_needed():
+                if self._tmcc_listener.update_client_if_needed() and not self_update_disabled():
                     self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
                 else:
                     self._load_client_state()
@@ -951,6 +952,10 @@ class PyTrain:
         method's relaunch would preempt it -- upgrade() does exactly that, because the
         reboot it issues afterward *is* the relaunch.
         """
+        if self_update_disabled():
+            log.warning("PyTrain self-update is disabled; install a newer application package instead.")
+            return
+
         from .. import PROGRAM_PACKAGE, installed_package, is_package
 
         if do_inform:
@@ -991,6 +996,9 @@ class PyTrain:
         return REQUIREMENTS
 
     def upgrade(self) -> None:
+        if self_update_disabled():
+            log.warning("PyTrain self-update/upgrade is disabled in this installation.")
+            return
         # The Steam Deck keeps SteamOS updated itself, and its root filesystem is
         # immutable, so apt and rpi-eeprom-update are both meaningless and unavailable
         # there. Skipping the OS half degrades upgrade() to a PyTrain update, the same
