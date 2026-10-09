@@ -895,3 +895,23 @@ def test_the_compact_admin_box_carries_no_chrome_of_its_own(monkeypatch) -> None
         if not compact:
             assert database.height == panel._gui.button_size
             assert database.tk.grid_propagates == [True, False]
+
+
+@pytest.mark.parametrize("managed", [False, True])
+def test_managed_update_button_cannot_be_held_or_triggered_by_controller(monkeypatch, managed) -> None:
+    monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1" if managed else "0")
+    panel = _panel(compact=True)
+    button = _FakeHoldButton()
+    monkeypatch.setattr(panel, "_hold_button", lambda _parent, **_kwargs: button)
+
+    from src.pytrain.utils.update_policy import self_update_disabled
+
+    panel._admin_hold_button(
+        object(),
+        text="Update PyTrain",
+        on_hold=(panel.do_admin_command, [mod.TMCC1SyncCommandEnum.UPDATE]),
+        enabled=not self_update_disabled(),
+    )
+
+    assert button.disabled is managed
+    assert ("UPDATE" in panel._admin_buttons) is not managed
