@@ -21,6 +21,7 @@ from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
 from ...utils.host_info import is_steam_deck
+from ...utils.update_policy import self_update_disabled
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
@@ -512,6 +513,7 @@ class AdminPanel(OverlayPanel):
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
+            enabled=not self_update_disabled(),
         )
 
         self._admin_hold_button(
