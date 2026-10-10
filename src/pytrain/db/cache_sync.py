@@ -25,6 +25,7 @@ from typing import Callable
 
 from . import prod_info
 from ..protocol.constants import DEFAULT_SERVER_PORT, PROGRAM_NAME
+from ..utils.path_utils import cache_directory
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ DEFAULT_CACHE_SYNC_POLL = float(os.environ.get("PYTRAIN_CACHE_SYNC_POLL", "30.0"
 DEFAULT_CACHE_SYNC_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_TIMEOUT", "30.0"))
 DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_CONNECT_TIMEOUT", "2.0"))
 DEFAULT_CACHE_SYNC_MAX_PAYLOAD = int(os.environ.get("PYTRAIN_CACHE_SYNC_MAX_PAYLOAD", str(64 * 1024 * 1024)))
-CONFIG_CACHE_DIR = os.environ.get("CONFIG_CACHE_DIR", "cache/config")
+CONFIG_CACHE_DIR = str(cache_directory("config", "CONFIG_CACHE_DIR"))
 
 
 class CacheSyncEvent(Enum):
