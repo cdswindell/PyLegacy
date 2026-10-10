@@ -334,7 +334,7 @@ def _resolve_existing_path(out_path: Path) -> Path:
     if out_path.is_absolute() or out_path.parent != Path("."):
         return out_path
 
-    cached_path = cache_directory("config", "CONFIG_CACHE_DIR") / out_path.name
+    cached_path = (Path.cwd() / cache_directory("config", "CONFIG_CACHE_DIR")) / out_path.name
     if cached_path.exists():
         return cached_path
 
@@ -350,7 +350,7 @@ def _top_level_config_path(path: Path) -> Path:
 
 
 def _cache_config_path(path: Path) -> Path:
-    return cache_directory("config", "CONFIG_CACHE_DIR") / path.name
+    return (Path.cwd() / cache_directory("config", "CONFIG_CACHE_DIR")) / path.name
 
 
 def _require_default_config_location(path: Path, action: str) -> None:
