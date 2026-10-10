@@ -23,7 +23,8 @@ from typing import Any, Iterable
 from ..gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
 from ..gui.accessories.accessory_registry import AccessoryRegistry, PortBehavior
 from ..gui.accessories.accessory_type import AccessoryType
-from ..gui.accessories.configured_accessory import DEFAULT_CONFIG_CACHE_DIR, DEFAULT_CONFIG_FILE
+from ..gui.accessories.configured_accessory import DEFAULT_CONFIG_FILE
+from ..utils.path_utils import cache_directory
 
 
 def _clean_accessory_list(
@@ -333,7 +334,7 @@ def _resolve_existing_path(out_path: Path) -> Path:
     if out_path.is_absolute() or out_path.parent != Path("."):
         return out_path
 
-    cached_path = Path.cwd() / DEFAULT_CONFIG_CACHE_DIR / out_path.name
+    cached_path = (Path.cwd() / cache_directory("config", "CONFIG_CACHE_DIR")) / out_path.name
     if cached_path.exists():
         return cached_path
 
@@ -349,7 +350,7 @@ def _top_level_config_path(path: Path) -> Path:
 
 
 def _cache_config_path(path: Path) -> Path:
-    return Path.cwd() / DEFAULT_CONFIG_CACHE_DIR / path.name
+    return (Path.cwd() / cache_directory("config", "CONFIG_CACHE_DIR")) / path.name
 
 
 def _require_default_config_location(path: Path, action: str) -> None:

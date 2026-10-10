@@ -3,6 +3,21 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+
+def cache_directory(subdir: str, legacy_env: str | None = None) -> Path:
+    """Resolve a PyTrain cache subdirectory.
+
+    PYTRAIN_CACHE_DIR is the shared root when configured. Without it, retain
+    the existing per-component environment variables and relative defaults.
+    Explicit per-component environment settings take precedence.
+    """
+    if legacy_env and os.environ.get(legacy_env):
+        return Path(os.environ[legacy_env]).expanduser()
+    root = os.environ.get("PYTRAIN_CACHE_DIR")
+    if root:
+        return Path(root).expanduser() / subdir
+    return Path("cache") / subdir
+
 EXCLUDE = {
     "__pycache__",
     ".tox",

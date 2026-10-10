@@ -20,6 +20,7 @@ from .accessory_gui_catalog import AccessoryGuiCatalog
 from .accessory_registry import AccessoryRegistry, OperationAssets
 from .accessory_type import AccessoryType
 from ...utils.singleton import singleton
+from ...utils.path_utils import cache_directory
 
 log = logging.getLogger(__name__)
 
@@ -488,8 +489,12 @@ class ConfiguredAccessorySet:
         if cwd_config.exists():
             return cwd_config
 
-        cached_config = Path.cwd() / DEFAULT_CONFIG_CACHE_DIR / requested.name
+        cached_config = Path.cwd() / cache_directory("config", "CONFIG_CACHE_DIR") / requested.name
         if cached_config.exists():
+            return cached_config
+
+        # With an explicit cache root, also watch for config files arriving later.
+        if cache_directory("config", "CONFIG_CACHE_DIR") != DEFAULT_CONFIG_CACHE_DIR:
             return cached_config
 
         return cwd_config
