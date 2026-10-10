@@ -190,3 +190,21 @@ def test_find_packaged_asset_outside_working_directory(tmp_path: Path, monkeypat
     assert path is not None
     assert Path(path).name == "RR-Speeds.jpg"
     assert Path(path).is_file()
+
+
+def test_explicit_cache_root_under_hidden_parent(tmp_path: Path):
+    """Explicit Flatpak-style cache roots are searchable despite hidden ancestors."""
+    reset_path_index()
+    cache_dir = tmp_path / ".var" / "app" / "pycab" / "data" / "cache" / "engine_images"
+    cache_dir.mkdir(parents=True)
+    image = cache_dir / "60.jpg"
+    image.write_bytes(b"test image")
+
+    # A string target exercises the directory index, not the concrete-Path shortcut.
+    assert norm(find_file("60.jpg", (Path.cwd(), cache_dir))) == norm(str(image))
+
+    # Hidden subdirectories *inside* the root must still be excluded.
+    hidden = cache_dir / ".private"
+    hidden.mkdir()
+    (hidden / "hidden.jpg").write_bytes(b"hidden")
+    assert find_file("hidden.jpg", (cache_dir,)) is None
