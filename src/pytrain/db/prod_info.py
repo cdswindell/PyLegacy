@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 import requests
 from dotenv import find_dotenv, load_dotenv
 
-from ..utils.path_utils import find_file
+from ..utils.path_utils import cache_directory, find_file
 
 log = logging.getLogger(__name__)
 
@@ -29,8 +29,8 @@ log = logging.getLogger(__name__)
 load_dotenv(find_dotenv())
 API_KEY = os.environ.get("LIONEL_API_KEY")
 PROD_INFO_URL = os.environ.get("PROD_INFO_URL")
-ENGINE_INFO_CACHE_DIR = os.environ.get("ENGINE_INFO_CACHE_DIR", "cache/engine_info")
-ENGINE_IMAGES_CACHE_DIR = os.environ.get("ENGINE_IMAGES_CACHE_DIR", "cache/engine_images")
+ENGINE_INFO_CACHE_DIR = str(cache_directory("engine_info", "ENGINE_INFO_CACHE_DIR"))
+ENGINE_IMAGES_CACHE_DIR = str(cache_directory("engine_images", "ENGINE_IMAGES_CACHE_DIR"))
 PROD_INFO_CONNECT_TIMEOUT = float(os.environ.get("PROD_INFO_CONNECT_TIMEOUT", "10.0"))
 PROD_INFO_READ_TIMEOUT = float(os.environ.get("PROD_INFO_READ_TIMEOUT", "20.0"))
 
