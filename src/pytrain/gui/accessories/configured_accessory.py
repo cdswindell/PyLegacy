@@ -489,7 +489,7 @@ class ConfiguredAccessorySet:
         if cwd_config.exists():
             return cwd_config
 
-        cached_config = cache_directory("config", "CONFIG_CACHE_DIR") / requested.name
+        cached_config = Path.cwd() / cache_directory("config", "CONFIG_CACHE_DIR") / requested.name
         if cached_config.exists():
             return cached_config
 
