@@ -18,6 +18,7 @@ def cache_directory(subdir: str, legacy_env: str | None = None) -> Path:
         return Path(root).expanduser() / subdir
     return Path("cache") / subdir
 
+
 EXCLUDE = {
     "__pycache__",
     ".tox",
