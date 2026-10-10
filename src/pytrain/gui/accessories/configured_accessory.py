@@ -493,6 +493,10 @@ class ConfiguredAccessorySet:
         if cached_config.exists():
             return cached_config
 
+        # With an explicit cache root, also watch for config files arriving later.
+        if cache_directory("config", "CONFIG_CACHE_DIR") != DEFAULT_CONFIG_CACHE_DIR:
+            return cached_config
+
         return cwd_config
 
     # noinspection PyUnresolvedReferences
