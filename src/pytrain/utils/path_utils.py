@@ -119,7 +119,10 @@ def _build_index(places: Tuple, want_dirs: bool) -> dict[str, list[str]]:
                 continue
 
             root_path = Path(root).resolve()
-            parts = root_path.parts
+            # Prune hidden/excluded directories *within* the search root, not
+            # its ancestors. Explicit roots may live under hidden directories
+            # (e.g. Flatpak's ~/.var/app/.../cache).
+            parts = root_path.relative_to(Path(d).resolve()).parts
             if any(p.startswith(".") or p in EXCLUDE for p in parts):
                 continue
 
