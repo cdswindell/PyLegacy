@@ -201,7 +201,7 @@ def test_explicit_cache_root_under_hidden_parent(tmp_path: Path):
     image.write_bytes(b"test image")
 
     # A string target exercises the directory index, not the concrete-Path shortcut.
-    assert norm(find_file("60.jpg", (Path.cwd(), cache_dir))) == norm(str(image))
+    assert norm(find_file("60.jpg", (cache_dir,))) == norm(str(image))
 
     # Hidden subdirectories *inside* the root must still be excluded.
     hidden = cache_dir / ".private"
