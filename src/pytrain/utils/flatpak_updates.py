@@ -13,15 +13,15 @@ import re
 from dataclasses import dataclass
 from urllib.request import Request, urlopen
 
-RELEASE_TAG_FILE = Path('/app/share/pycab/release-tag')
+RELEASE_TAG_FILE = Path("/app/share/pycab/release-tag")
 
 
 def installed_flatpak_tag() -> str | None:
     """Return embedded bundle release tag only inside our Flatpak sandbox."""
-    if os.environ.get('FLATPAK_ID') != 'io.github.cdswindell.PyCab':
+    if os.environ.get("FLATPAK_ID") != "io.github.cdswindell.PyCab":
         return None
     try:
-        tag = RELEASE_TAG_FILE.read_text(encoding='utf-8').strip()
+        tag = RELEASE_TAG_FILE.read_text(encoding="utf-8").strip()
         version_key(tag)
         return tag
     except (OSError, ValueError):
