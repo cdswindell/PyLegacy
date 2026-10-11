@@ -860,7 +860,7 @@ class AdminPanel(OverlayPanel):
         if status is not None and self._flatpak_update_button is not None and not self.hold_in_progress:
             label = f"Update {PROGRAM_NAME}"
             if status.startswith("Update available:"):
-                label = f"Update available! ({status.partition(': ')[2]})"
+                label = "Update available!"
             self._flatpak_update_button.text = label
         if self._flatpak_update_after_id is None and status is None:
             self._flatpak_update_after_id = self._overlay.tk.after(500, self._poll_flatpak_update_status)
