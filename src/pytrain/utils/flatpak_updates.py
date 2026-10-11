@@ -7,9 +7,26 @@ This module is intentionally independent of PyTrain's pip/git update paths.
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 import re
 from dataclasses import dataclass
 from urllib.request import Request, urlopen
+
+RELEASE_TAG_FILE = Path('/app/share/pycab/release-tag')
+
+
+def installed_flatpak_tag() -> str | None:
+    """Return embedded bundle release tag only inside our Flatpak sandbox."""
+    if os.environ.get('FLATPAK_ID') != 'io.github.cdswindell.PyCab':
+        return None
+    try:
+        tag = RELEASE_TAG_FILE.read_text(encoding='utf-8').strip()
+        version_key(tag)
+        return tag
+    except (OSError, ValueError):
+        return None
+
 
 RELEASE_URL = "https://api.github.com/repos/cdswindell/PyCab-Flatpak/releases/latest"
 _RELEASE_TAG = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?$")
