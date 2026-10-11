@@ -522,7 +522,7 @@ class AdminPanel(OverlayPanel):
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
-            enabled=not self_update_disabled(),
+            enabled=self._flatpak_tag is None and not self_update_disabled(),
         )
 
         self._admin_hold_button(
@@ -853,7 +853,7 @@ class AdminPanel(OverlayPanel):
 
     def _refresh_flatpak_update_status(self) -> None:
         """Poll cached status from Tk, without accessing Tk in the worker."""
-        if self._flatpak_tag is None or self._overlay is None or not self._overlay.visible:
+        if self._flatpak_tag is None or self._overlay is None:
             return
         with self._flatpak_update_lock:
             status = self._flatpak_update_status
