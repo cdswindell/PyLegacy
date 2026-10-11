@@ -94,3 +94,11 @@ def test_pending_update_schedules_tk_poll():
     panel = _panel()
     panel._refresh_flatpak_update_status()
     assert panel._flatpak_update_after_id == "poll-1"
+
+
+def test_pending_update_polls_before_overlay_is_visible():
+    """Overlay getter runs before the popup is shown; polling must still start."""
+    panel = _panel()
+    panel._overlay.visible = False
+    panel._refresh_flatpak_update_status()
+    assert panel._flatpak_update_after_id == "poll-1"
