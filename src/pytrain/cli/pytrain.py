@@ -675,21 +675,30 @@ class PyTrain:
                 if self.is_server:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
-            # Handles authorized admin commands; interrupts main loop; sets exit status
-            if self._claim_admin_exit(message.command, source="callback"):
-                if self.is_client and message.command == TMCC1SyncCommandEnum.QUIT:
-                    log.info("Client exiting...")
-                if self._api_thread:
-                    self.shutdown()
-                if self.is_api:
-                    if self._cache_sync_manager is not None:
-                        log.warning("Cache sync cleanup is incomplete")
-                    status = PyTrainExitStatus.by_name(message.command.name, raise_exception=False)
-                    if status is not None:
-                        self._notify_api_exit(status)
-                        return
-                self._log_admin_exit("Sending internal SIGINT", message.command, source="callback")
-                os.kill(os.getpid(), signal.SIGINT)
+            self._request_admin_exit(message.command, source="callback")
+
+    def _request_admin_exit(
+        self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False
+    ) -> None:
+        """Claim an admin exit once, then use the existing API/SIGINT shutdown path."""
+        if not self._claim_admin_exit(command, source=source):
+            return
+        if local_flatpak_restart:
+            with self._admin_state_lock:
+                self._flatpak_local_restart = True
+        if self.is_client and command == TMCC1SyncCommandEnum.QUIT:
+            log.info("Client exiting...")
+        if self._api_thread:
+            self.shutdown()
+        if self.is_api:
+            if self._cache_sync_manager is not None:
+                log.warning("Cache sync cleanup is incomplete")
+            status = PyTrainExitStatus.by_name(command.name, raise_exception=False)
+            if status is not None:
+                self._notify_api_exit(status)
+                return
+        self._log_admin_exit("Sending internal SIGINT", command, source=source)
+        os.kill(os.getpid(), signal.SIGINT)
 
     def _notify_api_exit(self, status: PyTrainExitStatus) -> None:
         """Publish exit status once and notify the API host process.
@@ -736,11 +745,9 @@ class PyTrain:
 
         if installed_flatpak_tag() is None:
             raise RuntimeError("Local Flatpak restart requires a PyCab Flatpak installation")
-        if not self._claim_admin_exit(TMCC1SyncCommandEnum.RESTART, source="flatpak-local"):
-            return
-        with self._admin_state_lock:
-            self._flatpak_local_restart = True
-        os.kill(os.getpid(), signal.SIGINT)
+        self._request_admin_exit(
+            TMCC1SyncCommandEnum.RESTART, source="flatpak-local", local_flatpak_restart=True
+        )
 
     def _claim_admin_exit(self, command: CommandDefEnum, *, source: str) -> bool:
         with self._admin_state_lock:
