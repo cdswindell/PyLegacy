@@ -451,7 +451,7 @@ class PyTrain:
                     elif aa == TMCC1SyncCommandEnum.UPDATE:
                         self.update()
                     elif aa == TMCC1SyncCommandEnum.RESTART:
-                        if getattr(self, "_flatpak_local_restart", False):
+                        if self._flatpak_local_restart:
                             # run() has completed normal teardown; ask the host
                             # Steam launcher to start a new Flatpak instance.
                             raise SystemExit(75)
