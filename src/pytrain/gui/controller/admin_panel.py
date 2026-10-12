@@ -123,6 +123,8 @@ class AdminPanel(OverlayPanel):
         self._flatpak_update_available = False
         self._flatpak_update_running = False
         self._flatpak_update_button = None
+        self._reboot_btn = None
+        self._shutdown_btn = None
         self._flatpak_update_after_id = None
         self._needs_scope_fix = True
         # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
@@ -476,6 +478,7 @@ class AdminPanel(OverlayPanel):
             align="top",
             width=self.control_half_width,
             style="radio",
+            command=self._refresh_flatpak_power_buttons,
         )
         self._mirror_two_up_columns(self._scope_btns)
 
@@ -507,12 +510,12 @@ class AdminPanel(OverlayPanel):
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
-        self._admin_hold_button(
+        self._reboot_btn = self._admin_hold_button(
             tb,
             text="Reboot",
             grid=[right_col, restart_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
-            enabled=getattr(self, "_flatpak_tag", None) is None,
+            enabled=self._flatpak_tag is None or self._scope_btns.value == "1",
         )
 
         if not self._compact:
@@ -548,11 +551,12 @@ class AdminPanel(OverlayPanel):
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
         )
 
-        self._admin_hold_button(
+        self._shutdown_btn = self._admin_hold_button(
             tb,
             text="Shutdown",
             grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
+            enabled=self._flatpak_tag is None or self._scope_btns.value == "1",
         )
 
         # No spacer between the destructive actions and the Controls/Close row: the row is no
@@ -961,14 +965,20 @@ class AdminPanel(OverlayPanel):
     def _on_debug(self) -> None:
         self._pytrain.debug = bool(self._debug_btn.value)
 
+    def _refresh_flatpak_power_buttons(self) -> None:
+        """Power commands are remote-only on the Deck and require All scope."""
+        if getattr(self, "_flatpak_tag", None) is None:
+            return
+        enabled = self._scope_btns.value == "1"
+        for button in (self._reboot_btn, self._shutdown_btn):
+            if button is not None:
+                button.enable() if enabled else button.disable()
+
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if getattr(self, "_flatpak_tag", None) is not None:
-            if command == TMCC1SyncCommandEnum.REBOOT:
-                return
-            if command == TMCC1SyncCommandEnum.SHUTDOWN:
-                # Never shut down the sandbox or host. Forward to other nodes,
-                # regardless of the local/all scope selected on the Deck.
-                self._gui.do_tmcc_request(command)
+            if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
+                if self._scope_btns.value == "1":
+                    self._gui.do_tmcc_request(command)
                 return
             if command == TMCC1SyncCommandEnum.RESTART:
                 # Request local clean shutdown; the host launcher restarts after exit 42.
