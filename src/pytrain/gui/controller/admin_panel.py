@@ -8,7 +8,6 @@
 #
 import ipaddress
 import logging
-import os
 import socket
 from threading import RLock, Thread
 from typing import TYPE_CHECKING
@@ -958,9 +957,9 @@ class AdminPanel(OverlayPanel):
             if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
                 return
             if command == TMCC1SyncCommandEnum.RESTART:
-                # The host Steam launcher recognizes 75 as a local application restart.
-                # Do not broadcast a restart to the connected Raspberry Pi server.
-                os._exit(75)
+                # Request local clean shutdown; the host launcher restarts after exit 75.
+                self._pytrain.request_local_restart()
+                return
         if self._scope_btns.value == "0":
             Thread(
                 target=self._pytrain.do_admin_cmd,
