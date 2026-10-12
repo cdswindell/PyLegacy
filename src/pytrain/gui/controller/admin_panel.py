@@ -887,7 +887,7 @@ class AdminPanel(OverlayPanel):
             if status.startswith("Update available:"):
                 label = "Update available!"
             self._flatpak_update_button.text = label
-            if self._flatpak_update_available or self._scope_btns.value == "1":
+            if self._flatpak_update_available or getattr(getattr(self, "_scope_btns", None), "value", None) == "1":
                 self._flatpak_update_button.enable()
             else:
                 self._flatpak_update_button.disable()
@@ -996,11 +996,12 @@ class AdminPanel(OverlayPanel):
         for button in (self._reboot_btn, self._shutdown_btn):
             if button is not None:
                 button.enable() if enabled else button.disable()
-        if self._flatpak_update_button is not None and not self.hold_in_progress:
-            if enabled or self._flatpak_update_available:
-                self._flatpak_update_button.enable()
+        update_button = getattr(self, "_flatpak_update_button", None)
+        if update_button is not None and not self.hold_in_progress:
+            if enabled or getattr(self, "_flatpak_update_available", False):
+                update_button.enable()
             else:
-                self._flatpak_update_button.disable()
+                update_button.disable()
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if getattr(self, "_flatpak_tag", None) is not None:
