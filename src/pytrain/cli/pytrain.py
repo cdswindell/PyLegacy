@@ -677,9 +677,7 @@ class PyTrain:
                 return
             self._request_admin_exit(message.command, source="callback")
 
-    def _request_admin_exit(
-        self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False
-    ) -> None:
+    def _request_admin_exit(self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False) -> None:
         """Claim an admin exit once, then use the existing API/SIGINT shutdown path."""
         if not self._claim_admin_exit(command, source=source):
             return
@@ -745,9 +743,7 @@ class PyTrain:
 
         if installed_flatpak_tag() is None:
             raise RuntimeError("Local Flatpak restart requires a PyCab Flatpak installation")
-        self._request_admin_exit(
-            TMCC1SyncCommandEnum.RESTART, source="flatpak-local", local_flatpak_restart=True
-        )
+        self._request_admin_exit(TMCC1SyncCommandEnum.RESTART, source="flatpak-local", local_flatpak_restart=True)
 
     def _claim_admin_exit(self, command: CommandDefEnum, *, source: str) -> bool:
         with self._admin_state_lock:
