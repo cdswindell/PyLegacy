@@ -522,7 +522,7 @@ class AdminPanel(OverlayPanel):
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
-            enabled=self._flatpak_tag is None and not self_update_disabled(),
+            enabled=getattr(self, "_flatpak_tag", None) is None and not self_update_disabled(),
         )
 
         self._admin_hold_button(
