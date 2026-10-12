@@ -632,7 +632,6 @@ def test_update_component_info_same_selection_skips_redundant_ops_mode_and_image
     gui._active_engine_state = state
     gui._last_displayed_scope = CommandScope.ENGINE
     gui._last_displayed_tmcc_id = 34
-    gui._keypad_view.is_entry_mode = False
     gui._state_store = SimpleNamespace(
         get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ENGINE, 34) else None
     )
