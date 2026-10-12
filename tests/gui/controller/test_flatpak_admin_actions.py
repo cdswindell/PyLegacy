@@ -53,10 +53,10 @@ def test_flatpak_update_requests_host_install_then_local_restart(monkeypatch, tm
     panel._flatpak_update_available = True
     calls = []
     marker = tmp_path / "pycab-update-request"
-    monkeypatch.setattr(mod, "request_flatpak_update", lambda: (marker.write_text("update\\n"), marker)[1])
+    monkeypatch.setattr(mod, "request_flatpak_update", lambda: (marker.write_text("update\n"), marker)[1])
     panel._pytrain = SimpleNamespace(request_local_restart=lambda: calls.append("restart"))
     panel.do_admin_command(Sync.UPDATE)
-    assert marker.read_text() == "update\\n"
+    assert marker.read_text() == "update\n"
     assert calls == ["restart"]
 
 
