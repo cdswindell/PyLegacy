@@ -216,7 +216,12 @@ def get_version_tuple() -> tuple[int, int, int]:
         plus_pos = version.find("+")
         version = version[0:plus_pos]
     version = version.split(".")
-    return int(version[0]), int(version[1]), int(version[2])
+    if len(version) < 3:
+        raise ValueError(f"Invalid PyTrain version: expected major.minor.patch, got {get_version()!r}")
+    try:
+        return int(version[0]), int(version[1]), int(version[2])
+    except ValueError as exc:
+        raise ValueError(f"Invalid PyTrain version components: {get_version()!r}") from exc
 
 
 def get_version_bytes() -> bytes:
