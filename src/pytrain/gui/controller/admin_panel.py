@@ -553,7 +553,6 @@ class AdminPanel(OverlayPanel):
             text="Shutdown",
             grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
-            enabled=getattr(self, "_flatpak_tag", None) is None,
         )
 
         # No spacer between the destructive actions and the Controls/Close row: the row is no
@@ -964,7 +963,12 @@ class AdminPanel(OverlayPanel):
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if getattr(self, "_flatpak_tag", None) is not None:
-            if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
+            if command == TMCC1SyncCommandEnum.REBOOT:
+                return
+            if command == TMCC1SyncCommandEnum.SHUTDOWN:
+                # Never shut down the sandbox or host. Forward to other nodes,
+                # regardless of the local/all scope selected on the Deck.
+                self._gui.do_tmcc_request(command)
                 return
             if command == TMCC1SyncCommandEnum.RESTART:
                 # Request local clean shutdown; the host launcher restarts after exit 42.
