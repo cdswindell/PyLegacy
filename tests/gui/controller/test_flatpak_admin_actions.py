@@ -91,3 +91,39 @@ def test_flatpak_scope_change_toggles_power_buttons():
     panel._scope_btns.value = "1"
     panel._refresh_flatpak_power_buttons()
     assert calls == [("reboot", True), ("shutdown", True)]
+
+
+def test_initially_disabled_admin_button_remains_registered_for_chords(monkeypatch):
+    """Flatpak power buttons become chord-accessible after switching to All."""
+    panel = _panel("v2.12.6")
+    panel._admin_buttons = {}
+    events = []
+
+    class FakeHoldButton:
+        enabled = True
+
+        def disable(self):
+            self.enabled = False
+
+        def enable(self):
+            self.enabled = True
+
+        def begin_hold(self):
+            if self.enabled:
+                events.append("held")
+
+    button = FakeHoldButton()
+    monkeypatch.setattr(panel, "_hold_button", lambda *_args, **_kwargs: button)
+    result = panel._admin_hold_button(
+        None,
+        enabled=False,
+        on_hold=(panel.do_admin_command, [Sync.REBOOT]),
+    )
+    assert result is button
+    assert panel._admin_buttons["REBOOT"] is button
+    assert button.enabled is False
+    button.begin_hold()
+    assert events == []
+    button.enable()
+    button.begin_hold()
+    assert events == ["held"]
