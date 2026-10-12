@@ -1017,14 +1017,18 @@ class AdminPanel(OverlayPanel):
                 # delivery to the server and other clients.
                 if self._scope_btns.value == "1":
                     self._pytrain.broadcast_update_to_other_nodes()
-                if not self._flatpak_update_available:
-                    return
-                marker = request_flatpak_update()
-                try:
+                if self._flatpak_update_available:
+                    marker = request_flatpak_update()
+                    try:
+                        self._pytrain.request_local_restart()
+                    except Exception:
+                        marker.unlink(missing_ok=True)
+                        raise
+                elif self._scope_btns.value == "1" and self._pytrain.is_client:
+                    # Refresh client/server handshaking after other nodes update,
+                    # even if this Deck already has the latest Flatpak.
                     self._pytrain.request_local_restart()
-                except Exception:
-                    marker.unlink(missing_ok=True)
-                    raise
+                # An up-to-date Deck server must stay running.
                 return
         if self._scope_btns.value == "0":
             Thread(
