@@ -25,7 +25,7 @@ def test_flatpak_restart_requests_clean_local_shutdown():
     assert calls == ["restart"]
 
 
-@pytest.mark.parametrize("command", [Sync.REBOOT, Sync.SHUTDOWN])
+@pytest.mark.parametrize("command", [Sync.REBOOT])
 def test_flatpak_power_commands_are_noops(command):
     panel = _panel("v2.12.4")
     panel.do_admin_command(command)
@@ -63,3 +63,13 @@ def test_flatpak_update_requests_host_install_then_local_restart(monkeypatch, tm
 def test_flatpak_update_without_available_release_does_nothing():
     panel = _panel("v2.12.6")
     panel.do_admin_command(Sync.UPDATE)
+
+
+def test_flatpak_shutdown_broadcasts_to_other_nodes_regardless_of_scope():
+    for scope in ("0", "1"):
+        panel = _panel("v2.12.6")
+        panel._scope_btns.value = scope
+        calls = []
+        panel._gui = SimpleNamespace(do_tmcc_request=lambda command: calls.append(command))
+        panel.do_admin_command(Sync.SHUTDOWN)
+        assert calls == [Sync.SHUTDOWN]
