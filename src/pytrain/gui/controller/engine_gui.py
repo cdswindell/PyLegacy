@@ -63,7 +63,7 @@ from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector, event_screen_y, event_targets
 from ..guizero_base import GuiZeroBase, resolve_font_family
 from ...db.accessory_state import AccessoryState
-from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
+from ...db.component_state import ComponentState, RouteState, SwitchState
 from ...db.component_state_store import ComponentStateStore
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
@@ -799,11 +799,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._state_info = StateInfoOverlay(self)
         overlay = self._state_info.overlay
 
-        scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
-        is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
-
         # show/hide fields in the overlay
-        self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs, accessory=self.active_accessory)
+        self._state_info.reset_visibility(state, accessory=self.active_accessory)
         self._state_info.update(state, new=is_new)
         self._unbind_image_long_press()
         self.show_popup(overlay)

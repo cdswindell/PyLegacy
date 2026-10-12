@@ -18,7 +18,7 @@ from .popup_manager import footer_spacer, style_footer_button
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
-from ...db.component_state import ComponentState, LcsProxyState
+from ...db.component_state import ComponentState, LcsProxyState, SwitchState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
 from ...pdi.base_req import BaseReq
@@ -386,9 +386,11 @@ class StateInfoOverlay(OverlayPanel):
                 else:
                     field.cancel_edit()
 
-    def reset_visibility(self, scope, is_lcs_proxy=False, accessory: ConfiguredAccessoryAdapter = None):
+    def reset_visibility(self, state: S, accessory: ConfiguredAccessoryAdapter = None):
+        is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
+
         """Hides or shows fields based on the context."""
-        current_scope = CommandScope.ACC if is_lcs_proxy else scope
+        current_scope = CommandScope.ACC if is_lcs and not isinstance(state, SwitchState) else state.scope
         current_scope = (
             CommandScope.CONFIGURED if current_scope == CommandScope.ACC and accessory is not None else current_scope
         )
