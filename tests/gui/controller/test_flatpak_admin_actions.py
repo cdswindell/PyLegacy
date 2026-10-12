@@ -1,4 +1,4 @@
-"""Flatpak admin actions must never control the remote PyTrain server."""
+"""Flatpak power commands affect remote nodes only when All is selected."""
 
 from types import SimpleNamespace
 
@@ -25,9 +25,10 @@ def test_flatpak_restart_requests_clean_local_shutdown():
     assert calls == ["restart"]
 
 
-@pytest.mark.parametrize("command", [Sync.REBOOT])
-def test_flatpak_power_commands_are_noops(command):
+@pytest.mark.parametrize("command", [Sync.REBOOT, Sync.SHUTDOWN])
+def test_flatpak_local_power_commands_are_noops(command):
     panel = _panel("v2.12.4")
+    panel._gui = SimpleNamespace(do_tmcc_request=lambda *_: pytest.fail("local power command forwarded"))
     panel.do_admin_command(command)
 
 
@@ -65,11 +66,26 @@ def test_flatpak_update_without_available_release_does_nothing():
     panel.do_admin_command(Sync.UPDATE)
 
 
-def test_flatpak_shutdown_broadcasts_to_other_nodes_regardless_of_scope():
-    for scope in ("0", "1"):
-        panel = _panel("v2.12.6")
-        panel._scope_btns.value = scope
-        calls = []
-        panel._gui = SimpleNamespace(do_tmcc_request=lambda command: calls.append(command))
-        panel.do_admin_command(Sync.SHUTDOWN)
-        assert calls == [Sync.SHUTDOWN]
+@pytest.mark.parametrize("command", [Sync.REBOOT, Sync.SHUTDOWN])
+def test_flatpak_all_scope_forwards_power_command(command):
+    panel = _panel("v2.12.6")
+    panel._scope_btns.value = "1"
+    calls = []
+    panel._gui = SimpleNamespace(do_tmcc_request=lambda cmd: calls.append(cmd))
+    panel.do_admin_command(command)
+    assert calls == [command]
+
+
+def test_flatpak_scope_change_toggles_power_buttons():
+    panel = _panel("v2.12.6")
+    calls = []
+    def button(name):
+        return SimpleNamespace(enable=lambda: calls.append((name, True)), disable=lambda: calls.append((name, False)))
+    panel._reboot_btn = button("reboot")
+    panel._shutdown_btn = button("shutdown")
+    panel._refresh_flatpak_power_buttons()
+    assert calls == [("reboot", False), ("shutdown", False)]
+    calls.clear()
+    panel._scope_btns.value = "1"
+    panel._refresh_flatpak_power_buttons()
+    assert calls == [("reboot", True), ("shutdown", True)]
