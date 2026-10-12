@@ -14,7 +14,7 @@ def _panel(tag="v2.12.4-3"):
     panel._flatpak_update_available = False
     panel._flatpak_update_running = False
     panel._flatpak_update_after_id = None
-    panel._flatpak_update_button = SimpleNamespace(text="Update PyTrain")
+    panel._flatpak_update_button = SimpleNamespace(text="Update PyTrain", enable=lambda: None, disable=lambda: None)
     panel._admin_buttons = {}
     panel._overlay = SimpleNamespace(visible=True, tk=SimpleNamespace(after=lambda *_: "poll-1"))
     return panel
