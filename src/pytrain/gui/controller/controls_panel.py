@@ -208,6 +208,20 @@ FOOTER_LINES = 2
 # The named font guizero's widgets inherit here: nothing in this GUI sets a family, and
 # guizero's text_size keeps the family it finds -- so this is what actually gets drawn.
 DEFAULT_FONT_NAME = "TkDefaultFont"
+
+
+# Temporary font diagnostics
+def debug_tk_fonts(widget):
+    root = getattr(widget, "tk", widget)
+
+    for name in ("TkDefaultFont", "TkTextFont", "TkHeadingFont"):
+        font = tkfont.nametofont(name, root=root)
+        print(f"{name}: {font.actual()}")
+
+    log.info("Available font families:")
+    log.info(sorted(tkfont.families(root=root)))
+
+
 # Raised when there is no display, no interpreter, or a stand-in widget in place of a real
 # one. Measuring is an improvement on estimating, never a requirement for drawing.
 MEASURE_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
@@ -284,6 +298,7 @@ class TextRuler:
         varies: a ruler is only worth having if it measures the size it is asked about.
         """
         try:
+            debug_tk_fonts(widget)
             root = getattr(widget, "tk", widget)
             family = tkfont.nametofont(DEFAULT_FONT_NAME, root=root).actual("family")
             entry = tkfont.Font(root=root, family=family, size=entry_size)
