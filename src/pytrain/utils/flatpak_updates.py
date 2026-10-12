@@ -96,5 +96,5 @@ def request_flatpak_update() -> Path:
     directory = Path(data_home)
     directory.mkdir(parents=True, exist_ok=True)
     marker = directory / UPDATE_REQUEST_NAME
-    marker.write_text("update\\n", encoding="utf-8")
+    marker.write_text("update\n", encoding="utf-8")
     return marker
