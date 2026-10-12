@@ -762,7 +762,6 @@ class CompData(ABC, Generic[R]):
                         if address != 99:
                             log.warning(f"Valid {field} byte not found for {scope}:{address}, continuing...")
                         return None
-                print(f"*** {scope}:{address} {field} {base_value}")
             elif transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
             else:
