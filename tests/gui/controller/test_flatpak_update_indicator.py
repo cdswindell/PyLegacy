@@ -11,6 +11,7 @@ def _panel(tag="v2.12.4-3"):
     panel._flatpak_tag = tag
     panel._flatpak_update_lock = RLock()
     panel._flatpak_update_status = None
+    panel._flatpak_update_available = False
     panel._flatpak_update_running = False
     panel._flatpak_update_after_id = None
     panel._flatpak_update_button = SimpleNamespace(text="Update PyTrain")
