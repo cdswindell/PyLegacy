@@ -20,7 +20,7 @@ from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
-from ...utils.flatpak_updates import check_flatpak_update, installed_flatpak_tag
+from ...utils.flatpak_updates import check_flatpak_update, installed_flatpak_tag, request_flatpak_update
 from ...utils.host_info import is_steam_deck
 from ...utils.update_policy import self_update_disabled
 from ..components.checkbox_group import CheckBoxGroup
@@ -120,6 +120,7 @@ class AdminPanel(OverlayPanel):
         self._flatpak_tag = installed_flatpak_tag()
         self._flatpak_update_lock = RLock()
         self._flatpak_update_status: str | None = None
+        self._flatpak_update_available = False
         self._flatpak_update_running = False
         self._flatpak_update_button = None
         self._flatpak_update_after_id = None
@@ -523,8 +524,10 @@ class AdminPanel(OverlayPanel):
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
-            enabled=getattr(self, "_flatpak_tag", None) is None and not self_update_disabled(),
+            enabled=not self_update_disabled(),
         )
+        if self._flatpak_tag is not None:
+            self._flatpak_update_button.disable()
 
         self._admin_hold_button(
             tb,
@@ -845,11 +848,14 @@ class AdminPanel(OverlayPanel):
     def _query_flatpak_update(self) -> None:
         try:
             result = check_flatpak_update(self._flatpak_tag)
-            status = f"Update available: {result.available_tag}" if result.available else "Up to date"
+            available = result.available
+            status = f"Update available: {result.available_tag}" if available else "Up to date"
         except (OSError, ValueError, KeyError, TypeError) as exc:
             log.warning("PyCab Flatpak update check failed: %s", exc)
+            available = False
             status = "Update check unavailable"
         with self._flatpak_update_lock:
+            self._flatpak_update_available = available
             self._flatpak_update_status = status
             self._flatpak_update_running = False
 
@@ -864,6 +870,10 @@ class AdminPanel(OverlayPanel):
             if status.startswith("Update available:"):
                 label = "Update available!"
             self._flatpak_update_button.text = label
+            if self._flatpak_update_available:
+                self._flatpak_update_button.enable()
+            else:
+                self._flatpak_update_button.disable()
         if self._flatpak_update_after_id is None and status is None:
             self._flatpak_update_after_id = self._overlay.tk.after(500, self._poll_flatpak_update_status)
 
@@ -957,8 +967,18 @@ class AdminPanel(OverlayPanel):
             if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
                 return
             if command == TMCC1SyncCommandEnum.RESTART:
-                # Request local clean shutdown; the host launcher restarts after exit 75.
+                # Request local clean shutdown; the host launcher restarts after exit 42.
                 self._pytrain.request_local_restart()
+                return
+            if command == TMCC1SyncCommandEnum.UPDATE:
+                if not self._flatpak_update_available:
+                    return
+                marker = request_flatpak_update()
+                try:
+                    self._pytrain.request_local_restart()
+                except Exception:
+                    marker.unlink(missing_ok=True)
+                    raise
                 return
         if self._scope_btns.value == "0":
             Thread(
