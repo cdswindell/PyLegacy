@@ -244,14 +244,12 @@ class AdminPanel(OverlayPanel):
         # duplicating its hold timing and progress feedback.
         button = self._hold_button(parent, **kwargs)
         command = kwargs["on_hold"][1][0]
-        if not enabled:
-            # HoldButton checks `enabled` before starting a hold, so graying it out is
-            # enough to stop a finger. Leaving it out of the registry is what stops a
-            # controller chord: begin_hold() then reports no hold started rather than
-            # claiming one on a widget that will never fire.
-            button.disable()
-            return button
+        # Register even initially disabled buttons: Flatpak Reboot/Shutdown
+        # start disabled under Local scope, but become available under All.
+        # HoldButton itself rejects presses while disabled.
         self._admin_buttons[command.name] = button
+        if not enabled:
+            button.disable()
         return button
 
     def begin_hold(self, command: str) -> bool:
