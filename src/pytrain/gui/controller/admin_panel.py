@@ -126,6 +126,7 @@ class AdminPanel(OverlayPanel):
         self._reboot_btn = None
         self._shutdown_btn = None
         self._flatpak_update_after_id = None
+        self._flatpak_update_generation = 0
         self._needs_scope_fix = True
         # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
         # drive the real widget (see begin_hold).
@@ -846,9 +847,10 @@ class AdminPanel(OverlayPanel):
             if self._flatpak_update_running or self._flatpak_update_status is not None:
                 return
             self._flatpak_update_running = True
-        Thread(target=self._query_flatpak_update, daemon=True).start()
+            generation = self._flatpak_update_generation
+        Thread(target=lambda: self._query_flatpak_update(generation), daemon=True).start()
 
-    def _query_flatpak_update(self) -> None:
+    def _query_flatpak_update(self, generation: int | None = None) -> None:
         try:
             result = check_flatpak_update(self._flatpak_tag)
             available = result.available
@@ -858,6 +860,8 @@ class AdminPanel(OverlayPanel):
             available = False
             status = "Update check unavailable"
         with self._flatpak_update_lock:
+            if generation is not None and generation != self._flatpak_update_generation:
+                return  # Ignore results from a previous panel opening.
             self._flatpak_update_available = available
             self._flatpak_update_status = status
             self._flatpak_update_running = False
@@ -885,6 +889,15 @@ class AdminPanel(OverlayPanel):
         self._refresh_flatpak_update_status()
 
     def _on_popup_close(self, _overlay: Box | None = None) -> None:
+        # Invalidate the cached result and any in-flight query on close.
+        with self._flatpak_update_lock:
+            self._flatpak_update_generation += 1
+            self._flatpak_update_status = None
+            self._flatpak_update_available = False
+            self._flatpak_update_running = False
+        if self._flatpak_update_button is not None and self._flatpak_tag is not None:
+            self._flatpak_update_button.disable()
+            self._flatpak_update_button.text = f"Update {PROGRAM_NAME}"
         if self._flatpak_update_after_id is not None and self._overlay is not None:
             try:
                 self._overlay.tk.after_cancel(self._flatpak_update_after_id)
