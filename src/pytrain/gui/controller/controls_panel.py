@@ -205,21 +205,9 @@ TITLE_BOX_BORDER_PX = 2 * SECTION_BORDER
 # Lines under the columns that are not help rows: the "*" footnote and the page label.
 # Counted against the height budget rather than left to be squeezed out of it.
 FOOTER_LINES = 2
-# The named font guizero's widgets inherit here: nothing in this GUI sets a family, and
-# guizero's text_size keeps the family it finds -- so this is what actually gets drawn.
-DEFAULT_FONT_NAME = "TkDefaultFont"
-
-
-# Temporary font diagnostics
-def debug_tk_fonts(widget):
-    root = getattr(widget, "tk", widget)
-
-    for name in ("TkDefaultFont", "TkTextFont", "TkHeadingFont"):
-        font = tkfont.nametofont(name, root=root)
-        log.info(f"{name}: {font.actual()}")
-
-    log.info("Available font families:")
-    log.info(sorted(tkfont.families(root=root)))
+# Keep this screen independent of the environment's TkDefaultFont alias.
+# Conda and Flatpak both provide Noto Sans, but choose different default families.
+CONTROLS_FONT_FAMILY = "Noto Sans"
 
 
 # Raised when there is no display, no interpreter, or a stand-in widget in place of a real
@@ -273,7 +261,7 @@ class TextRuler:
         footnote_px: int = 0,
         keycap_measure: Callable[[str], int] | None = None,
         note_measure: Callable[[str], int] | None = None,
-        family: str = DEFAULT_FONT_NAME,
+        family: str = CONTROLS_FONT_FAMILY,
     ) -> None:
         self._measure = measure
         self._row_px = row_px
@@ -298,9 +286,8 @@ class TextRuler:
         varies: a ruler is only worth having if it measures the size it is asked about.
         """
         try:
-            debug_tk_fonts(widget)
             root = getattr(widget, "tk", widget)
-            family = tkfont.nametofont(DEFAULT_FONT_NAME, root=root).actual("family")
+            family = CONTROLS_FONT_FAMILY
             entry = tkfont.Font(root=root, family=family, size=entry_size)
             # Keycaps are drawn bold, and bold is about 7% wider in this family -- 11px on
             # " Right stick \u2195 / \u2194 ". Measured in the weight it is drawn in because
@@ -913,6 +900,7 @@ class ControlsPanel:
         note = Text(body, text="* fixed, not set by the controller profile", align="top")
         note.text_size = FOOTNOTE_SIZE
         note.text_color = FOOTNOTE_FG
+        note.tk.config(font=self._row_font(FOOTNOTE_SIZE), foreground=FOOTNOTE_FG)
         self.gui.cache(note)
 
     def _fit_text(self, body: Box, height_px: int, width_px: int) -> None:
@@ -988,7 +976,8 @@ class ControlsPanel:
         for child in list(box.children):
             child.destroy()
         if not self._pages:
-            Text(box, text="No controller profile loaded.", grid=[0, 0], size=self.gui.s_12)
+            empty = Text(box, text="No controller profile loaded.", grid=[0, 0], size=self.gui.s_12)
+            empty.tk.config(font=self._row_font(FOOTNOTE_SIZE), foreground=ENTRY_FG)
             return
         holders = [self._render_column(box, column, index) for index, column in enumerate(self._pages[self._page])]
         self._match_outer_columns(box)
@@ -1000,6 +989,7 @@ class ControlsPanel:
                 size=FOOTNOTE_SIZE,
                 color=FOOTNOTE_FG,
             )
+            self._page_label.tk.config(font=self._row_font(FOOTNOTE_SIZE), foreground=FOOTNOTE_FG)
         # Last of all, once nothing more will be added to this box: guizero re-grids every
         # child of a grid container each time another one is added, from that child's align
         # -- so a sticky set on a column is undone by the next column, and by the page label
