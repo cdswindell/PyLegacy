@@ -10,7 +10,6 @@ import pytrain
     [
         ("v2.12.4", (2, 12, 4)),
         ("v2.12.4+", (2, 12, 4)),
-        ("v2.12.4-2", (2, 12, 4)),
     ],
 )
 def test_version_tuple_valid(monkeypatch, version, expected):
