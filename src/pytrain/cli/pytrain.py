@@ -675,6 +675,11 @@ class PyTrain:
                 if self.is_server:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
+            if message.command == TMCC1SyncCommandEnum.UPDATE and self_update_disabled():
+                # Flatpak updates are owned by the host launcher, never pip/git.
+                # Ignore our own broadcast echo as well as remote UPDATE commands.
+                log.info("Ignoring propagated UPDATE in distributor-managed installation")
+                return
             self._request_admin_exit(message.command, source="callback")
 
     def _request_admin_exit(self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False) -> None:
@@ -732,6 +737,16 @@ class PyTrain:
                 id(self),
                 current_thread().name,
             )
+
+    def broadcast_update_to_other_nodes(self) -> None:
+        """Propagate UPDATE without claiming a local exit or running pip/git."""
+        cmd = CommandReq(TMCC1SyncCommandEnum.UPDATE)
+        if self.is_server:
+            if self._dispatcher is None:
+                raise RuntimeError("No dispatcher available to broadcast UPDATE")
+            self._dispatcher.signal_clients(cmd)
+        else:
+            self._tmcc_buffer.enqueue_command(cmd.as_bytes)
 
     def request_local_restart(self) -> None:
         """Request a local restart through the normal shutdown lifecycle.
