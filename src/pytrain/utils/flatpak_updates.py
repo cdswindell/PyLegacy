@@ -75,3 +75,26 @@ def check_flatpak_update(installed_tag: str, *, timeout: float = 5.0) -> Flatpak
     if not _REQUIRED_ASSETS.issubset(assets):
         raise ValueError("Latest PyCab release is missing the Flatpak bundle or checksum")
     return FlatpakUpdate(installed_tag, tag, release["html_url"])
+
+
+# The Flatpak writes this marker in its persistent XDG data directory.
+# On SteamOS the host sees the same file under ~/.var/app/<app-id>/data/.
+UPDATE_REQUEST_NAME = "pycab-update-request"
+
+
+def request_flatpak_update() -> Path:
+    """Ask the host launcher to install the latest release after a clean exit.
+
+    This does not perform installation in the sandbox. The host independently
+    verifies the release and SHA-256 before replacing the user installation.
+    """
+    if installed_flatpak_tag() is None:
+        raise RuntimeError("PyCab updates require a Flatpak installation")
+    data_home = os.environ.get("XDG_DATA_HOME")
+    if not data_home:
+        raise RuntimeError("Flatpak XDG_DATA_HOME is unavailable")
+    directory = Path(data_home)
+    directory.mkdir(parents=True, exist_ok=True)
+    marker = directory / UPDATE_REQUEST_NAME
+    marker.write_text("update\\n", encoding="utf-8")
+    return marker
