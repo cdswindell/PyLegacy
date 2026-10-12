@@ -89,6 +89,9 @@ log = logging.getLogger(__name__)
 
 
 class SteamDeckGui(GuiZeroBase):
+    # The landscape handheld controller uses consistent defaults in Conda and Flatpak.
+    handheld_font_family = "Noto Sans"
+
     @classmethod
     def name(cls) -> str:
         return cls.__name__
