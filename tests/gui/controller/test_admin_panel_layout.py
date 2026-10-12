@@ -360,8 +360,8 @@ def test_steam_deck_disables_the_os_upgrade_button(monkeypatch) -> None:
 
     assert panel.os_upgrade_supported is False
     assert button.disabled is True
-    # Absent from the registry, so a controller chord cannot fire what a finger cannot.
-    assert "UPGRADE" not in panel._admin_buttons
+    # Registered for uniform dispatch, but remains disabled and cannot activate.
+    assert panel._admin_buttons["UPGRADE"] is button
 
 
 def test_other_platforms_keep_the_os_upgrade_button(monkeypatch) -> None:
@@ -915,4 +915,5 @@ def test_managed_update_button_cannot_be_held_or_triggered_by_controller(monkeyp
     )
 
     assert button.disabled is managed
-    assert ("UPDATE" in panel._admin_buttons) is not managed
+    # Registration is independent of initial enabled state; HoldButton enforces it.
+    assert panel._admin_buttons["UPDATE"] is button
