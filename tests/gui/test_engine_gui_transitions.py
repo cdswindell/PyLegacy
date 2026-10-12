@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from threading import RLock
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
@@ -75,6 +76,7 @@ class DummyTrainState(DummyState):
         return isinstance(item, DummyState) and item.scope == CommandScope.ENGINE and item.tmcc_id in self.link_tmcc_ids
 
 
+# Lightweight test doubles replace GUI dependencies without creating widgets.
 # noinspection PyTypeChecker
 def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui = mod.EngineGui.__new__(mod.EngineGui)
@@ -87,14 +89,13 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui._popup_closed = 0
     gui._popup_close_requests = 0
 
-    # close() answers whether the way is clear, and a manager with nothing in the way says
-    # True; a double answering None would read as a panel refusing to go, which is what
-    # update_component_info now stops for. close_requested is the other entry point -- the
-    # operator asking -- and both are counted together, since most tests here care only that
-    # the popup went.
+    # Return True so component updates can continue after the popup closes.
+    # Record both close paths on the GUI so tests can distinguish explicit requests.
     def close_popup(_overlay=None, requested: bool = False) -> bool:
+        # noinspection PyProtectedMember
         gui._popup_closed += 1
         if requested:
+            # noinspection PyProtectedMember
             gui._popup_close_requests += 1
         return True
 
@@ -107,7 +108,8 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui.name_text = SimpleNamespace(value="")
     gui.image_box = image_box = SimpleNamespace(visible=True)
     gui.image_box.hide = lambda: setattr(image_box, "visible", False)
-    gui._panel_kind_overrides: list[str | None] = []
+    panel_kind_overrides: list[str | None] = []
+    gui._panel_kind_overrides = panel_kind_overrides
     gui._keypad_view = SimpleNamespace(
         reset_on_keystroke=False,
         is_entry_mode=True,
@@ -115,7 +117,7 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
             gui, "_scope_keypad_args", (force_entry_mode, clear_info)
         ),
         panel_kind_override=None,
-        set_panel_kind_override=lambda kind: gui._panel_kind_overrides.append(kind),
+        set_panel_kind_override=lambda kind: panel_kind_overrides.append(kind),
     )
     gui._controller_view = SimpleNamespace(update=lambda **_kwargs: None)
     gui._train_linked_queue = UniqueDeque()
@@ -129,21 +131,29 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui._last_displayed_scope = None
     gui._last_displayed_tmcc_id = None
     gui._state_store = SimpleNamespace(get_state=lambda *_args, **_kwargs: None)
-    gui._image_updates: list[int] = []
+    image_updates: list[int] = []
+    gui._image_updates = image_updates
     gui._image_clears = 0
+    # The clear callback updates the GUI counter inspected by the tests.
+    # noinspection PyProtectedMember
     gui._image_presenter = SimpleNamespace(
-        update=lambda tmcc_id: gui._image_updates.append(tmcc_id),
+        update=lambda tmcc_id: image_updates.append(tmcc_id),
         clear=lambda: setattr(gui, "_image_clears", gui._image_clears + 1),
     )
-    gui._recent_calls: list[tuple[CommandScope, int, object]] = []
-    gui.make_recent = lambda scope, tmcc_id, state=None: gui._recent_calls.append((scope, tmcc_id, state)) or True
-    gui._ops_mode_calls: list[bool] = []
-    gui.ops_mode = lambda update_info=False: gui._ops_mode_calls.append(update_info)
-    gui._scoped_callback_calls: list[object] = []
+    recent_calls: list[tuple[CommandScope, int, object]] = []
+    gui._recent_calls = recent_calls
+    # Preserve the production keyword names so the double accepts the same calls.
+    # noinspection PyShadowingNames
+    gui.make_recent = lambda scope, tmcc_id, state=None: recent_calls.append((scope, tmcc_id, state)) or True
+    ops_mode_calls: list[bool] = []
+    gui._ops_mode_calls = ops_mode_calls
+    gui.ops_mode = lambda update_info=False: ops_mode_calls.append(update_info)
+    scoped_callback_calls: list[object] = []
+    gui._scoped_callback_calls = scoped_callback_calls
     gui._scoped_callbacks = {
-        CommandScope.ENGINE: lambda state: gui._scoped_callback_calls.append(("engine", state)),
-        CommandScope.TRAIN: lambda state: gui._scoped_callback_calls.append(("train", state)),
-        scope: lambda state: gui._scoped_callback_calls.append((scope.label, state)),
+        CommandScope.ENGINE: lambda state: scoped_callback_calls.append(("engine", state)),
+        CommandScope.TRAIN: lambda state: scoped_callback_calls.append(("train", state)),
+        scope: lambda state: scoped_callback_calls.append((scope.label, state)),
     }
     gui._scope_buttons = {
         CommandScope.ENGINE: SimpleNamespace(bg="white", text_color="black"),
@@ -178,7 +188,7 @@ def test_show_scope_catalog_holds_current_scope_button() -> None:
 
 def test_show_scope_catalog_closes_catalog_when_already_visible() -> None:
     gui = _new_engine()
-    gui.on_scope_hold = lambda pb: pytest.fail("should not reopen while visible")
+    gui.on_scope_hold = lambda pb: pytest.fail("The catalog must not reopen while visible.")
     closed: list[object] = []
     overlay = object()
     gui._catalog_panel = SimpleNamespace(visible=True, overlay=overlay)
@@ -192,7 +202,7 @@ def test_show_scope_catalog_closes_catalog_when_already_visible() -> None:
 def test_hide_scope_catalog_noop_when_not_visible() -> None:
     gui = _new_engine()
     gui._catalog_panel = SimpleNamespace(visible=False, overlay=object())
-    gui._popup = SimpleNamespace(close=lambda _ov: pytest.fail("should not close when hidden"))
+    gui._popup = SimpleNamespace(close=lambda _ov: pytest.fail("The catalog must not close when hidden."))
 
     gui.hide_scope_catalog()
 
@@ -225,7 +235,7 @@ def test_select_catalog_entry_noop_when_panel_hidden() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._catalog_panel = SimpleNamespace(
         visible=False,
-        select_highlighted=lambda: pytest.fail("should not select while hidden"),
+        select_highlighted=lambda: pytest.fail("The catalog must not select an entry while hidden."),
     )
 
     assert gui.select_catalog_entry() is False
@@ -247,7 +257,7 @@ def test_scroll_catalog_noop_when_panel_hidden() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._catalog_panel = SimpleNamespace(
         visible=False,
-        move_highlight=lambda delta: pytest.fail("should not scroll while hidden"),
+        move_highlight=lambda delta: pytest.fail("The catalog must not scroll while hidden."),
     )
 
     assert gui.scroll_catalog(-1) is False
@@ -259,7 +269,7 @@ def test_scroll_catalog_to_end_jumps_highlight_without_selecting() -> None:
     gui._catalog_panel = SimpleNamespace(
         visible=True,
         move_highlight_to_end=lambda to_top: (calls.append(to_top), True)[1],
-        select_highlighted=lambda: pytest.fail("double click must not select the entry"),
+        select_highlighted=lambda: pytest.fail("A double-click must not select the entry."),
     )
 
     assert gui.scroll_catalog_to_end(to_top=True) is True
@@ -270,7 +280,7 @@ def test_scroll_catalog_to_end_noop_when_panel_hidden() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._catalog_panel = SimpleNamespace(
         visible=False,
-        move_highlight_to_end=lambda to_top: pytest.fail("should not scroll while hidden"),
+        move_highlight_to_end=lambda to_top: pytest.fail("The catalog must not scroll while hidden."),
     )
 
     assert gui.scroll_catalog_to_end(to_top=False) is False
@@ -289,9 +299,7 @@ def test_popup_visible_reflects_popup_manager_state() -> None:
 
 
 def test_close_popup_closes_when_popup_visible() -> None:
-    # Asked for, not closed in passing: this is the pad's close key, and a panel that stays put
-    # against the layout's own reports (the LCS configuration panel) has to answer to it, or the
-    # operator would be left with a screen nothing can take away.
+    # The close key must explicitly request closure, even for panels that reject automatic closure.
     gui = mod.EngineGui.__new__(mod.EngineGui)
     calls: list[str] = []
     gui._popup = SimpleNamespace(
@@ -308,7 +316,7 @@ def test_close_popup_noop_when_no_popup_visible() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._popup = SimpleNamespace(
         current_popup=None,
-        close=lambda: pytest.fail("should not close when nothing is visible"),
+        close=lambda: pytest.fail("The popup must not close when nothing is visible."),
     )
 
     assert gui.close_popup() is False
@@ -358,7 +366,9 @@ def test_update_component_info_repaints_hidden_image_when_returning_to_ops_mode(
     gui._last_displayed_scope = CommandScope.ENGINE
     gui._last_displayed_tmcc_id = 34
     gui.image_box = SimpleNamespace(visible=False, hide=lambda: None)
-    gui._keypad_view.is_entry_mode = False
+    # _new_engine installs a mutable namespace instead of the production keypad view.
+    keypad_view = cast(SimpleNamespace, cast(object, gui._keypad_view))
+    keypad_view.is_entry_mode = False
     gui._state_store = SimpleNamespace(
         get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ENGINE, 34) else None
     )
@@ -386,12 +396,7 @@ def test_update_component_info_zero_clears_image_and_resets_keystroke_flag() -> 
 
 
 def test_a_panel_that_would_not_close_stops_the_pane_re_aiming_itself_underneath_it() -> None:
-    # The pane closes its popup on the way past here, so a panel that stays -- the LCS
-    # configuration panel, while the operator reads the verdict on the presses it just sent --
-    # is a panel with a pane re-selecting itself behind it. This runs unbidden as well as by a
-    # key: a sensor track reporting a train that passed over it, a record cleared on the base.
-    # The paired rule, that the pane does all of this once the popup has gone, is the test
-    # above.
+    # A popup that rejects automatic closure must prevent changes to the selection behind it.
     gui = _new_engine()
     state = DummyState(tmcc_id=34, name="Hudson")
     gui._state_store = SimpleNamespace(
@@ -410,12 +415,8 @@ def test_a_panel_that_would_not_close_stops_the_pane_re_aiming_itself_underneath
 
 
 def test_promoting_a_module_the_base_had_never_heard_of_does_not_ask_the_panel_to_go() -> None:
-    # The report this was written for. Configure is what makes the Base 3 answer for a module
-    # it had never heard of, so the record is promoted into recents seconds after the presses
-    # go out, and this closed the popup along with the Success or Unsuccessful line the
-    # operator was reading. Bookkeeping is not the operator asking, so it goes through the
-    # entry point a panel may refuse -- while every other popup, which says nothing about
-    # closing, still closes exactly as it did.
+    # Updating recents is bookkeeping, not an explicit request to close the popup.
+    # The LCS configuration panel may reject closure while the operator reads the result.
     gui = _new_engine()
 
     assert mod.EngineGui.make_recent(gui, CommandScope.ENGINE, 0) is False
@@ -424,9 +425,7 @@ def test_promoting_a_module_the_base_had_never_heard_of_does_not_ask_the_panel_t
 
 
 def test_a_scope_press_asks_the_panel_to_go() -> None:
-    # The operator reaching for another screen, and this has already re-arranged the pane
-    # behind the popup: leaving a panel placed over the rearrangement would be worse than
-    # taking it away.
+    # A scope change must explicitly close the popup so it does not cover the rearranged pane.
     gui = _new_engine(CommandScope.ACC)
     gui._scope_buttons = {CommandScope.ACC: SimpleNamespace(bg="white", text_color="black")}
     gui.monitor_state = lambda: None
@@ -437,8 +436,7 @@ def test_a_scope_press_asks_the_panel_to_go() -> None:
 
 
 def test_the_keys_that_walk_through_recents_ask_the_panel_to_go() -> None:
-    # Both of them are a press whose whole purpose is to change what the pane is aimed at, so
-    # a panel covering it has been asked for by name rather than closed in passing.
+    # Both navigation keys change the selection and must explicitly request popup closure.
     gui = _new_engine()
     gui._recents_queue = {}
     gui._train_linked_queue = []
@@ -450,7 +448,7 @@ def test_the_keys_that_walk_through_recents_ask_the_panel_to_go() -> None:
 
 
 def test_a_forced_accessory_panel_does_not_outlive_a_change_of_selection() -> None:
-    # FR-5's transient lifetime: the override belongs to the component it was forced on.
+    # FR-5: The panel override applies only to the selected component.
     gui = _new_engine(CommandScope.ACC)
     gui._last_displayed_scope = CommandScope.ACC
     gui._last_displayed_tmcc_id = 19
@@ -461,7 +459,7 @@ def test_a_forced_accessory_panel_does_not_outlive_a_change_of_selection() -> No
     gui._panel_kind_overrides.clear()
     gui._last_displayed_tmcc_id = 0
     gui.update_component_info(0)
-    assert gui._panel_kind_overrides == [], "and is left alone where the selection did not change"
+    assert gui._panel_kind_overrides == [], "An unchanged selection must preserve the panel override."
 
 
 def test_a_forced_accessory_panel_does_not_survive_a_scope_press() -> None:
@@ -485,7 +483,7 @@ def test_update_component_info_accessory_uses_configured_accessory_name(monkeypa
     )
     gui._caap = DummyProvider({})
     gui._acc_tmcc_to_adapter[21] = adapter
-    gui.get_accessory_view = lambda _tmcc_id: pytest.fail("label refresh should not create accessory panels")
+    gui.get_accessory_view = lambda _tmcc_id: pytest.fail("Refreshing the label must not create accessory panels.")
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
     monkeypatch.setattr(mod, "StateWatcher", DummyWatcher, raising=True)
 
@@ -596,7 +594,7 @@ def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
     assert gui._scope_buttons[CommandScope.TRAIN].bg == "lightgreen"
 
 
-def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_on_info_unbinds_long_press_and_close_handler_rebinds() -> None:
     gui = _new_engine(CommandScope.ENGINE)
     state = DummyState(tmcc_id=34, name="Hudson")
     overlay = SimpleNamespace(visible=False)
@@ -611,7 +609,6 @@ def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytes
         reset_visibility=lambda *args, **kwargs: setattr(gui, "_info_reset", True),
         update=lambda updated_state, new: setattr(gui, "_info_state", updated_state),
     )
-    # monkeypatch.setattr(mod, "LcsProxyState", type("DummyLcsProxyState", (), {}), raising=True)
 
     gui.on_info()
 

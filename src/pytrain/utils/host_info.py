@@ -25,7 +25,7 @@ STEAM_DECK_PLATFORM = "steamdeck"
 def installed_platform() -> str:
     """Platform PyTrain was installed for, lower-cased, or "" if unspecified.
 
-    A plain function rather than a HostInfo member so a caller does not have to build
+    A plain function rather than a HostInfo member, so a caller does not have to build
     that singleton -- which probes the hardware with cat and free -- just to read an
     environment variable. Read live, so it stays correct however early anything is
     constructed. Tolerates case and stray whitespace, the value having come from a

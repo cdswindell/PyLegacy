@@ -46,7 +46,7 @@ E = TypeVar("E", bound=CommandDefEnum)
 
 
 class ComponentStateStore:
-    _instance: ComponentStateStore = None
+    _instance: ComponentStateStore | None = None
     _lock = threading.RLock()
 
     @classmethod
@@ -143,7 +143,7 @@ class ComponentStateStore:
         """
         with cls._lock:
             if ComponentStateStore._instance is None:
-                ComponentStateStore._instance = super(ComponentStateStore, cls).__new__(cls)
+                ComponentStateStore._instance = super().__new__(cls)
                 ComponentStateStore._instance._initialized = False
             return ComponentStateStore._instance
 
@@ -374,7 +374,7 @@ class DependencyCache(Generic[T, C, E]):
     sending the reset command would turn that light off.
     """
 
-    _instance: DependencyCache = None
+    _instance: DependencyCache | None = None
     _lock = threading.RLock()
 
     @classmethod
@@ -444,7 +444,7 @@ class DependencyCache(Generic[T, C, E]):
         """
         with cls._lock:
             if DependencyCache._instance is None:
-                DependencyCache._instance = super(DependencyCache, cls).__new__(cls)
+                DependencyCache._instance = super().__new__(cls)
                 DependencyCache._instance._initialized = False
             return DependencyCache._instance
 

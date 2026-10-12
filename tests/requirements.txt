@@ -5,8 +5,6 @@ pluggy>=1.6.0
 pypi-cleanup>=0.1.11
 pytest>=9.1.1
 pytest-cov>=7.0.0
-# coverage 7.16.1 raises import-time KeyError with dotted-module source tracing.
-# coverage<7.11
 coverage>=7.16.2
 ruff>=0.17.0
 tox>=4.65.4
