@@ -405,6 +405,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return compact_height if compact_height is not None else required_height
 
     def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
+        if self._parent_gui is not None and self._parent_gui.name() == "SteamDeckGui":
+            # Leave room for the full scope title (e.g. "Accessory ID") in
+            # the compact Steam Deck pane, including the TitleBox border.
+            return max(actual_width, required_width) + 12
         return max(actual_width, required_width) if self._compact else actual_width
 
     def fit_popup_title_height(self, measured_height: int, required_height: int) -> int:
