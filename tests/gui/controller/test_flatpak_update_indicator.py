@@ -14,6 +14,8 @@ def _panel(tag="v2.12.4-3"):
     panel._flatpak_update_available = False
     panel._flatpak_update_running = False
     panel._flatpak_update_after_id = None
+    panel._flatpak_update_generation = 0
+    panel._wifi_refresh_after_id = None
     panel._flatpak_update_button = SimpleNamespace(text="Update PyTrain", enable=lambda: None, disable=lambda: None)
     panel._admin_buttons = {}
     panel._overlay = SimpleNamespace(visible=True, tk=SimpleNamespace(after=lambda *_: "poll-1"))
@@ -103,3 +105,46 @@ def test_pending_update_polls_before_overlay_is_visible():
     panel._overlay.visible = False
     panel._refresh_flatpak_update_status()
     assert panel._flatpak_update_after_id == "poll-1"
+
+
+def test_reopening_admin_starts_fresh_background_check(monkeypatch):
+    panel = _panel()
+    started = []
+
+    class FakeThread:
+        def __init__(self, *, target, daemon):
+            assert daemon is True
+            self.target = target
+
+        def start(self):
+            started.append(self.target)
+
+    monkeypatch.setattr(mod, "Thread", FakeThread)
+    panel._start_flatpak_update_check()
+    assert len(started) == 1
+    panel._flatpak_update_status = "Up to date"
+    panel._flatpak_update_running = False
+    panel._start_flatpak_update_check()
+    assert len(started) == 1  # Same opening: no duplicate query.
+
+    panel._on_popup_close()
+    assert panel._flatpak_update_status is None
+    assert panel._flatpak_update_available is False
+    panel._start_flatpak_update_check()
+    assert len(started) == 2  # New opening: fresh background query.
+
+
+def test_stale_update_result_cannot_override_new_opening(monkeypatch):
+    panel = _panel()
+    monkeypatch.setattr(
+        mod,
+        "check_flatpak_update",
+        lambda tag: SimpleNamespace(available=True, available_tag="v2.12.4-4"),
+    )
+    old_generation = panel._flatpak_update_generation
+    panel._on_popup_close()
+    panel._query_flatpak_update(old_generation)
+    assert panel._flatpak_update_status is None
+    assert panel._flatpak_update_available is False
+    panel._query_flatpak_update(panel._flatpak_update_generation)
+    assert panel._flatpak_update_available is True
