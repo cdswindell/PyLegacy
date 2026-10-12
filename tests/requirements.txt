@@ -6,9 +6,10 @@ pypi-cleanup>=0.1.11
 pytest>=9.1.1
 pytest-cov>=7.0.0
 # coverage 7.16.1 raises import-time KeyError with dotted-module source tracing.
-coverage<7.11
-ruff>=0.16.10
-tox>=4.64.9
+# coverage<7.11
+coverage>=7.16.2
+ruff>=0.17.0
+tox>=4.65.4
 twine>=6.2.0
 ipython>=9.17.0; python_version>="3.12"
 ipython>=9.10.0; python_version=="3.11"
