@@ -16,18 +16,12 @@ def _panel(tag):
     return panel
 
 
-def test_flatpak_restart_requests_host_relaunch(monkeypatch):
+def test_flatpak_restart_requests_clean_local_shutdown():
     panel = _panel("v2.12.4")
     calls = []
-
-    def exit_with(code):
-        calls.append(code)
-        raise SystemExit(code)
-
-    monkeypatch.setattr(mod.os, "_exit", exit_with)
-    with pytest.raises(SystemExit, match="75"):
-        panel.do_admin_command(Sync.RESTART)
-    assert calls == [75]
+    panel._pytrain = SimpleNamespace(request_local_restart=lambda: calls.append("restart"))
+    panel.do_admin_command(Sync.RESTART)
+    assert calls == ["restart"]
 
 
 @pytest.mark.parametrize("command", [Sync.REBOOT, Sync.SHUTDOWN])
