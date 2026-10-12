@@ -172,6 +172,7 @@ class PyTrain:
         self._dispatcher = None
         self._started_at = timer()
         self._exit_status = None
+        self._flatpak_local_restart = False
         self._version = get_version()
         self._shutdown_lock = Lock()
 
@@ -450,6 +451,10 @@ class PyTrain:
                     elif aa == TMCC1SyncCommandEnum.UPDATE:
                         self.update()
                     elif aa == TMCC1SyncCommandEnum.RESTART:
+                        if self._flatpak_local_restart:
+                            # run() has completed normal teardown; ask the host
+                            # Steam launcher to start a new Flatpak instance.
+                            raise SystemExit(75)
                         self.restart()
                     elif aa == TMCC1SyncCommandEnum.REBOOT:
                         self.reboot()
@@ -720,6 +725,22 @@ class PyTrain:
                 id(self),
                 current_thread().name,
             )
+
+    def request_local_restart(self) -> None:
+        """Request a local restart through the normal shutdown lifecycle.
+
+        This intentionally bypasses command dispatch: the connected server and
+        other clients must not receive a RESTART command.
+        """
+        from ..utils.flatpak_updates import installed_flatpak_tag
+
+        if installed_flatpak_tag() is None:
+            raise RuntimeError("Local Flatpak restart requires a PyCab Flatpak installation")
+        if not self._claim_admin_exit(TMCC1SyncCommandEnum.RESTART, source="flatpak-local"):
+            return
+        with self._admin_state_lock:
+            self._flatpak_local_restart = True
+        os.kill(os.getpid(), signal.SIGINT)
 
     def _claim_admin_exit(self, command: CommandDefEnum, *, source: str) -> bool:
         with self._admin_state_lock:
