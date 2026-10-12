@@ -683,7 +683,7 @@ class PyTrain:
         """Claim an admin exit once, then use the existing API/SIGINT shutdown path."""
         if not self._claim_admin_exit(command, source=source):
             return
-        if local_flatpak_restart:
+        if local_flatpak_restart and command == TMCC1SyncCommandEnum.RESTART:
             with self._admin_state_lock:
                 self._flatpak_local_restart = True
         if self.is_client and command == TMCC1SyncCommandEnum.QUIT:
