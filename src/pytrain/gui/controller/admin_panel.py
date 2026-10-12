@@ -227,7 +227,7 @@ class AdminPanel(OverlayPanel):
 
             match = re.search(r"v?[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9]+)?$", version)
             if match:
-                version = version[: match.start()] + self._flatpak_tag.removeprefix("v")
+                version = version[: match.start()] + "v" + self._flatpak_tag.removeprefix("v")
             else:
                 version = f"{version} ({self._flatpak_tag})"
         if not self._compact:
