@@ -79,8 +79,10 @@ def test_flatpak_all_scope_forwards_power_command(command):
 def test_flatpak_scope_change_toggles_power_buttons():
     panel = _panel("v2.12.6")
     calls = []
+
     def button(name):
         return SimpleNamespace(enable=lambda: calls.append((name, True)), disable=lambda: calls.append((name, False)))
+
     panel._reboot_btn = button("reboot")
     panel._shutdown_btn = button("shutdown")
     panel._refresh_flatpak_power_buttons()
