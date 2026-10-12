@@ -887,7 +887,7 @@ class AdminPanel(OverlayPanel):
             if status.startswith("Update available:"):
                 label = "Update available!"
             self._flatpak_update_button.text = label
-            if self._flatpak_update_available:
+            if self._flatpak_update_available or self._scope_btns.value == "1":
                 self._flatpak_update_button.enable()
             else:
                 self._flatpak_update_button.disable()
@@ -996,6 +996,11 @@ class AdminPanel(OverlayPanel):
         for button in (self._reboot_btn, self._shutdown_btn):
             if button is not None:
                 button.enable() if enabled else button.disable()
+        if self._flatpak_update_button is not None and not self.hold_in_progress:
+            if enabled or self._flatpak_update_available:
+                self._flatpak_update_button.enable()
+            else:
+                self._flatpak_update_button.disable()
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if getattr(self, "_flatpak_tag", None) is not None:
@@ -1008,6 +1013,10 @@ class AdminPanel(OverlayPanel):
                 self._pytrain.request_local_restart()
                 return
             if command == TMCC1SyncCommandEnum.UPDATE:
+                # Propagate first: shutting down the local Deck must not interrupt
+                # delivery to the server and other clients.
+                if self._scope_btns.value == "1":
+                    self._pytrain.broadcast_update_to_other_nodes()
                 if not self._flatpak_update_available:
                     return
                 marker = request_flatpak_update()
