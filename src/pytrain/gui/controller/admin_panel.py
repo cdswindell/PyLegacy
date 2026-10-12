@@ -20,6 +20,7 @@ from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
+from ...utils.flatpak_updates import check_flatpak_update, installed_flatpak_tag
 from ...utils.host_info import is_steam_deck
 from ...utils.update_policy import self_update_disabled
 from ..components.checkbox_group import CheckBoxGroup
@@ -116,6 +117,12 @@ class AdminPanel(OverlayPanel):
         self._wifi_lock = RLock()
         self._wifi_cache: tuple[str, str | None, str, str | None, str] | None = None
         self._wifi_query_running = False
+        self._flatpak_tag = installed_flatpak_tag()
+        self._flatpak_update_lock = RLock()
+        self._flatpak_update_status: str | None = None
+        self._flatpak_update_running = False
+        self._flatpak_update_button = None
+        self._flatpak_update_after_id = None
         self._needs_scope_fix = True
         # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
         # drive the real widget (see begin_hold).
@@ -271,6 +278,7 @@ class AdminPanel(OverlayPanel):
         # refresh, which the base class knows nothing about.
         overlay = super().overlay
         self._start_wifi_query()
+        self._start_flatpak_update_check()
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
         if self._needs_scope_fix:
@@ -280,6 +288,7 @@ class AdminPanel(OverlayPanel):
             # That hide/show is a display_widgets() on the Scope box, which re-grids the
             # group and drops the fill applied during build. Put it back.
             self._apply_compact_grid()
+        self._refresh_flatpak_update_status()
         return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -508,12 +517,12 @@ class AdminPanel(OverlayPanel):
             sp = Text(tb, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
             sp.text_size = self._gui.s_2
 
-        self._admin_hold_button(
+        self._flatpak_update_button = self._admin_hold_button(
             tb,
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
-            enabled=not self_update_disabled(),
+            enabled=getattr(self, "_flatpak_tag", None) is None and not self_update_disabled(),
         )
 
         self._admin_hold_button(
@@ -821,7 +830,52 @@ class AdminPanel(OverlayPanel):
         self._start_wifi_query()
         self._ensure_wifi_refresh()
 
+    def _start_flatpak_update_check(self) -> None:
+        """Check GitHub on a worker; only the Tk thread updates widgets."""
+        if self._flatpak_tag is None:
+            return
+        with self._flatpak_update_lock:
+            if self._flatpak_update_running or self._flatpak_update_status is not None:
+                return
+            self._flatpak_update_running = True
+        Thread(target=self._query_flatpak_update, daemon=True).start()
+
+    def _query_flatpak_update(self) -> None:
+        try:
+            result = check_flatpak_update(self._flatpak_tag)
+            status = f"Update available: {result.available_tag}" if result.available else "Up to date"
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            log.warning("PyCab Flatpak update check failed: %s", exc)
+            status = "Update check unavailable"
+        with self._flatpak_update_lock:
+            self._flatpak_update_status = status
+            self._flatpak_update_running = False
+
+    def _refresh_flatpak_update_status(self) -> None:
+        """Poll cached status from Tk, without accessing Tk in the worker."""
+        if self._flatpak_tag is None or self._overlay is None:
+            return
+        with self._flatpak_update_lock:
+            status = self._flatpak_update_status
+        if status is not None and self._flatpak_update_button is not None and not self.hold_in_progress:
+            label = f"Update {PROGRAM_NAME}"
+            if status.startswith("Update available:"):
+                label = "Update available!"
+            self._flatpak_update_button.text = label
+        if self._flatpak_update_after_id is None and status is None:
+            self._flatpak_update_after_id = self._overlay.tk.after(500, self._poll_flatpak_update_status)
+
+    def _poll_flatpak_update_status(self) -> None:
+        self._flatpak_update_after_id = None
+        self._refresh_flatpak_update_status()
+
     def _on_popup_close(self, _overlay: Box | None = None) -> None:
+        if self._flatpak_update_after_id is not None and self._overlay is not None:
+            try:
+                self._overlay.tk.after_cancel(self._flatpak_update_after_id)
+            except (AttributeError, RuntimeError, ValueError):
+                pass
+            self._flatpak_update_after_id = None
         if self._overlay is None or self._wifi_refresh_after_id is None:
             self._wifi_refresh_after_id = None
             return
