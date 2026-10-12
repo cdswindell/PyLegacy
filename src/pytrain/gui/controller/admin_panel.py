@@ -8,6 +8,7 @@
 #
 import ipaddress
 import logging
+import os
 import socket
 from threading import RLock, Thread
 from typing import TYPE_CHECKING
@@ -511,6 +512,7 @@ class AdminPanel(OverlayPanel):
             text="Reboot",
             grid=[right_col, restart_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
+            enabled=getattr(self, "_flatpak_tag", None) is None,
         )
 
         if not self._compact:
@@ -549,6 +551,7 @@ class AdminPanel(OverlayPanel):
             text="Shutdown",
             grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
+            enabled=getattr(self, "_flatpak_tag", None) is None,
         )
 
         # No spacer between the destructive actions and the Controls/Close row: the row is no
@@ -951,6 +954,13 @@ class AdminPanel(OverlayPanel):
         self._pytrain.debug = bool(self._debug_btn.value)
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
+        if getattr(self, "_flatpak_tag", None) is not None:
+            if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
+                return
+            if command == TMCC1SyncCommandEnum.RESTART:
+                # The host Steam launcher recognizes 75 as a local application restart.
+                # Do not broadcast a restart to the connected Raspberry Pi server.
+                os._exit(75)
         if self._scope_btns.value == "0":
             Thread(
                 target=self._pytrain.do_admin_cmd,
