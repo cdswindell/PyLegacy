@@ -65,6 +65,25 @@ PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueE
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
 DEFAULT_LAYOUT_TITLE = "My Layout"
+HANDHELD_FONT_FAMILY = "Noto Sans"
+HANDHELD_NAMED_FONTS = ("TkDefaultFont", "TkTextFont", "TkHeadingFont", "TkMenuFont")
+
+
+def configure_handheld_fonts(root, preferred: str = HANDHELD_FONT_FAMILY) -> bool:
+    """Set this Tk application's default fonts, leaving the host OS untouched.
+
+    A missing preferred font leaves the platform's defaults in place. Call immediately
+    after creating the Tk root, before constructing GUI widgets.
+    """
+    family = resolve_font_family(root, preferred, fallback="")
+    if not family:
+        log.info("Handheld font %s unavailable; retaining Tk defaults", preferred)
+        return False
+    for name in HANDHELD_NAMED_FONTS:
+        tkfont.nametofont(name, root=root).configure(family=family)
+    log.info("Handheld GUI default font: %s", family)
+    return True
+
 
 
 def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont", *, load_bundled: bool = False) -> str:
@@ -398,6 +417,8 @@ class GuiZeroBase(Thread, ABC):
     def state_store(self) -> ComponentStateStore:
         return self._state_store
 
+    handheld_font_family: str | None = None
+
     @property
     def app(self) -> App:
         return self._app
@@ -529,6 +550,12 @@ class GuiZeroBase(Thread, ABC):
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self._app = app = PyCabApp(title=self.title, width=self.width, height=self.height)
+        # A handheld opts in via its GUI class; ordinary Pi and desktop GUIs retain
+        # their system fonts. Steam Deck installations also opt in through platform config.
+        from ..utils.host_info import is_steam_deck
+
+        if self.handheld_font_family or is_steam_deck():
+            configure_handheld_fonts(app.tk, self.handheld_font_family or HANDHELD_FONT_FAMILY)
         tk_scaling = os.getenv("PYTRAIN_TK_SCALING")
         if tk_scaling:
             app.tk.call("tk", "scaling", float(tk_scaling))
