@@ -72,6 +72,7 @@ def _panel(compact: bool) -> mod.AdminPanel:
     panel._pytrain = SimpleNamespace(is_client=True)
     panel._width = 632
     panel._compact = compact
+    panel._flatpak_tag = None
     panel._admin_buttons = {}  # normally set in __init__, which this factory bypasses
     panel._compact_controls = []
     return panel
