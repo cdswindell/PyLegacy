@@ -23,6 +23,7 @@ def runtime(bare_pytrain, monkeypatch):
     p._tmcc_listener.update_client_if_needed.return_value = False
     p._tmcc_listener.port = 5111
     p._headless = p._api = False
+    p._flatpak_local_restart = False
     p._echo = False
     p._api_thread = None
     p._server_ips = ["192.0.2.1"]
