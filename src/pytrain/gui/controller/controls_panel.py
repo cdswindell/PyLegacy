@@ -216,7 +216,7 @@ def debug_tk_fonts(widget):
 
     for name in ("TkDefaultFont", "TkTextFont", "TkHeadingFont"):
         font = tkfont.nametofont(name, root=root)
-        print(f"{name}: {font.actual()}")
+        log.info(f"{name}: {font.actual()}")
 
     log.info("Available font families:")
     log.info(sorted(tkfont.families(root=root)))
