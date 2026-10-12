@@ -225,7 +225,7 @@ class AdminPanel(OverlayPanel):
             # than displaying the version twice.
             import re
 
-            match = re.search(r"v?\\d+\\.\\d+\\.\\d+(?:-\\d+)?$", version)
+            match = re.search(r"v?[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9]+)?$", version)
             if match:
                 version = version[: match.start()] + self._flatpak_tag.removeprefix("v")
             else:
