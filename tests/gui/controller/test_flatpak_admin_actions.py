@@ -12,6 +12,7 @@ Sync = mod.TMCC1SyncCommandEnum
 def _panel(tag):
     panel = mod.AdminPanel.__new__(mod.AdminPanel)
     panel._flatpak_tag = tag
+    panel._flatpak_update_available = False
     panel._scope_btns = SimpleNamespace(value="0")
     return panel
 
@@ -45,3 +46,20 @@ def test_conda_restart_uses_existing_dispatch(monkeypatch):
     monkeypatch.setattr(mod, "Thread", ImmediateThread)
     panel.do_admin_command(Sync.RESTART)
     assert calls == [(Sync.RESTART, ["me"])]
+
+
+def test_flatpak_update_requests_host_install_then_local_restart(monkeypatch, tmp_path):
+    panel = _panel("v2.12.6")
+    panel._flatpak_update_available = True
+    calls = []
+    marker = tmp_path / "pycab-update-request"
+    monkeypatch.setattr(mod, "request_flatpak_update", lambda: (marker.write_text("update\\n"), marker)[1])
+    panel._pytrain = SimpleNamespace(request_local_restart=lambda: calls.append("restart"))
+    panel.do_admin_command(Sync.UPDATE)
+    assert marker.read_text() == "update\\n"
+    assert calls == ["restart"]
+
+
+def test_flatpak_update_without_available_release_does_nothing():
+    panel = _panel("v2.12.6")
+    panel.do_admin_command(Sync.UPDATE)
