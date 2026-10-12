@@ -85,7 +85,6 @@ def configure_handheld_fonts(root, preferred: str = HANDHELD_FONT_FAMILY) -> boo
     return True
 
 
-
 def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont", *, load_bundled: bool = False) -> str:
     """Prefer installed fonts; optionally register Digital Dream before building its widgets."""
 
