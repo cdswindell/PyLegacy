@@ -420,7 +420,6 @@ class PyTrain:
                 except ArgumentError:
                     pass
         except KeyboardInterrupt:
-            print("PyTrain.run caught KeyboardInterrupt", flush=True)
             self.shutdown()
         finally:
             with self._admin_state_lock:
@@ -718,10 +717,6 @@ class PyTrain:
             self._request_admin_exit(message.command, source="callback")
 
     def _request_admin_exit(self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False) -> None:
-        from threading import current_thread, main_thread
-
-        print(f"Current thread: {current_thread().name}")
-        print(f"Main thread: {main_thread().name}")
         """Claim an admin exit once, then use the existing API/SIGINT shutdown path."""
         if not self._claim_admin_exit(command, source=source):
             return
@@ -740,7 +735,6 @@ class PyTrain:
                 self._notify_api_exit(status)
                 return
         self._log_admin_exit("Sending internal SIGINT", command, source=source)
-        log.info(f"Sending internal SIGINT to {os.getpid()}")
         os.kill(os.getpid(), signal.SIGINT)
 
     def _notify_api_exit(self, status: PyTrainExitStatus) -> None:
@@ -881,12 +875,16 @@ class PyTrain:
         except Exception as e:
             log.warning(f"Error disconnecting API, continuing shutdown: {e}")
         try:
+            print("BEFORE client disconnect", flush=True)
             if self.is_client and self._tmcc_listener.port:
                 self._tmcc_buffer.disconnect(int(self._tmcc_listener.port))
+            print("AFTER client disconnect", flush=True)
         except Exception as e:
             log.warning(f"Error disconnecting client, continuing shutdown: {e}")
         try:
+            print("BEFORE CommBuffer.stop()", flush=True)
             CommBuffer.stop()
+            print("AFTER CommBuffer.stop()", flush=True)
         except Exception as e:
             log.warning(f"Error closing command buffer, continuing shutdown: {e}")
         try:
