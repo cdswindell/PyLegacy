@@ -149,7 +149,7 @@ def test_server_gui_quit_broadcasts_and_closes_without_tmcc_or_restart(tag, scop
 
 @pytest.mark.parametrize("command", [Sync.RESTART, Sync.UPDATE, Sync.UPGRADE, Sync.REBOOT, Sync.SHUTDOWN])
 @pytest.mark.parametrize("scope", ["0", "1"])
-def test_nonflatpak_server_action_closes_gui_after_optional_broadcast(command, scope):
+def test_nonflatpak_server_action_always_broadcasts_and_closes_gui(command, scope):
     panel = _panel(None)
     panel._scope_btns.value = scope
     calls = []
@@ -162,7 +162,7 @@ def test_nonflatpak_server_action_closes_gui_after_optional_broadcast(command, s
         do_tmcc_request=lambda *_: pytest.fail("server action must not enter TMCC queue"),
     )
     panel.do_admin_command(command)
-    assert calls == [("action", command, scope == "1"), ("close",)]
+    assert calls == [("action", command, True), ("close",)]
 
 
 def test_flatpak_server_restart_still_uses_launcher_path():
