@@ -1001,6 +1001,12 @@ class AdminPanel(OverlayPanel):
                 update_button.disable()
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
+        if command == TMCC1SyncCommandEnum.QUIT and self._pytrain.is_server:
+            # A server must notify every client even when Local is selected.
+            # Close Tk through its own event loop rather than injecting SIGINT.
+            self._pytrain.request_gui_server_quit()
+            self._gui.close()
+            return
         if getattr(self, "_flatpak_tag", None) is not None:
             if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
                 if self._scope_btns.value == "1":
