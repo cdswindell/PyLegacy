@@ -127,3 +127,21 @@ def test_initially_disabled_admin_button_remains_registered_for_chords(monkeypat
     button.enable()
     button.begin_hold()
     assert events == ["held"]
+
+
+@pytest.mark.parametrize("tag", [None, "v2.12.13"])
+@pytest.mark.parametrize("scope", ["0", "1"])
+def test_server_gui_quit_broadcasts_and_closes_without_tmcc_or_restart(tag, scope):
+    panel = _panel(tag)
+    panel._scope_btns.value = scope
+    calls = []
+    panel._pytrain = SimpleNamespace(
+        is_server=True,
+        request_gui_server_quit=lambda: calls.append("broadcast"),
+    )
+    panel._gui = SimpleNamespace(
+        close=lambda: calls.append("close"),
+        do_tmcc_request=lambda *_: pytest.fail("server Quit must not use TMCC GUI queue"),
+    )
+    panel.do_admin_command(Sync.QUIT)
+    assert calls == ["broadcast", "close"]
