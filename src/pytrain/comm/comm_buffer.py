@@ -599,6 +599,7 @@ class CommBufferProxy(CommBuffer):
         command: bytes | CommandReq | PdiReq,
         delay: float = 0,
         was_delayed: bool = False,
+        max_retries: int = 90,
     ) -> None:
         if delay > 0:
             self._scheduler.schedule(delay, command)
@@ -634,7 +635,7 @@ class CommBufferProxy(CommBuffer):
                             self._ephemeral_port = s.getsockname()
                     return
                 except OSError as oe:
-                    if retries < 90:
+                    if retries < max_retries:
                         retries += 1
                         if retries % 5 == 0:
                             errno = oe.errno
@@ -696,10 +697,12 @@ class CommBufferProxy(CommBuffer):
 
             if self._heart_beat_thread:
                 self._heart_beat_thread.shutdown()
-            self.enqueue_command(EnqueueProxyRequests.disconnect_request(port, self.session_id))
-            return
-        except ConnectionError as ce:
-            raise ce
+            self.enqueue_command(
+                EnqueueProxyRequests.disconnect_request(port, self.session_id),
+                max_retries=0,
+            )
+        except OSError as exc:
+            log.debug(f"Server unavailable during client disconnect: {exc}")
 
     def sync_state(self, port: int | None = None) -> None:
         """
