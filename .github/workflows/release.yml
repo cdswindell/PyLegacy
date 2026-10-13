@@ -85,3 +85,32 @@ jobs:
           path: dist/
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  notify-pycab:
+    name: Trigger PyCab Flatpak release
+    needs:
+      - pypi-publish
+      - pypi-publish-deck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch PyCab release after both PyPI publications
+        env:
+          PYCAB_DISPATCH_TOKEN: ${{ secrets.PYCAB_DISPATCH_TOKEN }}
+          PYTRAIN_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$PYCAB_DISPATCH_TOKEN" ]]; then
+            echo "::notice::PYCAB_DISPATCH_TOKEN not configured; scheduled PyCab polling remains available."
+            exit 0
+          fi
+          [[ "$PYTRAIN_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::notice::Skipping PyCab dispatch for non-numeric tag: $PYTRAIN_TAG"
+            exit 0
+          }
+          GH_TOKEN="$PYCAB_DISPATCH_TOKEN" gh api \
+            --method POST \
+            repos/cdswindell/PyCab-Flatpak/dispatches \
+            -f event_type=pytrain-release \
+            -f "client_payload[version]=$PYTRAIN_TAG"
+          echo "Dispatched PyCab release for PyTrain $PYTRAIN_TAG"
