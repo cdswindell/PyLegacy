@@ -1017,7 +1017,7 @@ class AdminPanel(OverlayPanel):
                 TMCC1SyncCommandEnum.REBOOT,
                 TMCC1SyncCommandEnum.SHUTDOWN,
             ):
-                self._pytrain.request_gui_server_action(command)
+                self._pytrain.request_gui_server_action(command, broadcast=True)
                 self._gui.close()
                 return
         if getattr(self, "_flatpak_tag", None) is not None:
