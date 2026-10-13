@@ -6,7 +6,6 @@
 
 """Client proxy transport retry and disconnect regression tests."""
 
-import socket
 import uuid
 from unittest.mock import MagicMock
 
