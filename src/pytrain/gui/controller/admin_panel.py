@@ -1007,6 +1007,19 @@ class AdminPanel(OverlayPanel):
             self._pytrain.request_gui_server_quit()
             self._gui.close()
             return
+        # GUI-hosted, non-Flatpak servers must close Tk before performing
+        # deferred actions. Flatpak retains its launcher/exit-code-42 path.
+        if self._pytrain.is_server and getattr(self, "_flatpak_tag", None) is None:
+            if command in (
+                TMCC1SyncCommandEnum.RESTART,
+                TMCC1SyncCommandEnum.UPDATE,
+                TMCC1SyncCommandEnum.UPGRADE,
+                TMCC1SyncCommandEnum.REBOOT,
+                TMCC1SyncCommandEnum.SHUTDOWN,
+            ):
+                self._pytrain.request_gui_server_action(command, broadcast=self._scope_btns.value == "1")
+                self._gui.close()
+                return
         if getattr(self, "_flatpak_tag", None) is not None:
             if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
                 if self._scope_btns.value == "1":
