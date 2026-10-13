@@ -735,6 +735,7 @@ class PyTrain:
                 self._notify_api_exit(status)
                 return
         self._log_admin_exit("Sending internal SIGINT", command, source=source)
+        log.info(f"Sending internal SIGINT to {os.getpid()}")
         os.kill(os.getpid(), signal.SIGINT)
 
     def _notify_api_exit(self, status: PyTrainExitStatus) -> None:
