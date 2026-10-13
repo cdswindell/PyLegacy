@@ -442,37 +442,42 @@ class PyTrain:
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
 
-        api_status: PyTrainExitStatus | None = None
-        if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-            aa = cast(TMCC1SyncCommandEnum, self._admin_action)
-            if aa != TMCC1SyncCommandEnum.RESYNC:
-                with self._admin_state_lock:
-                    self._lifecycle_phase = "deferred-action"
-                self._log_admin_exit("Entering deferred action", aa, source="run")
-                try:
-                    if aa == TMCC1SyncCommandEnum.UPGRADE:
-                        self.upgrade()
-                    elif aa == TMCC1SyncCommandEnum.UPDATE:
-                        self.update()
-                    elif aa == TMCC1SyncCommandEnum.RESTART:
-                        if self._flatpak_local_restart:
-                            # run() has completed normal teardown; ask the host
-                            # Steam launcher to start a new Flatpak instance.
-                            raise SystemExit(42)
-                        self.restart()
-                    elif aa == TMCC1SyncCommandEnum.REBOOT:
-                        self.reboot()
-                    elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
-                        self.reboot(reboot=False)
-                    elif aa == TMCC1SyncCommandEnum.QUIT:
-                        api_status = PyTrainExitStatus.QUIT
-                except PyTrainExitException as exc:
-                    if not self.is_api:
-                        raise
-                    api_status = exc.reason
+        self.perform_deferred_admin_action()
 
-        if self.is_api and api_status is not None:
-            self._notify_api_exit(api_status)
+    def perform_deferred_admin_action(self) -> None:
+        """Execute the action recorded during shutdown (also used by GUI hosts)."""
+            api_status: PyTrainExitStatus | None = None
+            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+                aa = cast(TMCC1SyncCommandEnum, self._admin_action)
+                if aa != TMCC1SyncCommandEnum.RESYNC:
+                    with self._admin_state_lock:
+                        self._lifecycle_phase = "deferred-action"
+                    self._log_admin_exit("Entering deferred action", aa, source="run")
+                    try:
+                        if aa == TMCC1SyncCommandEnum.UPGRADE:
+                            self.upgrade()
+                        elif aa == TMCC1SyncCommandEnum.UPDATE:
+                            self.update()
+                        elif aa == TMCC1SyncCommandEnum.RESTART:
+                            if self._flatpak_local_restart:
+                                # run() has completed normal teardown; ask the host
+                                # Steam launcher to start a new Flatpak instance.
+                                raise SystemExit(42)
+                            self.restart()
+                        elif aa == TMCC1SyncCommandEnum.REBOOT:
+                            self.reboot()
+                        elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
+                            self.reboot(reboot=False)
+                        elif aa == TMCC1SyncCommandEnum.QUIT:
+                            api_status = PyTrainExitStatus.QUIT
+                    except PyTrainExitException as exc:
+                        if not self.is_api:
+                            raise
+                        api_status = exc.reason
+
+            if self.is_api and api_status is not None:
+                self._notify_api_exit(api_status)
+
 
     def queue_command(self, cmd: str) -> None:
         if cmd:
@@ -782,16 +787,16 @@ class PyTrain:
         else:
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
 
-    def request_gui_server_quit(self) -> None:
-        """Broadcast server QUIT; the GUI owner closes its event loop afterward."""
+    def request_gui_server_action(self, command: TMCC1SyncCommandEnum, *, broadcast: bool = True) -> None:
+        """Record a GUI-hosted server action; the Tk owner closes the window afterward."""
         if not self.is_server:
-            raise RuntimeError("GUI server Quit requires server mode")
-        command = TMCC1SyncCommandEnum.QUIT
+            raise RuntimeError("GUI server admin action requires server mode")
         if not self._claim_admin_exit(command, source="local"):
             return
         try:
-            assert self._dispatcher is not None
-            self._dispatcher.signal_clients(CommandReq(command))
+            if broadcast:
+                assert self._dispatcher is not None
+                self._dispatcher.signal_clients(CommandReq(command))
         except BaseException:
             with self._admin_state_lock:
                 if not self._shutdown_started:
