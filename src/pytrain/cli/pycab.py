@@ -489,6 +489,10 @@ class PyCabCli(CliBase):
 def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
+    from ..utils.logging_manager import LoggingManager
+
+    if not LoggingManager.initialize():
+        raise RuntimeError("Failed to initialize PyTrain logging")
     try:
         PyCabCli(cmd_line=args)
         return 0
