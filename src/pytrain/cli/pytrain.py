@@ -675,9 +675,37 @@ class PyTrain:
                 if self.is_server:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
+            if message.command in (TMCC1SyncCommandEnum.UPDATE, TMCC1SyncCommandEnum.RESTART):
+                from ..utils.flatpak_updates import (
+                    check_flatpak_update,
+                    installed_flatpak_tag,
+                    request_flatpak_update,
+                )
+
+                installed_tag = installed_flatpak_tag()
+                if installed_tag is not None:
+                    if message.command == TMCC1SyncCommandEnum.UPDATE:
+                        # Only the host launcher can replace a Flatpak. Check the
+                        # published release before asking it to restart.
+                        try:
+                            update = check_flatpak_update(installed_tag)
+                        except Exception as exc:
+                            log.warning("Cannot check for a PyCab Flatpak update; restarting unchanged: %s", exc)
+                        else:
+                            if update.available:
+                                log.info("PyCab Flatpak update available: %s -> %s", installed_tag, update.available_tag)
+                                try:
+                                    request_flatpak_update()
+                                except OSError as exc:
+                                    log.error("Unable to request PyCab Flatpak update; restarting unchanged: %s", exc)
+                            else:
+                                log.info("PyCab Flatpak %s is current; restarting", installed_tag)
+                    else:
+                        log.info("Restarting PyCab Flatpak after propagated RESTART")
+                    self.request_local_restart()
+                    return
             if message.command == TMCC1SyncCommandEnum.UPDATE and self_update_disabled():
-                # Flatpak updates are owned by the host launcher, never pip/git.
-                # Ignore our own broadcast echo as well as remote UPDATE commands.
+                # Other distributor-managed installations must never run pip/git.
                 log.info("Ignoring propagated UPDATE in distributor-managed installation")
                 return
             self._request_admin_exit(message.command, source="callback")
