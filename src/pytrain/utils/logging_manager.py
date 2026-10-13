@@ -50,6 +50,7 @@ class LoggingManager:
                 cls._pid = None
 
             before = tuple(root.handlers)
+            previous_level = root.level
             if not set_up_logging(**kwargs):
                 # set_up_logging may have installed a console handler before a
                 # file setup error. Do not leave partially configured handlers.
@@ -57,6 +58,7 @@ class LoggingManager:
                     if handler not in before:
                         root.removeHandler(handler)
                         handler.close()
+                root.setLevel(previous_level)
                 return False
 
             cls._handlers = tuple(handler for handler in root.handlers if handler not in before)
