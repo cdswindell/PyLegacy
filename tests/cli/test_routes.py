@@ -138,9 +138,28 @@ def test_cli_initializes_a_system_command_without_building_requests(cmd_line, co
     assert cli.gui_height is None
     assert cli.scale_by == 1.0
     assert cli.is_full_screen is False
-    assert pytrain.initializations == [((None, None, 1), {"scope": CommandScope.SYSTEM, **connection})]
+    assert pytrain.initializations == [
+        ((None, None, 1), {"scope": CommandScope.SYSTEM, **connection, "debug": False, "echo": False})
+    ]
     gui_class.assert_not_called()
     pytrain.shutdown.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("flags", "debug", "echo"),
+    [
+        (["-debug"], True, False),
+        (["-echo"], False, True),
+        (["-debug", "-echo"], True, True),
+    ],
+)
+def test_cli_forwards_logging_flags(flags, debug, echo, pytrain, gui_class) -> None:
+    RoutesCli(cmd_line=flags, do_fire=False)
+
+    args, kwargs = pytrain.initializations[0]
+    assert args == (None, None, 1)
+    assert kwargs["debug"] is debug
+    assert kwargs["echo"] is echo
 
 
 @pytest.mark.parametrize("do_fire", [False, True])

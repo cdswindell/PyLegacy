@@ -70,6 +70,11 @@ def pytrain_startup(bare_pytrain, monkeypatch):
     import src.pytrain as package
     from src.pytrain.cli import pytrain as module
     from src.pytrain.comm.comm_buffer import CommBufferProxy
+    from src.pytrain.utils.logging_manager import LoggingManager
+
+    # Startup tests exercise PyTrain construction, not logging file rotation.
+    # Avoid rotating the real pytrain.log once per parametrized test case.
+    monkeypatch.setattr(LoggingManager, "initialize", lambda **kwargs: True)
 
     doubles = SimpleNamespace(instance=bare_pytrain)
     doubles.server_buffer = Mock(spec=module.CommBufferSingleton)

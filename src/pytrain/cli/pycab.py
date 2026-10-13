@@ -341,6 +341,8 @@ class PyCabGuiCmd(CommandBase):
             client=client,
             base=base,
             cache_sync=True,
+            debug=self._cli.args.debug,
+            echo=self._cli.args.echo,
         )
         self._command = self._build_command()
 
@@ -431,6 +433,8 @@ class PyCabCli(CliBase):
             action="store_true",
             help="Open the window full screen",
         )
+        parser.add_argument("-debug", action="store_true", help="Enable debug logging")
+        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
 
         parser = PyTrainArgumentParser(
             "Cab control panel options", parents=[parser, cls.cli_parser()], conflict_handler="resolve"
@@ -489,6 +493,10 @@ class PyCabCli(CliBase):
 def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
+    from ..utils.logging_manager import LoggingManager
+
+    if not LoggingManager.initialize():
+        raise RuntimeError("Failed to initialize PyTrain logging")
     try:
         PyCabCli(cmd_line=args)
         return 0
