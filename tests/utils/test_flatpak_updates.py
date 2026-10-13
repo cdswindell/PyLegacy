@@ -55,4 +55,18 @@ def test_release_check_does_not_mutate_other_update_paths(monkeypatch):
     from pytrain.utils.update_policy import self_update_disabled
 
     assert self_update_disabled()
-    assert flatpak_updates.version_key("v2.12.4-3") == (2, 12, 4, 3)
+    assert flatpak_updates.version_key("v2.12.4-3") == (2, 12, 4, 3, 0)
+
+
+def test_development_tag_ordering():
+    tags = [
+        "v2.12.10-2",
+        "v2.12.10-2-dev.1",
+        "v2.12.10-2-dev.2",
+        "v2.12.10-3",
+        "v2.12.10-3-dev.1",
+        "v2.12.11",
+    ]
+    keys = [flatpak_updates.version_key(tag) for tag in tags]
+    assert keys == sorted(keys)
+    assert len(set(keys)) == len(keys)
