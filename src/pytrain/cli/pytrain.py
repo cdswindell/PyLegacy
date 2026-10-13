@@ -70,7 +70,7 @@ from ..protocol.constants import (
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.update_policy import self_update_disabled
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
-from ..utils.dual_logging import set_log_level, set_up_logging
+from ..utils.dual_logging import set_log_level
 from ..utils.host_info import is_steam_deck
 from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_network
 from ..utils.singleton import singleton
