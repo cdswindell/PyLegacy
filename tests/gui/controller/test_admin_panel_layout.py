@@ -254,7 +254,7 @@ def test_flatpak_title_displays_one_release_version(tag, expected, compact) -> N
     panel = _panel(compact=compact)
     panel._flatpak_tag = tag
     title = panel.popup_title
-    assert title == (expected if compact else "Manage PyTrain\\n" + expected)
+    assert title == (expected if compact else "Manage PyTrain\n" + expected)
     assert "v2.9.3" not in title
 
 
