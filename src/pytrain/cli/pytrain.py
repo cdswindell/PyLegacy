@@ -875,16 +875,12 @@ class PyTrain:
         except Exception as e:
             log.warning(f"Error disconnecting API, continuing shutdown: {e}")
         try:
-            print("BEFORE client disconnect", flush=True)
             if self.is_client and self._tmcc_listener.port:
                 self._tmcc_buffer.disconnect(int(self._tmcc_listener.port))
-            print("AFTER client disconnect", flush=True)
         except Exception as e:
             log.warning(f"Error disconnecting client, continuing shutdown: {e}")
         try:
-            print("BEFORE CommBuffer.stop()", flush=True)
             CommBuffer.stop()
-            print("AFTER CommBuffer.stop()", flush=True)
         except Exception as e:
             log.warning(f"Error closing command buffer, continuing shutdown: {e}")
         try:
