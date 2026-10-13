@@ -386,6 +386,10 @@ class PyCabGuiCmd(CommandBase):
         self._gui.run_window()
         if self.pytrain is not None:
             self.pytrain.shutdown()
+            # GUI-hosted servers do not run PyTrain.run(), so execute their
+            # recorded action only after Tk and communication have shut down.
+            if self.pytrain.is_server and self.pytrain._exit_requested:
+                self.pytrain.perform_deferred_admin_action()
 
     def _build_command(self) -> bytes | None:
         return None
