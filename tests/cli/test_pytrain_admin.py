@@ -227,12 +227,15 @@ def test_invalid_target_port(admin):
 @pytest.mark.parametrize("command", [mod.TMCC1SyncCommandEnum.QUIT, mod.TMCC1SyncCommandEnum.RESYNC])
 def test_admin_broadcast_and_local_routing(admin, args, command):
     local_client = not admin.is_server and args == ["me"]
-    if command == mod.TMCC1SyncCommandEnum.RESYNC or local_client:
+    server_quit = admin.is_server and command == mod.TMCC1SyncCommandEnum.QUIT
+    if command == mod.TMCC1SyncCommandEnum.RESYNC or local_client or server_quit:
         admin.do_admin_cmd(command, args)
     else:
         with pytest.raises(KeyboardInterrupt):
             admin.do_admin_cmd(command, args)
     expected_action = None if command == mod.TMCC1SyncCommandEnum.RESYNC or local_client else command
+    if server_quit:
+        mod.os.kill.assert_called_once_with(1234, signal.SIGINT)
     assert admin._admin_action == expected_action
     if admin.is_server:
         admin._tmcc_buffer.enqueue_command.assert_not_called()
@@ -251,9 +254,9 @@ def test_admin_broadcast_and_local_routing(admin, args, command):
 def test_client_on_server_host(admin):
     if admin.is_server:
         admin._server_ips = []
-        with pytest.raises(KeyboardInterrupt):
-            admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.QUIT, ["elsewhere"])
+        admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.QUIT, ["elsewhere"])
         admin._dispatcher.signal_clients.assert_called_once()
+        mod.os.kill.assert_called_once_with(1234, signal.SIGINT)
     else:
         admin._client_ip = admin._server_ips[0]
         admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.QUIT, ["me"])
