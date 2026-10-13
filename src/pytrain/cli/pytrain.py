@@ -693,7 +693,9 @@ class PyTrain:
                             log.warning("Cannot check for a PyCab Flatpak update; restarting unchanged: %s", exc)
                         else:
                             if update.available:
-                                log.info("PyCab Flatpak update available: %s -> %s", installed_tag, update.available_tag)
+                                log.info(
+                                    "PyCab Flatpak update available: %s -> %s", installed_tag, update.available_tag
+                                )
                                 try:
                                     request_flatpak_update()
                                 except OSError as exc:
