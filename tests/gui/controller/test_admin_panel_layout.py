@@ -241,6 +241,30 @@ def test_popup_title_includes_runtime_version() -> None:
     assert _panel(compact=False).popup_title == "Manage PyTrain\nPyTrain Client v2.9.3+"
 
 
+@pytest.mark.parametrize(
+    "tag, expected",
+    [
+        ("v2.12.11", "PyTrain Client v2.12.11"),
+        ("v2.12.11-1", "PyTrain Client v2.12.11-1"),
+        ("v2.12.10-2-dev.1", "PyTrain Client v2.12.10-2-dev.1"),
+    ],
+)
+@pytest.mark.parametrize("compact", [True, False])
+def test_flatpak_title_displays_one_release_version(tag, expected, compact) -> None:
+    panel = _panel(compact=compact)
+    panel._flatpak_tag = tag
+    title = panel.popup_title
+    assert title == (expected if compact else "Manage PyTrain\\n" + expected)
+    assert "v2.9.3" not in title
+
+
+def test_flatpak_server_title_preserves_role() -> None:
+    panel = _panel(compact=True)
+    panel._gui.version = "PyTrain Server v2.12.10+"
+    panel._flatpak_tag = "v2.12.11"
+    assert panel.popup_title == "PyTrain Server v2.12.11"
+
+
 def test_portrait_database_height_retains_button_size() -> None:
     panel = _panel(compact=False)
 
