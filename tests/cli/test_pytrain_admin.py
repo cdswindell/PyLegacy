@@ -511,3 +511,21 @@ def test_relaunch_os_errors_propagate(admin, monkeypatch, service):
     with pytest.raises(OSError, match="restart failed"):
         admin.relaunch(mod.PyTrainExitStatus.RESTART, delay=False)
     mod.sleep.assert_not_called()
+
+
+def test_server_gui_quit_broadcasts_then_signals_local_exit(admin):
+    """GUI-triggered server Quit must not raise only in the callback thread."""
+    if not admin.is_server:
+        pytest.skip("Server-specific GUI exit")
+    events = []
+    admin._dispatcher.signal_clients.side_effect = lambda cmd: events.append(("broadcast", cmd.command))
+    mod.os.kill.side_effect = lambda pid, sig: events.append(("signal", pid, sig))
+
+    admin.do_admin_cmd(mod.TMCC1SyncCommandEnum.QUIT)
+
+    assert events == [
+        ("broadcast", mod.TMCC1SyncCommandEnum.QUIT),
+        ("signal", 1234, signal.SIGINT),
+    ]
+    assert admin._admin_action is mod.TMCC1SyncCommandEnum.QUIT
+    assert admin._exit_requested
