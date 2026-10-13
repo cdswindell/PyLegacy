@@ -41,3 +41,29 @@ def test_deferred_restart_preserves_flatpak_exit_code():
     with pytest.raises(SystemExit) as exc:
         train.perform_deferred_admin_action()
     assert exc.value.code == 42
+
+
+def test_pycab_gui_server_restart_reexecs_python(monkeypatch):
+    import sys
+    from unittest.mock import Mock
+
+    from src.pytrain.cli.pycab import PyCabGuiCmd
+
+    cmd = object.__new__(PyCabGuiCmd)
+    cmd._pytrain = SimpleNamespace(_admin_action=Sync.RESTART)
+    execv = Mock(side_effect=RuntimeError("exec intercepted"))
+    monkeypatch.setattr("src.pytrain.cli.pycab.os.execv", execv)
+    with pytest.raises(RuntimeError, match="exec intercepted"):
+        cmd._perform_server_admin_action()
+    execv.assert_called_once_with(sys.executable, [sys.executable, *sys.argv])
+
+
+def test_pycab_gui_server_nonrestart_runs_deferred_action():
+    from src.pytrain.cli.pycab import PyCabGuiCmd
+
+    cmd = object.__new__(PyCabGuiCmd)
+    train = SimpleNamespace(_admin_action=Sync.UPDATE, _api=True, perform_deferred_admin_action=MagicMock())
+    cmd._pytrain = train
+    cmd._perform_server_admin_action()
+    assert train._api is False
+    train.perform_deferred_admin_action.assert_called_once_with()
