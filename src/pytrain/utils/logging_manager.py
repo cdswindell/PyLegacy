@@ -25,9 +25,7 @@ class LoggingManager:
         with cls._lock:
             pid = os.getpid()
             root = logging.getLogger()
-            if cls._pid == pid and cls._handlers and all(
-                handler in root.handlers for handler in cls._handlers
-            ):
+            if cls._pid == pid and cls._handlers and all(handler in root.handlers for handler in cls._handlers):
                 return True
 
             # After fork, the child inherits file descriptors and handler
