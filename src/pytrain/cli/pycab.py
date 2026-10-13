@@ -22,6 +22,7 @@ see window_geometry, and DESIGN_WIDTH for why a fixed 800x1280 does not travel.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import tkinter as tk
 from argparse import ArgumentParser
@@ -389,7 +390,21 @@ class PyCabGuiCmd(CommandBase):
             # GUI-hosted servers do not run PyTrain.run(), so execute their
             # recorded action only after Tk and communication have shut down.
             if getattr(self.pytrain, "is_server", False) and getattr(self.pytrain, "_exit_requested", False):
-                self.pytrain.perform_deferred_admin_action()
+                self._perform_server_admin_action()
+
+    def _perform_server_admin_action(self) -> None:
+        """Execute a GUI-hosted action after Tk exits, without API SIGINT."""
+        from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+
+        action = self.pytrain._admin_action
+        if action == TMCC1SyncCommandEnum.RESTART:
+            log.info("PyCab server restarting...")
+            os.execv(sys.executable, [sys.executable, *sys.argv])
+        else:
+            # This standalone GUI owns the process; API exit notification would
+            # SIGINT the host instead of executing the administrative operation.
+            self.pytrain._api = False
+            self.pytrain.perform_deferred_admin_action()
 
     def _build_command(self) -> bytes | None:
         return None
