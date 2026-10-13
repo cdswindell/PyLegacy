@@ -220,16 +220,13 @@ class AdminPanel(OverlayPanel):
     def popup_title(self) -> str:
         version = self._gui.version
         if self._flatpak_tag is not None:
-            # The GUI title already includes the PyTrain version. Replace its
-            # trailing version with the complete Flatpak release tag rather
-            # than displaying the version twice.
+            # The embedded Flatpak release tag is the single authoritative
+            # display version, including packaging revisions and dev builds.
+            # Keep the GUI's client/server label but discard its version.
             import re
 
-            match = re.search(r"v?[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9]+)?$", version)
-            if match:
-                version = version[: match.start()] + "v" + self._flatpak_tag.removeprefix("v")
-            else:
-                version = f"{version} ({self._flatpak_tag})"
+            version = re.sub(r"\\s+v?\\d+\\.\\d+\\.\\d+.*$", "", version)
+            version = f"{version} {self._flatpak_tag}"
         if not self._compact:
             return ADMIN_TITLE + "\n" + version
         return version
