@@ -941,6 +941,14 @@ class PyTrain:
                         if not previously_received:
                             self._received_admin_cmds.discard(command)
                         self._log_admin_exit("Rolled back admin exit", command, source="local")
+        if self.is_server and command == TMCC1SyncCommandEnum.QUIT:
+            # A GUI callback may run outside the main thread. Raising
+            # KeyboardInterrupt there does not terminate the server process.
+            # Clients have already been notified; request local shutdown via
+            # the same process-level signal used by propagated admin exits.
+            self._log_admin_exit("Sending internal SIGINT", command, source="local")
+            os.kill(os.getpid(), signal.SIGINT)
+            return
         raise KeyboardInterrupt()
 
     @staticmethod
