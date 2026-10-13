@@ -478,7 +478,6 @@ class PyTrain:
         if self.is_api and api_status is not None:
             self._notify_api_exit(api_status)
 
-
     def queue_command(self, cmd: str) -> None:
         if cmd:
             if self._api and self._command_queue:
