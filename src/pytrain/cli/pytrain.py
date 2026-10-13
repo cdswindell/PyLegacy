@@ -446,37 +446,37 @@ class PyTrain:
 
     def perform_deferred_admin_action(self) -> None:
         """Execute the action recorded during shutdown (also used by GUI hosts)."""
-            api_status: PyTrainExitStatus | None = None
-            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                aa = cast(TMCC1SyncCommandEnum, self._admin_action)
-                if aa != TMCC1SyncCommandEnum.RESYNC:
-                    with self._admin_state_lock:
-                        self._lifecycle_phase = "deferred-action"
-                    self._log_admin_exit("Entering deferred action", aa, source="run")
-                    try:
-                        if aa == TMCC1SyncCommandEnum.UPGRADE:
-                            self.upgrade()
-                        elif aa == TMCC1SyncCommandEnum.UPDATE:
-                            self.update()
-                        elif aa == TMCC1SyncCommandEnum.RESTART:
-                            if self._flatpak_local_restart:
-                                # run() has completed normal teardown; ask the host
-                                # Steam launcher to start a new Flatpak instance.
-                                raise SystemExit(42)
-                            self.restart()
-                        elif aa == TMCC1SyncCommandEnum.REBOOT:
-                            self.reboot()
-                        elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
-                            self.reboot(reboot=False)
-                        elif aa == TMCC1SyncCommandEnum.QUIT:
-                            api_status = PyTrainExitStatus.QUIT
-                    except PyTrainExitException as exc:
-                        if not self.is_api:
-                            raise
-                        api_status = exc.reason
+        api_status: PyTrainExitStatus | None = None
+        if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+            aa = cast(TMCC1SyncCommandEnum, self._admin_action)
+            if aa != TMCC1SyncCommandEnum.RESYNC:
+                with self._admin_state_lock:
+                    self._lifecycle_phase = "deferred-action"
+                self._log_admin_exit("Entering deferred action", aa, source="run")
+                try:
+                    if aa == TMCC1SyncCommandEnum.UPGRADE:
+                        self.upgrade()
+                    elif aa == TMCC1SyncCommandEnum.UPDATE:
+                        self.update()
+                    elif aa == TMCC1SyncCommandEnum.RESTART:
+                        if self._flatpak_local_restart:
+                            # run() has completed normal teardown; ask the host
+                            # Steam launcher to start a new Flatpak instance.
+                            raise SystemExit(42)
+                        self.restart()
+                    elif aa == TMCC1SyncCommandEnum.REBOOT:
+                        self.reboot()
+                    elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
+                        self.reboot(reboot=False)
+                    elif aa == TMCC1SyncCommandEnum.QUIT:
+                        api_status = PyTrainExitStatus.QUIT
+                except PyTrainExitException as exc:
+                    if not self.is_api:
+                        raise
+                    api_status = exc.reason
 
-            if self.is_api and api_status is not None:
-                self._notify_api_exit(api_status)
+        if self.is_api and api_status is not None:
+            self._notify_api_exit(api_status)
 
 
     def queue_command(self, cmd: str) -> None:
