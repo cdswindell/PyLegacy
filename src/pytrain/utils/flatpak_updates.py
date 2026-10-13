@@ -29,17 +29,17 @@ def installed_flatpak_tag() -> str | None:
 
 
 RELEASE_URL = "https://api.github.com/repos/cdswindell/PyCab-Flatpak/releases/latest"
-_RELEASE_TAG = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?$")
+_RELEASE_TAG = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?(?:-dev\.(\d+))?$")
 _REQUIRED_ASSETS = frozenset({"PyCab.flatpak", "PyCab.flatpak.sha256"})
 
 
-def version_key(tag: str) -> tuple[int, int, int, int]:
-    """Compare stable PyCab tags, including packaging-only rebuild revisions."""
+def version_key(tag: str) -> tuple[int, int, int, int, int]:
+    """Compare PyCab tags by PyTrain version, packaging revision, then dev build."""
     match = _RELEASE_TAG.fullmatch(tag)
     if match is None:
         raise ValueError(f"Invalid PyCab release tag: {tag!r}")
-    major, minor, patch, revision = match.groups()
-    return int(major), int(minor), int(patch), int(revision or 0)
+    major, minor, patch, revision, development = match.groups()
+    return int(major), int(minor), int(patch), int(revision or 0), int(development or 0)
 
 
 @dataclass(frozen=True)
