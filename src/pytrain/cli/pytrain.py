@@ -122,6 +122,10 @@ class PyTrain:
 
     def __init__(self, cmd_line: List[str] | None = None) -> None:
         from .. import get_version
+        from ..utils.logging_manager import LoggingManager
+
+        if not LoggingManager.initialize():
+            raise RuntimeError("Failed to initialize PyTrain logging")
 
         if cmd_line:
             args = self.command_line_parser_ex().parse_args(cmd_line)
@@ -2051,5 +2055,4 @@ class PyTrainExitException(Exception):
         self.reason = reason
 
 
-set_up_logging()
 log = logging.getLogger(__name__)
