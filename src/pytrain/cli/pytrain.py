@@ -420,6 +420,7 @@ class PyTrain:
                 except ArgumentError:
                     pass
         except KeyboardInterrupt:
+            print("PyTrain.run caught KeyboardInterrupt", flush=True)
             self.shutdown()
         finally:
             with self._admin_state_lock:
@@ -717,6 +718,10 @@ class PyTrain:
             self._request_admin_exit(message.command, source="callback")
 
     def _request_admin_exit(self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False) -> None:
+        from threading import current_thread, main_thread
+
+        print(f"Current thread: {current_thread().name}")
+        print(f"Main thread: {main_thread().name}")
         """Claim an admin exit once, then use the existing API/SIGINT shutdown path."""
         if not self._claim_admin_exit(command, source=source):
             return
