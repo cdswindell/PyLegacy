@@ -225,7 +225,7 @@ class AdminPanel(OverlayPanel):
             # Keep the GUI's client/server label but discard its version.
             import re
 
-            version = re.sub(r"\\s+v?\\d+\\.\\d+\\.\\d+.*$", "", version)
+            version = re.sub(r"\s+v?\d+\.\d+\.\d+.*$", "", version)
             version = f"{version} {self._flatpak_tag}"
         if not self._compact:
             return ADMIN_TITLE + "\n" + version
