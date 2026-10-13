@@ -787,6 +787,10 @@ class PyTrain:
         else:
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
 
+    def request_gui_server_quit(self) -> None:
+        """Broadcast GUI server QUIT (compatibility entry point)."""
+        self.request_gui_server_action(TMCC1SyncCommandEnum.QUIT)
+
     def request_gui_server_action(self, command: TMCC1SyncCommandEnum, *, broadcast: bool = True) -> None:
         """Record a GUI-hosted server action; the Tk owner closes the window afterward."""
         if not self.is_server:
