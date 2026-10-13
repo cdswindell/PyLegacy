@@ -782,6 +782,26 @@ class PyTrain:
         else:
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
 
+    def request_gui_server_quit(self) -> None:
+        """Broadcast server QUIT; the GUI owner closes its event loop afterward."""
+        if not self.is_server:
+            raise RuntimeError("GUI server Quit requires server mode")
+        command = TMCC1SyncCommandEnum.QUIT
+        if not self._claim_admin_exit(command, source="local"):
+            return
+        try:
+            assert self._dispatcher is not None
+            self._dispatcher.signal_clients(CommandReq(command))
+        except BaseException:
+            with self._admin_state_lock:
+                if not self._shutdown_started:
+                    previous_action, previously_received = self._admin_exit_previous
+                    self._exit_requested = False
+                    self._admin_action = previous_action
+                    if not previously_received:
+                        self._received_admin_cmds.discard(command)
+            raise
+
     def request_local_restart(self) -> None:
         """Request a local restart through the normal shutdown lifecycle.
 
