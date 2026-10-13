@@ -48,6 +48,8 @@ class LoggingManager:
                     handler.close()
                 cls._handlers = ()
                 cls._pid = None
+                # Forked workers must never rotate the parent's active logfile.
+                return False
 
             before = tuple(root.handlers)
             previous_level = root.level
