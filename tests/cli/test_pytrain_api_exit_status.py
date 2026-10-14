@@ -68,3 +68,14 @@ def test_api_host_notification_records_status_once(api_train, monkeypatch, statu
     assert kill.call_count == 1
     api_train._notify_api_exit(status)
     assert kill.call_count == 1
+
+
+def test_flatpak_restart_uses_launcher_exit_code_42(api_train):
+    """Flatpak restart is a launcher protocol, not a PyTrain API exit status."""
+    from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+
+    api_train._admin_action = TMCC1SyncCommandEnum.RESTART
+    api_train._flatpak_local_restart = True
+    with pytest.raises(SystemExit) as exc:
+        api_train.perform_deferred_admin_action()
+    assert exc.value.code == 42
