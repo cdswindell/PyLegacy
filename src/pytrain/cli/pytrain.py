@@ -1119,8 +1119,8 @@ class PyTrain:
         # status and hands control back to the host, the same as reboot(), update() and
         # relaunch() do. Checked before anything runs, not after.
         if self.is_api:
-            self._exit_status = PyTrainExitStatus.UPDATE
-            raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+            self._exit_status = PyTrainExitStatus.UPGRADE
+            raise PyTrainExitException(PyTrainExitStatus.UPGRADE)
         # PyTrain updates first, while the machine is still up. `sudo reboot` returns as
         # soon as systemd accepts the shutdown job rather than blocking until the machine
         # goes down. Anything sequenced after it races the teardown -- and a pip
