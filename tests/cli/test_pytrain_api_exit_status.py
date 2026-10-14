@@ -1,7 +1,7 @@
 """API hosts receive explicit PyTrain exit reasons without executing OS actions."""
 
 from threading import Lock
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -35,8 +35,9 @@ def test_api_operations_raise_correct_exit_reason(api_train, monkeypatch, method
     # Prevent a regression from invoking an actual system command or relaunch.
     monkeypatch.setattr("src.pytrain.cli.pytrain.subprocess.run", Mock(side_effect=AssertionError("subprocess")))
     monkeypatch.setattr("src.pytrain.cli.pytrain.os.execv", Mock(side_effect=AssertionError("execv")))
-    with pytest.raises(PyTrainExitException) as exc:
-        getattr(api_train, method)(**kwargs)
+    with patch.object(PyTrain, "is_server", property(lambda _: True)):
+        with pytest.raises(PyTrainExitException) as exc:
+            getattr(api_train, method)(**kwargs)
     assert exc.value.reason is expected
     assert api_train.exit_status is expected
     assert expected.value in (0, 11, 12, 13, 14, 15)
