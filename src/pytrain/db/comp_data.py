@@ -638,7 +638,7 @@ class CompData(ABC, Generic[R]):
 
     # noinspection PyTypeChecker
     @classmethod
-    def request_to_updates(cls, req: R) -> list[UpdatePkg] | None:
+    def request_to_updates(cls, req: R) -> list[UpdatePkg]:
         """
         Pushes derivative state changes to Base 3 in response to a CommandReq.
         For example, when an engine is reset (Numeric 0), its speed and RPM
@@ -673,7 +673,7 @@ class CompData(ABC, Generic[R]):
         scope: CommandScope = CommandScope.ENGINE,
         data: Any = None,
         legacy: bool = True,
-    ) -> list[UpdatePkg] | None:
+    ) -> list[UpdatePkg]:
         update_pkgs: list[UpdatePkg] = []
         # get a copy of the updates, as we don't want to modify the original dict
         updates = REQUEST_TO_UPDATES_MAP.get(field.strip().upper(), []).copy()
@@ -898,7 +898,7 @@ class CompData(ABC, Generic[R]):
         scope = state.scope
         address = state.address
         if scope:
-            reqs = [cls.clear_road_name_number_req(address, scope)]
+            reqs: list[PdiReq | ComponentState] = [cls.clear_road_name_number_req(address, scope)]
             reqs.append(cls._clear_record_req(address, scope))
             reqs.append(state)
             return reqs

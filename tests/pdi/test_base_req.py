@@ -10,12 +10,150 @@
 #  Tests for BaseReq
 #
 
-from typing import Tuple
+from types import SimpleNamespace
+from typing import Tuple, cast
+from unittest.mock import Mock, call
 
-from src.pytrain.pdi.base_req import BaseReq, decode_labor_rpm, encode_labor_rpm
-from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, PdiCommand
+import pytest
+
+from src.pytrain.db.comp_data import CompData, UpdatePkg
+from src.pytrain.db.component_state import ComponentStateDict, RouteState
+from src.pytrain.db.component_state_store import ComponentStateStore
+from src.pytrain.db.engine_state import EngineState
+from src.pytrain.pdi.base3_db_refresh_manager import Base3DbRefreshManager
+from src.pytrain.pdi.base_req import BaseReq, EngineBits, decode_labor_rpm, encode_labor_rpm
+from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
+from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+
+
+SPEED_UPDATE_SCOPES = [
+    pytest.param(PdiCommand.UPDATE_ENGINE_SPEED, CommandScope.ENGINE, "Engine", id="engine"),
+    pytest.param(PdiCommand.UPDATE_TRAIN_SPEED, CommandScope.TRAIN, "Train", id="train"),
+]
+SPEED_UPDATE_ADDRESSES = [
+    pytest.param(1, b"\x01\xff", id="2d-1"),
+    pytest.param(7, b"\x07\xff", id="2d-7"),
+    pytest.param(99, b"\x63\xff", id="2d-99"),
+    pytest.param(100, b"\x34\x12", id="4d-100"),
+    pytest.param(1234, b"\x34\x12", id="4d-1234"),
+    pytest.param(9999, b"\x34\x12", id="4d-9999"),
+]
+
+
+def incoming_speed_packet(command: int, address_bytes: bytes, target_speed: int | None) -> bytes:
+    """Frame an incoming update independently of the request factory and serializer."""
+    payload = bytes([command]) + address_bytes
+    if target_speed is not None:
+        payload += bytes([target_speed])
+    stuffed = bytearray()
+    for value in payload:
+        if value in {0xD1, 0xDE, 0xDF}:
+            stuffed.append(0xDE)
+        stuffed.append(value)
+    checksum = -sum(stuffed) & 0xFF
+    if checksum in {0xD1, 0xDE, 0xDF}:
+        stuffed.append(0xDE)
+        checksum = -sum(stuffed) & 0xFF
+    return b"\xd1" + bytes(stuffed) + bytes([checksum]) + b"\xdf"
+
+
+@pytest.fixture
+def speed_update_lookups(monkeypatch):
+    reverse = Mock(return_value=None)
+    forward = Mock(side_effect=AssertionError("Incoming speed updates must not use forward lookup"))
+    monkeypatch.setattr(ComponentStateStore, "by_record_no", reverse)
+    monkeypatch.setattr(ComponentStateStore, "get_state", forward)
+    return reverse, forward
+
+
+@pytest.mark.parametrize(
+    "command,address_bytes,expected",
+    [
+        pytest.param(PdiCommand.UPDATE_ENGINE_SPEED, b"\x07\xff", b"\xd1\x2a\x07\xff\x2d\xa3\xdf", id="engine-2d"),
+        pytest.param(PdiCommand.UPDATE_TRAIN_SPEED, b"\x07\xff", b"\xd1\x2b\x07\xff\x2d\xa2\xdf", id="train-2d"),
+        pytest.param(PdiCommand.UPDATE_ENGINE_SPEED, b"\x34\x12", b"\xd1\x2a\x34\x12\x2d\x63\xdf", id="engine-4d"),
+        pytest.param(PdiCommand.UPDATE_TRAIN_SPEED, b"\x34\x12", b"\xd1\x2b\x34\x12\x2d\x62\xdf", id="train-4d"),
+    ],
+)
+def test_incoming_speed_packet_matches_fixed_wire_examples(command, address_bytes, expected):
+    assert incoming_speed_packet(command, address_bytes, 45) == expected
+
+
+@pytest.mark.parametrize("command,scope,label", SPEED_UPDATE_SCOPES)
+@pytest.mark.parametrize("address,address_bytes", SPEED_UPDATE_ADDRESSES)
+@pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
+def test_incoming_speed_update_carries_target(
+    command, scope, label, address, address_bytes, target_speed, speed_update_lookups
+):
+    reverse, forward = speed_update_lookups
+    reverse.return_value = SimpleNamespace(tmcc_id=address)
+    packet = incoming_speed_packet(command, address_bytes, target_speed)
+
+    parsed = PdiReq.from_bytes(packet)
+
+    assert isinstance(parsed, BaseReq)
+    assert parsed.pdi_command == command
+    assert parsed.scope == scope
+    assert parsed.tmcc_id == address
+    assert parsed.target_speed == target_speed
+    assert parsed.speed is None
+    assert parsed.payload == f"{label} #{address} Target Speed: {target_speed}"
+    assert parsed.as_bytes == packet
+    forward.assert_not_called()
+    if address < 100:
+        assert address_bytes == bytes([address, 0xFF])
+        reverse.assert_not_called()
+    else:
+        assert address_bytes == (0x1234).to_bytes(2, "little")
+        reverse.assert_called_once_with(0x1234, scope)
+    assert parsed.is_valid(EngineBits.TARGET_SPEED)
+    assert not parsed.is_valid(EngineBits.SPEED)
+
+
+@pytest.mark.parametrize("command,scope,label", SPEED_UPDATE_SCOPES)
+@pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
+def test_incoming_speed_update_without_record_lookup_result(command, scope, label, target_speed, speed_update_lookups):
+    reverse, forward = speed_update_lookups
+    packet = incoming_speed_packet(command, b"\x34\x12", target_speed)
+
+    parsed = PdiReq.from_bytes(packet)
+
+    assert isinstance(parsed, BaseReq)
+    assert parsed.pdi_command == command
+    assert parsed.scope == scope
+    assert parsed.target_speed == target_speed
+    assert parsed.speed is None
+    assert parsed.payload == f"{label} #{parsed.tmcc_id} Target Speed: {target_speed}"
+    assert parsed.as_bytes == packet
+    reverse.assert_called_once_with(0x1234, scope)
+    forward.assert_not_called()
+    assert parsed.is_valid(EngineBits.TARGET_SPEED)
+    assert not parsed.is_valid(EngineBits.SPEED)
+
+
+@pytest.mark.parametrize(
+    "command", [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED], ids=["engine", "train"]
+)
+@pytest.mark.parametrize("address_bytes", [b"\x07\xff", b"\x34\x12"], ids=["2d", "4d"])
+def test_incoming_speed_update_without_target_byte(command, address_bytes, speed_update_lookups):
+    reverse, forward = speed_update_lookups
+    packet = incoming_speed_packet(command, address_bytes, None)
+
+    parsed = PdiReq.from_bytes(packet)
+
+    assert isinstance(parsed, BaseReq)
+    assert parsed.pdi_command == command
+    assert parsed.target_speed is None
+    assert parsed.speed is None
+    assert parsed.as_bytes == packet
+    assert not parsed.is_valid(EngineBits.TARGET_SPEED)
+    assert not parsed.is_valid(EngineBits.SPEED)
+    reverse.assert_not_called()
+    forward.assert_not_called()
 
 
 def engine_memory_req(record: bytes, tmcc_id: int = 20) -> BaseReq:
@@ -24,7 +162,135 @@ def engine_memory_req(record: bytes, tmcc_id: int = 20) -> BaseReq:
     same trip over the wire it makes when the Base 3 answers a configuration request.
     """
     req = BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE, data_bytes=record)
-    return PdiReq.from_bytes(req.as_bytes)
+    return cast(BaseReq, PdiReq.from_bytes(req.as_bytes))
+
+
+@pytest.fixture
+def sync_dispatch(monkeypatch):
+    events = Mock()
+    thread = Mock()
+    monkeypatch.setattr(Base3DbRefreshManager, "request_refresh", events.refresh)
+    monkeypatch.setattr("src.pytrain.pdi.base_req.Thread", thread)
+    return events, thread
+
+
+@pytest.mark.parametrize("do_async", [False, True])
+def test_process_sync_reqs_preserves_mixed_dispatch_order(do_async, sync_dispatch):
+    events, thread = sync_dispatch
+    first = BaseReq(7, PdiCommand.BASE_ENGINE)
+    second = D4Req(0x1234, PdiCommand.D4_ENGINE, D4Action.QUERY)
+    engine = ComponentStateDict(CommandScope.ENGINE)[7]
+    route = ComponentStateDict(CommandScope.ROUTE)[3]
+    assert isinstance(route, RouteState)
+
+    def start_thread(**kwargs):
+        worker = Mock()
+        worker.start.side_effect = lambda: kwargs["target"](*kwargs["args"])
+        return worker
+
+    thread.side_effect = start_thread
+    assert BaseReq.process_sync_reqs((first, engine, second, route), events.send, do_async) is True
+    assert events.mock_calls == [call.send(first), call.refresh(engine), call.send(second), call.refresh(route)]
+    if do_async:
+        assert thread.call_args_list == [
+            call(target=events.send, args=(first,), daemon=True),
+            call(target=events.send, args=(second,), daemon=True),
+        ]
+    else:
+        thread.assert_not_called()
+
+
+@pytest.mark.parametrize("do_async", [False, True])
+def test_process_sync_reqs_empty_input(do_async, sync_dispatch):
+    events, thread = sync_dispatch
+    assert BaseReq.process_sync_reqs([], events.send, do_async) is False
+    assert events.mock_calls == []
+    thread.assert_not_called()
+
+
+@pytest.fixture(params=[CommandScope.ENGINE, CommandScope.TRAIN])
+def initialized_update_state(request):
+    def create(address: int) -> EngineState:
+        state = ComponentStateDict(request.param)[address]
+        assert isinstance(state, EngineState)
+        state.initialize(request.param, address)
+        # Seed the Base's mapping without starting discovery or a hardware connection.
+        # noinspection PyProtectedMember
+        state._d4_rec_no = 0x1234  # noqa: SLF001
+        return state
+
+    return create
+
+
+@pytest.mark.parametrize("address", [7, 100, 1234])
+@pytest.mark.parametrize("refresh", [False, True])
+def test_updates_to_reqs_preserves_requests_and_refresh_marker(
+    address, refresh, initialized_update_state, sync_dispatch
+):
+    state = initialized_update_state(address)
+    packages = [UpdatePkg("speed", 7, 1, b"\x2d"), UpdatePkg("momentum", 24, 1, b"\x03")]
+    reqs = BaseReq.updates_to_reqs(state, packages, refresh=refresh)
+    assert len(reqs) == 2 + int(refresh)
+    for req, pkg in zip(reqs[:2], packages):
+        if address <= 100:
+            assert isinstance(req, BaseReq)
+            expected = BaseReq(
+                address,
+                PdiCommand.BASE_MEMORY,
+                flags=0xC2,
+                scope=state.scope,
+                start=pkg.offset,
+                data_length=pkg.length,
+                data_bytes=pkg.data_bytes,
+            )
+        else:
+            assert isinstance(req, D4Req)
+            command = PdiCommand.D4_ENGINE if state.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+            expected = D4Req(
+                0x1234, command, D4Action.UPDATE, start=pkg.offset, data_length=pkg.length, data_bytes=pkg.data_bytes
+            )
+        assert req.as_bytes == expected.as_bytes
+    if refresh:
+        assert reqs[-1] is state
+    events, thread = sync_dispatch
+    assert BaseReq.process_sync_reqs(reqs, events.send) is refresh
+    assert events.send.call_args_list == [call(reqs[0]), call(reqs[1])]
+    assert events.refresh.call_args_list == ([call(state)] if refresh else [])
+    thread.assert_not_called()
+    assert BaseReq.updates_to_reqs(state, [], refresh=refresh) == []
+
+
+@pytest.mark.parametrize("address", [7, 1234])
+@pytest.mark.parametrize("entry_point", ["update_eng", "do_update_eng", "do_update_field"])
+def test_initialized_update_paths_preserve_mixed_results(
+    address, entry_point, initialized_update_state, sync_dispatch, monkeypatch
+):
+    state = initialized_update_state(address)
+    package = UpdatePkg("speed", 7, 1, b"\x2d")
+    lookup = Mock(return_value=state)
+    monkeypatch.setattr(ComponentStateStore, "get_state", lookup)
+    monkeypatch.setattr(CompData, "request_to_updates", Mock(return_value=[package]))
+    monkeypatch.setattr(CompData, "field_to_updates", Mock(return_value=[package]))
+    sent = Mock()
+    monkeypatch.setattr(PdiReq, "send", sent)
+    command = CommandReq(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address, data=45, scope=state.scope)
+    if entry_point == "do_update_field":
+        reqs = BaseReq.do_update_field("speed", 45, state, do_async=False)
+        lookup.assert_not_called()
+    else:
+        reqs = getattr(BaseReq, entry_point)(command)
+        lookup.assert_called_once_with(state.scope, address, False)
+    assert len(reqs) == 2
+    assert isinstance(reqs[0], BaseReq if address < 100 else D4Req)
+    assert reqs[-1] is state
+    events, thread = sync_dispatch
+    if entry_point == "update_eng":
+        sent.assert_not_called()
+        events.refresh.assert_not_called()
+    else:
+        sent.assert_called_once_with()
+        events.refresh.assert_called_once_with(state)
+    thread.assert_not_called()
 
 
 def test_encode_decode_labor_rpm_roundtrip():
@@ -44,6 +310,65 @@ def test_encode_decode_labor_rpm_roundtrip():
         assert labor_d == labor
 
 
+@pytest.mark.parametrize(
+    "rate,expected",
+    [(None, 9), (0.0, 1), (0.24, 1), (0.25, 2), (1.0, 5), (1.75, 8), (2.0, 9), (-0.1, 9), (2.25, 9)],
+)
+def test_encode_throw_rate_defaults_and_mapped_values(rate, expected):
+    assert BaseReq.encode_throw_rate(rate) == expected
+
+
+def numeric_record_req(command: PdiCommand, values: dict[int, int]) -> BaseReq:
+    """Parse an independent record, omitting numeric fields when no values are supplied."""
+    inner = bytearray(69 if values else 61)
+    inner[0] = command.value
+    inner[1] = 7
+    for offset, value in values.items():
+        inner[offset] = value
+    # The checksum helper frames the independent record for the public parser.
+    # noinspection PyProtectedMember
+    stuffed, checksum = PdiReq._calculate_checksum(bytes(inner))  # noqa: SLF001
+    return BaseReq(bytes([PDI_SOP]) + stuffed + checksum + bytes([PDI_EOP]))
+
+
+@pytest.mark.parametrize("command", [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN])
+@pytest.mark.parametrize(
+    "brake,momentum,expected_brake,expected_momentum",
+    [
+        (None, None, None, None),
+        (0, 0, 0, 0),
+        (1, 9, 0, 0),
+        (2, 10, 1, 1),
+        (7, 63, 3, 3),
+        (15, 127, 7, 7),
+        (255, 255, 7, 7),
+    ],
+)
+def test_parsed_numeric_conversions(command, brake, momentum, expected_brake, expected_momentum):
+    values = {}
+    if brake is not None:
+        assert momentum is not None
+        values = {67: brake, 68: momentum}
+    req = numeric_record_req(command, values)
+
+    assert req.train_brake == brake
+    assert req.momentum == momentum
+    assert req.train_brake_tmcc == expected_brake
+    assert req.momentum_tmcc == expected_momentum
+
+
+@pytest.mark.parametrize("command", [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN])
+@pytest.mark.parametrize("level,percentage", [(None, None), (0, "0.00%"), (128, "50.20%"), (255, "100.00%")])
+def test_parsed_fuel_and_water_display(command, level, percentage):
+    req = numeric_record_req(command, {} if level is None else {61: level, 62: level})
+
+    if level is None:
+        assert " Fuel:" not in req.payload
+        assert " Water:" not in req.payload
+    else:
+        assert f" Fuel: {percentage} Water: {percentage}" in req.payload
+
+
 def test_base_memory_minimal_as_bytes_structure():
     # Build a BASE_MEMORY request for an engine record with minimal args
     req = BaseReq(20, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE)
@@ -60,18 +385,119 @@ def test_base_memory_minimal_as_bytes_structure():
     assert 20 in pkt
 
 
-def test_update_speed_engine_and_train_encode_distinct():
-    # Engine update speed
-    eng = BaseReq.update_speed(address=7, speed=45, scope=CommandScope.ENGINE)
-    trn = BaseReq.update_speed(address=7, speed=45, scope=CommandScope.TRAIN)
+@pytest.fixture
+def outbound_speed_lookups(monkeypatch):
+    forward = Mock()
+    reverse = Mock()
+    monkeypatch.setattr(ComponentStateStore, "get_state", forward)
+    monkeypatch.setattr(ComponentStateStore, "by_record_no", reverse)
+    return forward, reverse
+
+
+def assert_outbound_speed_packet(req, command, scope, label, address, address_bytes, target_speed, lookups):
+    forward, reverse = lookups
+    forward.return_value = SimpleNamespace(is_d4=True, record_no=0x1234, tmcc_id=address)
+    reverse.return_value = SimpleNamespace(tmcc_id=address)
+    expected = incoming_speed_packet(command, address_bytes, target_speed)
+
+    packet = req.as_bytes
+
+    if address < 100:
+        forward.assert_not_called()
+    else:
+        forward.assert_called_once_with(scope, address, False)
+    reverse.assert_not_called()
+    assert packet == expected
+    assert packet[0] == PDI_SOP and packet[-1] == PDI_EOP
+    assert packet[2:4] == address_bytes
+    assert packet[4] == target_speed
+
+    parsed = PdiReq.from_bytes(packet)
+
+    assert isinstance(parsed, BaseReq)
+    assert parsed.pdi_command == command
+    assert parsed.scope == scope
+    assert parsed.tmcc_id == address
+    assert parsed.target_speed == target_speed
+    assert parsed.speed is None
+    assert parsed.payload == f"{label} #{address} Target Speed: {target_speed}"
+    assert parsed.as_bytes == packet
+    assert parsed.is_valid(EngineBits.TARGET_SPEED)
+    if address < 100:
+        reverse.assert_not_called()
+        forward.assert_not_called()
+    else:
+        reverse.assert_called_once_with(0x1234, scope)
+        forward.assert_called_once_with(scope, address, False)
+
+
+@pytest.mark.parametrize("command,scope,label", SPEED_UPDATE_SCOPES)
+@pytest.mark.parametrize("address,address_bytes", SPEED_UPDATE_ADDRESSES)
+@pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
+@pytest.mark.parametrize("use_factory", [True, False], ids=["factory", "distinct-current-speed"])
+def test_outbound_speed_update_carries_target(
+    command, scope, label, address, address_bytes, target_speed, use_factory, outbound_speed_lookups
+):
+    if use_factory:
+        req = BaseReq.update_target_speed(address=address, speed=target_speed, scope=scope)
+    else:
+        req = BaseReq(address, command, scope=scope, speed=17, target_speed=target_speed)
+        assert req.speed == 17
+    assert req.pdi_command == command
+    assert req.target_speed == target_speed
+    assert_outbound_speed_packet(
+        req, command, scope, label, address, address_bytes, target_speed, outbound_speed_lookups
+    )
+
+
+@pytest.mark.parametrize("address,address_bytes", SPEED_UPDATE_ADDRESSES)
+@pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
+def test_outbound_speed_factory_defaults_to_engine(address, address_bytes, target_speed, outbound_speed_lookups):
+    req = BaseReq.update_target_speed(address=address, speed=target_speed)
+
+    assert req.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED
+    assert req.target_speed == target_speed
+    assert_outbound_speed_packet(
+        req,
+        PdiCommand.UPDATE_ENGINE_SPEED,
+        CommandScope.ENGINE,
+        "Engine",
+        address,
+        address_bytes,
+        target_speed,
+        outbound_speed_lookups,
+    )
+
+
+@pytest.mark.parametrize(
+    "address,engine_packet,train_packet",
+    [
+        pytest.param(7, b"\xd1\x2a\x07\xff\x2d\xa3\xdf", b"\xd1\x2b\x07\xff\x2d\xa2\xdf", id="2d"),
+        pytest.param(100, b"\xd1\x2a\x34\x12\x2d\x63\xdf", b"\xd1\x2b\x34\x12\x2d\x62\xdf", id="4d"),
+    ],
+)
+def test_update_speed_engine_and_train_encode_distinct(address, engine_packet, train_packet, outbound_speed_lookups):
+    forward, reverse = outbound_speed_lookups
+    forward.return_value = SimpleNamespace(is_d4=True, record_no=0x1234, tmcc_id=address)
+    eng = BaseReq.update_target_speed(address=address, speed=45, scope=CommandScope.ENGINE)
+    trn = BaseReq.update_target_speed(address=address, speed=45, scope=CommandScope.TRAIN)
 
     assert eng.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED
     assert trn.pdi_command == PdiCommand.UPDATE_TRAIN_SPEED
-    assert eng.speed == 45
-    assert trn.speed == 45
+    assert eng.target_speed == 45
+    assert trn.target_speed == 45
 
     be = eng.as_bytes
     bt = trn.as_bytes
+    assert be == engine_packet
+    assert bt == train_packet
+    reverse.assert_not_called()
+    if address < 100:
+        forward.assert_not_called()
+    else:
+        assert forward.call_count == 2
+        forward.assert_any_call(CommandScope.ENGINE, address, False)
+        forward.assert_any_call(CommandScope.TRAIN, address, False)
     # Packets should differ due to different PDI command identifiers
     assert be != bt
     # Both framed
@@ -91,6 +517,119 @@ def test_properties_defaults_and_payload_safe_strings():
     assert isinstance(req.number, str) or req.number is None
     # Payload should be a string for human display
     assert isinstance(req.payload, str)
+
+
+VALIDITY_FIELDS = [
+    pytest.param(EngineBits.REVERSE_LINK, id="low-bit-0"),
+    pytest.param(EngineBits.SPEED, id="low-speed-11"),
+    pytest.param(EngineBits.MAX_SPEED, id="low-boundary-15"),
+    pytest.param(EngineBits.FUEL_LEVEL, id="high-boundary-16"),
+    pytest.param(EngineBits.TARGET_SPEED, id="high-target-24"),
+]
+VALIDITY_MASKS = [
+    pytest.param(None, None, id="both-none"),
+    pytest.param(0, 0, id="both-zero"),
+    pytest.param(None, 0x42, id="low-none-high-populated"),
+    pytest.param(0x124, None, id="low-populated-high-none"),
+    pytest.param(0, 0x42, id="low-zero-high-populated"),
+    pytest.param(0x124, 0, id="low-populated-high-zero"),
+    pytest.param(0x124, 0x42, id="distinct-populated-words"),
+]
+
+
+def validity_mask_req(valid1: int | None, valid2: int | None) -> BaseReq:
+    """Seed masks through the public parser, independently of the mutation helpers."""
+    inner = PdiCommand.BASE_ENGINE.as_bytes + b"\x01\x00\x00\x00"
+    inner += (valid1 or 0).to_bytes(2, "little") + (valid2 or 0).to_bytes(2, "little")
+    inner += bytes(60)
+    # The checksum helper frames the independently constructed base-record payload.
+    # noinspection PyProtectedMember
+    stuffed, checksum = BaseReq._calculate_checksum(inner)  # noqa: SLF001
+    req = PdiReq.from_bytes(bytes([PDI_SOP]) + stuffed + checksum + bytes([PDI_EOP]))
+    assert isinstance(req, BaseReq)
+    # A complete wire record cannot represent None; seed only these missing words directly.
+    if valid1 is None:
+        # noinspection PyProtectedMember
+        req._valid1 = None  # noqa: SLF001
+    if valid2 is None:
+        # noinspection PyProtectedMember
+        req._valid2 = None  # noqa: SLF001
+    assert (req.valid1, req.valid2) == (valid1, valid2)
+    return req
+
+
+@pytest.mark.parametrize("field", VALIDITY_FIELDS)
+@pytest.mark.parametrize("valid1,valid2", VALIDITY_MASKS)
+@pytest.mark.parametrize("already_set", [False, True], ids=["absent", "present"])
+def test_set_valid_preserves_masks_and_is_idempotent(field, valid1, valid2, already_set):
+    word = 0 if field.value < 16 else 1
+    bit = 1 << (field.value if word == 0 else field.value - 16)
+    initial = [valid1, valid2]
+    if already_set:
+        initial[word] = (initial[word] or 0) | bit
+    req = validity_mask_req(*initial)
+    expected = initial.copy()
+    expected[word] = (expected[word] or 0) | bit
+
+    for _ in range(2):
+        # Direct access is required to test the validity helper's mutation contract.
+        # noinspection PyProtectedMember
+        req._set_valid(field)  # noqa: SLF001
+        assert (req.valid1, req.valid2) == tuple(expected)
+        assert req.is_valid(field)
+
+
+@pytest.mark.parametrize("field", VALIDITY_FIELDS)
+@pytest.mark.parametrize("valid1,valid2", VALIDITY_MASKS)
+@pytest.mark.parametrize("already_set", [False, True], ids=["absent", "present"])
+def test_clear_valid_preserves_masks_and_is_idempotent(field, valid1, valid2, already_set):
+    word = 0 if field.value < 16 else 1
+    bit = 1 << (field.value if word == 0 else field.value - 16)
+    initial = [valid1, valid2]
+    if already_set:
+        initial[word] = (initial[word] or 0) | bit
+    req = validity_mask_req(*initial)
+    expected = initial.copy()
+    expected[word] = (expected[word] or 0) & ~bit
+
+    for _ in range(2):
+        # Direct access is required to test the validity helper's mutation contract.
+        # noinspection PyProtectedMember
+        req._clear_valid(field)  # noqa: SLF001
+        assert (req.valid1, req.valid2) == tuple(expected)
+        assert not req.is_valid(field)
+
+
+@pytest.mark.parametrize("field", VALIDITY_FIELDS)
+@pytest.mark.parametrize("valid1,valid2", VALIDITY_MASKS)
+def test_set_then_clear_valid_restores_unrelated_masks(field, valid1, valid2):
+    req = validity_mask_req(valid1, valid2)
+    word = 0 if field.value < 16 else 1
+    bit = 1 << (field.value if word == 0 else field.value - 16)
+    restored = [valid1, valid2]
+    restored[word] = restored[word] or 0
+    after_set = restored.copy()
+    after_set[word] |= bit
+
+    # Direct helper calls verify restoration, including normalization of only the selected word.
+    # noinspection PyProtectedMember
+    req._set_valid(field)  # noqa: SLF001
+    assert (req.valid1, req.valid2) == tuple(after_set)
+    assert req.is_valid(field)
+    # noinspection PyProtectedMember
+    req._clear_valid(field)  # noqa: SLF001
+    assert (req.valid1, req.valid2) == tuple(restored)
+    assert not req.is_valid(field)
+
+
+@pytest.mark.parametrize("field", VALIDITY_FIELDS[:3])
+@pytest.mark.parametrize("valid1", [None, 0], ids=["none", "zero"])
+def test_is_valid_low_field_with_empty_low_word_and_populated_high_word(field, valid1):
+    req = validity_mask_req(valid1, 0x142)
+
+    assert not req.is_valid(field)
+    assert req.is_valid(EngineBits.TARGET_SPEED)
+    assert (req.valid1, req.valid2) == (valid1, 0x142)
 
 
 def test_is_active_logic_for_empty_records_engine_like_fields():
@@ -123,6 +662,8 @@ def test_is_active_logic_for_empty_records_engine_like_fields():
     # Pad a bit more to satisfy parser accesses
     inner += b"\x00" * 40
 
+    # The checksum helper is needed to frame this hand-built parser test packet.
+    # noinspection PyProtectedMember
     stuffed, checksum = BaseReq._calculate_checksum(bytes(inner))  # noqa: SLF001
     pkt = bytes([PDI_SOP]) + stuffed + checksum + bytes([PDI_EOP])
 

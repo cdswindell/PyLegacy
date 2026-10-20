@@ -22,9 +22,9 @@ from ..utils.singleton import singleton
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ..db.engine_state import EngineState, TrainState
+    from ..db.component_state import ComponentState
 
-    StateT = EngineState | TrainState
+    StateT = ComponentState
 else:
     StateT = Any
 

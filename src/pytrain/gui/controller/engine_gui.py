@@ -1367,7 +1367,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return upd
 
     # noinspection PyUnusedLocal
-    def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
+    def on_new_engine(
+        self,
+        state: EngineState | None = None,
+        ops_mode_setup: bool = False,
+        is_engine: bool = True,
+    ) -> None:
         if state and state.is_deleted:
             return
         self._active_engine_state = state
@@ -1401,13 +1406,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # UI painting lives in ControllerView now
             self._controller_view.update(state=state, throttle_state=throttle_state)
 
-        # update info detail popup, if its visible
+        # update info detail popup if it's visible
         if ops_mode_setup:
             pass
         elif self._state_info and self._state_info.visible:
             self._state_info.update(state)
 
-    def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
+    def on_new_train(self, state: TrainState | None = None, ops_mode_setup: bool = False) -> None:
         if state and state.is_deleted:
             return
         if state and state != self._active_train_state:

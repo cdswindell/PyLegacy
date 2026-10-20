@@ -829,8 +829,11 @@ class EngineState(ComponentState):
             from ..pdi.base_req import EngineBits
 
             # noinspection unbound-local-variable
-            if self.speed is None and command.is_valid(EngineBits.SPEED):
-                self.comp_data.speed = command.speed
+            if command.is_valid(EngineBits.TARGET_SPEED) and command.target_speed is not None:
+                # noinspection bad-argument-type
+                ts = decode_tmcc_speed(command.target_speed, self._speed_is_legacy)
+                print(f"Decoded target speed: {ts} ({command.target_speed})")
+                self.comp_data.target_speed = command.target_speed
         elif (
             isinstance(command, BaseReq)
             and command.pdi_command == PdiCommand.BASE_MEMORY
@@ -856,11 +859,11 @@ class EngineState(ComponentState):
 
     def cancel_ramps(
         self,
-        target_speed: int = None,
+        target_speed: int | None = None,
         *,
-        reason: str = None,
+        reason: str | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         from ..comm.comm_buffer import CommBuffer
 
@@ -1093,13 +1096,13 @@ class EngineState(ComponentState):
         return None
 
     @property
-    def target_speed(self) -> int:
+    def target_speed(self) -> int | None:
         if self.comp_data:
             return decode_tmcc_speed(self.comp_data.target_speed, self._speed_is_legacy)
         return None
 
     @property
-    def speed_limit(self) -> int:
+    def speed_limit(self) -> int | None:
         if self.comp_data:
             return decode_tmcc_speed(self.comp_data.speed_limit, self._speed_is_legacy)
         return None
@@ -1388,7 +1391,7 @@ class EngineState(ComponentState):
         return self._aux2 in {TMCC1.AUX2_ON, TMCC2.AUX2_ON}
 
     @property
-    def record_no(self) -> int:
+    def record_no(self) -> int | None:
         return self._d4_rec_no
 
     @property
