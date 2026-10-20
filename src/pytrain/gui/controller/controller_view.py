@@ -72,6 +72,7 @@ FREIGHT_HORN_RELIEF = "ridge"
 EXTRA_COLUMN_SLACK = 10
 
 
+# noinspection bad-argument-type
 def fit_freight_pair(host) -> None:
     """Shrink the freight pair to the cell Tk actually gave it.
 
