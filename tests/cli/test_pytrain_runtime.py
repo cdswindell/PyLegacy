@@ -20,7 +20,10 @@ def runtime(bare_pytrain, monkeypatch):
     p._shutdown_lock = threading.Lock()
     p._tmcc_buffer = Mock(spec=CommBufferProxy)
     p._tmcc_listener = Mock(spec=module.ClientStateListener)
+    # Configure the isolated listener double rather than a live subsystem.
+    # noinspection PyProtectedMember
     p._tmcc_listener.update_client_if_needed.return_value = False
+    # noinspection PyProtectedMember
     p._tmcc_listener.port = 5111
     p._headless = p._api = False
     p._flatpak_local_restart = False
@@ -90,14 +93,21 @@ def test_runtime_modes(runtime, mode):
     p.shutdown_service.assert_called_once_with()
     p.shutdown_cache.assert_called_once_with()
     assert runtime.effects.mock_calls[-2:] == [call.shutdown_service(), call.shutdown_cache()]
+    # Fixture-installed mocks retain call history unavailable on the original functions.
+    # noinspection PyUnresolvedReferences
     assert module.readline.set_auto_history.call_count == (mode != "headless")
+    # noinspection PyUnresolvedReferences
     assert module.readline.write_history_file.call_count == (mode == "interactive")
     if mode == "interactive":
+        # The fixture replaces this function with a mock.
+        # noinspection PyUnresolvedReferences
         module.readline.write_history_file.assert_called_once_with(module.DEFAULT_HISTORY_FILE)
     elif mode == "api":
         p._command_queue.get.assert_called_once_with(block=True)
         p._command_queue.task_done.assert_not_called()
     else:
+        # The fixture replaces pause to avoid blocking the test.
+        # noinspection PyUnresolvedReferences
         module.signal.pause.assert_called_once_with()
 
 
@@ -120,6 +130,8 @@ def test_server_startup_order(runtime, enabled, manager, available):
         call.ButtonsFileLoader("layout.py", p),
         call.ButtonsFileLoader().join(),
     ]
+    # The fixture replaces the loader factory with a mock.
+    # noinspection PyUnresolvedReferences
     assert p._buttons_loader is module.ButtonsFileLoader.return_value
 
 
@@ -180,7 +192,10 @@ def test_escaping_cleanup_error_never_dispatches_action(runtime, stage, error, a
         p.run()
     for name in ("update", "upgrade", "restart", "reboot"):
         getattr(p, name).assert_not_called()
+    # Process entry points are fixture-installed mocks to prevent process replacement.
+    # noinspection PyUnresolvedReferences
     module.subprocess.run.assert_not_called()
+    # noinspection PyUnresolvedReferences
     module.os.execv.assert_not_called()
 
 
@@ -190,6 +205,8 @@ def real_exit_runtime(runtime, monkeypatch):
     for name in ("shutdown", "shutdown_service", "shutdown_cache"):
         monkeypatch.setattr(p, name, getattr(module.PyTrain, name).__get__(p))
     effects = Mock()
+    # Observe cleanup on the isolated private transport rather than a live connection.
+    # noinspection PyProtectedMember
     for owner, method, name in [
         (module.CacheSyncManager, "stop", "cache"),
         (p._tmcc_buffer, "disconnect", "disconnect"),
@@ -204,6 +221,8 @@ def real_exit_runtime(runtime, monkeypatch):
         monkeypatch.setattr(owner, method, double)
         effects.attach_mock(double, name)
     p._cache_sync_manager = object()
+    # Drive the private dispatch double through the real runtime loop.
+    # noinspection PyProtectedMember
     p._handle_command.side_effect = lambda _: p.do_admin_cmd(module.TMCC1SyncCommandEnum.UPDATE)
     monkeypatch.setattr("builtins.input", Mock(return_value="update"))
     return SimpleNamespace(p=p, effects=effects)
@@ -245,18 +264,22 @@ def test_echo_while_cache_shutdown_waits_finishes_cleanup_before_update(real_exi
     ]
     assert p._cache_sync_manager is None
     assert p._admin_action == module.TMCC1SyncCommandEnum.UPDATE
+    # The fixture replaces signaling with a mock.
+    # noinspection PyUnresolvedReferences
     module.os.kill.assert_not_called()
     assert "Full teardown entered" in caplog.text
     assert "Full teardown completed" in caplog.text
     assert "Entering deferred action action=UPDATE" in caplog.text
 
 
-@pytest.mark.parametrize("retry_interrupted", [False, True])
+@pytest.mark.parametrize("retry_interrupted", [pytest.param(False, marks=pytest.mark.smoke), True])
 def test_interrupted_full_shutdown_retries_cache_but_never_updates(real_exit_runtime, retry_interrupted):
     p, effects = real_exit_runtime.p, real_exit_runtime.effects
     manager = p._cache_sync_manager
 
     def interrupted():
+        # stop is a fixture-installed mock used to distinguish explicit retries.
+        # noinspection PyUnresolvedReferences
         if module.CacheSyncManager.stop.call_count == 1 or retry_interrupted:
             assert p._cache_sync_manager is manager
             raise KeyboardInterrupt("cache interrupted")
@@ -275,6 +298,7 @@ def test_interrupted_full_shutdown_retries_cache_but_never_updates(real_exit_run
     p.update.assert_not_called()
 
 
+@pytest.mark.smoke
 def test_failed_cache_stop_warns_and_continues_to_update(real_exit_runtime, caplog):
     p, effects = real_exit_runtime.p, real_exit_runtime.effects
     manager = p._cache_sync_manager
@@ -366,6 +390,7 @@ def test_api_handler_can_clear_queue(runtime):
     queue = p._command_queue = Mock(get=Mock(return_value="quit"))
 
     def handle(command):
+        assert command == "quit"
         p._command_queue = None
         raise KeyboardInterrupt
 
@@ -433,6 +458,8 @@ def test_unexpected_runtime_errors_still_close_service_and_cache(runtime, source
         p._load_client_state.side_effect = error
     elif source == "buttons":
         p._buttons_file = "layout.py"
+        # The fixture replaces the factory and its returned worker with mocks.
+        # noinspection PyUnresolvedReferences
         module.ButtonsFileLoader.return_value.join.side_effect = error
     else:
         p._api = True
@@ -505,6 +532,8 @@ def test_runtime_finalization_repeats_helpers_without_repeating_successful_clean
     assert p.shutdown_service.call_count == p.shutdown_cache.call_count == 2
     zeroconf.unregister_service.assert_called_once_with(info)
     zeroconf.close.assert_called_once_with()
+    # stop is a fixture-installed mock recording retry attempts.
+    # noinspection PyUnresolvedReferences
     assert module.CacheSyncManager.stop.call_count == (2 if cache_failure else 1)
     assert p._service_info is p._zeroconf is p._cache_sync_manager is None
     assert caplog.messages == (
@@ -611,8 +640,17 @@ def test_shutdown_continues_after_individual_failure(runtime, monkeypatch, caplo
     assert ("Error closing cache sync manager, continuing shutdown: cache" in caplog.messages) == (failure == "cache")
 
 
-@pytest.mark.parametrize("service_failure", [None, "unregister", "close"])
-@pytest.mark.parametrize("cache_failure", [False, True])
+@pytest.mark.parametrize(
+    "cache_failure,service_failure",
+    [
+        (False, None),
+        (False, "unregister"),
+        (False, "close"),
+        (True, None),
+        pytest.param(True, "unregister", marks=pytest.mark.smoke),
+        (True, "close"),
+    ],
+)
 def test_shutdown_real_helpers_isolate_failures_and_retry(runtime, monkeypatch, caplog, service_failure, cache_failure):
     p = runtime.p
     p._api = True
@@ -621,7 +659,10 @@ def test_shutdown_real_helpers_isolate_failures_and_retry(runtime, monkeypatch, 
     info = p._service_info = object()
     zeroconf = p._zeroconf = Mock()
     manager = p._cache_sync_manager = object()
+    # Restore real bound helpers on the isolated instance, keeping existence checks.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(p, "shutdown_service", module.PyTrain.shutdown_service.__get__(p))
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(p, "shutdown_cache", module.PyTrain.shutdown_cache.__get__(p))
     effects = Mock()
     operations = [
@@ -650,7 +691,8 @@ def test_shutdown_real_helpers_isolate_failures_and_retry(runtime, monkeypatch, 
     assert effects.mock_calls == service_calls + [call.cache()] + downstream
     assert queue.empty()
     assert queue.unfinished_tasks == 0
-    assert p._command_queue is None
+    # Re-read the attribute cleared by shutdown rather than its pre-call inferred Queue type.
+    assert getattr(p, "_command_queue") is None
     assert p._service_info is (info if service_failure else None)
     assert p._zeroconf is (zeroconf if service_failure else None)
     assert p._cache_sync_manager is (manager if cache_failure else None)
@@ -670,7 +712,7 @@ def test_shutdown_real_helpers_isolate_failures_and_retry(runtime, monkeypatch, 
         retry_calls.append(call.cache())
     assert effects.mock_calls == retry_calls + downstream
     assert p._service_info is p._zeroconf is p._cache_sync_manager is None
-    assert p._command_queue is None
+    assert getattr(p, "_command_queue") is None
     assert not caplog.messages
 
 
@@ -692,6 +734,8 @@ def test_shutdown_without_client_or_queue(runtime, monkeypatch, server, port, ap
     module.PyTrain.shutdown(p)
     if not server:
         p._tmcc_buffer.disconnect.assert_not_called()
+    # reset_all is patched above so this assertion observes the teardown call.
+    # noinspection PyUnresolvedReferences
     module.GpioHandler.reset_all.assert_called_once_with()
 
 
@@ -746,7 +790,9 @@ def _api_status_for_action(action: module.TMCC1SyncCommandEnum) -> module.PyTrai
     # Deferred upgrade() historically publishes UPDATE to the API host, not UPGRADE.
     if action == module.TMCC1SyncCommandEnum.UPGRADE:
         return module.PyTrainExitStatus.UPDATE
-    return module.PyTrainExitStatus.by_name(action.name, raise_exception=True)
+    status = module.PyTrainExitStatus.by_name(action.name, raise_exception=True)
+    assert status is not None
+    return status
 
 
 def _wire_api_deferred_methods(p, monkeypatch):
@@ -763,6 +809,8 @@ def _wire_api_deferred_methods(p, monkeypatch):
     install("update", module.PyTrainExitStatus.UPDATE)
     install("restart", module.PyTrainExitStatus.RESTART)
 
+    # Preserve the real callback's keyword parameter for shutdown(reboot=False).
+    # noinspection PyShadowingNames
     def reboot(reboot=True):
         status = module.PyTrainExitStatus.REBOOT if reboot else module.PyTrainExitStatus.SHUTDOWN
         p._exit_status = status
@@ -822,6 +870,8 @@ def test_queued_api_exit_publishes_status_before_one_host_notification(runtime, 
         assert p.exit_status == status
         assert p._api_exit_notified is True
 
+    # Wrap the runtime notification method with its existence guard intact.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(p, "_notify_api_exit", notify_probe)
     p.shutdown_cache.side_effect = lambda: setattr(p, "_cache_sync_manager", None)
 
@@ -836,6 +886,8 @@ def test_queued_api_exit_publishes_status_before_one_host_notification(runtime, 
     assert p.exit_status == expected
     assert p._api_exit_notified is True
     assert p._admin_action == action
+    # Signaling is replaced with a mock above; no real signal is sent.
+    # noinspection PyUnresolvedReferences
     module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
     p.shutdown.assert_called_once_with()
     p.shutdown_service.assert_called_once_with()
@@ -882,6 +934,8 @@ def test_queued_api_exit_suppresses_echoes_and_late_actions(runtime, monkeypatch
     assert p._admin_action == module.TMCC1SyncCommandEnum.UPDATE
     assert p.exit_status == module.PyTrainExitStatus.UPDATE
     assert p._api_exit_notified is True
+    # Signaling is replaced with a mock above; no real signal is sent.
+    # noinspection PyUnresolvedReferences
     module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
 
 
@@ -908,6 +962,8 @@ def test_queued_api_exit_skips_notification_when_cleanup_escapes(runtime, monkey
         p.run()
     assert p.exit_status is None
     assert p._api_exit_notified is False
+    # Signaling is replaced with a mock above; verify it remains untouched.
+    # noinspection PyUnresolvedReferences
     module.os.kill.assert_not_called()
     p.update.assert_not_called()
 
@@ -925,9 +981,13 @@ def test_queued_api_exit_skips_notification_when_deferred_action_fails(runtime, 
         p.run()
     assert p.exit_status is None
     assert p._api_exit_notified is False
+    # Signaling is replaced with a mock above; verify it remains untouched.
+    # noinspection PyUnresolvedReferences
     module.os.kill.assert_not_called()
 
 
+# This test asserts the call history of the locally patched os.kill mock.
+# noinspection PyUnresolvedReferences
 def test_callback_only_api_exit_still_notifies_once(runtime, monkeypatch):
     p = runtime.p
     p._api = True

@@ -269,12 +269,16 @@ class BaseReq(PdiReq, CompDataMixin):
                     """
                     Unpleasant Hack: when we send a TARGET SPEED update for a 2D engine, we have to
                     send a new 0x2A UPDATE_ENGINE/TRAIN_SPEED command as well...
+
+                    Note: Base 3 firmware updates 1.38 or later are needed to update the target speed
                     """
                     if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and pkg.field == "target_speed":
                         from ..db.comp_data import decode_tmcc_speed
 
                         target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
-                        cmds.append(BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed))
+                        tr = BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed)
+                        if tr:
+                            cmds.append(tr)
                     req = BaseReq(
                         tmcc_id,
                         pdi_command=PdiCommand.BASE_MEMORY,

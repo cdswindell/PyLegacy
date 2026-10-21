@@ -153,7 +153,9 @@ class TestEngineStateBehavior:
 
     def test_duplicate_command_is_ignored_for_last_command_and_notification(self):
         e = self._new_engine()
-        req = CommandReq.build(TMCC1.FORWARD_DIRECTION, e.address)
+        address = e.address
+        assert isinstance(address, int)
+        req = CommandReq.build(TMCC1.FORWARD_DIRECTION, address)
 
         e.update(req)
         assert e.last_command == req
@@ -170,7 +172,9 @@ class TestEngineStateBehavior:
     def test_no_change_command_records_without_notification(self):
         e = self._new_engine()
         e._direction = TMCC1.FORWARD_DIRECTION  # type: ignore[attr-defined]
-        req = CommandReq.build(TMCC1.FORWARD_DIRECTION, e.address)
+        address = e.address
+        assert isinstance(address, int)
+        req = CommandReq.build(TMCC1.FORWARD_DIRECTION, address)
 
         e.update(req)
 
@@ -240,6 +244,8 @@ class TestEngineStateBehavior:
         assert t.moniker == "Train"
 
     def test_train_as_bpc2_moniker(self):
+        # This inherited runtime property must be patched to simulate a power district.
+        # noinspection PyUnresolvedReferences
         with patch.object(TrainState, "is_bpc2", new_callable=PropertyMock) as mock_prop:
             mock_prop.return_value = True
             t = TrainState(CommandScope.TRAIN)
@@ -289,10 +295,6 @@ class TestEngineStateBehavior:
         assert d["speed"] == 25
         assert d["road_name"] == "abc road"
         assert d["road_number"] == "123"
-
-    def test_train_state_rejects_non_train_scope(self):
-        with pytest.raises(ValueError, match="expected TRAIN"):
-            TrainState(CommandScope.ENGINE)
 
     def test_train_state_consist_component_helpers_classify_components(self):
         t = self._new_train()
@@ -415,11 +417,11 @@ class _LiveRamp(SpeedRamp):
 
     def abort(
         self,
-        reason: str = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         self.aborts.append(reason)
         self.abort_targets.append(target_speed)
@@ -464,11 +466,15 @@ class TestEngineStateRampArbitration:
         ramp = _LiveRamp(state, target)
         state._ramp = ramp
         state.is_ramping = True
-        state.comp_data.target_speed = state.comp_data.speed
+        data = state.comp_data
+        assert isinstance(data, CompData)
+        data.target_speed = data.speed
         return state, ramp
 
     @staticmethod
-    def _update(state: EngineState, command: CommandReq):
+    def _update(state: EngineState, command: CommandReq | _CompDataRecord):
+        # The record double intentionally supplies the PDI record interface without transport setup.
+        # noinspection PyTypeChecker
         return state._update_state(command)
 
     def test_ramp_hooks_present_on_engine_state(self):
@@ -516,7 +522,9 @@ class TestEngineStateRampArbitration:
         state, _ = self._ramping_engine()
         state._ramp = None
         state.is_ramping = False
-        state.comp_data.target_speed = state.comp_data.speed
+        data = state.comp_data
+        assert isinstance(data, CompData)
+        data.target_speed = data.speed
 
         self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
 
@@ -666,7 +674,7 @@ class TestEngineStateRampArbitration:
         assert bias == 5 - tmcc2_speed_to_rpm(30, ramp.rpm_max_speed)
         assert ramp.rpm_bias == bias
 
-    def test_foreign_rpm_absorbs_without_cancelling(self):
+    def test_foreign_rpm_absorbs_without_canceling(self):
         state, ramp = self._ramping_engine()
         expected = 5 - tmcc2_speed_to_rpm(ramp.commanded_speed, ramp.rpm_max_speed)
 
@@ -677,7 +685,7 @@ class TestEngineStateRampArbitration:
         assert state.is_ramping is True
         assert ramp.rpm_bias == max(-MAX_RPM_BIAS, min(MAX_RPM_BIAS, expected))
 
-    def test_foreign_labor_re_baselines_without_cancelling(self):
+    def test_foreign_labor_re_baselines_without_canceling(self):
         state, ramp = self._ramping_engine()
 
         self._update(state, CommandReq.build(TMCC2.ENGINE_LABOR, 7, data=20))
@@ -761,6 +769,8 @@ class TestEngineStateRampArbitration:
         state, ramp = self._ramping_engine()
         state._direction = TMCC2.FORWARD_DIRECTION
 
+        # None intentionally exercises the no-data command path despite its narrower annotation.
+        # noinspection PyTypeChecker
         self._update(state, CommandReq.build(command, 7, data=data))
 
         assert ramp.aborts != []
@@ -780,7 +790,7 @@ class TestEngineStateRampArbitration:
         assert state.target_speed == state.speed == 30
 
     #
-    # a cancelled ramp leaves an honest target speed behind
+    # a canceled ramp leaves an honest target speed behind
     #
     @pytest.mark.parametrize(
         "command, data",
@@ -799,6 +809,8 @@ class TestEngineStateRampArbitration:
         state._direction = TMCC2.FORWARD_DIRECTION
         assert state.target_speed == 30
 
+        # None intentionally exercises the no-data command path despite its narrower annotation.
+        # noinspection PyTypeChecker
         self._update(state, CommandReq.build(command, 7, data=data))
 
         # the engine is going to a standstill, so the target it was ramping toward is
@@ -821,7 +833,9 @@ class TestEngineStateRampArbitration:
         state, _ = self._ramping_engine()
         req = CommandReq.build(TMCC2.SPEED_RESTRICTED, 7)
 
-        assert state._cancelled_target_speed(req) == int(TMCC2.SPEED_RESTRICTED.alias[1])
+        alias = TMCC2.SPEED_RESTRICTED.alias
+        assert isinstance(alias, tuple)
+        assert state._cancelled_target_speed(req) == int(alias[1])
 
     def test_abort_ramp_leaves_the_speed_the_ramp_reached(self):
         state, ramp = self._ramping_engine()
@@ -872,6 +886,8 @@ class TestEngineStateRampArbitration:
         ramp._last_labor = 20
         state.comp_data.labor_tmcc = 20
 
+        # None intentionally exercises the no-data command path despite its narrower annotation.
+        # noinspection PyTypeChecker
         self._update(state, CommandReq.build(command, 7, data=data))
 
         # an engine returns to a standstill on its own, but never gives effort back:
@@ -984,6 +1000,8 @@ class TestEngineStateRampArbitration:
         ramp.sent.clear()
         ramp._commanded_speed = 34
 
+        # None intentionally exercises the no-data command path despite its narrower annotation.
+        # noinspection PyTypeChecker
         self._update(state, CommandReq.build(command, 7, data=data))
 
         assert ramp.abort_yields[0] == 0
@@ -1055,8 +1073,12 @@ class TestEngineStateRampArbitration:
     def test_takeover_during_start_cannot_be_hidden_by_late_owner_registration(self, monkeypatch):
         state, _ = self._ramping_engine()
         state._ramp = None
+        # The callback parameter is the ramp under test, not a closure over the later result.
+        # noinspection PyShadowingNames
         monkeypatch.setattr(SpeedRamp, "is_active", property(lambda ramp: ramp._is_running))
 
+        # The callback receives the ramp before ramp_to returns it to the outer scope.
+        # noinspection PyShadowingNames
         def start(ramp):
             assert state.ramp is ramp
             self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))

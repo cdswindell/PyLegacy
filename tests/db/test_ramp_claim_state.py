@@ -34,6 +34,7 @@ def claim(identifier=1, *, timestamp_ms=None):
     )
 
 
+@pytest.mark.smoke
 def test_first_claim_wins_until_matching_release(state):
     state.update(claim(1).request())
     state.update(claim(2).request())
@@ -150,6 +151,8 @@ def test_local_ramp_lifecycle_notifies_watchers_without_speed_updates(state):
 
 def test_lease_refresh_and_expiration_are_bounded(state, monkeypatch):
     clock = [100.0]
+    # Patch the imported clock while retaining setattr's existence check.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(engine_state, "monotonic", lambda: clock[0])
     state.update(claim().request())
     clock[0] += CLAIM_TTL / 2
@@ -227,6 +230,8 @@ def test_safety_overrides_claims_and_duplicate_suppression(state, monkeypatch, p
             )
         state.update(claim(identifier).request())
         ramp = SpeedRamp(state, 100, sender=lambda *args: None)
+        # The inherited Thread method is intentionally controlled without starting it.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(ramp, "is_alive", lambda: True)
         ramp.claim = claim(identifier)
         ramp._claim_pending = pending
@@ -263,6 +268,8 @@ def test_foreign_claim_cannot_stop_local_owner_or_change_database(state, monkeyp
     peer = RampPeer("127.0.0.1", publisher=state.update)
     ramp = SpeedRamp(state, 30, sender=lambda *args: sent.append(args), peer=peer)
     state._ramp = ramp
+    # The inherited Thread method is intentionally controlled without starting it.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp, "is_alive", lambda: True)
     try:
         peer.acquire(ramp)

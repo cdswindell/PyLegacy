@@ -21,9 +21,15 @@ from src.pytrain.gui.controller.steam_deck_gui import SteamDeckGui
 
 
 @pytest.fixture
-def launcher_factory(tmp_path):
+def launcher_factory(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    # Keep fallback search roots small while using the real packaged template.
+    working_dir = tmp_path / "launcher-working"
+    working_dir.mkdir()
+    monkeypatch.chdir(working_dir)
+
     def create_launcher(gui_class=None, no_cache_sync: bool = False) -> MakeGui:
         mg = MakeGui.__new__(MakeGui)
+        assert mod.__file__ is not None
         mg._template_dir = Path(mod.__file__).resolve().parents[1] / "installation"
         mg._gui_class = gui_class
         mg._launch_path = tmp_path / "launch_pytrain.bash"
@@ -138,6 +144,7 @@ def test_shell_script_renders_packaged_template_from_another_working_directory(
     working_dir.mkdir()
     monkeypatch.chdir(working_dir)
     mg = launcher_factory()
+    assert mod.__file__ is not None
     template = Path(mod.__file__).resolve().parents[1] / "installation" / "launch_pytrain.bash.template"
 
     found = mg.find_installation_file("launch_pytrain.bash.template")
@@ -147,7 +154,10 @@ def test_shell_script_renders_packaged_template_from_another_working_directory(
 
     path = mg.make_shell_script()
 
+    assert isinstance(path, Path)
     assert path == tmp_path / "launch_pytrain.bash"
+    # The runtime Path assertion above excludes the optional failure result.
+    # noinspection PyUnresolvedReferences
     written = path.read_text(encoding="utf-8")
     assert 'export PYTRAIN_PLATFORM=""' in written
     assert "pytrain  -headless -client" in written
@@ -237,6 +247,7 @@ def test_other_guis_imply_no_platform(gui_class) -> None:
 def test_launch_template_exposes_the_platform_placeholder() -> None:
     # make_shell_script() substitutes one config dict into the template, so a missing
     # placeholder would silently emit a launcher with no platform set.
+    assert mod.__file__ is not None
     template = Path(mod.__file__).resolve().parents[1] / "installation" / "launch_pytrain.bash.template"
     assert template.is_file()
 
@@ -314,6 +325,8 @@ def _installable(tmp_path, monkeypatch, desktop_autostart: bool) -> MakeGui:
     mg._start_gui = False
     mg._desktop_autostart = desktop_autostart
     mg._desktop_path = tmp_path / ".config" / "autostart" / "pytrain.desktop"
+    # Prepare the private installation destination without running the installer.
+    # noinspection PyProtectedMember
     mg._desktop_path.parent.mkdir(parents=True)
     monkeypatch.setattr(type(mg), "make_shell_script", lambda _self: tmp_path / "launch_pytrain.bash")
     monkeypatch.setattr(type(mg), "make_buttons_file", lambda _self: tmp_path / "buttons.py")

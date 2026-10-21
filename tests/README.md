@@ -1,5 +1,60 @@
 # PyLegacy Tests
 
+## Development feedback and pre-check-in workflow
+
+Confirm the project's PyCharm interpreter and install `tests/requirements.txt`
+in that environment. Run these commands from the project root:
+
+```bash
+# Frequent feedback: existing representative cases, not a duplicate suite
+../bin/python -m pytest -m smoke
+# Also run modules affected by your change, without the smoke filter
+../bin/python -m pytest tests/protocol/test_command_req.py tests/pdi/test_d4_req.py
+# Required before check-in; this remains the CI/default selection
+../bin/python -m pytest
+# Review exact smoke membership, including parameter IDs
+../bin/python -m pytest --collect-only -q -m smoke
+# Profile separately from coverage-instrumented runs
+../bin/python -m pytest --durations=25 --durations-min=0
+../bin/python -m pytest --collect-only
+```
+
+The `smoke` marker is registered in `pytest.ini`. Inline `@pytest.mark.smoke`
+decorators and `pytest.param(..., marks=pytest.mark.smoke)` select 12 existing
+cases without collection hooks or fixture changes. The selection covers protocol
+encoding/decoding, engine state updates, PDI round trips, CLI parsing/startup,
+headless GUI input, and shutdown failure continuation, ownership retry, and
+cancellation propagation. Real subprocess matrices remain in the full suite,
+not in smoke. No default `addopts`, `tox.ini`, CI setting, dependency, or
+parallel execution changed.
+
+On October 21, 2026, three fresh local smoke runs took **1.515s median**
+(1.508–1.516s external wall, including collection); smoke collection alone took
+**1.455s**. Evidence: `doc/test-suite-audit-data/raw/step4-corrected-*`.
+`-m smoke` still imports and collects the entire suite, so this is not an
+instantaneous runner or a replacement for affected-module tests. Aim for roughly
+five seconds or less, but never enforce a flaky wall-clock assertion. See the
+[audit](../doc/test-suite-audit.md) for conditions and full-suite measurements.
+
+Keep smoke marks on the test functions or individual parameter values when
+renaming, moving, or reparameterizing tests. There is no node-ID manifest to
+go stale, and selection also works with `--rootdir=tests`. After changing
+membership, review `--collect-only -q -m smoke` against the audit's coverage table
+(currently 12 selected / 8,072 total) and update that table.
+Choose existing cases by behavior and measured setup/call/teardown cost, not
+filename; keep each required area represented. Time new selections in fresh
+processes, run smoke and affected modules, then the unfiltered full suite.
+Do not set `PYTEST_ADDOPTS=-m smoke` persistently or substitute smoke in CI.
+
+The default run skips optional API integration without `PYTRAIN_API_CHECKOUT`
+pointing to a compatible local PyTrainApi checkout. That integration needs its
+own prerequisites and validation; a passing smoke run does not verify it.
+
+## Historical coverage results
+
+The dated step results below describe earlier coverage work, not current counts
+or current performance baselines.
+
 ## PyTrain CLI coverage
 
 Install the test dependencies from `tests/requirements.txt` into the configured environment.

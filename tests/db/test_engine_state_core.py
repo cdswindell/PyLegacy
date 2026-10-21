@@ -1141,6 +1141,7 @@ class TestEngineStateCommandHandling:
         state.update(CommandReq.build(TMCC2R4LCEnum.TRAIN_UNIT, known_address(state), data=1))
         assert state.train_unit is UnitAssignment.HEAD_FORWARD
 
+    @pytest.mark.smoke
     def test_a_base_memory_field_update_is_applied_to_the_record(self):
         state = new_engine(legacy=True)
         req = BaseReq(

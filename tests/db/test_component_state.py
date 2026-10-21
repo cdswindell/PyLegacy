@@ -48,9 +48,9 @@ from ..test_base import TestBase
 
 
 @pytest.fixture(autouse=True)
-def run_before_and_after_tests(tmpdir) -> Generator[None, Any, None]:
+def run_before_and_after_tests() -> Generator[None, Any, None]:
     """
-    Fixture to execute asserts before and after a tests is run
+    Clean up listener singletons after each test.
     """
     # Setup: fill with any logic you want
 
@@ -161,6 +161,8 @@ class TestComponentState(TestBase):
         child = SwitchState()
         child._parent = parent
         assert parent.mode == child.mode == "NA"
+        # Each parameter row pairs its request class with its own action enum.
+        # noinspection PyTypeChecker
         parent._config_req = req_cls(1, command, action, mode=mode)
         assert parent.mode == mode
         assert child.mode == mode
@@ -308,6 +310,8 @@ class TestComponentState(TestBase):
         ss.update(out_req)
         assert ss.last_command == out_req
         assert ss.last_updated is not None
+        # Both timestamps are checked above; PyCharm does not narrow these properties.
+        # noinspection PyTypeChecker,PyUnresolvedReferences
         assert ss.last_updated >= last_updated
         last_updated = ss.last_updated
         assert ss.address == 1
@@ -321,6 +325,8 @@ class TestComponentState(TestBase):
         ss.update(thru_req)
         assert ss.last_command == thru_req
         assert ss.last_updated is not None
+        # Both timestamps are checked above; PyCharm does not narrow these properties.
+        # noinspection PyTypeChecker,PyUnresolvedReferences
         assert ss.last_updated >= last_updated
         last_updated = ss.last_updated
         assert ss.address == 1
@@ -333,6 +339,8 @@ class TestComponentState(TestBase):
         ss.update(set_req)
         assert ss.last_command == set_req
         assert ss.last_updated is not None
+        # Both timestamps are checked above; PyCharm does not narrow these properties.
+        # noinspection PyTypeChecker,PyUnresolvedReferences
         assert ss.last_updated >= last_updated
         last_updated = ss.last_updated
         assert ss.address == 1
@@ -345,6 +353,8 @@ class TestComponentState(TestBase):
         ss.update(out_req)
         assert ss.last_command == out_req
         assert ss.last_updated is not None
+        # Both timestamps are checked above; PyCharm does not narrow these properties.
+        # noinspection PyTypeChecker,PyUnresolvedReferences
         assert ss.last_updated >= last_updated
         assert ss.address == 1
         assert ss.state == Switch.OUT
@@ -514,6 +524,9 @@ class TestComponentState(TestBase):
         switch.update_route_state()
         assert child.is_aligned and parent.is_aligned and grandparent.is_aligned
 
+    # Uninitialized auxiliary properties return None despite their enum annotations.
+    # Keep the initial-state assertions and all subsequent transition checks.
+    # noinspection PyUnreachableCode
     def test_accessory_state(self) -> None:
         """
         Test that AccessoryState is correctly initialized and that behavior specific
@@ -576,6 +589,10 @@ class TestComponentState(TestBase):
         assert acc_state.aux2_state is None
         assert acc_state.value is None
         assert acc_state.is_known is True
+        assert acc_state.last_updated is not None
+        assert last_updated is not None
+        # PyCharm does not narrow the optional timestamp property.
+        # noinspection PyUnresolvedReferences
         assert acc_state.last_updated >= last_updated
         last_updated = acc_state.last_updated
 
@@ -589,6 +606,10 @@ class TestComponentState(TestBase):
         assert acc_state.aux2_state is None
         assert acc_state.value == 6
         assert acc_state.is_known is True
+        assert acc_state.last_updated is not None
+        assert last_updated is not None
+        # PyCharm does not narrow the optional timestamp property.
+        # noinspection PyUnresolvedReferences
         assert acc_state.last_updated >= last_updated
         last_updated = acc_state.last_updated
 
@@ -602,14 +623,14 @@ class TestComponentState(TestBase):
         assert acc_state.aux2_state == Acc.AUX2_OFF
         assert acc_state.value is None
         assert acc_state.is_known is True
+        assert acc_state.last_updated is not None
+        assert last_updated is not None
+        # PyCharm does not narrow the optional timestamp property.
+        # noinspection PyUnresolvedReferences
         assert acc_state.last_updated >= last_updated
 
-        # noinspection PyUnusedLocal
-        def patched(arg1, arg2) -> int:
-            return 2
-
         # turn Aux back on, then off
-        with mock.patch.object(ComponentState, "time_delta", side_effect=patched):
+        with mock.patch.object(ComponentState, "time_delta", return_value=2):
             acc_state.update(aux1_opt1_req)
             assert acc_state.aux_state == Acc.AUX1_OPT_ONE
             assert acc_state.is_aux_on is True
