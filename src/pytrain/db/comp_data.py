@@ -510,6 +510,7 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", encode_tmcc_speed),
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
+    "RAMP_TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -669,13 +670,66 @@ class CompData(ABC, Generic[R]):
             for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []).copy():
                 if update not in updates:
                     updates.append(update)
+        updates = cls._filter_updates(updates, cmd.name, req.tmcc_id, req.scope)
         for update in updates:
+            # Instantiates and collects valid update packages from definitions
             if isinstance(update, tuple) and len(update) >= 1:
                 transform = update[1] if len(update) >= 2 else None
                 pkg = cls._create_update_pkg(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
                 if pkg:
                     update_pkgs.append(pkg)
         return update_pkgs
+
+    @classmethod
+    def _filter_updates(
+        cls,
+        updates,
+        field: str,
+        tmcc_id: int,
+        scope: CommandScope,
+    ) -> list:
+        """
+        Filters the given updates based on the specified field, tmcc_id, and scope.
+
+        Args:
+            updates: The list of updates to filter.
+            field: The field to filter the updates by.
+            tmcc_id: The tmcc_id to filter the updates by.
+            scope: The scope to filter the updates by.
+
+        Returns:
+            A list of filtered updates.
+
+        The initial use case is to filter out Target Speed updates when a ramp is active
+        """
+        from .engine_state import EngineState
+
+        state = cls.state_store().get_state(scope, tmcc_id, create=False)
+        if isinstance(state, EngineState):
+            return [update for update in updates if cls._is_valid_update(update, field, state)]
+        return updates
+
+    @classmethod
+    def _is_valid_update(cls, update: tuple, field: str, state: "ComponentState") -> bool:
+        """
+        Determines if an update is valid based on the field and state.
+
+        Args:
+            update: The update to check.
+            field: The field to check the update against.
+            state: The state to check the update against.
+
+        Returns:
+            True if the update is valid, False otherwise.
+
+        Currently, used to filter out Target Speed updates while ramping
+        """
+        from .engine_state import EngineState
+
+        if field == "ABSOLUTE_SPEED" and isinstance(state, EngineState):
+            if len(update) >= 1 and update[0] == "target_speed" and state:
+                return not state.is_ramping
+        return True
 
     @classmethod
     def field_to_updates(
@@ -688,7 +742,8 @@ class CompData(ABC, Generic[R]):
     ) -> list[UpdatePkg]:
         update_pkgs: list[UpdatePkg] = []
         # get a copy of the updates, as we don't want to modify the original dict
-        updates = REQUEST_TO_UPDATES_MAP.get(field.strip().upper(), []).copy()
+        field_name = field.strip().upper()
+        updates = REQUEST_TO_UPDATES_MAP.get(field_name, []).copy()
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
                 # noinspection PyTypeChecker

@@ -42,13 +42,28 @@ SPEED_UPDATE_ADDRESSES = [
     pytest.param(1234, b"\x34\x12", id="4d-1234"),
     pytest.param(9999, b"\x34\x12", id="4d-9999"),
 ]
+OUTBOUND_SPEED_UPDATE_ADDRESSES = [
+    pytest.param(1, b"\x01", id="2d-1"),
+    pytest.param(7, b"\x07", id="2d-7"),
+    pytest.param(99, b"\x63", id="2d-99"),
+    pytest.param(100, b"\x34\x12", id="4d-100"),
+    pytest.param(1234, b"\x34\x12", id="4d-1234"),
+    pytest.param(9999, b"\x34\x12", id="4d-9999"),
+]
 
 
-def incoming_speed_packet(command: int, address_bytes: bytes, target_speed: int | None) -> bytes:
-    """Frame an incoming update independently of the request factory and serializer."""
-    payload = bytes([command]) + address_bytes
-    if target_speed is not None:
-        payload += bytes([target_speed])
+def incoming_speed_packet(command: int, address_bytes: bytes, target_speed: int) -> bytes:
+    """Frame an incoming update with its mandatory final target byte independently."""
+    return frame_speed_packet(bytes([command]) + address_bytes + bytes([target_speed]))
+
+
+def outgoing_speed_packet(command: int, address_bytes: bytes, target_speed: int) -> bytes:
+    """Frame a transmission using unmarked short addresses or little-endian records."""
+    return frame_speed_packet(bytes([command]) + address_bytes + bytes([target_speed]))
+
+
+def frame_speed_packet(payload: bytes) -> bytes:
+    """Apply direction-neutral framing independently of production serialization."""
     stuffed = bytearray()
     for value in payload:
         if value in {0xD1, 0xDE, 0xDF}:
@@ -83,12 +98,56 @@ def test_incoming_speed_packet_matches_fixed_wire_examples(command, address_byte
     assert incoming_speed_packet(command, address_bytes, 45) == expected
 
 
+@pytest.mark.parametrize(
+    "command,scope,target_speed,packet,expected_payload",
+    [
+        pytest.param(
+            PdiCommand.UPDATE_ENGINE_SPEED,
+            CommandScope.ENGINE,
+            5,
+            b"\xd1\x2a\x01\xff\x05\xde\xf3\xdf",
+            "Engine #1 Target Speed: 5 (0x2A 01 FF 05)",
+            id="engine",
+        ),
+        pytest.param(
+            PdiCommand.UPDATE_TRAIN_SPEED,
+            CommandScope.TRAIN,
+            4,
+            b"\xd1\x2b\x01\xff\x04\xde\xf3\xdf",
+            "Train #1 Target Speed: 4 (0x2B 01 FF 04)",
+            id="train",
+        ),
+    ],
+)
+def test_incoming_speed_echo_preserves_stuffed_checksum(
+    command, scope, target_speed, packet, expected_payload, speed_update_lookups
+):
+    reverse, forward = speed_update_lookups
+    assert incoming_speed_packet(command, b"\x01\xff", target_speed) == packet
+
+    parsed = PdiReq.from_bytes(packet)
+
+    assert isinstance(parsed, BaseReq)
+    assert parsed.pdi_command == command
+    assert parsed.scope == scope
+    assert parsed.tmcc_id == 1
+    assert parsed.target_speed == target_speed
+    assert parsed.speed is None
+    assert parsed.is_valid(EngineBits.TARGET_SPEED)
+    assert not parsed.is_valid(EngineBits.SPEED)
+    assert parsed.payload == expected_payload
+    assert parsed.as_bytes == packet
+    reverse.assert_not_called()
+    forward.assert_not_called()
+
+
 @pytest.mark.parametrize("command,scope,label", SPEED_UPDATE_SCOPES)
 @pytest.mark.parametrize("address,address_bytes", SPEED_UPDATE_ADDRESSES)
 @pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
 def test_incoming_speed_update_carries_target(
     command, scope, label, address, address_bytes, target_speed, speed_update_lookups
 ):
+    """Complete echoes cover final-byte target limits and the 99/100 address boundary."""
     reverse, forward = speed_update_lookups
     reverse.return_value = SimpleNamespace(tmcc_id=address)
     packet = incoming_speed_packet(command, address_bytes, target_speed)
@@ -101,7 +160,9 @@ def test_incoming_speed_update_carries_target(
     assert parsed.tmcc_id == address
     assert parsed.target_speed == target_speed
     assert parsed.speed is None
-    assert parsed.payload == f"{label} #{address} Target Speed: {target_speed}"
+    expected_body = bytes([command]) + address_bytes + bytes([target_speed])
+    expected_packet_text = "0x" + expected_body.hex(" ").upper()
+    assert parsed.payload == f"{label} #{address} Target Speed: {target_speed} ({expected_packet_text})"
     assert parsed.as_bytes == packet
     forward.assert_not_called()
     if address < 100:
@@ -127,7 +188,9 @@ def test_incoming_speed_update_without_record_lookup_result(command, scope, labe
     assert parsed.scope == scope
     assert parsed.target_speed == target_speed
     assert parsed.speed is None
-    assert parsed.payload == f"{label} #{parsed.tmcc_id} Target Speed: {target_speed}"
+    expected_body = bytes([command, 0x34, 0x12, target_speed])
+    expected_packet_text = "0x" + expected_body.hex(" ").upper()
+    assert parsed.payload == f"{label} #{parsed.tmcc_id} Target Speed: {target_speed} ({expected_packet_text})"
     assert parsed.as_bytes == packet
     reverse.assert_called_once_with(0x1234, scope)
     forward.assert_not_called()
@@ -136,22 +199,48 @@ def test_incoming_speed_update_without_record_lookup_result(command, scope, labe
 
 
 @pytest.mark.parametrize(
-    "command", [PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED], ids=["engine", "train"]
+    "command,scope,sent_packet,echo_packet",
+    [
+        pytest.param(
+            PdiCommand.UPDATE_ENGINE_SPEED,
+            CommandScope.ENGINE,
+            b"\xd1\x2a\x07\x2d\xa2\xdf",
+            b"\xd1\x2a\x07\xff\x2d\xa3\xdf",
+            id="engine",
+        ),
+        pytest.param(
+            PdiCommand.UPDATE_TRAIN_SPEED,
+            CommandScope.TRAIN,
+            b"\xd1\x2b\x07\x2d\xa1\xdf",
+            b"\xd1\x2b\x07\xff\x2d\xa2\xdf",
+            id="train",
+        ),
+    ],
 )
-@pytest.mark.parametrize("address_bytes", [b"\x07\xff", b"\x34\x12"], ids=["2d", "4d"])
-def test_incoming_speed_update_without_target_byte(command, address_bytes, speed_update_lookups):
+def test_short_speed_send_and_marked_echo(command, scope, sent_packet, echo_packet, speed_update_lookups):
     reverse, forward = speed_update_lookups
-    packet = incoming_speed_packet(command, address_bytes, None)
+    req = BaseReq.update_target_speed(address=7, speed=45, scope=scope)
 
-    parsed = PdiReq.from_bytes(packet)
+    assert req.as_bytes == sent_packet
+    assert req.pdi_command == command
+    assert req.record_no == 7
+    assert req.target_speed == 45
+    assert outgoing_speed_packet(command, b"\x07", 45) == sent_packet
+    assert incoming_speed_packet(command, b"\x07\xff", 45) == echo_packet
+    assert sent_packet != echo_packet
+
+    # Only the independently specified Base 3 echo belongs at the receive boundary.
+    parsed = PdiReq.from_bytes(echo_packet)
 
     assert isinstance(parsed, BaseReq)
     assert parsed.pdi_command == command
-    assert parsed.target_speed is None
+    assert parsed.scope == scope
+    assert parsed.tmcc_id == req.record_no
+    assert parsed.target_speed == req.target_speed
     assert parsed.speed is None
-    assert parsed.as_bytes == packet
-    assert not parsed.is_valid(EngineBits.TARGET_SPEED)
+    assert parsed.is_valid(EngineBits.TARGET_SPEED)
     assert not parsed.is_valid(EngineBits.SPEED)
+    assert parsed.as_bytes == echo_packet
     reverse.assert_not_called()
     forward.assert_not_called()
 
@@ -177,7 +266,7 @@ def sync_dispatch(monkeypatch):
 @pytest.mark.parametrize("do_async", [False, True])
 def test_process_sync_reqs_preserves_mixed_dispatch_order(do_async, sync_dispatch):
     events, thread = sync_dispatch
-    first = BaseReq(7, PdiCommand.BASE_ENGINE)
+    first = BaseReq(7, cast(PdiCommand, PdiCommand.BASE_ENGINE))
     second = D4Req(0x1234, PdiCommand.D4_ENGINE, D4Action.QUERY)
     engine = ComponentStateDict(CommandScope.ENGINE)[7]
     route = ComponentStateDict(CommandScope.ROUTE)[3]
@@ -344,7 +433,7 @@ def numeric_record_req(command: PdiCommand, values: dict[int, int]) -> BaseReq:
         (255, 255, 7, 7),
     ],
 )
-def test_parsed_numeric_conversions(command, brake, momentum, expected_brake, expected_momentum):
+def test_parsed_numeric_conversions(command: PdiCommand, brake, momentum, expected_brake, expected_momentum):
     values = {}
     if brake is not None:
         assert momentum is not None
@@ -359,7 +448,7 @@ def test_parsed_numeric_conversions(command, brake, momentum, expected_brake, ex
 
 @pytest.mark.parametrize("command", [PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN])
 @pytest.mark.parametrize("level,percentage", [(None, None), (0, "0.00%"), (128, "50.20%"), (255, "100.00%")])
-def test_parsed_fuel_and_water_display(command, level, percentage):
+def test_parsed_fuel_and_water_display(command: PdiCommand, level, percentage):
     req = numeric_record_req(command, {} if level is None else {61: level, 62: level})
 
     if level is None:
@@ -394,11 +483,62 @@ def outbound_speed_lookups(monkeypatch):
     return forward, reverse
 
 
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN], ids=["engine", "train"])
+@pytest.mark.parametrize("address", [100, 9999], ids=["first-record-address", "maximum-address"])
+@pytest.mark.parametrize(
+    "state",
+    [
+        pytest.param(None, id="missing-state"),
+        pytest.param(SimpleNamespace(is_d4=False, record_no=0x1234), id="non-d4-state"),
+    ],
+)
+def test_outbound_speed_update_rejects_missing_d4_mapping(scope, address, state, outbound_speed_lookups):
+    """Reject unmapped four-digit addresses before returning a packet."""
+    forward, reverse = outbound_speed_lookups
+    forward.return_value = state
+    req = BaseReq.update_target_speed(address=address, speed=45, scope=scope)
+
+    with pytest.raises(ValueError, match=rf"^Invalid record number {address}$"):
+        _ = req.as_bytes
+
+    forward.assert_called_once_with(scope, address, False)
+    reverse.assert_not_called()
+
+
+@pytest.mark.parametrize("command,scope,label", SPEED_UPDATE_SCOPES)
+@pytest.mark.parametrize(
+    "address,address_bytes,engine_target,engine_packet,train_packet",
+    [
+        pytest.param(7, b"\x07", 45, b"\xd1\x2a\x07\x2d\xa2\xdf", b"\xd1\x2b\x07\x2c\xa2\xdf", id="2d"),
+        pytest.param(100, b"\x34\x12", 45, b"\xd1\x2a\x34\x12\x2d\x63\xdf", b"\xd1\x2b\x34\x12\x2c\x63\xdf", id="4d"),
+        pytest.param(
+            1, b"\x01", 4, b"\xd1\x2a\x01\x04\xde\xf3\xdf", b"\xd1\x2b\x01\x03\xde\xf3\xdf", id="checksum-sop"
+        ),
+        pytest.param(
+            99, b"\x63", 149, b"\xd1\x2a\x63\x95\xde\x00\xdf", b"\xd1\x2b\x63\x94\xde\x00\xdf", id="checksum-stuff"
+        ),
+        pytest.param(
+            99, b"\x63", 148, b"\xd1\x2a\x63\x94\xde\x01\xdf", b"\xd1\x2b\x63\x93\xde\x01\xdf", id="checksum-eop"
+        ),
+    ],
+)
+def test_outbound_speed_packet_matches_fixed_wire_examples(
+    command, scope, label, address, address_bytes, engine_target, engine_packet, train_packet, outbound_speed_lookups
+):
+    # Offset the train command byte with a lower target to preserve the checksum stuffing class.
+    target_speed = engine_target if scope == CommandScope.ENGINE else engine_target - 1
+    expected = engine_packet if scope == CommandScope.ENGINE else train_packet
+    assert outgoing_speed_packet(command, address_bytes, target_speed) == expected
+    req = BaseReq.update_target_speed(address=address, speed=target_speed, scope=scope)
+    assert_outbound_speed_packet(
+        req, command, scope, label, address, address_bytes, target_speed, outbound_speed_lookups
+    )
+
+
 def assert_outbound_speed_packet(req, command, scope, label, address, address_bytes, target_speed, lookups):
     forward, reverse = lookups
     forward.return_value = SimpleNamespace(is_d4=True, record_no=0x1234, tmcc_id=address)
-    reverse.return_value = SimpleNamespace(tmcc_id=address)
-    expected = incoming_speed_packet(command, address_bytes, target_speed)
+    expected = outgoing_speed_packet(command, address_bytes, target_speed)
 
     packet = req.as_bytes
 
@@ -409,30 +549,14 @@ def assert_outbound_speed_packet(req, command, scope, label, address, address_by
     reverse.assert_not_called()
     assert packet == expected
     assert packet[0] == PDI_SOP and packet[-1] == PDI_EOP
-    assert packet[2:4] == address_bytes
-    assert packet[4] == target_speed
-
-    parsed = PdiReq.from_bytes(packet)
-
-    assert isinstance(parsed, BaseReq)
-    assert parsed.pdi_command == command
-    assert parsed.scope == scope
-    assert parsed.tmcc_id == address
-    assert parsed.target_speed == target_speed
-    assert parsed.speed is None
-    assert parsed.payload == f"{label} #{address} Target Speed: {target_speed}"
-    assert parsed.as_bytes == packet
-    assert parsed.is_valid(EngineBits.TARGET_SPEED)
-    if address < 100:
-        reverse.assert_not_called()
-        forward.assert_not_called()
-    else:
-        reverse.assert_called_once_with(0x1234, scope)
-        forward.assert_called_once_with(scope, address, False)
+    assert req.pdi_command == command
+    assert req.pdi_command.name == f"UPDATE_{label.upper()}_SPEED"
+    assert req.record_no == address
+    assert req.target_speed == target_speed
 
 
 @pytest.mark.parametrize("command,scope,label", SPEED_UPDATE_SCOPES)
-@pytest.mark.parametrize("address,address_bytes", SPEED_UPDATE_ADDRESSES)
+@pytest.mark.parametrize("address,address_bytes", OUTBOUND_SPEED_UPDATE_ADDRESSES)
 @pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
 @pytest.mark.parametrize("use_factory", [True, False], ids=["factory", "distinct-current-speed"])
 def test_outbound_speed_update_carries_target(
@@ -440,6 +564,7 @@ def test_outbound_speed_update_carries_target(
 ):
     if use_factory:
         req = BaseReq.update_target_speed(address=address, speed=target_speed, scope=scope)
+        assert req.speed is None
     else:
         req = BaseReq(address, command, scope=scope, speed=17, target_speed=target_speed)
         assert req.speed == 17
@@ -450,7 +575,7 @@ def test_outbound_speed_update_carries_target(
     )
 
 
-@pytest.mark.parametrize("address,address_bytes", SPEED_UPDATE_ADDRESSES)
+@pytest.mark.parametrize("address,address_bytes", OUTBOUND_SPEED_UPDATE_ADDRESSES)
 @pytest.mark.parametrize("target_speed", [0, 45, 199], ids=["stopped", "cruising", "maximum"])
 def test_outbound_speed_factory_defaults_to_engine(address, address_bytes, target_speed, outbound_speed_lookups):
     req = BaseReq.update_target_speed(address=address, speed=target_speed)
@@ -472,7 +597,7 @@ def test_outbound_speed_factory_defaults_to_engine(address, address_bytes, targe
 @pytest.mark.parametrize(
     "address,engine_packet,train_packet",
     [
-        pytest.param(7, b"\xd1\x2a\x07\xff\x2d\xa3\xdf", b"\xd1\x2b\x07\xff\x2d\xa2\xdf", id="2d"),
+        pytest.param(7, b"\xd1\x2a\x07\x2d\xa2\xdf", b"\xd1\x2b\x07\x2d\xa1\xdf", id="2d"),
         pytest.param(100, b"\xd1\x2a\x34\x12\x2d\x63\xdf", b"\xd1\x2b\x34\x12\x2d\x62\xdf", id="4d"),
     ],
 )
@@ -539,7 +664,7 @@ VALIDITY_MASKS = [
 
 def validity_mask_req(valid1: int | None, valid2: int | None) -> BaseReq:
     """Seed masks through the public parser, independently of the mutation helpers."""
-    inner = PdiCommand.BASE_ENGINE.as_bytes + b"\x01\x00\x00\x00"
+    inner = cast(PdiCommand, PdiCommand.BASE_ENGINE).as_bytes + b"\x01\x00\x00\x00"
     inner += (valid1 or 0).to_bytes(2, "little") + (valid2 or 0).to_bytes(2, "little")
     inner += bytes(60)
     # The checksum helper frames the independently constructed base-record payload.
@@ -637,7 +762,7 @@ def test_is_active_logic_for_empty_records_engine_like_fields():
     # Construct minimal packet bytes following BaseReq constructor parsing expectations.
     # We will craft: [SOP][cmd(2)][id][flags][status][spare][valid1(2)][valid2(2)]...[fwd=255][rev=255]...[EOP]
     # Easiest is to instantiate via constructor path that generates bytes for us, then tweak.
-    req = BaseReq(1, PdiCommand.BASE_ENGINE)
+    req = BaseReq(1, cast(PdiCommand, PdiCommand.BASE_ENGINE))
     _ = bytearray(req.as_bytes)
     # Find indices for tmcc_id and after; conservative modifications:
     # Ensure name/number empty by forcing zeros and set fwd/rev to 255 at known positions for engine view
@@ -647,7 +772,7 @@ def test_is_active_logic_for_empty_records_engine_like_fields():
     #
     # Create inner payload with required fields for BASE_ENGINE:
     inner = bytearray()
-    inner += PdiCommand.BASE_ENGINE.as_bytes  # 2
+    inner += cast(PdiCommand, PdiCommand.BASE_ENGINE).as_bytes  # 2
     inner += (1).to_bytes(1, "big")  # tmcc id
     inner += (0x00).to_bytes(1, "big")  # flags
     inner += (0x00).to_bytes(1, "big")  # status

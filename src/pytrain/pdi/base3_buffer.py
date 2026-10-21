@@ -159,7 +159,8 @@ class Base3Buffer(Thread):
                                     # ASCII string as Hex representation to arrive at 0xd12729df...
                                 if self._listener and received:
                                     if log.isEnabledFor(logging.DEBUG):
-                                        log.debug(f"Received from Base 3: {received.hex(' ').upper()}")
+                                        if received != b"\xd1\x29\xd7\xdf":
+                                            log.debug(f"Received from Base 3: {received.hex(' ').upper()}")
                                     self._listener.offer(received)
                             keep_trying = 10
                         except BrokenPipeError as bpe:

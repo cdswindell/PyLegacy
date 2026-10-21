@@ -266,6 +266,15 @@ class BaseReq(PdiReq, CompDataMixin):
             for pkg in packages:
                 # include TMCC ID 100 to update search chain
                 if 1 <= tmcc_id <= 100:
+                    """
+                    Unpleasant Hack: when we send a TARGET SPEED update for a 2D engine, we have to
+                    send a new 0x2A UPDATE_ENGINE/TRAIN_SPEED command as well...
+                    """
+                    if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and pkg.field == "target_speed":
+                        from ..db.comp_data import decode_tmcc_speed
+
+                        target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
+                        cmds.append(BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed))
                     req = BaseReq(
                         tmcc_id,
                         pdi_command=PdiCommand.BASE_MEMORY,
@@ -328,13 +337,20 @@ class BaseReq(PdiReq, CompDataMixin):
         return sync_reqs
 
     @classmethod
-    def do_update_field(cls, field: str, data: Any, state: S, do_async: bool = True) -> list[PdiReq | ComponentState]:
+    def do_update_field(
+        cls,
+        field: str,
+        data: Any,
+        state: S,
+        do_async: bool = True,
+        refresh: bool = True,
+    ) -> list[PdiReq | ComponentState]:
         sync_reqs: list[PdiReq | ComponentState] = []
         if state and state.tmcc_id is not None:
             # noinspection bad-argument-type
             pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
             if pkgs:
-                sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
+                sync_reqs = BaseReq.updates_to_reqs(state, pkgs, refresh=refresh)
                 if sync_reqs:
                     cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
         return sync_reqs
@@ -482,16 +498,16 @@ class BaseReq(PdiReq, CompDataMixin):
                         self._comp_data_record = False
                         self._name = self._number = None
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
-                if data_len > 3:
+                if data_len >= 2:
                     self._scope = scope = (
                         CommandScope.ENGINE
                         if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED
                         else CommandScope.TRAIN
                     )
-                    self._target_speed = self._data[3]
-                    if self._data[2] == 0xFF:
+                    self._target_speed = self._data[-1]
+                    if data_len == 2 or (data_len > 2 and self._data[2] == 0xFF):
                         self._tmcc_id = self._data[1]
-                    else:
+                    elif data_len > 2:
                         from ..db.component_state_store import ComponentStateStore
 
                         d4_no = int.from_bytes(self._data[1:3], "little")
@@ -836,7 +852,7 @@ class BaseReq(PdiReq, CompDataMixin):
         s = self.status if self.status is not None else "NA"
         if self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
             scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
-            return f"{scope} #{self.tmcc_id} Target Speed: {self.target_speed}"
+            return f"{scope} #{self.tmcc_id} Target Speed: {self.target_speed} ({self.packet})"
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
             dt = ""
             sc = f"Scope: {self.scope}"
@@ -922,13 +938,11 @@ class BaseReq(PdiReq, CompDataMixin):
         if isinstance(self._original, bytes):
             return self._original
         byte_str = self.pdi_command.as_bytes
-        if self.record_no is not None and 1 <= self.record_no <= 99:
+        if self.record_no <= 100:
             byte_str += self.record_no.to_bytes(1, byteorder="big")
         if self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
             # with Rev 1.38 of the firmware, these commands have been usurped to transmit target speed
-            if self.record_no < 100:
-                byte_str += 0xFF.to_bytes(1, byteorder="big")
-            else:
+            if self.record_no >= 100:
                 from ..db.component_state_store import ComponentStateStore
 
                 byte_str = self.pdi_command.as_bytes
@@ -940,6 +954,8 @@ class BaseReq(PdiReq, CompDataMixin):
                 state = ComponentStateStore.get_state(scope, address, False)
                 if state and state.is_d4:
                     byte_str += state.record_no.to_bytes(2, byteorder="little")
+                else:
+                    raise ValueError(f"Invalid record number {self._record_no}")
             byte_str += self.target_speed.to_bytes(1, byteorder="little")
         elif self.pdi_command == PdiCommand.BASE_MEMORY:
             byte_str += self.flags.to_bytes(1, byteorder="little")

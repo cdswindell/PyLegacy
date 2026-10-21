@@ -793,6 +793,24 @@ class SpeedRamp(Thread):
         finally:
             self._claim_pending = False
 
+    def _send_initial_target(self) -> None:
+        from ...db.comp_data import encode_tmcc_speed
+        from ...pdi.base_req import BaseReq
+
+        # Read live state before taking the send gate.
+        target = encode_tmcc_speed(self.target_speed, self.is_legacy)
+        with self._wire:
+            if self._is_running is False or self._claim_acquired is False:
+                return
+
+            # if not self._state.is_d4:
+            BaseReq.update_target_speed(
+                address=self.tmcc_id,
+                speed=target,
+                scope=self.scope,
+            ).send(delay=0)
+            BaseReq.do_update_field("RAMP_TARGET_SPEED", self.target_speed, self._state, refresh=False)
+
     def _release_claim(self) -> None:
         with self._lock:
             if self._peer is None or self._claim_released:
@@ -819,6 +837,7 @@ class SpeedRamp(Thread):
             if self._is_running is False:
                 return
             self._acquire_claim()
+            self._send_initial_target()
             while self._is_running is True:
                 with self._lock:
                     requested = self._requested_target

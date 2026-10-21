@@ -1423,6 +1423,10 @@ class EngineState(ComponentState):
     def is_lcs(self) -> bool:
         return False
 
+    @property
+    def is_d4(self) -> bool:
+        return self._is_d4 and self.record_no is not None
+
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
         for elem in [

@@ -1,9 +1,12 @@
+from contextlib import contextmanager
 from threading import Event, Thread
 from time import monotonic
 from typing import Callable
+from unittest.mock import patch
 
 import pytest
 
+from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope, PROGRAM_NAME
 from src.pytrain.protocol.sequence.speed_ramp import (
@@ -24,6 +27,8 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import (
 
 from ...test_base import TestBase
 from .test_speed_ramp_geometry import UNSET_MAX_SPEED, FakeEngineState
+
+pytestmark = pytest.mark.usefixtures("ramp_target_update")
 
 SPEED_ENUMS = {TMCC1EngineCommandEnum.ABSOLUTE_SPEED, TMCC2EngineCommandEnum.ABSOLUTE_SPEED}
 SCALED_MAX_SPEED = 100
@@ -47,7 +52,7 @@ class RampEngineState(FakeEngineState):
 class Recorder:
     """A recording send path: the ramp's command stream, with a hook to poke it mid-flight."""
 
-    def __init__(self, hook: Callable[["Recorder", int], None] = None) -> None:
+    def __init__(self, hook: Callable[["Recorder", int], None] | None = None) -> None:
         self.sent: list[tuple] = []
         self.hook = hook
 
@@ -80,17 +85,21 @@ def build_ramp(state: RampEngineState, target: int, recorder: Recorder, **kwargs
     """A ramp whose waits collapse to nothing, so the loop can be driven synchronously."""
     kwargs.setdefault("linger", 0.0)
     kwargs.setdefault("delay_scale", 0.0)
+    # This lightweight state double intentionally implements only the ramp's state interface.
+    # noinspection PyTypeChecker
     return SpeedRamp(state, target, sender=recorder, **kwargs)
 
 
-def run_ramp(state: RampEngineState, target: int, recorder: Recorder = None, **kwargs) -> tuple[SpeedRamp, Recorder]:
+def run_ramp(
+    state: RampEngineState, target: int, recorder: Recorder | None = None, **kwargs
+) -> tuple[SpeedRamp, Recorder]:
     recorder = recorder if recorder is not None else Recorder()
     ramp = build_ramp(state, target, recorder, **kwargs)
     ramp.run()
     return ramp, recorder
 
 
-def expected_rpms(speeds: list[int], bias: int, max_speed: int = None, initial: int = None) -> list[int]:
+def expected_rpms(speeds: list[int], bias: int, max_speed: int | None = None, initial: int | None = None) -> list[int]:
     """
     The RPM stream an accelerating ramp should emit: the biased notch for each speed it
     commands, de-duplicated against the value already in effect, so a notch the engine is
@@ -111,6 +120,80 @@ class TestSpeedRamp(TestBase):
     def teardown_method(self, test_method):
         reset_speed_to_rpm_cache()
         super().teardown_method(test_method)
+
+    # Exercise the emitter independently with its real ownership precondition.
+    # noinspection PyProtectedMember
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("address", [12, 1234])
+    @pytest.mark.parametrize(
+        "is_legacy, target, encoded",
+        [(True, 60, 60), (True, 199, 199), (False, 0, 0), (False, 15, 96), (False, 31, 199)],
+    )
+    def test_initial_target_uses_scope_address_and_base_speed_scale(
+        self, ramp_target_update, scope, address, is_legacy, target, encoded
+    ):
+        state = RampEngineState(scope=scope, tmcc_id=address, is_legacy=is_legacy)
+        ramp = build_ramp(state, target, Recorder())
+        ramp._acquire_claim()
+
+        with patch.object(BaseReq, "update_target_speed") as update_target:
+            ramp._send_initial_target()
+
+        update_target.assert_called_once_with(address=address, speed=encoded, scope=scope)
+        update_target.return_value.send.assert_called_once_with(delay=0)
+        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", target, state, refresh=False)
+
+    # Set ownership directly through the helper to test the live destination snapshot.
+    # noinspection PyProtectedMember
+    @pytest.mark.parametrize("is_legacy, target, ceiling, encoded", [(True, 120, 40, 40), (False, 30, 10, 64)])
+    def test_initial_target_uses_the_live_ceiling(self, ramp_target_update, is_legacy, target, ceiling, encoded):
+        state = RampEngineState(is_legacy=is_legacy)
+        ramp = build_ramp(state, target, Recorder())
+        ramp._acquire_claim()
+        state.max_speed = ceiling + 5
+        state.speed_limit = ceiling
+
+        with patch.object(BaseReq, "update_target_speed") as update_target:
+            ramp._send_initial_target()
+
+        assert ramp.requested_speed == target
+        update_target.assert_called_once_with(address=12, speed=encoded, scope=CommandScope.ENGINE)
+        update_target.return_value.send.assert_called_once_with(delay=0)
+        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", ceiling, state, refresh=False)
+
+    # Bypass run() to exercise the emitter's own ownership and cancellation guards.
+    # noinspection PyProtectedMember
+    @pytest.mark.parametrize("acquired", [False, True])
+    def test_initial_target_requires_active_ownership(self, ramp_target_update, acquired):
+        ramp = build_ramp(RampEngineState(), 60, Recorder())
+        if acquired:
+            ramp._acquire_claim()
+            ramp.abort("canceled before announcement")
+
+        with patch.object(BaseReq, "update_target_speed") as update_target:
+            ramp._send_initial_target()
+
+        update_target.assert_not_called()
+        ramp_target_update.assert_not_called()
+
+    # Inject cancellation at the private send gate, after the destination snapshot.
+    # noinspection PyProtectedMember
+    def test_initial_target_checks_cancellation_after_entering_the_send_gate(self, monkeypatch, ramp_target_update):
+        ramp = build_ramp(RampEngineState(), 60, Recorder())
+        ramp._acquire_claim()
+
+        @contextmanager
+        def cancel_on_entry():
+            ramp.abort("canceled at the send gate")
+            yield
+
+        monkeypatch.setattr(ramp, "_wire", cancel_on_entry())
+        with patch.object(BaseReq, "update_target_speed") as update_target:
+            ramp._send_initial_target()
+
+        assert ramp.abort_reason == "canceled at the send gate"
+        update_target.assert_not_called()
+        ramp_target_update.assert_not_called()
 
     #
     # thread identity
@@ -240,7 +323,7 @@ class TestSpeedRamp(TestBase):
             assert state.is_ramping is False
             assert recorder.sent == []
 
-    def test_retarget_up_to_up_continues_from_the_commanded_speed(self):
+    def test_retarget_up_to_up_continues_from_the_commanded_speed(self, pdi_send):
         state = RampEngineState(speed=0)
 
         def hook(_rec: Recorder, count: int) -> None:
@@ -260,6 +343,8 @@ class TestSpeedRamp(TestBase):
         assert speeds == sorted(speeds)
         assert len(speeds) == len(set(speeds))
         assert speeds[-1] == 60
+        pdi_send.assert_called_once()
+        assert pdi_send.call_args.args[0].target_speed == 12
 
     def test_retarget_up_to_down_reverses_from_the_commanded_speed(self):
         state = RampEngineState(speed=0)
@@ -316,13 +401,14 @@ class TestSpeedRamp(TestBase):
         # The winner owns all settings; no trailing effort or RPM is emitted.
         assert recorder.commands[-1] == TMCC2EngineCommandEnum.ABSOLUTE_SPEED
 
-    def test_abort_before_the_first_step(self):
+    def test_abort_before_the_first_step(self, pdi_send):
         state = RampEngineState(speed=0)
         recorder = Recorder()
         ramp = build_ramp(state, 60, recorder)
         ramp.abort("early")
         ramp.run()
         assert recorder.sent == []
+        pdi_send.assert_not_called()
 
     def test_abort_leaves_the_reached_speed_as_the_target(self):
         state = RampEngineState(speed=0)
@@ -659,7 +745,7 @@ class TestSpeedRamp(TestBase):
     #
     # the live speed ceiling
     #
-    def test_speed_limit_lowered_mid_ramp_caps_the_ramp(self):
+    def test_speed_limit_lowered_mid_ramp_caps_the_ramp(self, pdi_send):
         state = RampEngineState(speed=0)
 
         def hook(rec: Recorder, _count: int) -> None:
@@ -673,6 +759,8 @@ class TestSpeedRamp(TestBase):
         assert recorder.speeds[-1] == 40
         # the operator's intent survives the clamp
         assert ramp.requested_speed == 120
+        pdi_send.assert_called_once()
+        assert pdi_send.call_args.args[0].target_speed == 120
 
     @pytest.mark.parametrize("cleared", [180, UNSET_MAX_SPEED])
     def test_speed_limit_raised_or_cleared_mid_ramp_resumes_the_original_target(self, cleared):
@@ -918,10 +1006,10 @@ class TestSpeedRamp(TestBase):
     #
     # linger
     #
-    def test_linger_absorbs_a_retarget_into_the_same_thread(self):
+    def test_linger_absorbs_a_retarget_into_the_same_thread(self, pdi_send):
         state = RampEngineState(speed=0)
         recorder = Recorder()
-        ramp = SpeedRamp(state, 3, sender=recorder, linger=DEFAULT_RAMP_LINGER, delay_scale=0.0)
+        ramp = build_ramp(state, 3, recorder, linger=DEFAULT_RAMP_LINGER)
         settled = []
 
         def hook(rec: Recorder, _count: int) -> None:
@@ -933,3 +1021,5 @@ class TestSpeedRamp(TestBase):
         ramp.run()
         assert recorder.speeds[-1] == 9
         assert state.is_ramping is False
+        pdi_send.assert_called_once()
+        assert pdi_send.call_args.args[0].target_speed == 3
