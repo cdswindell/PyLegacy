@@ -98,6 +98,7 @@ class PdiListener(Thread):
         action: PdiAction | None = None,
     ):
         if cls._instance is not None:
+            # noinspection unresolved-references
             cls._instance.dispatcher.subscribe(listener, channel, address, action)
         else:
             raise AttributeError("Pdi Listener not initialized")
@@ -111,12 +112,13 @@ class PdiListener(Thread):
             if PdiListener._instance is None:
                 # noinspection PyTypeChecker
                 PdiListener._instance = super(PdiListener, cls).__new__(cls)
+                # noinspection unresolved-references
                 PdiListener._instance._initialized = False
             return PdiListener._instance
 
     def __init__(
         self,
-        base3_addr: str,
+        base3_addr: str | None,
         base3_port: int = DEFAULT_BASE_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         build_base3_reader: bool = True,
@@ -130,7 +132,7 @@ class PdiListener(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} PDI Listener {base3_addr}:{base3_port}")
 
         # open a connection to our Base 3
-        if build_base3_reader:
+        if build_base3_reader and base3_addr:
             from .base3_buffer import Base3Buffer
 
             self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)
@@ -223,10 +225,22 @@ class PdiListener(Thread):
                 self._base3.shutdown()
         PdiListener._instance = None
 
-    def subscribe(self, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
+    def subscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ) -> None:
         self._dispatcher.subscribe(listener, channel, address, action)
 
-    def unsubscribe(self, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
+    def unsubscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ) -> None:
         self._dispatcher.unsubscribe(listener, channel, address, action)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
@@ -421,7 +435,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
 
     # noinspection PyUnreachableCode
     @staticmethod
-    def _make_channel(channel: Topic, address: int = None, action: PdiAction = None) -> Topic | Tuple:
+    def _make_channel(channel: Topic, address: int | None = None, action: PdiAction | None = None) -> Topic | Tuple:
         if channel is None:
             raise ValueError("Channel required")
         elif address is None:
@@ -438,7 +452,13 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
             self._channels[channel].publish(message)
 
-    def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
+    def subscribe(
+        self,
+        subscriber: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
         elif channel == DELETE_TOPIC:
@@ -447,7 +467,11 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             self._channels[self._make_channel(channel, address, action)].subscribe(subscriber)
 
     def unsubscribe(
-        self, subscriber: Subscriber, channel: Topic, address: int = None, command: PdiAction = None
+        self,
+        subscriber: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        command: PdiAction | None = None,
     ) -> None:
         # Unsubscribes from channel; deletes channel if empty
         if channel == BROADCAST_TOPIC:
