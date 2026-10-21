@@ -248,7 +248,7 @@ class EchoLedger:
             claimed = self._claimed[family]
             return bool(claimed) and abs(claimed[-1].data - data) <= tolerance
 
-    def purge(self, ttl: float = None) -> None:
+    def purge(self, ttl: float | None = None) -> None:
         """Drop entries older than the lag budget, claimed or not."""
         ttl = self._ttl if ttl is None else ttl
         cutoff = time() - ttl
@@ -488,7 +488,7 @@ class SpeedRamp(Thread):
         target_speed: int,
         *,
         dialog: bool = False,
-        sender: Sender = None,
+        sender: Sender | None = None,
         linger: float = DEFAULT_RAMP_LINGER,
         delay_scale: float = 1.0,
         peer=None,
@@ -636,11 +636,11 @@ class SpeedRamp(Thread):
 
     def abort(
         self,
-        reason: str = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         """
         Stop silently on ordinary takeover. The winning controller owns all settings.
@@ -853,8 +853,8 @@ class SpeedRamp(Thread):
 
     def _pause(self, delay: float) -> bool:
         """
-        Wait out one step delay, interruptibly. Returns True when the ramp is done,
-        so a retarget or an abort is acted on within one step interval rather than at
+        Wait out a one-step delay, interruptibly. Returns True when the ramp is done,
+        so a retarget or an abort is acted on within a one-step interval rather than at
         the end of a queued sequence.
         """
         self._wake.wait(delay * self._delay_scale)
@@ -1034,6 +1034,7 @@ class RampRegistry:
     _instance: RampRegistry | None = None
     _lock = RLock()
 
+    # noinspection bad-return
     @classmethod
     def build(cls) -> RampRegistry:
         with cls._lock:
@@ -1059,7 +1060,7 @@ class RampRegistry:
         speed: int,
         *,
         dialog: bool = False,
-        sender: Sender = None,
+        sender: Sender | None = None,
         **kwargs,
     ) -> SpeedRamp:
         """
@@ -1100,11 +1101,11 @@ class RampRegistry:
     def abort(
         self,
         state: EngineState,
-        reason: str = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         with self._ramps_lock:
             self._reap()
@@ -1114,10 +1115,10 @@ class RampRegistry:
 
     def abort_all(
         self,
-        scope: CommandScope = None,
-        reason: str = None,
+        scope: CommandScope | None = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
     ) -> None:
         """

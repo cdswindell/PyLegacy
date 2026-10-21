@@ -830,8 +830,6 @@ class EngineState(ComponentState):
 
             # noinspection unbound-local-variable
             if command.is_valid(EngineBits.TARGET_SPEED) and command.target_speed is not None:
-                # noinspection bad-argument-type
-                ts = decode_tmcc_speed(command.target_speed, self._speed_is_legacy)
                 self.comp_data.target_speed = command.target_speed
         elif (
             isinstance(command, BaseReq)
