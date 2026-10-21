@@ -16,7 +16,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from src.pytrain.db.comp_data import CompData, UpdatePkg
+from src.pytrain.db.comp_data import CompData, EngineData, UpdatePkg
 from src.pytrain.db.component_state import ComponentStateDict, RouteState
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_state import EngineState
@@ -26,7 +26,8 @@ from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
-from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
@@ -309,6 +310,186 @@ def initialized_update_state(request):
         return state
 
     return create
+
+
+@pytest.fixture(params=[pytest.param(TMCC_CONTROL_TYPE, id="tmcc"), pytest.param(LEGACY_CONTROL_TYPE, id="legacy")])
+def native_speed_state(request, initialized_update_state, outbound_speed_lookups, sync_dispatch, monkeypatch):
+    forward, reverse = outbound_speed_lookups
+    # Route lookups to the mocked get_state while exercising real conversion and filtering.
+    monkeypatch.setattr(CompData, "state_store", Mock(return_value=ComponentStateStore))
+    build = Mock(side_effect=AssertionError("Speed conversion must not create the state store"))
+    sent = Mock(side_effect=AssertionError("Speed conversion must not send requests"))
+    monkeypatch.setattr(ComponentStateStore, "build", build)
+    monkeypatch.setattr(PdiReq, "send", sent)
+    state = initialized_update_state(7)
+    assert isinstance(state.comp_data, EngineData)
+    state.comp_data.control_type = request.param
+    state.comp_data.speed = 0x13
+    state.comp_data.target_speed = 0xC7
+    assert state.is_legacy is (request.param == LEGACY_CONTROL_TYPE)
+    assert state.speed_max == (199 if state.is_legacy else 31)
+    forward.return_value = state
+
+    yield state
+
+    reverse.assert_not_called()
+    build.assert_not_called()
+    sent.assert_not_called()
+    events, thread = sync_dispatch
+    assert events.mock_calls == []
+    thread.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "data_bytes,tmcc_speed,tmcc_packets,legacy_speed,legacy_packets",
+    [
+        pytest.param(
+            b"\x2d",
+            7,
+            (b"\xd1\x2a\x07\x07\xc8\xdf", b"\xd1\x2b\x07\x07\xc7\xdf"),
+            45,
+            (b"\xd1\x2a\x07\x2d\xa2\xdf", b"\xd1\x2b\x07\x2d\xa1\xdf"),
+            id="cruising",
+        ),
+        pytest.param(
+            b"\xc7",
+            31,
+            (b"\xd1\x2a\x07\x1f\xb0\xdf", b"\xd1\x2b\x07\x1f\xaf\xdf"),
+            199,
+            (b"\xd1\x2a\x07\xc7\x08\xdf", b"\xd1\x2b\x07\xc7\x07\xdf"),
+            id="maximum",
+        ),
+    ],
+)
+def test_absolute_speed_updates_follow_ramp_lifecycle(
+    data_bytes,
+    tmcc_speed,
+    tmcc_packets,
+    legacy_speed,
+    legacy_packets,
+    native_speed_state: EngineState,
+    outbound_speed_lookups,
+):
+    """Real conversion suppresses only target writes during ramps, including at maximum speed."""
+    state = native_speed_state
+    command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
+    speed = legacy_speed if state.is_legacy else tmcc_speed
+    packets = legacy_packets if state.is_legacy else tmcc_packets
+    packet_index = 0 if state.scope == CommandScope.ENGINE else 1
+    req = CommandReq.build(command, 7, data=speed, scope=state.scope)
+    native_command = (
+        PdiCommand.UPDATE_ENGINE_SPEED if state.scope == CommandScope.ENGINE else PdiCommand.UPDATE_TRAIN_SPEED
+    )
+    forward, _ = outbound_speed_lookups
+
+    # Reusing the same command also catches accidental mutation of the shared update map.
+    for is_ramping in (False, True, False):
+        state.is_ramping = is_ramping
+        forward.reset_mock()
+
+        reqs = BaseReq.update_eng(req)
+
+        assert reqs[-1] is state
+        updates: list[BaseReq] = []
+        for update in reqs[:-1]:
+            assert isinstance(update, BaseReq)
+            updates.append(update)
+        expected_commands = [PdiCommand.BASE_MEMORY]
+        if not is_ramping:
+            expected_commands.extend([native_command, PdiCommand.BASE_MEMORY])
+        assert [update.pdi_command for update in updates] == expected_commands
+        memory_updates = [update for update in updates if update.pdi_command == PdiCommand.BASE_MEMORY]
+        assert [(update.start, update.data_length, update.data_bytes) for update in memory_updates] == (
+            [(0x07, 1, data_bytes)] if is_ramping else [(0x07, 1, data_bytes), (0x08, 1, data_bytes)]
+        )
+        for update in memory_updates:
+            assert update.tmcc_id == 7
+            assert update.scope == state.scope
+            assert update.flags == 0xC2
+        if not is_ramping:
+            native = updates[1]
+            assert isinstance(native, BaseReq)
+            assert native.record_no == 7
+            assert native.target_speed == speed
+            assert native.speed is None
+            assert native.as_bytes == packets[packet_index]
+        assert forward.call_args_list == [call(state.scope, 7, False), call(state.scope, 7, create=False)]
+        # Request generation must not change local speed, target, or ramp state.
+        assert state.speed == (19 if state.is_legacy else 3)
+        assert state.target_speed == (199 if state.is_legacy else 31)
+        assert state.is_ramping is is_ramping
+
+
+@pytest.mark.parametrize(
+    "data_bytes,tmcc_speed,tmcc_packets,legacy_speed,legacy_packets",
+    [
+        pytest.param(
+            b"\x00",
+            0,
+            (b"\xd1\x2a\x07\x00\xcf\xdf", b"\xd1\x2b\x07\x00\xce\xdf"),
+            0,
+            (b"\xd1\x2a\x07\x00\xcf\xdf", b"\xd1\x2b\x07\x00\xce\xdf"),
+            id="stopped",
+        ),
+        pytest.param(
+            b"\x2d",
+            7,
+            (b"\xd1\x2a\x07\x07\xc8\xdf", b"\xd1\x2b\x07\x07\xc7\xdf"),
+            45,
+            (b"\xd1\x2a\x07\x2d\xa2\xdf", b"\xd1\x2b\x07\x2d\xa1\xdf"),
+            id="cruising",
+        ),
+        pytest.param(
+            b"\xc7",
+            31,
+            (b"\xd1\x2a\x07\x1f\xb0\xdf", b"\xd1\x2b\x07\x1f\xaf\xdf"),
+            199,
+            (b"\xd1\x2a\x07\xc7\x08\xdf", b"\xd1\x2b\x07\xc7\x07\xdf"),
+            id="maximum",
+        ),
+    ],
+)
+def test_updates_to_reqs_converts_native_target_to_engine_speed_scale(
+    data_bytes,
+    tmcc_speed,
+    tmcc_packets,
+    legacy_speed,
+    legacy_packets,
+    native_speed_state: EngineState,
+    outbound_speed_lookups,
+):
+    """updates_to_reqs emits engine-scale native targets and database-scale memory writes.
+
+    This is specific to updates_to_reqs; SpeedRamp broadcasts database-scale targets.
+    """
+    state = native_speed_state
+    expected_speed = legacy_speed if state.is_legacy else tmcc_speed
+    packets = legacy_packets if state.is_legacy else tmcc_packets
+    packet_index = 0 if state.scope == CommandScope.ENGINE else 1
+    expected_command = (
+        PdiCommand.UPDATE_ENGINE_SPEED if state.scope == CommandScope.ENGINE else PdiCommand.UPDATE_TRAIN_SPEED
+    )
+
+    reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, data_bytes)], refresh=False)
+
+    assert len(reqs) == 2
+    native, memory = reqs
+    assert isinstance(native, BaseReq)
+    # Constructed native requests carry scope in the command and address in record_no.
+    assert native.pdi_command == expected_command
+    assert native.record_no == 7
+    assert native.target_speed == expected_speed
+    assert 0 <= native.target_speed <= (199 if state.is_legacy else 31)
+    assert native.speed is None
+    assert native.as_bytes == packets[packet_index]
+    assert isinstance(memory, BaseReq)
+    assert memory.pdi_command == PdiCommand.BASE_MEMORY
+    assert memory.scope == state.scope
+    assert memory.tmcc_id == 7
+    assert memory.flags == 0xC2
+    assert (memory.start, memory.data_length, memory.data_bytes) == (0x08, 1, data_bytes)
+    forward, _ = outbound_speed_lookups
+    forward.assert_not_called()
 
 
 @pytest.mark.parametrize("address", [7, 100, 1234])

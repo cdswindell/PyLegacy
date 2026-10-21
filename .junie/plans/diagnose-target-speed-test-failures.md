@@ -123,5 +123,8 @@ Receive tests explicitly model Base 3 echoes and preserve precise target-only an
 - Retain malformed-packet assertions and report unrelated residual failures without production changes.
 - Run all modified tests, relevant state/sequence regressions, and `../bin/python -m pytest`; rerun formatting, file-wide PyCharm inspections including weak warnings, and American English review.
 
-### * Step 6: Update / Follow-up
+### ✓ Step 6: Update / Follow-up
 Lionel will always send the target speed as the last byte of the 0x2A/0x2B commands. I have tightened the bounds checking associated with parsing the data packet for these commands. Please make sure there are tests that perform bounds checking, but do not try to test for malformed 0x2A/0x2B packets
+
+### ✓ Step 7: Update / Follow-up
+Please add additional tests to validate that TARGET_SPED is set by by setting ABSOLUTE_SPEED when not ramping, but is not set by changing the absolute speed when ramping. Changes were made in comp_data.py and base_req.py to accomplish this. Also make sure test coverage for UPDATE_ENGINE_SPEED/UPDATE_TRAIN_SPEED covers tmcc engines as well as legacy engines (tmcc engine max speed is 31)
