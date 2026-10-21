@@ -161,7 +161,13 @@ class QueryPkg:
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length}"
 
-    def as_request(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE, record_no: int = None) -> PdiReq:
+    # noinspection bad-argument-type
+    def as_request(
+        self,
+        tmcc_id: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        record_no: int | None = None,
+    ) -> PdiReq:
         from ..pdi.base_req import BaseReq
         from ..pdi.d4_req import D4Req
 
@@ -175,7 +181,7 @@ class QueryPkg:
                 data_length=self.length,
             )
         else:
-            assert record_no != 0xFFFF
+            assert 0 <= record_no < 0xFFFF
             pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             return D4Req(
                 record_no,
@@ -194,7 +200,13 @@ class UpdatePkg(QueryPkg):
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length} data: {self.data_bytes.hex()}"
 
-    def as_request(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE, record_no: int = None) -> PdiReq:
+    # noinspection unresolved-references
+    def as_request(
+        self,
+        tmcc_id: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        record_no: int | None = None,
+    ) -> PdiReq:
         from ..pdi.base_req import BaseReq
         from ..pdi.d4_req import D4Req
 
@@ -213,7 +225,7 @@ class UpdatePkg(QueryPkg):
                 from ..db.component_state_store import ComponentStateStore
 
                 state = ComponentStateStore.get_state(scope, tmcc_id, False)
-                record_no = state.record_no if state else 0xFFFF
+                record_no = state.record_no if state and state.record_no is not None else 0xFFFF
             assert record_no != 0xFFFF
             pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             return D4Req(
@@ -610,7 +622,7 @@ class CompData(ABC, Generic[R]):
         return cls._state_store
 
     @classmethod
-    def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
+    def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int | None = None) -> C:
         """
         Parse byte packet into a CompData object, based on scope.
         """
@@ -819,8 +831,8 @@ class CompData(ABC, Generic[R]):
         field: str,
         data: Any,
         state=None,
-        scope: CommandScope = None,
-        address: int = None,
+        scope: CommandScope | None = None,
+        address: int | None = None,
         is_legacy: bool = False,
     ) -> PdiReq | None:
         from .engine_state import EngineState, TrainState
@@ -1145,7 +1157,7 @@ class EngineData(CompData):
     def __init__(
         self,
         data: bytes | None,
-        tmcc_id: int = None,
+        tmcc_id: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         self._signal_initializing()
@@ -1219,7 +1231,7 @@ class TrainData(EngineData):
             components are defined.
     """
 
-    def __init__(self, data: bytes | None, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
@@ -1236,19 +1248,19 @@ class SwitchData(CompData):
     it initializes TMCC ID, Name, Number, and state during its construction phase.
     """
 
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         super().__init__(data, scope=CommandScope.SWITCH, tmcc_id=tmcc_id)
 
 
 class AccessoryData(CompData):
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         super().__init__(data, scope=CommandScope.ACC, tmcc_id=tmcc_id)
 
 
 class RouteData(CompData):
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         self._components: list[RouteComponent] | None = None
         super().__init__(data, scope=CommandScope.ROUTE, tmcc_id=tmcc_id)
