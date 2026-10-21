@@ -19,6 +19,21 @@ in that environment. Run these commands from the project root:
 ../bin/python -m pytest --collect-only
 ```
 
+For tox, select the Python environment and forward pytest arguments after `--`:
+
+```bash
+tox -e py313 -- -m smoke
+tox -e py313 -- --collect-only -q -m smoke
+tox -e py313
+```
+
+The last command runs the full suite on Python 3.13. Substitute `py311`, `py312`,
+or `py314` for another installed interpreter, or use `tox -e nogpio -- -m smoke`
+for the GPIO-free environment. The existing `pytest {posargs:tests}` command
+already supports this; no tox configuration change is needed. Bare `tox` still
+runs the configured interpreter matrix and lint. Tox environment creation and
+dependency installation add overhead beyond the pytest timings below.
+
 The `smoke` marker is registered in `pytest.ini`. Inline `@pytest.mark.smoke`
 decorators and `pytest.param(..., marks=pytest.mark.smoke)` select 12 existing
 cases without collection hooks or fixture changes. The selection covers protocol
@@ -30,7 +45,8 @@ parallel execution changed.
 
 On October 21, 2026, three fresh local smoke runs took **1.515s median**
 (1.508–1.516s external wall, including collection); smoke collection alone took
-**1.455s**. Evidence: `doc/test-suite-audit-data/raw/step4-corrected-*`.
+**1.455s**. Retained process metadata:
+`doc/test-suite-audit-data/step4-corrected-*-process.json`.
 `-m smoke` still imports and collects the entire suite, so this is not an
 instantaneous runner or a replacement for affected-module tests. Aim for roughly
 five seconds or less, but never enforce a flaky wall-clock assertion. See the
