@@ -15,12 +15,27 @@ Resolve the harmless PyCharm warnings identified in `base_req.py` by correcting 
 - Retain all completed target-speed and validity-helper regression tests without weakening assertions or adding skips/xfails.
 
 ### Completed Work Retained
-The earlier parsing, serialization, and validity-helper stages are complete. They cover 2D/4D engines and trains, both directions of record-number/TMCC-ID lookup, and `_set_valid()`/`_clear_valid()`. The last recorded full-suite result was **7,813 passed, 35 skipped, 0 failed**; this is historical, not verification of the new cleanup. This follow-up replaces the prior test-only implementation scope with behavior-preserving annotation cleanup.
+The earlier parsing, serialization, validity-helper, and harmless-warning cleanup stages are complete. Coverage includes 2D/4D engines and trains, both directions of record-number/TMCC-ID lookup, `_set_valid()`/`_clear_valid()`, encoding defaults, numeric conversions, and mixed request/state dispatch. The last recorded full-suite result was **7,876 passed, 35 skipped, 0 failed**; this is historical, not verification of the user's subsequent guard changes. The current follow-up is an inspection-only reevaluation of `BaseReq.updates_to_reqs()` (called `update_to_requests` in the request); no new implementation is authorized by this review.
 
 # Technical Design
 
-### Source-Grounded Findings
-The earlier audit reported 15 warnings and no errors. Current source inspection confirms the relevant contracts:
+### Current Reevaluation: `updates_to_reqs()`
+Current PyCharm inspection reports two warnings in this method, at `base_req.py:268` (`tmcc_id`) and `:282` (`state.record_no`), plus a separate warning in `do_update_field()` at `:333`. No errors were reported. Source review confirms the `state.tmcc_id is not None` guard and the latest record assertion, `assert state.record_no is not None and 0 <= state.record_no < 0xFFFF` at line 278. For the declared integer-or-None contract, this now rejects `None`, negative values, the `0xFFFF` sentinel, and all oversized records; accepted values are `0` through `0xFFFE`. The previous upper-bound concern is resolved, consistent with `D4Req.as_bytes` encoding the record as two unsigned little-endian bytes at `d4_req.py:218`.
+
+`ComponentState.tmcc_id` and `EngineState.record_no` correctly return `int | None`. The current code checks a property and then reads it again; PyCharm still treats the later value as nullable. Recommend checking and using the same local snapshot, following the existing pattern in `ComponentState.prev_link`/`next_link`:
+- Preserve the empty-package/absent-state short circuit, then assign `tmcc_id = state.tmcc_id`; return `[]` if that local is `None`. Use the checked local in the existing `1 <= tmcc_id <= 100` routing and `BaseReq` constructor.
+- Inside the existing D4 branch, assign `record_no = state.record_no`, apply the current assertion to that local, and pass the same local to `D4Req`. This removes repeated property reads without hiding optional values behind casts or suppressions.
+- Preserve the special direct-address boundary `100`, the mapped record number rather than the 4D TMCC ID, package order, and optional refresh marker. Keep record validation within the D4 path so direct updates do not require a D4 mapping.
+- Do not change the property return types to `int`, broaden constructor inputs to accept `None`, or add a blanket inspection suppression.
+
+The tightened assertion now covers the full record encoding/sentinel range for stable integer state with assertions enabled. The remaining runtime-validation caveat is that assertions disappear under `python -O`; the range itself no longer needs tightening. As a separate runtime-hardening recommendation, use the same checked local with an explicit `if record_no is None or not 0 <= record_no < 0xFFFF: raise ValueError(...)`. This is an encoding/sentinel constraint, not proof that a mapping exists in the Base. Invalid TMCC IDs outside the intended address domain also still enter the D4 `else` branch; the method assumes a valid initialized engine/train state.
+
+The guard here does not protect `do_update_field()`: that caller reads `state.tmcc_id` and evaluates `state.is_legacy` before invoking this method. Its warning remains a separate runtime-risk recommendation. The latest PyCharm inspection confirms that all three nullable-value warnings remain after the user's range edit; no errors were reported. Only review notes in this plan were changed; no production/test files were modified and no tests were run. The proposed local-variable cleanup has not been implemented or verified.
+
+If these localized recommendations are implemented later, retain `test_updates_to_reqs_preserves_requests_and_refresh_marker()` for both scopes, addresses `7`, `100`, and `1234`, empty packages, and both refresh settings. Add focused missing-ID/invalid-record cases only alongside their corresponding behavior changes, then follow the verification requirements below.
+
+### Pre-Cleanup Findings
+The earlier audit reported 15 warnings and no errors. The following findings and implementation design record the rationale for the already-completed cleanup; the current reevaluation above supersedes the older assessment of `updates_to_reqs()`:
 - `CompData.request_to_updates()` initializes and returns a list; `field_to_updates()` follows the same pattern.
 - `PdiReq.encode_text()` already handles `None` and returns bytes on every successful path.
 - `BaseReq.encode_throw_rate()` already handles `None` and always returns an integer, defaulting to `9`.
@@ -76,12 +91,12 @@ graph LR
 # Deferred Runtime Risks
 
 ### Recommendations Only — Do Not Implement
-Line references describe the current source and may move during cleanup.
+The `updates_to_reqs()` and `do_update_field()` references were refreshed during this review; the separate `as_bytes` finding is retained from the earlier audit and was not reinspected here.
 
 | Location | Risk left unchanged | Suggested follow-up fix |
 | --- | --- | --- |
-| `BaseReq.updates_to_reqs()`, lines 261–282 | A missing `tmcc_id` raises in the range comparison. The record assertion rejects `0xFFFF` but allows `None`, which fails in `D4Req`. | Validate supported state/scope and a present, valid TMCC ID before comparison. For 4D writes, explicitly require a valid record number within the protocol's allowed range, excluding sentinels. Use a descriptive exception rather than an assertion that optimized Python can disable. |
-| `BaseReq.do_update_field()`, lines 327–334 | Truthiness does not establish initialized state; missing identity can fail before or during `state.is_legacy` and package creation. | Validate state type, supported scope, and ID before reading dependent properties or generating updates. Define a consistent caller-facing failure policy rather than substituting an ID. |
+| `BaseReq.updates_to_reqs()`, lines 259–282 | The checks reject missing TMCC IDs and, with assertions enabled, require D4 records in `0..0xFFFE`. The upper-bound issue is resolved. Repeated nullable property reads still trigger warnings; assertions can be disabled under optimization, and valid initialized state IDs remain a caller contract. | Check and pass the same local snapshots to resolve the warnings. If validation must survive optimization, replace the assertion with an explicit check of the same range and a descriptive exception; retain mapped-record semantics. |
+| `BaseReq.do_update_field()`, lines 330–335 | Truthiness does not establish initialized state; missing identity can fail before or during `state.is_legacy` and package creation. The later guard in `updates_to_reqs()` cannot protect this earlier call. | Validate state type, supported scope, and ID before reading dependent properties or generating updates. Define a consistent caller-facing failure policy rather than substituting an ID. |
 | `BaseReq.as_bytes`, lines 927–930 | An absent/non-D4 lookup result omits record bytes yet still emits a framed packet; a missing record number raises during serialization. | Validate the lookup result and mapped record before assembling the packet. Prefer a descriptive failure over sending an incomplete packet; never serialize the 4D TMCC ID as a substitute for the record number. |
 
 A future runtime-fix task should cover absent IDs, absent/non-D4 lookup results, missing/sentinel/out-of-range records, and ensure no malformed packet is sent. Do not add knowingly failing tests for those unfixed behaviors in this cleanup. Normal initialized engine/train assumptions do not establish safety for arbitrary component scopes.
@@ -103,7 +118,7 @@ A future runtime-fix task should cover absent IDs, absent/non-D4 lookup results,
 - Inspect all changed production files and each entire modified test file with PyCharm, including warnings and weak warnings where supported. Resolve all in-scope findings and rerun inspections; report deferred runtime findings separately rather than suppressing them.
 - Use only narrowly scoped, explained inspection-specific suppressions for genuinely necessary test operations. Review names, comments, docstrings, and assertions for American English.
 - Run the full suite with `../bin/python -m pytest`. Report actual results, remaining warning locations, and anything not verified; do not reuse historical pass counts as current evidence.
-- Prior tooling could not confirm weak-warning coverage. Attempt supported inspection facilities, but explicitly report any continuing limitation instead of claiming a clean weak-warning result.
+- The completed cleanup subsequently confirmed that PyCharm could report weak warnings. Continue inspecting warnings and weak warnings and report any current tooling limitation; do not reuse past clean results as verification of later edits.
 
 # Delivery Steps
 

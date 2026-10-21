@@ -142,6 +142,7 @@ class BaseReq(PdiReq, CompDataMixin):
                 data_length=0xC0,
             )
 
+    # noinspection bad-argument-type
     @classmethod
     def update_target_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
         if scope == CommandScope.TRAIN:
@@ -248,6 +249,7 @@ class BaseReq(PdiReq, CompDataMixin):
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
+    # noinspection bad-argument-type
     @classmethod
     def updates_to_reqs(
         cls,
@@ -256,10 +258,9 @@ class BaseReq(PdiReq, CompDataMixin):
         refresh: bool = True,
     ) -> list[PdiReq | ComponentState]:
         cmds: list[PdiReq | ComponentState] = []
-        if packages:
+        if packages and state and state.tmcc_id is not None:
             from .d4_req import D4Req
 
-            assert state
             tmcc_id = state.tmcc_id
             scope = state.scope
             for pkg in packages:
@@ -275,8 +276,7 @@ class BaseReq(PdiReq, CompDataMixin):
                         data_bytes=pkg.data_bytes,
                     )
                     cmds.append(req)
-                else:
-                    assert state.record_no != 0xFFFF
+                elif 101 <= tmcc_id <= 9999 and state.record_no is not None and 0 <= state.record_no < 0xFFFF:
                     pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
                     cmds.append(
                         D4Req(
@@ -330,7 +330,8 @@ class BaseReq(PdiReq, CompDataMixin):
     @classmethod
     def do_update_field(cls, field: str, data: Any, state: S, do_async: bool = True) -> list[PdiReq | ComponentState]:
         sync_reqs: list[PdiReq | ComponentState] = []
-        if state:
+        if state and state.tmcc_id is not None:
+            # noinspection bad-argument-type
             pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
             if pkgs:
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
@@ -991,7 +992,7 @@ class BaseReq(PdiReq, CompDataMixin):
                             byte_str += c.tmcc_id.to_bytes(1, byteorder="little")
                             i -= 1
                         byte_str += (max(i, 0) * 2) * ff
-                elif self.pdi_command == PdiCommand.BASE_ROUTE:
+                elif self.pdi_command == PdiCommand.BASE_ROUTE and self._route_components:
                     for sw in self._route_components:
                         byte_str += sw.to_bytes(2, byteorder="big")
         else:
