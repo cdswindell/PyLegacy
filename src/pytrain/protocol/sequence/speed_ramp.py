@@ -605,6 +605,12 @@ class SpeedRamp(Thread):
 
     @property
     def is_active(self) -> bool:
+        """Whether this worker is running, including startup before thread launch.
+
+        Activity includes custom-sender retargeting linger after settlement; the
+        production peer-backed worker normally exits at settlement. A retained
+        finished handle alone is not active, and this is not remote claim status.
+        """
         return self._is_running is True and (self._starting or self.is_alive())
 
     @property

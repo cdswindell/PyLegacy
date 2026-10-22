@@ -418,7 +418,7 @@ class TestCompData:
     def test_absolute_speed_always_encodes_both_db_speed_fields(
         self, monkeypatch, scope, is_ramping, command, address, speed, expected
     ):
-        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping)
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping, is_ramp_active=is_ramping)
         get_state = Mock(return_value=state)
         monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
 
@@ -447,7 +447,11 @@ class TestCompData:
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
-    @pytest.mark.parametrize("is_ramping", [False, True, None])
+    @pytest.mark.parametrize(
+        "is_ramping, worker_active, remote_claim",
+        [(False, False, False), (True, False, False), (False, True, False), (False, False, True), (None, False, False)],
+        ids=["inactive", "local-flag", "active-worker", "remote-claim", "missing-state"],
+    )
     @pytest.mark.parametrize(
         "command, address, speed, expected",
         [
@@ -460,14 +464,15 @@ class TestCompData:
         ],
     )
     def test_absolute_speed_commands_preserve_target_during_ramp(
-        self, monkeypatch, scope, is_ramping, command, address, speed, expected
+        self, monkeypatch, scope, is_ramping, worker_active, remote_claim, command, address, speed, expected
     ):
-        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping)
+        active = bool(is_ramping or worker_active or remote_claim)
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping, is_ramp_active=active)
         get_state = Mock(return_value=state)
         monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
         req = CommandReq.build(command, address, data=speed, scope=scope)
         expected_fields = [("speed", 0x07, 1, expected)]
-        if not is_ramping:
+        if not active:
             expected_fields.append(("target_speed", 0x08, 1, expected))
         if command == TMCC1EngineCommandEnum.ABSOLUTE_SPEED and speed == 0:
             assert req.command_alias == TMCC1EngineCommandEnum.EMERGENCY_STOP
@@ -708,7 +713,7 @@ class TestCompData:
         ],
     )
     def test_safety_commands_zero_target_regardless_of_ramp_state(self, monkeypatch, scope, is_ramping, command):
-        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping)
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping, is_ramp_active=is_ramping)
         get_state = Mock(return_value=state)
         monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
         req = CommandReq.build(command, 7, scope=scope)

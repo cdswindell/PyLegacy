@@ -356,6 +356,7 @@ class EngineState(ComponentState):
 
     @property
     def is_ramping(self) -> bool:
+        """The local worker-maintained flag, not remote ownership or startup status."""
         return self._ramping
 
     @is_ramping.setter
@@ -368,17 +369,35 @@ class EngineState(ComponentState):
 
     @property
     def ramp(self):
-        """The live speed ramp for this engine, if this instance owns one."""
+        """The local ramp handle, which may remain present after the worker finishes."""
         return self._ramp
 
     @property
+    def is_ramp_active(self) -> bool:
+        """Known local or remote ramp activity for this engine or train.
+
+        The local flag preserves worker status; the captured handle also covers
+        startup and custom-sender retargeting linger. Remote ownership lasts until
+        release or claim expiration. This is not an atomic distributed snapshot:
+        asynchronous claim delivery can delay visibility of startup or release.
+        """
+        ramp = self.ramp
+        return self.is_ramping or (ramp is not None and ramp.is_active) or self.is_remote_ramping
+
+    @property
     def ramp_claim(self) -> RampClaim | None:
-        """Transient PyTrain ownership metadata, never a Lionel database field."""
+        """Unexpired PyTrain ownership metadata, never a Lionel database field.
+
+        Claims refresh every 5 seconds and expire after 15 seconds without refresh.
+        """
         return self._ramp_claim if monotonic() < self._ramp_claim_expires else None
 
     @property
     def is_remote_ramping(self) -> bool:
-        """Lock other throttles without making them manage the owner's ramp."""
+        """Whether an unexpired claim lacks a matching active local owner.
+
+        This remote-only throttle lockout does not set the local ramping flag.
+        """
         claim = self.ramp_claim
         if claim is None:
             return False

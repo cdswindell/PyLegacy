@@ -700,7 +700,8 @@ class CompData(ABC, Generic[R]):
         Returns:
             A list of filtered updates.
 
-        The initial use case is to filter out Target Speed updates when a ramp is active
+        Command-derived target speeds are filtered for known local or remote ramp activity.
+        Explicit field writes bypass this filter.
         """
         from .engine_state import EngineState
 
@@ -722,13 +723,13 @@ class CompData(ABC, Generic[R]):
         Returns:
             True if the update is valid, False otherwise.
 
-        Currently, used to filter out Target Speed updates while ramping
+        Suppresses only ABSOLUTE_SPEED target packages for this engine or train.
         """
         from .engine_state import EngineState
 
         if field == "ABSOLUTE_SPEED" and isinstance(state, EngineState):
             if len(update) >= 1 and update[0] == "target_speed" and state:
-                return not state.is_ramping
+                return not state.is_ramp_active
         return True
 
     @classmethod

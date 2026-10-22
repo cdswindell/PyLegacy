@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from src.pytrain.db.engine_state import EngineState
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope, PROGRAM_NAME
@@ -35,14 +36,26 @@ SCALED_MAX_SPEED = 100
 
 
 class RampEngineState(FakeEngineState):
-    """The step 2 double, plus the handful of attributes the ramp thread itself reads."""
+    """The geometry double with the worker's state interface and real ramp status logic."""
+
+    is_ramp_active = EngineState.is_ramp_active
 
     def __init__(self, *, scope: CommandScope = CommandScope.ENGINE, tmcc_id: int = 12, **kwargs) -> None:
         super().__init__(**kwargs)
         self.scope = scope
         self.tmcc_id = tmcc_id
+        self._ramp: SpeedRamp | None = None
         self.is_ramping = False
+        self.is_remote_ramping = False
         self.target_speed: int | None = None
+
+    @property
+    def ramp(self) -> SpeedRamp | None:
+        return self._ramp
+
+    @ramp.setter
+    def ramp(self, value: SpeedRamp | None) -> None:
+        self._ramp = value
 
     def sync_target_speed(self, target_speed: int) -> None:
         """Stands in for EngineState.sync_target_speed, which every abort path calls."""
@@ -224,11 +237,13 @@ class TestSpeedRamp(TestBase):
             command, address, data, scope = _rec.sent[-1]
             assert ramp.on_state_command(CommandReq.build(command, address, data, scope)) is True
             assert state.is_ramping is True
+            assert state.is_ramp_active is True
             assert ramp.requested_speed == 12
 
         recorder = Recorder(hook)
         ramp = build_ramp(state, 12, recorder)
         assert state.is_ramping is False
+        assert state.is_ramp_active is False
 
         ramp.run()
 
@@ -240,6 +255,7 @@ class TestSpeedRamp(TestBase):
             TMCC2EngineCommandEnum.ENGINE_LABOR,
         }
         assert state.is_ramping is False
+        assert state.is_ramp_active is False
 
     def test_run_sends_a_step_before_its_first_pause(self, monkeypatch):
         state = RampEngineState(speed=0)

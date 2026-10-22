@@ -27,6 +27,7 @@ from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
+from src.pytrain.protocol.sequence.ramp_peer import CLAIM_TTL, RampClaim
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
@@ -268,7 +269,7 @@ def sync_dispatch(monkeypatch):
 def test_process_sync_reqs_preserves_mixed_dispatch_order(do_async, sync_dispatch):
     events, thread = sync_dispatch
     first = BaseReq(7, cast(PdiCommand, PdiCommand.BASE_ENGINE))
-    second = D4Req(0x1234, PdiCommand.D4_ENGINE, D4Action.QUERY)
+    second = D4Req(0x1234, cast(PdiCommand, PdiCommand.D4_ENGINE), D4Action.QUERY)
     engine = ComponentStateDict(CommandScope.ENGINE)[7]
     route = ComponentStateDict(CommandScope.ROUTE)[3]
     assert isinstance(route, RouteState)
@@ -338,6 +339,110 @@ def native_speed_state(request, initialized_update_state, outbound_speed_lookups
     events, thread = sync_dispatch
     assert events.mock_calls == []
     thread.assert_not_called()
+
+
+@pytest.mark.parametrize("address", [7, 3180])
+@pytest.mark.parametrize("ending", ["release", "expiration"])
+def test_remote_claim_preserves_command_targets(
+    native_speed_state, initialized_update_state, outbound_speed_lookups, monkeypatch, address, ending
+):
+    state: EngineState = native_speed_state if address == 7 else initialized_update_state(address)
+    assert isinstance(state.comp_data, EngineData)
+    if address > 99:
+        state.comp_data.control_type = LEGACY_CONTROL_TYPE
+    command_type = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
+    speed = 45 if state.is_legacy else 7
+    forward, _ = outbound_speed_lookups
+    other_scope = CommandScope.TRAIN if state.scope == CommandScope.ENGINE else CommandScope.ENGINE
+    other = ComponentStateDict(other_scope)[address]
+    assert isinstance(other, EngineState)
+    other.initialize(other_scope, address)
+    other.comp_data.control_type = LEGACY_CONTROL_TYPE if state.is_legacy else TMCC_CONTROL_TYPE
+    neighbor = initialized_update_state(8)
+    neighbor.comp_data.control_type = LEGACY_CONTROL_TYPE if state.is_legacy else TMCC_CONTROL_TYPE
+    states = {(item.scope, item.tmcc_id): item for item in (state, other, neighbor)}
+    forward.side_effect = lambda scope, tmcc_id, create=False: states.get((scope, tmcc_id))
+    clock = Mock(return_value=100.0)
+    monkeypatch.setattr("src.pytrain.db.engine_state.monotonic", clock)
+    owner = RampClaim(state.scope, address, "127.0.0.1", 50000, 1, 1_800_000_000_001)
+    req = CommandReq.build(command_type, address, data=speed, scope=state.scope)
+
+    def check_updates(command, target_state, active):
+        requests = BaseReq.update_eng(command)
+        assert requests[-1] is target_state
+        updates: list[BaseReq | D4Req] = []
+        for item in requests[:-1]:
+            assert isinstance(item, (BaseReq, D4Req))
+            updates.append(item)
+        memory = [
+            item
+            for item in updates
+            if item.pdi_command not in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}
+        ]
+        assert [item.start for item in memory] == ([0x07] if active else [0x07, 0x08])
+        for item in memory:
+            assert item.scope == target_state.scope
+            assert item.data_length == 1
+            if target_state.tmcc_id > 99:
+                assert isinstance(item, D4Req)
+                assert item.action == D4Action.UPDATE
+                assert item.record_no == 0x1234
+                # D4Req has no public accessor for the outgoing memory payload.
+                # noinspection PyProtectedMember
+                assert item._data_bytes == b"\x2d"
+            else:
+                assert isinstance(item, BaseReq)
+                assert item.data_bytes == b"\x2d"
+                assert item.tmcc_id == target_state.tmcc_id
+        injections = [item for item in updates if item not in memory]
+        if active or target_state.tmcc_id > 99:
+            assert injections == []
+        else:
+            expected = (
+                PdiCommand.UPDATE_ENGINE_SPEED
+                if target_state.scope == CommandScope.ENGINE
+                else PdiCommand.UPDATE_TRAIN_SPEED
+            )
+            assert [item.pdi_command for item in injections] == [expected]
+            native = injections[0]
+            assert isinstance(native, BaseReq)
+            assert native.target_speed == speed
+
+    check_updates(req, state, False)
+    state.update(CommandReq.from_bytes(owner.request().as_bytes))
+    assert state.ramp is None
+    assert state.is_ramping is False
+    assert state.is_remote_ramping is True
+    check_updates(req, state, True)
+    for unaffected in (neighbor, other):
+        unaffected_address = unaffected.tmcc_id
+        assert isinstance(unaffected_address, int)
+        if unaffected is other and address > 99:
+            # Seed the mapping directly to avoid hardware discovery for the other scope.
+            # noinspection PyProtectedMember
+            unaffected._d4_rec_no = 0x1234
+        check_updates(
+            CommandReq.build(command_type, unaffected_address, data=speed, scope=unaffected.scope), unaffected, False
+        )
+
+    for field, offsets in (("ABSOLUTE_SPEED", [0x07, 0x08]), ("RAMP_TARGET_SPEED", [0x08])):
+        packages = CompData.field_to_updates(field, address, state.scope, speed, state.is_legacy)
+        assert [package.offset for package in packages] == offsets
+        assert all(package.data_bytes == b"\x2d" for package in packages)
+    dispatch = Mock()
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", dispatch)
+    explicit = BaseReq.do_update_field("RAMP_TARGET_SPEED", speed, state)
+    assert explicit[-1] is state
+    assert any(isinstance(item, (BaseReq, D4Req)) and item.start == 0x08 for item in explicit[:-1])
+    dispatch.assert_called_once()
+    assert BaseReq.update_target_speed(address=7, scope=state.scope, speed=45).target_speed == 45
+
+    if ending == "release":
+        state.update(CommandReq.from_bytes(owner.request(release=True).as_bytes))
+    else:
+        clock.return_value += CLAIM_TTL + 1
+    assert state.is_ramp_active is False
+    check_updates(req, state, False)
 
 
 @pytest.mark.parametrize(
@@ -517,7 +622,12 @@ def test_updates_to_reqs_preserves_requests_and_refresh_marker(
             assert isinstance(req, D4Req)
             command = PdiCommand.D4_ENGINE if state.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             expected = D4Req(
-                0x1234, command, D4Action.UPDATE, start=pkg.offset, data_length=pkg.length, data_bytes=pkg.data_bytes
+                0x1234,
+                cast(PdiCommand, command),
+                D4Action.UPDATE,
+                start=pkg.offset,
+                data_length=pkg.length,
+                data_bytes=pkg.data_bytes,
             )
         assert req.as_bytes == expected.as_bytes
     if refresh:
