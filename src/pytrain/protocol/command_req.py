@@ -225,7 +225,7 @@ class CommandReq:
         buffer=None,
         request: CommandReq | None = None,
         trigger_effects: bool = True,
-        interval: int = None,
+        interval: int | None = None,
     ) -> None:
         if isinstance(cmd, CommandReq):
             cmd._validate_send()

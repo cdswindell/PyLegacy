@@ -278,7 +278,8 @@ class BaseReq(PdiReq, CompDataMixin):
                         target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
                         tr = BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed)
                         if tr:
-                            print(f"**** Ramping: {state.is_ramp_active} Injecting {tr}\n{packages}")
+                            if log.isEnabledFor(logging.DEBUG):
+                                log.debug(f"Ramping: {state.is_ramp_active} Injecting {tr}\n{packages}")
                             cmds.append(tr)
                     req = BaseReq(
                         tmcc_id,
