@@ -18,6 +18,7 @@ from src.pytrain.db.component_state import UpdateResult
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
+from src.pytrain.pdi.base3_db_refresh_manager import Base3DbRefreshManager
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
@@ -1137,8 +1138,10 @@ class TestEngineStateRampArbitration:
         state._ramp = new_ramp
         state.is_ramping = True
 
-        old_ramp.run()
+        with patch.object(Base3DbRefreshManager, "request_refresh", autospec=True) as request_refresh:
+            old_ramp.run()
 
         assert state.ramp is new_ramp
         assert state.is_ramping is True
         assert new_ramp.requested_speed == 90
+        request_refresh.assert_called_once_with(state)

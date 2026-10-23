@@ -33,6 +33,8 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 from ...test_base import TestBase
 
+pytestmark = pytest.mark.usefixtures("ramp_target_update")
+
 ENGINE_ID = 7
 
 
@@ -189,7 +191,9 @@ class TestTwoControllerRamp(TestBase):
         assert second_ramp.requested_speed == 60
         assert first.layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == []
 
-    def test_other_nodes_observe_speed_without_owning_the_ramp(self):
+    def test_other_nodes_observe_speed_without_owning_the_ramp(
+        self, pdi_send, ramp_target_update, ramp_refresh_scheduling
+    ):
         layout = Layout()
         owner = Controller(layout, "deck")
         observers = [Controller(layout, "pi"), Controller(layout, "base-server")]
@@ -211,6 +215,10 @@ class TestTwoControllerRamp(TestBase):
         assert owner.speeds[-1] == 70
         assert ramp.is_active is False
         assert layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == []
+        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 70, owner.state, do_async=False, refresh=False)
+        ramp_refresh_scheduling["flush"].assert_called_once_with(owner.state)
+        ramp_refresh_scheduling["request_refresh"].assert_called_once_with(owner.state)
+        pdi_send.assert_not_called()
 
     @pytest.mark.parametrize("takeover_speed", [30, 37])
     def test_delayed_echoes_keep_ramping_until_a_backward_or_unsent_speed(self, monkeypatch, takeover_speed):

@@ -22,6 +22,7 @@ from ..command_def import CommandDefEnum
 from ..constants import CommandScope, PROGRAM_NAME
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
+from ...pdi.base3_db_refresh_manager import Base3DbRefreshManager
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...db.engine_state import EngineState
@@ -800,24 +801,25 @@ class SpeedRamp(Thread):
             self._claim_pending = False
 
     def _send_initial_target(self) -> None:
-        from ...db.comp_data import encode_tmcc_speed
         from ...pdi.base_req import BaseReq
 
         # Read live state before taking the send gate.
-        target = encode_tmcc_speed(self.target_speed, self.is_legacy)
         with self._wire:
             if self._is_running is False or self._claim_acquired is False:
                 return
 
-            if not self._state.is_d4:
-                tr = BaseReq.update_target_speed(
-                    address=self.tmcc_id,
-                    speed=target,
-                    scope=self.scope,
-                )
-                if tr:
-                    tr.send(delay=0)
-            BaseReq.do_update_field("RAMP_TARGET_SPEED", self.target_speed, self._state, refresh=False)
+            # if not self._state.is_d4:
+            #     target = encode_tmcc_speed(self.target_speed, self.is_legacy)
+            #     tr = BaseReq.update_target_speed(
+            #         address=self.tmcc_id,
+            #         speed=target,
+            #         scope=self.scope,
+            #     )
+            #     if tr:
+            #         tr.send(delay=0)
+            # Keep target-send failures on this worker before any component commands.
+            BaseReq.do_update_field("RAMP_TARGET_SPEED", self.target_speed, self._state, do_async=False, refresh=False)
+            Base3DbRefreshManager.flush(self._state)
 
     def _release_claim(self) -> None:
         with self._lock:
@@ -877,6 +879,7 @@ class SpeedRamp(Thread):
                     self._is_running = False
                     self._claim_pending = False
                 self._set_ramping(False)
+                Base3DbRefreshManager.request_refresh(state)
 
     def _pause(self, delay: float) -> bool:
         """

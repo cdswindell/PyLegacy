@@ -369,9 +369,11 @@ def test_remote_claim_preserves_command_targets(
 
     def check_updates(command, target_state, active):
         requests = BaseReq.update_eng(command)
-        assert requests[-1] is target_state
+        assert target_state.is_ramp_active is active
+        has_refresh_marker = not active
+        assert (requests[-1] is target_state) is has_refresh_marker
         updates: list[BaseReq | D4Req] = []
-        for item in requests[:-1]:
+        for item in requests[:-1] if has_refresh_marker else requests:
             assert isinstance(item, (BaseReq, D4Req))
             updates.append(item)
         memory = [
@@ -432,8 +434,9 @@ def test_remote_claim_preserves_command_targets(
     dispatch = Mock()
     monkeypatch.setattr(BaseReq, "process_sync_reqs", dispatch)
     explicit = BaseReq.do_update_field("RAMP_TARGET_SPEED", speed, state)
-    assert explicit[-1] is state
-    assert any(isinstance(item, (BaseReq, D4Req)) and item.start == 0x08 for item in explicit[:-1])
+    assert state.is_ramp_active is True
+    assert explicit[-1] is not state
+    assert any(isinstance(item, (BaseReq, D4Req)) and item.start == 0x08 for item in explicit)
     dispatch.assert_called_once()
     assert BaseReq.update_target_speed(address=7, scope=state.scope, speed=45).target_speed == 45
 
@@ -494,9 +497,11 @@ def test_absolute_speed_updates_follow_ramp_lifecycle(
 
         reqs = BaseReq.update_eng(req)
 
-        assert reqs[-1] is state
+        assert state.is_ramp_active is is_ramping
+        has_refresh_marker = not is_ramping
+        assert (reqs[-1] is state) is has_refresh_marker
         updates: list[BaseReq] = []
-        for update in reqs[:-1]:
+        for update in reqs[:-1] if has_refresh_marker else reqs:
             assert isinstance(update, BaseReq)
             updates.append(update)
         expected_commands = [PdiCommand.BASE_MEMORY]

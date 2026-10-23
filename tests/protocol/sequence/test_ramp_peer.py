@@ -1,15 +1,16 @@
 import socket
+import sys
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from threading import Event, RLock
+from threading import Event, RLock, Thread
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 from src.pytrain.comm.comm_buffer import CommBuffer, CommBufferProxy, CommBufferSingleton
-from src.pytrain.pdi.base_req import BaseReq
+from src.pytrain.pdi import base_req
 from src.pytrain.pdi.constants import PdiCommand
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
@@ -385,60 +386,45 @@ def test_real_owner_keeps_destination_and_competitor_emits_nothing(
     ],
 )
 def test_startup_target_follows_claim_and_precedes_every_component(
-    pdi_send, ramp_target_update, scope, speed, target, first_command, is_d4
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, scope, speed, target, first_command, is_d4
 ):
     events = []
     peer = Mock()
     peer.acquire.side_effect = lambda _ramp: events.append("claim")
     peer.release.side_effect = lambda _ramp: events.append("release")
-    pdi_send.side_effect = lambda _request, **_kwargs: events.append("target")
-    # This records submission, not completion of asynchronous database transport.
-    ramp_target_update.side_effect = lambda *_args, **_kwargs: events.append("database request")
+    # These record call order with mocked transport, not actual network delivery.
+    ramp_target_update.side_effect = lambda *_args, **_kwargs: events.append("database submission")
+    ramp_refresh_scheduling["flush"].side_effect = lambda _state: events.append("flush scheduling")
+    ramp_refresh_scheduling["request_refresh"].side_effect = lambda _state: events.append("final refresh")
     state = RampEngineState(scope=scope, speed=speed, rpm=tmcc2_speed_to_rpm(speed), is_d4=is_d4)
     recorder = Recorder(lambda _rec, _count: events.append("component"))
     ramp = build_ramp(state, target, recorder, peer=peer)
 
-    with patch.object(BaseReq, "update_target_speed", wraps=BaseReq.update_target_speed) as update_target:
-        ramp.run()
+    ramp.run()
 
     assert events == [
         "claim",
-        *([] if is_d4 else ["target"]),
-        "database request",
+        "database submission",
+        "flush scheduling",
         *(["component"] * len(recorder.sent)),
         "release",
+        "final refresh",
     ]
-    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", target, state, refresh=False)
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", target, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
     assert recorder.commands[0] == first_command
     assert recorder.speeds[-1] == target
     peer.acquire.assert_called_once_with(ramp)
     peer.release.assert_called_once_with(ramp)
-    if is_d4:
-        update_target.assert_not_called()
-        pdi_send.assert_not_called()
-    else:
-        update_target.assert_called_once_with(address=state.tmcc_id, speed=target, scope=scope)
-        pdi_send.assert_called_once()
-        request = pdi_send.call_args.args[0]
-        assert pdi_send.call_args.kwargs == {"delay": 0}
-        assert isinstance(request, BaseReq)
-        # Outbound requests carry the address in record_no and the scope in the command.
-        assert request.record_no == state.tmcc_id
-        assert request.pdi_command == (
-            PdiCommand.UPDATE_TRAIN_SPEED if scope == CommandScope.TRAIN else PdiCommand.UPDATE_ENGINE_SPEED
-        )
-        assert request.target_speed == target
-        assert request.speed is None
-        # Check the current unmarked short-address emission, not the separate incoming parser.
-        # These addresses, targets, and checksums do not require byte stuffing.
-        command_byte = 0x2B if scope == CommandScope.TRAIN else 0x2A
-        payload = bytes([command_byte, state.tmcc_id, target])
-        assert request.as_bytes == b"\xd1" + payload + bytes([-sum(payload) & 0xFF]) + b"\xdf"
+    pdi_send.assert_not_called()
 
 
 @pytest.mark.parametrize("is_d4", [False, True])
 @pytest.mark.parametrize("canceled", [False, True])
-def test_failed_or_canceled_acquisition_never_announces_target(pdi_send, ramp_target_update, canceled, is_d4):
+def test_failed_or_canceled_acquisition_never_announces_target(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, canceled, is_d4
+):
     peer = Mock()
     if canceled:
         peer.acquire.side_effect = lambda worker: worker.abort("canceled during acquisition")
@@ -458,27 +444,78 @@ def test_failed_or_canceled_acquisition_never_announces_target(pdi_send, ramp_ta
     peer.release.assert_called_once_with(ramp)
     pdi_send.assert_not_called()
     ramp_target_update.assert_not_called()
+    ramp_refresh_scheduling["flush"].assert_not_called()
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
 
 
-def test_target_send_failure_releases_claim_without_component_commands(pdi_send, ramp_target_update):
+@pytest.mark.parametrize("ramp_target_update", [False], indirect=True)
+def test_target_send_failure_releases_claim_without_component_commands(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, monkeypatch
+):
+    assert ramp_target_update is None  # Opt out even though the module requests this fixture.
     peer = Mock()
     recorder = Recorder()
     state = RampEngineState()
     ramp = build_ramp(state, 60, recorder, peer=peer)
-    pdi_send.side_effect = OSError("target send failed")
+    failure = OSError("target send failed")
+    send_threads = []
+    escaped = []
+    run_error = None
 
-    with pytest.raises(OSError, match="target send failed"):
-        ramp.run()
+    def fail_target_send(request):
+        if request.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED:
+            raise failure
+
+    def track_send_thread(*args, **kwargs):
+        target = kwargs["target"]
+
+        def capture_send_error(*target_args, **target_kwargs):
+            try:
+                return target(*target_args, **target_kwargs)
+            except OSError:
+                escaped.append(sys.exc_info()[1])
+
+        kwargs["target"] = capture_send_error
+        send_threads.append(Thread(*args, **kwargs))
+        return send_threads[-1]
+
+    pdi_send.side_effect = fail_target_send
+    # Patch the imported constructor only to track real threads through teardown.
+    # noinspection PyUnresolvedReferences
+    monkeypatch.setattr(base_req, "Thread", track_send_thread)
+    try:
+        try:
+            ramp.run()
+        except OSError as error:
+            run_error = error
+    finally:
+        # Join real send threads before transport patches end and inspect any escaped error.
+        for thread in send_threads:
+            thread.join(timeout=1)
+            assert not thread.is_alive()
+        target_requests = [
+            call.args[0]
+            for call in pdi_send.call_args_list
+            if call.args[0].pdi_command == PdiCommand.UPDATE_ENGINE_SPEED
+        ]
+        assert len(target_requests) == 1
+        assert target_requests[0].record_no == state.tmcc_id
+        assert target_requests[0].target_speed == 60
 
     assert state.is_ramping is False
     assert ramp.is_active is False
-    assert recorder.sent == []
     peer.release.assert_called_once_with(ramp)
-    ramp_target_update.assert_not_called()
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    assert escaped == [], "target-send failure escaped to a background thread instead of ramp.run"
+    assert run_error is failure
+    assert recorder.sent == []
+    ramp_refresh_scheduling["flush"].assert_not_called()
 
 
 @pytest.mark.parametrize("is_d4", [False, True])
-def test_database_update_failure_releases_claim_without_component_commands(pdi_send, ramp_target_update, is_d4):
+def test_database_update_failure_releases_claim_without_component_commands(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, is_d4
+):
     peer = Mock()
     recorder = Recorder()
     state = RampEngineState(is_d4=is_d4)
@@ -488,19 +525,40 @@ def test_database_update_failure_releases_claim_without_component_commands(pdi_s
     with pytest.raises(OSError, match="database update failed"):
         ramp.run()
 
-    if is_d4:
-        pdi_send.assert_not_called()
-    else:
-        pdi_send.assert_called_once()
-    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 60, state, refresh=False)
+    pdi_send.assert_not_called()
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 60, state, do_async=False, refresh=False)
+    assert state.is_ramping is False
+    assert ramp.is_active is False
+    assert recorder.sent == []
+    peer.release.assert_called_once_with(ramp)
+    ramp_refresh_scheduling["flush"].assert_not_called()
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+
+
+def test_flush_scheduling_failure_releases_claim_without_component_commands(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling
+):
+    peer = Mock()
+    recorder = Recorder()
+    state = RampEngineState()
+    ramp = build_ramp(state, 60, recorder, peer=peer)
+    ramp_refresh_scheduling["flush"].side_effect = OSError("flush scheduling failed")
+
+    with pytest.raises(OSError, match="flush scheduling failed"):
+        ramp.run()
+
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 60, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    pdi_send.assert_not_called()
     assert state.is_ramping is False
     assert ramp.is_active is False
     assert recorder.sent == []
     peer.release.assert_called_once_with(ramp)
 
 
-def test_real_ramp_emits_only_after_claim_confirmation_and_releases_on_completion(
-    peers, engine_states, pdi_send, ramp_target_update, ramp_workers
+def test_real_ramp_publishes_claim_without_waiting_for_echo_and_releases_on_completion(
+    peers, engine_states, monkeypatch, pdi_send, ramp_target_update, ramp_refresh_scheduling, ramp_workers
 ):
     from src.pytrain.protocol.sequence.speed_ramp import SpeedRamp
 
@@ -508,22 +566,30 @@ def test_real_ramp_emits_only_after_claim_confirmation_and_releases_on_completio
     announcement = Queue()
     first_step, released = Event(), Event()
     events = []
-    pdi_send.side_effect = lambda _request, **_kwargs: events.append("target")
+    ramp_target_update.side_effect = lambda *_args, **_kwargs: events.append("database submission")
+    ramp_refresh_scheduling["flush"].side_effect = lambda _state: events.append("flush scheduling")
+    ramp_refresh_scheduling["request_refresh"].side_effect = lambda _state: events.append("final refresh")
 
     def publish(command):
         if command.command == TMCC2EngineCommandEnumEx.RAMP_CLAIM:
-            events.append("claim")
+            events.append("claim publication")
             announcement.put(command)
         else:
             state.update(command)
-            events.append("release")
             released.set()
 
     def send_component(*_args):
         events.append("component")
         first_step.set()
 
-    peer = peers(publish)
+    peer: RampPeer = peers(publish)
+    release_claim = peer.release
+
+    def record_release_claim(owner):
+        events.append("claim release")
+        release_claim(owner)
+
+    monkeypatch.setattr(peer, "release", record_release_claim)
     ramp = SpeedRamp(state, 63, sender=send_component, peer=peer, delay_scale=0, linger=0)
     state._ramp = ramp
     ramp_workers.track(ramp)
@@ -534,12 +600,14 @@ def test_real_ramp_emits_only_after_claim_confirmation_and_releases_on_completio
     assert ramp.commanded_speed == 63
     assert released.wait(1)
     assert state.ramp_claim is None
-    assert events[:3] == ["claim", "target", "component"]
-    assert events[-1] == "release"
-    pdi_send.assert_called_once()
-    assert pdi_send.call_args.args[0].target_speed == 63
-    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 63, state, refresh=False)
-    # Completion does not depend on an echo, and a late echo cannot relock it.
+    assert events[:3] == ["claim publication", "database submission", "flush scheduling"]
+    assert events[-2:] == ["claim release", "final refresh"]
+    assert all(event == "component" for event in events[3:-2])
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 63, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    pdi_send.assert_not_called()
+    # Startup follows publication without waiting for an echo, and a late echo cannot relock it.
     state.update(announcement.get(timeout=1))
     assert state.ramp_claim is None
 

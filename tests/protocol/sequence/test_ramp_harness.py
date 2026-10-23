@@ -9,7 +9,7 @@ from src.pytrain.comm.comm_buffer import CommBuffer
 from src.pytrain.db.comp_data import CompData
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_state import EngineState, TrainState
-from src.pytrain.pdi.base_req import BaseReq
+from src.pytrain.pdi.base3_db_refresh_manager import Base3DbRefreshManager
 from src.pytrain.protocol.constants import CommandScope, LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.sequence.speed_ramp import LEGACY_SPEED_MAX, TMCC1_SPEED_MAX, UNSET_MAX_SPEED
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -18,6 +18,20 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, r
 from .ramp_test_support import FakeEngineState, RampCleanupError, RampEngineState, Recorder, build_ramp, run_ramp
 
 pytestmark = pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+
+
+def test_refresh_scheduling_is_recorded_without_starting_worker(ramp_refresh_scheduling, ramp_target_update):
+    state = RampEngineState()
+
+    with patch.object(Base3DbRefreshManager, "_ensure_started", autospec=True) as ensure_started:
+        ramp, _ = run_ramp(state, 12)
+
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 12, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    ensure_started.assert_not_called()
+    assert ramp.is_active is False
+    assert state.is_ramping is False
 
 
 @pytest.fixture(params=[CommandScope.ENGINE, CommandScope.TRAIN])
@@ -99,26 +113,23 @@ def test_double_ceiling_matches_decoded_real_limits(
 
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
 @pytest.mark.parametrize(
-    "is_legacy, is_d4, encoded_target",
-    [(False, False, 77), (True, False, 12), (True, True, 12)],
+    "is_legacy, is_d4",
+    [(False, False), (True, False), (True, True)],
     ids=["tmcc1", "legacy", "d4"],
 )
-def test_worker_double_completes_synchronously(pdi_send, ramp_target_update, scope, is_legacy, is_d4, encoded_target):
+def test_worker_double_completes_synchronously(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, scope, is_legacy, is_d4
+):
     state = RampEngineState(scope=scope, is_legacy=is_legacy, is_rpm=is_legacy, is_d4=is_d4, speed_limit=12)
 
     try:
-        with patch.object(BaseReq, "update_target_speed", wraps=BaseReq.update_target_speed) as update_target:
-            # run_ramp calls the actual run() entry point: missing properties fail on this thread.
-            ramp, recorder = run_ramp(state, 16)
+        # run_ramp calls the actual run() entry point: missing properties fail on this thread.
+        ramp, recorder = run_ramp(state, 16)
 
-        if is_d4:
-            update_target.assert_not_called()
-            pdi_send.assert_not_called()
-        else:
-            update_target.assert_called_once_with(address=state.tmcc_id, speed=encoded_target, scope=scope)
-            pdi_send.assert_called_once()
-            assert pdi_send.call_args.args[0].target_speed == encoded_target
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 12, state, refresh=False)
+        pdi_send.assert_not_called()
+        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 12, state, do_async=False, refresh=False)
+        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
         speed_command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
         assert recorder.of(speed_command) == list(range(3 if is_legacy else 1, 13, 3 if is_legacy else 1))
         assert all(address == state.tmcc_id and sent_scope == scope for _, address, _, sent_scope in recorder.sent)

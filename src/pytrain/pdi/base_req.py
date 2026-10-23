@@ -303,7 +303,7 @@ class BaseReq(PdiReq, CompDataMixin):
                             data_bytes=pkg.data_bytes,
                         )
                     )
-            if cmds and refresh:
+            if cmds and refresh and not state.is_ramp_active:
                 # Adding state to the command queue will trigger a refresh request.
                 cmds.append(state)
         return cmds
