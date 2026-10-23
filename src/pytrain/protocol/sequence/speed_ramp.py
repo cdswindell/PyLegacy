@@ -809,14 +809,14 @@ class SpeedRamp(Thread):
             if self._is_running is False or self._claim_acquired is False:
                 return
 
-            # if not self._state.is_d4:
-            tr = BaseReq.update_target_speed(
-                address=self.tmcc_id,
-                speed=target,
-                scope=self.scope,
-            )
-            if tr:
-                tr.send(delay=0)
+            if not self._state.is_d4:
+                tr = BaseReq.update_target_speed(
+                    address=self.tmcc_id,
+                    speed=target,
+                    scope=self.scope,
+                )
+                if tr:
+                    tr.send(delay=0)
             BaseReq.do_update_field("RAMP_TARGET_SPEED", self.target_speed, self._state, refresh=False)
 
     def _release_claim(self) -> None:

@@ -4,6 +4,16 @@ import pytest
 
 from src.pytrain.pdi.base_req import BaseReq
 
+from .ramp_test_support import RampWorkers
+
+
+@pytest.fixture
+def ramp_workers(ramp_target_update, pdi_send):
+    """Finish owned workers before their database and transport isolation is removed."""
+    workers = RampWorkers()
+    yield workers
+    workers.cleanup()
+
 
 @pytest.fixture
 def ramp_target_update():
