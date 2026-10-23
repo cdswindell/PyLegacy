@@ -41,7 +41,7 @@ def pin_process_globals(monkeypatch):
     Keep an update from asking the Base 3 for a configuration record.
 
     `ComponentState._prepare_update` treats a component whose record is empty as one it
-    has never heard from, and requests its configuration - which, for a state that is
+    has never heard from and requests its configuration - which, for a state that is
     not yet marked as carrying a record, re-initializes `comp_data` and so blanks the
     speed and target speed a test has set. Both halves of that decision are process-wide
     singletons: whether state is synchronized, and whether this instance is the server.
@@ -507,16 +507,50 @@ class TestEngineStateRampArbitration:
         assert state.ramp is ramp
         assert state.is_ramping is True
 
-    def test_absolute_echo_updates_both_database_fields_but_not_local_destination(self):
+    @pytest.mark.parametrize("is_ramping", [True, False], ids=["local-flag-and-active-handle", "active-handle-only"])
+    def test_absolute_echo_updates_speed_but_preserves_target_and_local_destination(self, is_ramping):
         state, ramp = self._ramping_engine()
+        state.is_ramping = is_ramping
+        assert state.is_ramp_active is True
+        assert state.is_remote_ramping is False
         ramp.echo_ledger.record(EchoFamily.SPEED, 33)
 
         self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=33))
 
-        assert state.speed == state.target_speed == 33
+        assert state.speed == 33
+        assert state.target_speed == 30
         assert ramp.requested_speed == 80
+        assert ramp.aborts == []
         assert state.ramp is ramp
+        assert state.is_ramping is is_ramping
+        assert state.is_ramp_active is True
+
+    def test_local_flag_alone_preserves_target_until_ramping_ends(self):
+        state, _ = self._ramping_engine()
+        # Remove the handle to isolate activity represented only by the local flag.
+        state._ramp = None
+        assert state.ramp is None
         assert state.is_ramping is True
+        assert state.is_ramp_active is True
+        assert state.is_remote_ramping is False
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=33))
+
+        assert state.speed == 33
+        assert state.target_speed == 30
+        assert state.ramp is None
+        assert state.is_ramping is True
+        assert state.is_ramp_active is True
+
+        state.is_ramping = False
+        assert state.is_ramp_active is False
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=34))
+
+        assert state.speed == state.target_speed == 34
+        assert state.ramp is None
+        assert state.is_ramping is False
+        assert state.is_ramp_active is False
 
     def test_retired_target_command_does_not_create_ownership(self):
         state, _ = self._ramping_engine()
@@ -553,12 +587,13 @@ class TestEngineStateRampArbitration:
 
         self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=34))
 
-        # The echo updates the database without replacing local intent.
+        # The echo updates current speed without replacing the database target or local destination.
         assert ramp.aborts == []
         assert state.ramp is ramp
         assert state.is_ramping is True
         assert ramp.requested_speed == 49
-        assert state.speed == state.target_speed == 34
+        assert state.speed == 34
+        assert state.target_speed == 30
 
     def test_foreign_absolute_speed_cancels(self):
         state, ramp = self._ramping_engine()
@@ -729,8 +764,12 @@ class TestEngineStateRampArbitration:
             assert ramp.echo_ledger.claimed == claimed
 
         self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=36))
-        assert state.speed == state.target_speed == 36
+        assert state.speed == 36
+        assert state.target_speed == (33 if target == 255 else target)
         assert state.ramp is ramp
+        assert state.is_ramping is True
+        assert ramp.requested_speed == 80
+        assert ramp.aborts == []
 
     def test_a_record_with_no_target_never_cancels(self):
         state, ramp = self._ramping_engine()

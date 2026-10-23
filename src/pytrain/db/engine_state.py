@@ -776,7 +776,8 @@ class EngineState(ComponentState):
                 else:
                     data = command.data
                 self.comp_data.speed = encode_tmcc_speed(data, self._speed_is_legacy)
-                self.comp_data.target_speed = self.comp_data.speed
+                if not self.is_ramp_active:
+                    self.comp_data.target_speed = self.comp_data.speed
             elif self.is_synchronized() and cmd_effects & SPEED_SET:
                 # ignore impact of direction command while synchronizing state
                 # it is only in command stream to set initial state

@@ -4,6 +4,7 @@ import pytest
 
 from src.pytrain.comm.comm_buffer import CommBuffer
 from src.pytrain.db import engine_state
+from src.pytrain.db.comp_data import CompData
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_state import EngineState
 from src.pytrain.protocol.command_req import CommandReq
@@ -32,6 +33,12 @@ def claim(identifier=1, *, timestamp_ms=None):
     return RampClaim(
         CommandScope.ENGINE, 7, "127.0.0.1", 50000, identifier, timestamp_ms or 1_800_000_000_000 + identifier
     )
+
+
+def record_data(state: EngineState) -> CompData:
+    data = state.comp_data
+    assert isinstance(data, CompData)
+    return data
 
 
 @pytest.mark.parametrize("local_flag", [False, True])
@@ -168,6 +175,59 @@ def test_matching_release_unlocks_without_residual_endpoint(state):
     assert not hasattr(state, "recent_ramp_claim")
 
 
+@pytest.mark.parametrize("released", [True, False], ids=["matching-release", "claim-expiration"])
+def test_speed_commands_preserve_target_until_remote_claim_ends(state, monkeypatch, released):
+    clock = [100.0]
+    # Patch the imported clock while retaining setattr's existence check.
+    # noinspection PyUnresolvedReferences
+    monkeypatch.setattr(engine_state, "monotonic", lambda: clock[0])
+    # TMCC1 speed 20 is stored as 128, not the unencoded command value.
+    record_data(state).target_speed = 128
+    assert state.target_speed == 20
+    assert state.is_ramp_active is False
+    state.update(claim().request())
+
+    for speed, encoded_speed in ((5, 32), (6, 39)):
+        state.update(CommandReq.build(TMCC1.ABSOLUTE_SPEED, 7, speed))
+
+        assert state.speed == speed
+        assert record_data(state).speed == encoded_speed
+        assert state.target_speed == 20
+        assert record_data(state).target_speed == 128
+        assert state.ramp_claim == claim()
+        assert state.is_remote_ramping is True
+        assert state.is_ramp_active is True
+        assert state.is_ramping is False
+        assert state.ramp is None
+        clock[0] += CLAIM_TTL / 4
+
+    assert state.ramp_claim == claim()
+    assert state.is_ramp_active is True
+    if released:
+        state.update(claim().request(release=True))
+    else:
+        clock[0] += CLAIM_TTL / 2
+
+    assert state.ramp_claim is None
+    assert state.is_remote_ramping is False
+    assert state.is_ramp_active is False
+    assert state.speed == 6
+    assert record_data(state).speed == 39
+    assert state.target_speed == 20
+    assert record_data(state).target_speed == 128
+
+    # A distinct command avoids duplicate suppression after release or expiration.
+    state.update(CommandReq.build(TMCC1.ABSOLUTE_SPEED, 7, 7))
+
+    assert state.speed == state.target_speed == 7
+    assert record_data(state).speed == record_data(state).target_speed == 45
+    assert state.ramp_claim is None
+    assert state.is_remote_ramping is False
+    assert state.is_ramp_active is False
+    assert state.is_ramping is False
+    assert state.ramp is None
+
+
 def test_local_ramp_lifecycle_notifies_watchers_without_speed_updates(state):
     for running in (True, False):
         state.changed.clear()
@@ -285,9 +345,15 @@ def test_nonowner_speed_updates_never_create_peer_service(state, monkeypatch):
     monkeypatch.setattr(RampPeer, "build", unexpected)
     state.update(claim().request())
     state.update(CommandReq.build(TMCC1.ABSOLUTE_SPEED, 7, 5))
-    assert state.speed == state.target_speed == 5
+    assert state.speed == 5
+    assert record_data(state).speed == 32
+    assert state.target_speed == 3
+    assert record_data(state).target_speed == 20
     assert state.ramp is None
     assert state.ramp_claim == claim()
+    assert state.is_ramping is False
+    assert state.is_remote_ramping is True
+    assert state.is_ramp_active is True
 
 
 def test_foreign_claim_cannot_stop_local_owner_or_change_database(state, monkeypatch):

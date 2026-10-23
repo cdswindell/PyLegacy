@@ -920,20 +920,50 @@ class TestEngineStateCommandHandling:
         assert state.labor == 20
 
     @pytest.mark.parametrize("legacy, command", [(True, TMCC2.ABSOLUTE_SPEED), (False, TMCC1.ABSOLUTE_SPEED)])
-    @pytest.mark.parametrize("is_ramping", [False, True])
-    def test_an_absolute_speed_command_moves_speed_and_target_together(self, legacy, command, is_ramping):
+    def test_an_absolute_speed_command_moves_speed_and_target_together(self, legacy, command):
         state = new_engine(legacy=legacy)
         state.comp_data.target_speed = 90
-        state.is_ramping = is_ramping
+        assert state.is_ramp_active is False
 
-        for speed in (15, 25, 0):
+        for speed, encoded_speed in ((15, 96), (25, 160), (0, 0)):
             state.update(CommandReq.build(command, known_address(state), data=speed))
 
             assert state.speed == speed
             assert state.target_speed == speed
+            assert record_data(state).speed == (speed if legacy else encoded_speed)
             assert record_data(state).speed == record_data(state).target_speed
-            assert state.is_ramping is is_ramping
+            assert state.is_ramping is False
+            assert state.is_ramp_active is False
             assert state.ramp is None
+
+    @pytest.mark.parametrize("legacy, command", [(True, TMCC2.ABSOLUTE_SPEED), (False, TMCC1.ABSOLUTE_SPEED)])
+    def test_an_absolute_speed_command_preserves_target_until_local_ramping_ends(self, legacy, command):
+        state = new_engine(legacy=legacy)
+        # The same raw database target decodes differently for Legacy and TMCC1.
+        state.comp_data.target_speed = 90
+        state.is_ramping = True
+
+        for speed, encoded_speed in ((15, 96), (25, 160), (0, 0)):
+            state.update(CommandReq.build(command, known_address(state), data=speed))
+
+            assert state.speed == speed
+            assert state.target_speed == (90 if legacy else 14)
+            assert record_data(state).speed == (speed if legacy else encoded_speed)
+            assert record_data(state).target_speed == 90
+            assert state.is_ramping is True
+            assert state.is_ramp_active is True
+            assert state.is_remote_ramping is False
+            assert state.ramp is None
+
+        state.is_ramping = False
+        assert state.is_ramp_active is False
+        state.update(CommandReq.build(command, known_address(state), data=12))
+
+        assert state.speed == state.target_speed == 12
+        assert record_data(state).speed == record_data(state).target_speed == (12 if legacy else 77)
+        assert state.is_ramping is False
+        assert state.is_ramp_active is False
+        assert state.ramp is None
 
     def test_a_railroad_speed_command_resolves_its_alias(self):
         state = new_engine(legacy=True)
