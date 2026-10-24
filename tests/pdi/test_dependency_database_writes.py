@@ -99,8 +99,12 @@ def test_command_generates_expected_database_writes(engine_state, command, data,
     ("REVERSE_DIRECTION", [(0x0B, b"\\x01")]),
 ])
 def test_same_command_packages_use_d4_writes(engine_state, command, expected):
+    engine_state = ComponentStateDict(CommandScope.ENGINE)[1234]
+    engine_state.initialize(CommandScope.ENGINE, 1234)
+    engine_state.comp_data.control_type = LEGACY_CONTROL_TYPE
+    engine_state.comp_data.rpm_labor = 2
+    engine_state.comp_data.soft_status = 0
     engine_state._d4_rec_no = 0x1234
-    engine_state._tmcc_id = 1234
     request = CommandReq(getattr(Engine2, command), 1234, scope=CommandScope.ENGINE)
     packages = CompData.request_to_updates(request)
     assert [(p.offset, p.data_bytes) for p in packages] == expected
