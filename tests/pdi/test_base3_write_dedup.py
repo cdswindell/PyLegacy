@@ -107,15 +107,15 @@ def test_a_b_a_at_same_destination_sends_all_three(monkeypatch):
     monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
     send = Mock()
 
-    for payload in (b"\\x01", b"\\x02", b"\\x01"):
+    for payload in (b"\x01", b"\x02", b"\x01"):
         BaseReq.process_sync_reqs([_write(payload)], send, deduplicate_writes=True)
         clock[0] += 0.005
 
     assert send.call_count == 3
     assert [call.args[0]._update_dedup_key[-1] for call in send.call_args_list] == [
-        b"\\x01",
-        b"\\x02",
-        b"\\x01",
+        b"\x01",
+        b"\x02",
+        b"\x01",
     ]
 
 
@@ -124,8 +124,79 @@ def test_a_b_b_at_same_destination_suppresses_only_last_b(monkeypatch):
     monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
     send = Mock()
 
-    for payload in (b"\\x01", b"\\x02", b"\\x02"):
+    for payload in (b"\x01", b"\x02", b"\x02"):
         BaseReq.process_sync_reqs([_write(payload)], send, deduplicate_writes=True)
         clock[0] += 0.005
 
     assert send.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "changed_field",
+    ["scope", "address", "offset", "length"],
+)
+def test_database_write_dedup_isolated_by_destination(monkeypatch, changed_field):
+    """Same bytes at a different destination must always be transmitted."""
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
+    send = Mock()
+    first = _write(b"\x01")
+    second = _write(b"\x01")
+    scope, address, offset, length, payload = second._update_dedup_key
+    if changed_field == "scope":
+        scope = object()
+    elif changed_field == "address":
+        address = 1235
+    elif changed_field == "offset":
+        offset = 57
+    else:
+        length = 2
+    second._update_dedup_key = (scope, address, offset, length, payload)
+
+    BaseReq.process_sync_reqs([first, second], send, deduplicate_writes=True)
+    assert send.call_count == 2
+
+
+def test_deduplication_window_expires_at_exact_boundary(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    send = Mock()
+    window = base_req_module.BASE3_WRITE_DEDUP_SECONDS
+
+    BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
+    clock[0] += window / 2
+    BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
+    assert send.call_count == 1
+    clock[0] = 100.0 + window
+    BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
+    assert send.call_count == 2
+
+
+def test_zero_window_disables_deduplication(monkeypatch):
+    monkeypatch.setattr(base_req_module, "BASE3_WRITE_DEDUP_SECONDS", 0)
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
+    send = Mock()
+
+    BaseReq.process_sync_reqs([_write(), _write()], send, deduplicate_writes=True)
+    assert send.call_count == 2
+
+
+def test_unmarked_pdi_requests_are_not_deduplicated(monkeypatch):
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
+    send = Mock()
+    request = D4Req(0x1234, PdiCommand.D4_ENGINE, D4Action.UPDATE, start=56, data_length=1, data_bytes=b"\x01")
+
+    BaseReq.process_sync_reqs([request, request], send, deduplicate_writes=True)
+    assert send.call_count == 2
+
+
+def test_deduplication_does_not_change_outbound_order(monkeypatch):
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
+    send = Mock()
+    first = _write(b"\x01")
+    repeated = _write(b"\x01")
+    different = _write(b"\x02")
+    query = D4Req(0x1234, PdiCommand.D4_ENGINE, D4Action.QUERY)
+
+    BaseReq.process_sync_reqs([first, repeated, query, different], send, deduplicate_writes=True)
+
+    assert [call.args[0] for call in send.call_args_list] == [first, query, different]
