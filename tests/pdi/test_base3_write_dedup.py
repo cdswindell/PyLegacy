@@ -166,7 +166,11 @@ def test_deduplication_window_expires_at_exact_boundary(monkeypatch):
     clock[0] += window / 2
     BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
     assert send.call_count == 1
-    clock[0] = 100.0 + window
+    # A binary float cannot represent 0.05 exactly: 100.05 - 100.0 may
+    # evaluate just below the window, so test the first representable time after it.
+    import math
+
+    clock[0] = math.nextafter(100.0 + window, math.inf)
     BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
     assert send.call_count == 2
 
