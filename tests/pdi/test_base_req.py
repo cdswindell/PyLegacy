@@ -21,6 +21,7 @@ from src.pytrain.db.component_state import ComponentStateDict, RouteState
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_state import EngineState
 from src.pytrain.pdi.base3_db_refresh_manager import Base3DbRefreshManager
+import src.pytrain.pdi.base_req as base_req_module
 from src.pytrain.pdi.base_req import BaseReq, EngineBits, decode_labor_rpm, encode_labor_rpm
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
@@ -645,10 +646,20 @@ def test_updates_to_reqs_preserves_requests_and_refresh_marker(
     assert BaseReq.updates_to_reqs(state, [], refresh=refresh) == []
 
 
+@pytest.fixture
+def isolated_db_write_history():
+    # This test checks each entry point independently, not suppression across calls.
+    with base_req_module._write_dedup_lock:
+        base_req_module._recent_db_writes.clear()
+    yield
+    with base_req_module._write_dedup_lock:
+        base_req_module._recent_db_writes.clear()
+
+
 @pytest.mark.parametrize("address", [7, 1234])
 @pytest.mark.parametrize("entry_point", ["update_eng", "do_update_eng", "do_update_field"])
 def test_initialized_update_paths_preserve_mixed_results(
-    address, entry_point, initialized_update_state, sync_dispatch, monkeypatch
+    address, entry_point, initialized_update_state, sync_dispatch, monkeypatch, isolated_db_write_history
 ):
     state = initialized_update_state(address)
     package = UpdatePkg("speed", 7, 1, b"\x2d")
