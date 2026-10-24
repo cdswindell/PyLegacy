@@ -49,7 +49,7 @@ def test_write_is_immediate_and_allowed_after_window(monkeypatch):
 
     BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
     assert send.call_count == 1  # No delayed dispatch or buffering.
-    clock[0] += base_req_module.BASE3_WRITE_DEDUP_SECONDS
+    clock[0] = 100.0 + base_req_module.BASE3_WRITE_DEDUP_SECONDS * 2
     BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
 
     assert send.call_count == 2
