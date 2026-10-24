@@ -68,16 +68,16 @@ def engine_state(monkeypatch):
 @pytest.mark.parametrize(
     "command,data,expected",
     [
-        ("ABSOLUTE_SPEED", 30, [(0x07, b"\\x1e"), (0x08, b"\\x1e")]),
-        ("STOP_IMMEDIATE", 0, [(0x07, b"\\x00"), (0x08, b"\\x00"), (0x0C, b"\\x00")]),
-        ("FORWARD_DIRECTION", 0, [(0x0B, b"\\x00")]),
-        ("REVERSE_DIRECTION", 0, [(0x0B, b"\\x01")]),
-        ("DIESEL_RPM", 2, [(0x0C, b"\\x02")]),
-        ("ENGINE_LABOR", 12, [(0x0C, b"\\x02")]),
-        ("SHUTDOWN_IMMEDIATE", 0, [(0x0C, b"\\x00")]),
+        ("ABSOLUTE_SPEED", 30, [(0x07, b"\x1e"), (0x08, b"\x1e")]),
+        ("STOP_IMMEDIATE", 0, [(0x07, b"\x00"), (0x08, b"\x00"), (0x0C, b"\x00")]),
+        ("FORWARD_DIRECTION", 0, [(0x0B, b"\x00")]),
+        ("REVERSE_DIRECTION", 0, [(0x0B, b"\x01")]),
+        ("DIESEL_RPM", 2, [(0x0C, b"\x02")]),
+        ("ENGINE_LABOR", 12, [(0x0C, b"\x02")]),
+        ("SHUTDOWN_IMMEDIATE", 0, [(0x0C, b"\x00")]),
         ("RESET", 0, [
-            (0x07, b"\\x00"), (0x08, b"\\x00"),
-            (0x0C, b"\\x00"), (0x0B, b"\\x00"),
+            (0x07, b"\x00"), (0x08, b"\x00"),
+            (0x0C, b"\x00"), (0x0B, b"\x00"),
         ]),
     ],
 )
@@ -95,8 +95,8 @@ def test_command_generates_expected_database_writes(engine_state, command, data,
 
 
 @pytest.mark.parametrize("command,expected", [
-    ("STOP_IMMEDIATE", [(0x07, b"\\x00"), (0x08, b"\\x00"), (0x0C, b"\\x00")]),
-    ("REVERSE_DIRECTION", [(0x0B, b"\\x01")]),
+    ("STOP_IMMEDIATE", [(0x07, b"\x00"), (0x08, b"\x00"), (0x0C, b"\x00")]),
+    ("REVERSE_DIRECTION", [(0x0B, b"\x01")]),
 ])
 def test_same_command_packages_use_d4_writes(engine_state, command, expected):
     engine_state = ComponentStateDict(CommandScope.ENGINE)[1234]
