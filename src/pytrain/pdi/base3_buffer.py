@@ -215,7 +215,7 @@ class Base3Buffer(Thread):
             self._is_running = False
 
     @classmethod
-    def sync_state(cls, data: bytes, pdi_req: PdiReq = None, tmcc_cmd: CommandReq = None) -> None:
+    def sync_state(cls, data: bytes, pdi_req: PdiReq | None = None, tmcc_cmd: CommandReq | None = None) -> None:
         """
         Send State Update to Base 3 if it is available and if this
         command packet is relevant
@@ -264,6 +264,7 @@ class Base3Buffer(Thread):
                 # is it a command that requires a state sync?
                 sync_reqs = BaseReq.update_eng(tmcc_cmd)
                 if sync_reqs:
+                    # noinspection unresolved-references
                     BaseReq.process_sync_reqs(
                         sync_reqs,
                         callback=lambda req: cls._instance.send(req.as_bytes),
