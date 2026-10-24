@@ -204,3 +204,26 @@ def test_deduplication_does_not_change_outbound_order(monkeypatch):
     BaseReq.process_sync_reqs([first, repeated, query, different], send, deduplicate_writes=True)
 
     assert [call.args[0] for call in send.call_args_list] == [first, query, different]
+
+
+def test_sent_d4_database_updates_serialize_to_framed_pdi(monkeypatch):
+    """Capture the real dispatch boundary, including the serialized wire packet."""
+    from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP
+
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
+    sent_packets = []
+    first = _write(b"\x01")
+    second = _write(b"\x01")
+    changed = _write(b"\x02")
+
+    BaseReq.process_sync_reqs(
+        [first, second, changed],
+        lambda req: sent_packets.append(req.as_bytes),
+        deduplicate_writes=True,
+    )
+
+    assert len(sent_packets) == 2
+    for packet, payload in zip(sent_packets, (b"\x01", b"\x02")):
+        assert packet[0] == PDI_SOP
+        assert packet[-1] == PDI_EOP
+        assert payload in packet
