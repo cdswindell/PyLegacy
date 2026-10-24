@@ -1137,3 +1137,29 @@ def test_as_key_tuple_shape_and_content_stability():
     # record_no and command should be stable
     assert k[0] == 5
     assert k[1] == PdiCommand.BASE_MEMORY
+
+
+@pytest.mark.parametrize("address", [7, 1234])
+def test_compdata_update_package_dedup_key_survives_request_conversion(
+    address, initialized_update_state, isolated_db_write_history, monkeypatch
+):
+    """Exercise the real UpdatePkg -> BaseReq/D4Req -> deduplicating dispatch path."""
+    state = initialized_update_state(address)
+    pkg = UpdatePkg("speed", 0x07, 1, b"\x12")
+    requests = BaseReq.updates_to_reqs(state, [pkg], refresh=False)
+    assert len(requests) == 1
+    req = requests[0]
+    assert BaseReq._database_write_key(req) == (state.scope, address, pkg.offset, pkg.length, pkg.data_bytes)
+
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    send = Mock()
+    BaseReq.process_sync_reqs(requests, send, deduplicate_writes=True)
+    BaseReq.process_sync_reqs(BaseReq.updates_to_reqs(state, [pkg], refresh=False), send, deduplicate_writes=True)
+    assert send.call_count == 1
+
+    changed = UpdatePkg("speed", 0x07, 1, b"\x13")
+    BaseReq.process_sync_reqs(
+        BaseReq.updates_to_reqs(state, [changed], refresh=False), send, deduplicate_writes=True
+    )
+    assert send.call_count == 2
