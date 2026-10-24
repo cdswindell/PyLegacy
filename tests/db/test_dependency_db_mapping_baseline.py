@@ -27,34 +27,72 @@ def cache():
     "cause, effects",
     [
         (Engine2.SYSTEM_HALT, {Engine2.SPEED_STOP_HOLD}),
-        (Engine2.RESET, {
-            Engine2.STOP_IMMEDIATE, Engine2.ABSOLUTE_SPEED,
-            Engine2.FORWARD_DIRECTION, Engine2.DIESEL_RPM,
-            Engine2.ENGINE_LABOR_DEFAULT, Engine2.BELL_OFF, Engine2.NUMERIC,
-        }),
-        (Engine2.STOP_IMMEDIATE, {
-            Engine2.ABSOLUTE_SPEED, Engine2.DIESEL_RPM, Engine2.ENGINE_LABOR_DEFAULT,
-        }),
-        (Engine2.FORWARD_DIRECTION, {
-            Engine2.STOP_IMMEDIATE, Engine2.ABSOLUTE_SPEED,
-            Engine2.DIESEL_RPM, Engine2.ENGINE_LABOR_DEFAULT,
-        }),
-        (Engine2.REVERSE_DIRECTION, {
-            Engine2.STOP_IMMEDIATE, Engine2.ABSOLUTE_SPEED,
-            Engine2.DIESEL_RPM, Engine2.ENGINE_LABOR_DEFAULT,
-        }),
-        (Engine2.TOGGLE_DIRECTION, {
-            Engine2.STOP_IMMEDIATE, Engine2.ABSOLUTE_SPEED,
-            Engine2.DIESEL_RPM, Engine2.ENGINE_LABOR_DEFAULT,
-        }),
-        (Engine2.SHUTDOWN_IMMEDIATE, {
-            Engine2.SPEED_STOP_HOLD, Engine2.STOP_IMMEDIATE,
-            Engine2.DIESEL_RPM, Engine2.ENGINE_LABOR_DEFAULT,
-        }),
-        (Engine1.RESET, {
-            Engine1.SPEED_STOP_HOLD, Engine1.FORWARD_DIRECTION,
-            Engine1.START_UP_IMMEDIATE, Engine1.RPM_DOWN, Engine1.NUMERIC,
-        }),
+        (
+            Engine2.RESET,
+            {
+                Engine2.STOP_IMMEDIATE,
+                Engine2.ABSOLUTE_SPEED,
+                Engine2.FORWARD_DIRECTION,
+                Engine2.DIESEL_RPM,
+                Engine2.ENGINE_LABOR_DEFAULT,
+                Engine2.BELL_OFF,
+                Engine2.NUMERIC,
+            },
+        ),
+        (
+            Engine2.STOP_IMMEDIATE,
+            {
+                Engine2.ABSOLUTE_SPEED,
+                Engine2.DIESEL_RPM,
+                Engine2.ENGINE_LABOR_DEFAULT,
+            },
+        ),
+        (
+            Engine2.FORWARD_DIRECTION,
+            {
+                Engine2.STOP_IMMEDIATE,
+                Engine2.ABSOLUTE_SPEED,
+                Engine2.DIESEL_RPM,
+                Engine2.ENGINE_LABOR_DEFAULT,
+            },
+        ),
+        (
+            Engine2.REVERSE_DIRECTION,
+            {
+                Engine2.STOP_IMMEDIATE,
+                Engine2.ABSOLUTE_SPEED,
+                Engine2.DIESEL_RPM,
+                Engine2.ENGINE_LABOR_DEFAULT,
+            },
+        ),
+        (
+            Engine2.TOGGLE_DIRECTION,
+            {
+                Engine2.STOP_IMMEDIATE,
+                Engine2.ABSOLUTE_SPEED,
+                Engine2.DIESEL_RPM,
+                Engine2.ENGINE_LABOR_DEFAULT,
+            },
+        ),
+        (
+            Engine2.SHUTDOWN_IMMEDIATE,
+            {
+                Engine2.SPEED_STOP_HOLD,
+                Engine2.STOP_IMMEDIATE,
+                Engine2.DIESEL_RPM,
+                Engine2.ENGINE_LABOR_DEFAULT,
+            },
+        ),
+        (
+            Engine1.RESET,
+            {
+                Engine1.SPEED_STOP_HOLD,
+                Engine1.FORWARD_DIRECTION,
+                Engine1.START_UP_IMMEDIATE,
+                Engine1.RPM_DOWN,
+                Engine1.NUMERIC,
+            },
+        ),
         (Engine1.FORWARD_DIRECTION, {Engine1.SPEED_STOP_HOLD}),
         (Engine1.REVERSE_DIRECTION, {Engine1.SPEED_STOP_HOLD}),
         (Engine1.TOGGLE_DIRECTION, {Engine1.SPEED_STOP_HOLD}),
@@ -137,6 +175,7 @@ def test_database_map_key_inventory_baseline():
         "TRAIN_UNIT",
     }
 
+
 @pytest.mark.parametrize("command", [Engine1.RESET, Engine2.RESET])
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
 def test_reset_encoded_database_bytes_baseline(monkeypatch, command, scope):
@@ -161,9 +200,7 @@ def test_reset_field_and_command_paths_agree(monkeypatch, command):
     monkeypatch.setattr(ComponentStateStore, "get_state", lambda *args, **kwargs: None)
     req = CommandReq.build(command, 7, scope=CommandScope.ENGINE)
     from_command = CompData.request_to_updates(req)
-    from_field = CompData.field_to_updates(
-        "reset", 7, CommandScope.ENGINE, legacy=command.is_legacy
-    )
+    from_field = CompData.field_to_updates("reset", 7, CommandScope.ENGINE, legacy=command.is_legacy)
     assert [(p.field, p.offset, p.data_bytes) for p in from_command] == [
         (p.field, p.offset, p.data_bytes) for p in from_field
     ]
