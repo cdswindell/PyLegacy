@@ -112,7 +112,7 @@ class Base3Buffer(Thread):
 
     def send(self, data: bytes) -> None:
         if data:
-            if log.isEnabledFor(logging.DEBUG):
+            if data != KEEP_ALIVE_CMD and log.isEnabledFor(logging.DEBUG):
                 log.debug("Base3Buffer.send queueing: 0x%s", data.hex())
             with self._send_cv:
                 self._send_queue.put(data)
@@ -142,6 +142,8 @@ class Base3Buffer(Thread):
                                     received = None
                                     sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
+                                        if sending != KEEP_ALIVE_CMD and log.isEnabledFor(logging.DEBUG):
+                                            log.debug("Base3Buffer transmitting to Base 3: 0x%s", sending.hex())
                                         s.sendall(sending.hex().upper().encode())
                                         try:
                                             self.sync_state(sending)
