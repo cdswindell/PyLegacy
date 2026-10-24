@@ -112,6 +112,8 @@ class Base3Buffer(Thread):
 
     def send(self, data: bytes) -> None:
         if data:
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug("Base3Buffer.send queueing: 0x%s", data.hex())
             with self._send_cv:
                 self._send_queue.put(data)
                 self._send_cv.notify_all()
