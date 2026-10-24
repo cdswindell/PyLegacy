@@ -319,7 +319,7 @@ class BaseReq(PdiReq, CompDataMixin):
         """Only deduplicate database updates, not queries or target-speed commands."""
         if isinstance(req, D4Req) and req.pdi_command in {PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN}:
             if req.action == D4Action.UPDATE:
-                return (req.pdi_command, req.record_no, req.start, req.data_length, req.data_bytes)
+                return (req.pdi_command, req.record_no, req.start, req.data_length, req._data_bytes)
         elif isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY:
             if req.flags == 0xC2:
                 return (req.pdi_command, req.scope, req.tmcc_id, req.flags, req.data_bytes)
