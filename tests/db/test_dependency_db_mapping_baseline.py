@@ -97,18 +97,45 @@ def test_command_to_database_field_baseline(name, fields):
 
 def test_database_map_key_inventory_baseline():
     assert set(REQUEST_TO_UPDATES_MAP) == {
-        "PREV_LINK", "NEXT_LINK", "ABSOLUTE_SPEED", "SPEED", "RAMP_TARGET_SPEED",
-        "DIESEL_RPM", "ENGINE_LABOR", "ENGINEER_FUEL_REFILLED",
-        "ENGINEER_WATER_REFILLED", "HALT", "FORWARD_DIRECTION",
-        "REVERSE_DIRECTION", "CONTROL_TYPE", "ENGINE_TYPE", "SOUND_TYPE",
-        "MOMENTUM", "MOMENTUM_HIGH", "MOMENTUM_LOW", "MOMENTUM_MEDIUM",
-        "RESET", "ROAD_NAME", "ROAD_NAME_LEN", "ROAD_NUMBER",
-        "ROAD_NUMBER_LEN", "SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE",
-        "SMOKE_HIGH", "SMOKE_LOW", "SMOKE_MEDIUM", "SMOKE_OFF",
-        "SMOKE_ON", "SPEED_LIMIT", "STOP_IMMEDIATE", "SYSTEM_HALT",
-        "EMERGENCY_STOP", "TRAIN_ADDRESS", "TRAIN_BRAKE", "TRAIN_UNIT",
+        "PREV_LINK",
+        "NEXT_LINK",
+        "ABSOLUTE_SPEED",
+        "SPEED",
+        "RAMP_TARGET_SPEED",
+        "DIESEL_RPM",
+        "ENGINE_LABOR",
+        "ENGINEER_FUEL_REFILLED",
+        "ENGINEER_WATER_REFILLED",
+        "HALT",
+        "FORWARD_DIRECTION",
+        "REVERSE_DIRECTION",
+        "CONTROL_TYPE",
+        "ENGINE_TYPE",
+        "SOUND_TYPE",
+        "MOMENTUM",
+        "MOMENTUM_HIGH",
+        "MOMENTUM_LOW",
+        "MOMENTUM_MEDIUM",
+        "RESET",
+        "ROAD_NAME",
+        "ROAD_NAME_LEN",
+        "ROAD_NUMBER",
+        "ROAD_NUMBER_LEN",
+        "SHUTDOWN_DELAYED",
+        "SHUTDOWN_IMMEDIATE",
+        "SMOKE_HIGH",
+        "SMOKE_LOW",
+        "SMOKE_MEDIUM",
+        "SMOKE_OFF",
+        "SMOKE_ON",
+        "SPEED_LIMIT",
+        "STOP_IMMEDIATE",
+        "SYSTEM_HALT",
+        "EMERGENCY_STOP",
+        "TRAIN_ADDRESS",
+        "TRAIN_BRAKE",
+        "TRAIN_UNIT",
     }
-
 
 @pytest.mark.parametrize("command", [Engine1.RESET, Engine2.RESET])
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
@@ -120,10 +147,10 @@ def test_reset_encoded_database_bytes_baseline(monkeypatch, command, scope):
     req = CommandReq.build(command, 7, scope=scope)
     packages = CompData.request_to_updates(req)
     assert [(p.field, p.offset, p.length, p.data_bytes) for p in packages] == [
-        ("speed", 0x07, 1, b"\\x00"),
-        ("target_speed", 0x08, 1, b"\\x00"),
-        ("rpm_labor", 0x0C, 1, b"\\x00"),
-        ("soft_status", 0x0B, 1, b"\\x00"),
+        ("speed", 0x07, 1, bytes([0])),
+        ("target_speed", 0x08, 1, bytes([0])),
+        ("rpm_labor", 0x0C, 1, bytes([0])),
+        ("soft_status", 0x0B, 1, bytes([0])),
     ]
 
 
