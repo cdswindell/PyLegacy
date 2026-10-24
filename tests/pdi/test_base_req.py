@@ -1159,7 +1159,5 @@ def test_compdata_update_package_dedup_key_survives_request_conversion(
     assert send.call_count == 1
 
     changed = UpdatePkg("speed", 0x07, 1, b"\x13")
-    BaseReq.process_sync_reqs(
-        BaseReq.updates_to_reqs(state, [changed], refresh=False), send, deduplicate_writes=True
-    )
+    BaseReq.process_sync_reqs(BaseReq.updates_to_reqs(state, [changed], refresh=False), send, deduplicate_writes=True)
     assert send.call_count == 2
