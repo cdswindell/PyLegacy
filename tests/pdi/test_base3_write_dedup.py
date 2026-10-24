@@ -20,7 +20,7 @@ def clear_write_history():
 
 
 def _write(data=b"\x01"):
-    return D4Req(
+    req = D4Req(
         0x1234,
         PdiCommand.D4_ENGINE,
         D4Action.UPDATE,
@@ -28,6 +28,9 @@ def _write(data=b"\x01"):
         data_length=len(data),
         data_bytes=data,
     )
+    # Mirror the metadata attached by BaseReq.updates_to_reqs() from CompData's UpdatePkg.
+    req._update_dedup_key = (req.scope, 1234, 56, len(data), data)
+    return req
 
 
 def test_identical_writes_within_configured_window_are_sent_once(monkeypatch):
@@ -58,7 +61,8 @@ def test_write_is_immediate_and_allowed_after_window(monkeypatch):
 def test_different_payloads_and_records_are_not_suppressed(monkeypatch):
     monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
     send = Mock()
-    other_record = D4Req(0x1235, PdiCommand.D4_ENGINE, D4Action.UPDATE, start=56, data_length=1, data_bytes=b"\x01")
+    other_record = _write()
+    other_record._update_dedup_key = (other_record.scope, 1235, 56, 1, b"\x01")
 
     BaseReq.process_sync_reqs([_write(b"\x01"), _write(b"\x02"), other_record], send, deduplicate_writes=True)
 
