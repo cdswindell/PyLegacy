@@ -343,13 +343,16 @@ class BaseReq(PdiReq, CompDataMixin):
             if previous is not None:
                 log.debug(
                     "Base 3 write dedup SUPPRESS: key=%r elapsed=%.3f ms window=%.3f ms",
-                    key, (now - previous) * 1000, BASE3_WRITE_DEDUP_SECONDS * 1000,
+                    key,
+                    (now - previous) * 1000,
+                    BASE3_WRITE_DEDUP_SECONDS * 1000,
                 )
                 return False
             _recent_db_writes[key] = now
             log.debug(
                 "Base 3 write dedup SEND: key=%r window=%.3f ms",
-                key, BASE3_WRITE_DEDUP_SECONDS * 1000,
+                key,
+                BASE3_WRITE_DEDUP_SECONDS * 1000,
             )
             return True
 
