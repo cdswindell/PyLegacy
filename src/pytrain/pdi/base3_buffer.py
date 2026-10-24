@@ -268,6 +268,7 @@ class Base3Buffer(Thread):
                     BaseReq.process_sync_reqs(
                         sync_reqs,
                         callback=lambda req: cls._instance.send(req.as_bytes),
+                        deduplicate_writes=True,
                     )
 
 
