@@ -328,16 +328,29 @@ class BaseReq(PdiReq, CompDataMixin):
     @classmethod
     def _should_send_database_write(cls, req: PdiReq) -> bool:
         key = cls._database_write_key(req)
-        if key is None or BASE3_WRITE_DEDUP_SECONDS <= 0:
+        if key is None:
+            log.debug("Base 3 write dedup BYPASS (not database write): %s", req)
+            return True
+        if BASE3_WRITE_DEDUP_SECONDS <= 0:
+            log.debug("Base 3 write dedup BYPASS (disabled): key=%r", key)
             return True
         now = time.monotonic()
         with _write_dedup_lock:
             for old_key, timestamp in list(_recent_db_writes.items()):
                 if now - timestamp >= BASE3_WRITE_DEDUP_SECONDS:
                     del _recent_db_writes[old_key]
-            if key in _recent_db_writes:
+            previous = _recent_db_writes.get(key)
+            if previous is not None:
+                log.debug(
+                    "Base 3 write dedup SUPPRESS: key=%r elapsed=%.3f ms window=%.3f ms",
+                    key, (now - previous) * 1000, BASE3_WRITE_DEDUP_SECONDS * 1000,
+                )
                 return False
             _recent_db_writes[key] = now
+            log.debug(
+                "Base 3 write dedup SEND: key=%r window=%.3f ms",
+                key, BASE3_WRITE_DEDUP_SECONDS * 1000,
+            )
             return True
 
     @classmethod
@@ -358,8 +371,11 @@ class BaseReq(PdiReq, CompDataMixin):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
                 else:
-                    if deduplicate_writes and not cls._should_send_database_write(sync_req):
-                        continue
+                    if deduplicate_writes:
+                        if not cls._should_send_database_write(sync_req):
+                            continue
+                    else:
+                        log.debug("Base 3 write dedup NOT ENABLED for dispatch: %s", sync_req)
                     if do_async:
                         Thread(target=callback, args=(sync_req,), daemon=True).start()
                     else:
