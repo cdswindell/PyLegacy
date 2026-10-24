@@ -1,6 +1,6 @@
 """Characterize Base3Buffer synchronization before consolidating its dispatch path.
 
-These tests intentionally assert the existing EngineState-only refresh behavior.
+These tests capture the current EngineState refresh behavior, including TrainState.
 No sockets, serial ports, or background threads are started.
 """
 
@@ -9,7 +9,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from src.pytrain.comm.command_listener import CommandDispatcher
+from src.pytrain.comm.command_listener import CommandDispatcher, REQUIRE_BASE_UPDATE
 from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.pdi.base3_buffer import Base3Buffer
 from src.pytrain.pdi.base3_db_refresh_manager import Base3DbRefreshManager
@@ -115,6 +115,9 @@ def test_dispatcher_client_forwarding_does_not_send_base_writes(sync_harness, mo
     from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2R4LCEnum
 
     cmd = CommandReq.build(TMCC2R4LCEnum.TRAIN_ADDRESS, address=3, data=4)
+    # REQUIRE_BASE_UPDATE stores a reference to the original function at import time.
+    # Patching BaseReq.update_eng alone does not replace that stored reference.
+    monkeypatch.setitem(REQUIRE_BASE_UPDATE, TMCC2R4LCEnum.TRAIN_ADDRESS, (update,))
     CommandDispatcher.update_base_state(dispatcher, cmd, update_clients=True)
 
     forwarded.assert_called_once_with(write)
@@ -122,15 +125,13 @@ def test_dispatcher_client_forwarding_does_not_send_base_writes(sync_harness, mo
     refresh.assert_called_once_with(engine)
 
 
-def test_sync_state_train_marker_is_not_treated_as_engine_refresh(sync_harness):
+def test_sync_state_train_marker_requests_refresh(sync_harness):
     sent, refresh, update = sync_harness
     train = Mock(spec=TrainState)
-    train.as_bytes = b"train-marker"
     update.return_value = [train]
 
     Base3Buffer.sync_state(_command().as_bytes)
 
-    # This is current behavior, not the desired future behavior:
-    # sync_state recognizes only EngineState as a refresh marker.
-    sent.assert_called_once_with(b"train-marker")
-    refresh.assert_not_called()
+    # TrainState derives from EngineState and therefore already takes the refresh path.
+    sent.assert_not_called()
+    refresh.assert_called_once_with(train)
