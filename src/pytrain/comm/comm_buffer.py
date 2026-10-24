@@ -413,6 +413,8 @@ class CommBufferSingleton(CommBuffer, Thread):
                         self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                     command = command.as_bytes
                 if command[0] == PDI_SOP:
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug("CommBufferSingleton forwarding PDI to Base3Buffer: 0x%s", command.hex())
                     # send to Base 3 if one is available
                     if self._base3:
                         self._base3.send(command)
