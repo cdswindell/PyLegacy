@@ -375,13 +375,10 @@ class BaseReq(PdiReq, CompDataMixin):
                             continue
                     else:
                         log.debug("Base 3 write dedup NOT ENABLED for dispatch: %s", sync_req)
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug("Dispatching Base 3 write: %s", sync_req.as_bytes.hex())
                     if do_async:
                         Thread(target=callback, args=(sync_req,), daemon=True).start()
                     else:
                         callback(sync_req)
-                        log.debug("Base 3 write dispatched")
         return refresh_requested
 
     @classmethod
