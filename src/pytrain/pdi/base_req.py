@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import time
 from enum import IntEnum, unique
 from math import floor
-from threading import Thread
+from threading import Lock, Thread
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, TypeVar, cast
 
 from ..db.comp_data import (
@@ -27,6 +28,11 @@ from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 S = TypeVar("S", bound=ComponentState)
 
 log = logging.getLogger(__name__)
+
+BASE3_WRITE_DEDUP_SECONDS = 0.050
+_write_dedup_lock = Lock()
+_recent_db_writes: dict[tuple, float] = {}
+
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -308,14 +314,41 @@ class BaseReq(PdiReq, CompDataMixin):
                 cmds.append(state)
         return cmds
 
+    @staticmethod
+    def _database_write_key(req: PdiReq) -> tuple | None:
+        """Only deduplicate database updates, not queries or target-speed commands."""
+        if isinstance(req, D4Req) and req.pdi_command in {PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN}:
+            if req.action == D4Action.UPDATE:
+                return (req.pdi_command, req.record_no, req.start, req.data_length, req.data_bytes)
+        elif isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY:
+            if req.flags == 0xC2:
+                return (req.pdi_command, req.scope, req.tmcc_id, req.flags, req.data_bytes)
+        return None
+
+    @classmethod
+    def _should_send_database_write(cls, req: PdiReq) -> bool:
+        key = cls._database_write_key(req)
+        if key is None or BASE3_WRITE_DEDUP_SECONDS <= 0:
+            return True
+        now = time.monotonic()
+        with _write_dedup_lock:
+            for old_key, timestamp in list(_recent_db_writes.items()):
+                if now - timestamp >= BASE3_WRITE_DEDUP_SECONDS:
+                    del _recent_db_writes[old_key]
+            if key in _recent_db_writes:
+                return False
+            _recent_db_writes[key] = now
+            return True
+
     @classmethod
     def process_sync_reqs(
         cls,
         sync_reqs: Sequence[PdiReq | ComponentState],
         callback: Callable[[PdiReq], Any] = lambda r: r.send(),
         do_async: bool = False,
+        deduplicate_writes: bool = False,
     ) -> bool:
-        """Processes sync requests dispatching component refreshes or callbacks."""
+        """Dispatch refreshes and callbacks, optionally deduplicating Base 3 writes."""
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
         refresh_requested = False
@@ -325,12 +358,10 @@ class BaseReq(PdiReq, CompDataMixin):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
                 else:
+                    if deduplicate_writes and not cls._should_send_database_write(sync_req):
+                        continue
                     if do_async:
-                        Thread(
-                            target=callback,
-                            args=(sync_req,),
-                            daemon=True,
-                        ).start()
+                        Thread(target=callback, args=(sync_req,), daemon=True).start()
                     else:
                         callback(sync_req)
         return refresh_requested
@@ -339,7 +370,7 @@ class BaseReq(PdiReq, CompDataMixin):
     def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[PdiReq | ComponentState]:
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
-            cls.process_sync_reqs(sync_reqs, lambda r: r.send())
+            cls.process_sync_reqs(sync_reqs, lambda r: r.send(), deduplicate_writes=True)
         return sync_reqs
 
     @classmethod
@@ -358,7 +389,7 @@ class BaseReq(PdiReq, CompDataMixin):
             if pkgs:
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs, refresh=refresh)
                 if sync_reqs:
-                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
+                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async, deduplicate_writes=True)
         return sync_reqs
 
     def __init__(
