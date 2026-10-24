@@ -129,7 +129,7 @@ class BaseReq(PdiReq, CompDataMixin):
         refresh_requested = False
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state_changes = BaseReq.update_eng(cmd)
-            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send())
+            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send(), deduplicate_writes=True)
         return None if refresh_requested else cls.create_base_query_request(state)
 
     # noinspection bad-argument-type
