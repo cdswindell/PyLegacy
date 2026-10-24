@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 BASE3_WRITE_DEDUP_SECONDS = 0.050
 _write_dedup_lock = Lock()
-_recent_db_writes: dict[tuple, float] = {}
+_recent_db_writes: dict[tuple, tuple[bytes, float]] = {}
 
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
@@ -317,7 +317,7 @@ class BaseReq(PdiReq, CompDataMixin):
 
     @staticmethod
     def _database_write_key(req: PdiReq) -> tuple | None:
-        """Deduplicate CompData update packages by scope, TMCC ID, and package contents."""
+        """Return the destination and payload of a CompData database write."""
         return getattr(req, "_update_dedup_key", None)
 
     @classmethod
@@ -329,21 +329,22 @@ class BaseReq(PdiReq, CompDataMixin):
         if BASE3_WRITE_DEDUP_SECONDS <= 0:
             log.debug("Base 3 write dedup BYPASS (disabled): key=%r", key)
             return True
+        destination, payload = key[:4], key[4]
         now = time.monotonic()
         with _write_dedup_lock:
-            for old_key, timestamp in list(_recent_db_writes.items()):
+            for old_key, (_, timestamp) in list(_recent_db_writes.items()):
                 if now - timestamp >= BASE3_WRITE_DEDUP_SECONDS:
                     del _recent_db_writes[old_key]
-            previous = _recent_db_writes.get(key)
-            if previous is not None:
+            previous = _recent_db_writes.get(destination)
+            if previous is not None and previous[0] == payload:
                 log.debug(
                     "Base 3 write dedup SUPPRESS: key=%r elapsed=%.3f ms window=%.3f ms",
                     key,
-                    (now - previous) * 1000,
+                    (now - previous[1]) * 1000,
                     BASE3_WRITE_DEDUP_SECONDS * 1000,
                 )
                 return False
-            _recent_db_writes[key] = now
+            _recent_db_writes[destination] = (payload, now)
             log.debug(
                 "Base 3 write dedup SEND: key=%r window=%.3f ms",
                 key,
