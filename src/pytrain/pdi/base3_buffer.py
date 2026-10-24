@@ -142,8 +142,6 @@ class Base3Buffer(Thread):
                                     received = None
                                     sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
-                                        if sending != KEEP_ALIVE_CMD and log.isEnabledFor(logging.DEBUG):
-                                            log.debug("Base3Buffer transmitting to Base 3: 0x%s", sending.hex())
                                         s.sendall(sending.hex().upper().encode())
                                         try:
                                             self.sync_state(sending)
