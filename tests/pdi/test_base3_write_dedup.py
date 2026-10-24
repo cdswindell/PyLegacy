@@ -99,3 +99,33 @@ def test_window_can_be_reduced_without_changing_tests(monkeypatch):
     BaseReq.process_sync_reqs([_write()], send, deduplicate_writes=True)
 
     assert send.call_count == 2
+
+
+def test_a_b_a_at_same_destination_sends_all_three(monkeypatch):
+    """The final A is a real state transition, not a duplicate of the first A."""
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    send = Mock()
+
+    for payload in (b"\\x01", b"\\x02", b"\\x01"):
+        BaseReq.process_sync_reqs([_write(payload)], send, deduplicate_writes=True)
+        clock[0] += 0.005
+
+    assert send.call_count == 3
+    assert [call.args[0]._update_dedup_key[-1] for call in send.call_args_list] == [
+        b"\\x01",
+        b"\\x02",
+        b"\\x01",
+    ]
+
+
+def test_a_b_b_at_same_destination_suppresses_only_last_b(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    send = Mock()
+
+    for payload in (b"\\x01", b"\\x02", b"\\x02"):
+        BaseReq.process_sync_reqs([_write(payload)], send, deduplicate_writes=True)
+        clock[0] += 0.005
+
+    assert send.call_count == 2
