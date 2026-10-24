@@ -17,6 +17,7 @@ from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
 
 
@@ -148,6 +149,57 @@ def test_native_engine_target_speed_survives_database_deduplication(engine_state
         BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
         commands = [call.args[0].pdi_command for call in sent.call_args_list]
         assert commands.count(PdiCommand.UPDATE_ENGINE_SPEED) == 2
+        assert commands.count(PdiCommand.BASE_MEMORY) == 2
+    finally:
+        with base_req_module._write_dedup_lock:
+            base_req_module._recent_db_writes.clear()
+
+
+# The TMCC1 relationships are a separate reviewed contract. Not every dependency
+# effect has a Base 3 database field; absence of a write is not a missing effect.
+TMCC1_ENGINE_CAUSES = {
+    "RESET": {"SPEED_STOP_HOLD", "FORWARD_DIRECTION", "START_UP_IMMEDIATE", "RPM_DOWN", "NUMERIC"},
+    "FORWARD_DIRECTION": {"SPEED_STOP_HOLD"},
+    "REVERSE_DIRECTION": {"SPEED_STOP_HOLD"},
+    "TOGGLE_DIRECTION": {"SPEED_STOP_HOLD"},
+}
+
+
+def test_all_tmcc1_engine_dependency_causes_match_reviewed_contract():
+    cache = DependencyCache.build()
+    actual = {
+        command.name: {effect[0].name if isinstance(effect, tuple) else effect.name for effect in effects}
+        for command, effects in cache._causes.items()
+        if isinstance(command, Engine1)
+    }
+    assert actual == TMCC1_ENGINE_CAUSES
+
+
+def test_native_train_target_speed_survives_database_deduplication(engine_state, monkeypatch):
+    """Train target-speed commands remain live even when matching DB writes are suppressed."""
+    import src.pytrain.pdi.base_req as base_req_module
+
+    state = ComponentStateDict(CommandScope.TRAIN)[60]
+    state.initialize(CommandScope.TRAIN, 60)
+    state.comp_data.control_type = LEGACY_CONTROL_TYPE
+    state.comp_data.speed = 30
+    state.comp_data.target_speed = 30
+    monkeypatch.setattr(ComponentStateStore, "get_state", Mock(return_value=state))
+
+    request = CommandReq(Engine2.ABSOLUTE_SPEED, 60, data=30, scope=CommandScope.TRAIN)
+    packages = CompData.request_to_updates(request)
+    outbound = BaseReq.updates_to_reqs(state, packages, refresh=False)
+    assert sum(req.pdi_command == PdiCommand.UPDATE_TRAIN_SPEED for req in outbound) == 1
+
+    with base_req_module._write_dedup_lock:
+        base_req_module._recent_db_writes.clear()
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: 100.0)
+    sent = Mock()
+    try:
+        BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
+        BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
+        commands = [call.args[0].pdi_command for call in sent.call_args_list]
+        assert commands.count(PdiCommand.UPDATE_TRAIN_SPEED) == 2
         assert commands.count(PdiCommand.BASE_MEMORY) == 2
     finally:
         with base_req_module._write_dedup_lock:
