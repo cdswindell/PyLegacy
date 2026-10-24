@@ -296,19 +296,20 @@ class BaseReq(PdiReq, CompDataMixin):
                         data_length=pkg.length,
                         data_bytes=pkg.data_bytes,
                     )
+                    req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
                     cmds.append(req)
                 elif 101 <= tmcc_id <= 9999 and state.record_no is not None and 0 <= state.record_no < 0xFFFF:
                     pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-                    cmds.append(
-                        D4Req(
-                            state.record_no,
-                            pdi_cmd,
-                            D4Action.UPDATE,
-                            start=pkg.offset,
-                            data_length=pkg.length,
-                            data_bytes=pkg.data_bytes,
-                        )
+                    req = D4Req(
+                        state.record_no,
+                        pdi_cmd,
+                        D4Action.UPDATE,
+                        start=pkg.offset,
+                        data_length=pkg.length,
+                        data_bytes=pkg.data_bytes,
                     )
+                    req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
+                    cmds.append(req)
             if cmds and refresh and not state.is_ramp_active:
                 # Adding state to the command queue will trigger a refresh request.
                 cmds.append(state)
@@ -316,14 +317,8 @@ class BaseReq(PdiReq, CompDataMixin):
 
     @staticmethod
     def _database_write_key(req: PdiReq) -> tuple | None:
-        """Only deduplicate database updates, not queries or target-speed commands."""
-        if isinstance(req, D4Req) and req.pdi_command in {PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN}:
-            if req.action == D4Action.UPDATE:
-                return (req.pdi_command, req.record_no, req.start, req.data_length, req._data_bytes)
-        elif isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY:
-            if req.flags == 0xC2:
-                return (req.pdi_command, req.scope, req.tmcc_id, req.flags, req.data_bytes)
-        return None
+        """Deduplicate CompData update packages by scope, TMCC ID, and package contents."""
+        return getattr(req, "_update_dedup_key", None)
 
     @classmethod
     def _should_send_database_write(cls, req: PdiReq) -> bool:
