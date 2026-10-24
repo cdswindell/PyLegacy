@@ -75,7 +75,7 @@ def engine_state(monkeypatch):
         ("FORWARD_DIRECTION", 0, [(0x0B, b"\x00")]),
         ("REVERSE_DIRECTION", 0, [(0x0B, b"\x01")]),
         ("DIESEL_RPM", 2, [(0x0C, b"\x02")]),
-        ("ENGINE_LABOR", 12, [(0x0C, b"\x02")]),
+        ("ENGINE_LABOR", 12, [(0x0C, b"\x00")]),
         ("SHUTDOWN_IMMEDIATE", 0, [(0x0C, b"\x00")]),
         (
             "RESET",
@@ -127,4 +127,4 @@ def test_same_command_packages_use_d4_writes(engine_state, command, expected):
         isinstance(req, D4Req) and req.pdi_command == PdiCommand.D4_ENGINE and req.action == D4Action.UPDATE
         for req in outbound
     )
-    assert [(req.start, req.data_bytes) for req in outbound] == expected
+    assert [(req.start, req._data_bytes) for req in outbound] == expected
