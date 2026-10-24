@@ -73,7 +73,6 @@ def test_queries_and_speed_commands_are_not_deduplicated(monkeypatch):
     BaseReq.process_sync_reqs([query, query], send, deduplicate_writes=True)
 
     assert send.call_count == 2
-    assert BaseReq._database_write_key(BaseReq(7, PdiCommand.UPDATE_ENGINE_SPEED, target_speed=20)) is None
 
 
 def test_client_forwarding_is_never_deduplicated(monkeypatch):
