@@ -17,7 +17,7 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 @pytest.mark.parametrize("command", [TMCC2R4LCEnum.TRAIN_ADDRESS, TMCC2R4LCEnum.TRAIN_UNIT])
 def test_train_configuration_dispatch_currently_uses_sending_handler(command):
     # Baseline: the mapping currently selects the side-effecting handler.
-    assert REQUIRE_BASE_UPDATE[command][0] == BaseReq.do_update_eng
+    assert REQUIRE_BASE_UPDATE[command][0] == BaseReq.update_eng
 
 
 @pytest.mark.parametrize("command", [TMCC2R4LCEnum.TRAIN_ADDRESS, TMCC2R4LCEnum.TRAIN_UNIT])
