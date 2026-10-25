@@ -1251,7 +1251,9 @@ def test_synthetic_target_update_follows_accepted_write_only(scope, isolated_db_
     assert sent[2].target_speed == 5
     assert sent[3].data_bytes == bytes([5])
 
-    clock[0] += base_req_module.BASE3_WRITE_DEDUP_SECONDS
+    # The dedup window is measured from the most recently accepted write (at 100.010),
+    # not the original zero-speed write. Use a small margin for float precision.
+    clock[0] += base_req_module.BASE3_WRITE_DEDUP_SECONDS + 0.001
     dispatch(5)
     assert len(sent) == 6  # Both commands are sent again after the window.
 
