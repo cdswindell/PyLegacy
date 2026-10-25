@@ -284,7 +284,11 @@ class BaseReq(PdiReq, CompDataMixin):
                     req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
                     # Firmware 1.38+ requires a synthetic target-speed command for 2D records.
                     # Attach it to the write so it is sent only if the write survives deduplication.
-                    if tmcc_id <= 99 and scope in {CommandScope.ENGINE, CommandScope.TRAIN} and pkg.field == "target_speed":
+                    if (
+            tmcc_id <= 99
+            and scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+            and pkg.field == "target_speed"
+        ):
                         from ..db.comp_data import decode_tmcc_speed
 
                         target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
