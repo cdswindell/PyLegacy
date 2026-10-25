@@ -397,7 +397,9 @@ def test_remote_claim_preserves_command_targets(
                 assert isinstance(item, BaseReq)
                 assert item.data_bytes == b"\x2d"
                 assert item.tmcc_id == target_state.tmcc_id
-        injections = [item for item in updates if item not in memory]
+        injections = [
+            item._target_speed_update for item in memory if getattr(item, "_target_speed_update", None) is not None
+        ]
         if active or target_state.tmcc_id > 99:
             assert injections == []
         else:
@@ -507,7 +509,7 @@ def test_absolute_speed_updates_follow_ramp_lifecycle(
             updates.append(update)
         expected_commands = [PdiCommand.BASE_MEMORY]
         if not is_ramping:
-            expected_commands.extend([native_command, PdiCommand.BASE_MEMORY])
+            expected_commands.append(PdiCommand.BASE_MEMORY)
         assert [update.pdi_command for update in updates] == expected_commands
         memory_updates = [update for update in updates if update.pdi_command == PdiCommand.BASE_MEMORY]
         assert [(update.start, update.data_length, update.data_bytes) for update in memory_updates] == (
@@ -518,7 +520,8 @@ def test_absolute_speed_updates_follow_ramp_lifecycle(
             assert update.scope == state.scope
             assert update.flags == 0xC2
         if not is_ramping:
-            native = updates[1]
+            native = updates[1]._target_speed_update
+            assert native.pdi_command == native_command
             assert isinstance(native, BaseReq)
             assert native.record_no == 7
             assert native.target_speed == speed
@@ -583,8 +586,9 @@ def test_updates_to_reqs_converts_native_target_to_engine_speed_scale(
 
     reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, data_bytes)], refresh=False)
 
-    assert len(reqs) == 2
-    native, memory = reqs
+    assert len(reqs) == 1
+    memory = reqs[0]
+    native = memory._target_speed_update
     assert isinstance(native, BaseReq)
     # Constructed native requests carry scope in the command and address in record_no.
     assert native.pdi_command == expected_command
@@ -1215,3 +1219,58 @@ def test_changed_rpm_labor_byte_is_not_deduplicated(monkeypatch, initialized_upd
         b"\x02",
         b"\x0a",
     ]
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_synthetic_target_update_follows_accepted_write_only(scope, isolated_db_write_history, monkeypatch):
+    """The synthetic speed update is dispatched only with a non-suppressed 2D write."""
+    state = SimpleNamespace(tmcc_id=60, scope=scope, is_legacy=True, is_ramp_active=False)
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    sent = []
+
+    def dispatch(value):
+        reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, bytes([value]))], refresh=False)
+        assert len(reqs) == 1
+        BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
+
+    dispatch(0)
+    assert [req.pdi_command for req in sent] == [
+        PdiCommand.UPDATE_ENGINE_SPEED if scope == CommandScope.ENGINE else PdiCommand.UPDATE_TRAIN_SPEED,
+        PdiCommand.BASE_MEMORY,
+    ]
+    assert sent[0].target_speed == 0
+
+    clock[0] += 0.005
+    dispatch(0)
+    assert len(sent) == 2  # Both synthetic command and duplicate write are suppressed.
+
+    clock[0] += 0.005
+    dispatch(5)
+    assert len(sent) == 4  # Changed target speed must never be suppressed.
+    assert sent[2].target_speed == 5
+    assert sent[3].data_bytes == bytes([5])
+
+    # The dedup window is measured from the most recently accepted write (at 100.010),
+    # not the original zero-speed write. Use a small margin for float precision.
+    clock[0] += base_req_module.BASE3_WRITE_DEDUP_SECONDS + 0.001
+    dispatch(5)
+    assert len(sent) == 6  # Both commands are sent again after the window.
+
+
+def test_non_target_database_write_has_no_synthetic_command(initialized_update_state, isolated_db_write_history):
+    state = initialized_update_state(60)
+    reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("speed", 0x07, 1, bytes([16]))], refresh=False)
+    sent = []
+    BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
+    assert len(sent) == 1
+    assert sent[0].pdi_command == PdiCommand.BASE_MEMORY
+
+
+@pytest.mark.parametrize("address", [99, 100, 1234])
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_synthetic_target_speed_only_for_2d_addresses(address, scope):
+    state = SimpleNamespace(tmcc_id=address, scope=scope, is_legacy=True, is_ramp_active=False, record_no=0x1234)
+    requests = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, bytes([10]))], refresh=False)
+    assert len(requests) == 1
+    assert (getattr(requests[0], "_target_speed_update", None) is not None) is (address <= 99)

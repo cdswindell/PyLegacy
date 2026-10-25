@@ -272,19 +272,6 @@ class BaseReq(PdiReq, CompDataMixin):
             for pkg in packages:
                 # include TMCC ID 100 to update search chain
                 if 1 <= tmcc_id <= 100:
-                    """
-                    Unpleasant Hack: when we send a TARGET SPEED update for a 2D engine, we have to
-                    send a new 0x2A UPDATE_ENGINE/TRAIN_SPEED command as well...
-
-                    Note: Base 3 firmware updates 1.38 or later are needed to update the target speed
-                    """
-                    if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and pkg.field == "target_speed":
-                        from ..db.comp_data import decode_tmcc_speed
-
-                        target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
-                        tr = BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed)
-                        if tr:
-                            cmds.append(tr)
                     req = BaseReq(
                         tmcc_id,
                         pdi_command=PdiCommand.BASE_MEMORY,
@@ -295,6 +282,19 @@ class BaseReq(PdiReq, CompDataMixin):
                         data_bytes=pkg.data_bytes,
                     )
                     req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
+                    # Firmware 1.38+ requires a synthetic target-speed command for 2D records.
+                    # Attach it to the write so it is sent only if the write survives deduplication.
+                    if (
+                        tmcc_id <= 99
+                        and scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+                        and pkg.field == "target_speed"
+                    ):
+                        from ..db.comp_data import decode_tmcc_speed
+
+                        target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
+                        req._target_speed_update = BaseReq.update_target_speed(
+                            address=tmcc_id, scope=scope, speed=target_speed
+                        )
                     cmds.append(req)
                 elif 101 <= tmcc_id <= 9999 and state.record_no is not None and 0 <= state.record_no < 0xFFFF:
                     pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
@@ -364,10 +364,14 @@ class BaseReq(PdiReq, CompDataMixin):
                     if deduplicate_writes:
                         if not cls._should_send_database_write(sync_req):
                             continue
-                    if do_async:
-                        Thread(target=callback, args=(sync_req,), daemon=True).start()
-                    else:
-                        callback(sync_req)
+                    # Keep the synthetic 0x2A/0x2B command paired with its accepted
+                    # target-speed database write, preserving the original send order.
+                    target_speed_update = getattr(sync_req, "_target_speed_update", None)
+                    for req in (target_speed_update, sync_req) if target_speed_update is not None else (sync_req,):
+                        if do_async:
+                            Thread(target=callback, args=(req,), daemon=True).start()
+                        else:
+                            callback(req)
         return refresh_requested
 
     @classmethod

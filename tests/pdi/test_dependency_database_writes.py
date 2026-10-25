@@ -132,13 +132,13 @@ def test_same_command_packages_use_d4_writes(engine_state, command, expected):
 
 
 def test_native_engine_target_speed_survives_database_deduplication(engine_state, monkeypatch):
-    """Suppress repeated DB bytes without suppressing the native 1.38 speed command."""
+    """Suppress the native 1.38 speed command along with its duplicate target write."""
     import src.pytrain.pdi.base_req as base_req_module
 
     request = CommandReq(Engine2.ABSOLUTE_SPEED, 60, data=30, scope=CommandScope.ENGINE)
     packages = CompData.request_to_updates(request)
     outbound = BaseReq.updates_to_reqs(engine_state, packages, refresh=False)
-    assert sum(req.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED for req in outbound) == 1
+    assert sum(getattr(req, "_target_speed_update", None) is not None for req in outbound) == 1
 
     with base_req_module._write_dedup_lock:
         base_req_module._recent_db_writes.clear()
@@ -148,7 +148,7 @@ def test_native_engine_target_speed_survives_database_deduplication(engine_state
         BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
         BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
         commands = [call.args[0].pdi_command for call in sent.call_args_list]
-        assert commands.count(PdiCommand.UPDATE_ENGINE_SPEED) == 2
+        assert commands.count(PdiCommand.UPDATE_ENGINE_SPEED) == 1
         assert commands.count(PdiCommand.BASE_MEMORY) == 2
     finally:
         with base_req_module._write_dedup_lock:
@@ -176,7 +176,7 @@ def test_all_tmcc1_engine_dependency_causes_match_reviewed_contract():
 
 
 def test_native_train_target_speed_survives_database_deduplication(engine_state, monkeypatch):
-    """Train target-speed commands remain live even when matching DB writes are suppressed."""
+    """Train target-speed commands follow accepted database writes only."""
     import src.pytrain.pdi.base_req as base_req_module
 
     state = ComponentStateDict(CommandScope.TRAIN)[60]
@@ -189,7 +189,7 @@ def test_native_train_target_speed_survives_database_deduplication(engine_state,
     request = CommandReq(Engine2.ABSOLUTE_SPEED, 60, data=30, scope=CommandScope.TRAIN)
     packages = CompData.request_to_updates(request)
     outbound = BaseReq.updates_to_reqs(state, packages, refresh=False)
-    assert sum(req.pdi_command == PdiCommand.UPDATE_TRAIN_SPEED for req in outbound) == 1
+    assert sum(getattr(req, "_target_speed_update", None) is not None for req in outbound) == 1
 
     with base_req_module._write_dedup_lock:
         base_req_module._recent_db_writes.clear()
@@ -199,7 +199,7 @@ def test_native_train_target_speed_survives_database_deduplication(engine_state,
         BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
         BaseReq.process_sync_reqs(outbound, sent, deduplicate_writes=True)
         commands = [call.args[0].pdi_command for call in sent.call_args_list]
-        assert commands.count(PdiCommand.UPDATE_TRAIN_SPEED) == 2
+        assert commands.count(PdiCommand.UPDATE_TRAIN_SPEED) == 1
         assert commands.count(PdiCommand.BASE_MEMORY) == 2
     finally:
         with base_req_module._write_dedup_lock:
