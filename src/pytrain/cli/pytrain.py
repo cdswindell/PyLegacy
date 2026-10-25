@@ -1069,11 +1069,12 @@ class PyTrain:
 
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        # always update pip
-        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
+        # API hosts own the update lifecycle; do not modify their environment.
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+        # always update pip
+        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
 
         if is_package():
             # update from Pypi; the Steam Deck runs a distribution of its own
