@@ -133,7 +133,7 @@ def test_worker_double_completes_synchronously(
         speed_command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
         assert recorder.of(speed_command) == list(range(3 if is_legacy else 1, 13, 3 if is_legacy else 1))
         assert all(address == state.tmcc_id and sent_scope == scope for _, address, _, sent_scope in recorder.sent)
-        assert ramp.requested_speed == 16
+        assert ramp.requested_speed == 12
         assert ramp.target_speed == ramp.commanded_speed == 12
         assert ramp.abort_reason is None
         assert ramp.is_active is False

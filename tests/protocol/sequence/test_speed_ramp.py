@@ -93,7 +93,7 @@ class TestSpeedRamp(TestBase):
 
         ramp._send_initial_target()
 
-        assert ramp.requested_speed == target
+        assert ramp.requested_speed == ceiling
         pdi_send.assert_not_called()
         ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", ceiling, state, do_async=False, refresh=False)
         ramp_refresh_scheduling["flush"].assert_called_once_with(state)
@@ -293,8 +293,48 @@ class TestSpeedRamp(TestBase):
         assert len(speeds) == len(set(speeds))
         assert speeds[-1] == 60
         pdi_send.assert_not_called()
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 12, state, do_async=False, refresh=False)
-        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [12, 60]
+        assert all(
+            call.args[0] == "RAMP_TARGET_SPEED"
+            and call.args[2] is state
+            and call.kwargs == {"do_async": False, "refresh": False}
+            for call in ramp_target_update.call_args_list
+        )
+        assert ramp_refresh_scheduling["flush"].call_count == 2
+
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("is_d4", [False, True])
+    def test_retarget_announces_new_destination_and_refreshes_record(
+        self, scope, is_d4, ramp_target_update, ramp_refresh_scheduling
+    ):
+        state = RampEngineState(scope=scope, is_d4=is_d4, speed=0)
+
+        def hook(rec, _count):
+            if len(rec.speeds) == 4 and ramp.requested_speed == 102:
+                ramp.retarget(43)
+
+        ramp = build_ramp(state, 102, Recorder(hook))
+        ramp.run()
+
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [102, 43]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
+        assert ramp.commanded_speed == 43
+
+    def test_rapid_retargets_coalesce_and_duplicate_targets_are_skipped(
+        self, ramp_target_update, ramp_refresh_scheduling
+    ):
+        state = RampEngineState(speed=0)
+
+        def hook(rec, _count):
+            if len(rec.speeds) == 1 and ramp.requested_speed == 102:
+                for target in (60, 55, 50, 43, 43):
+                    ramp.retarget(target)
+
+        ramp = build_ramp(state, 102, Recorder(hook))
+        ramp.run()
+
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [102, 43]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
 
     def test_retarget_up_to_down_reverses_from_the_commanded_speed(self):
         state = RampEngineState(speed=0)
@@ -712,14 +752,14 @@ class TestSpeedRamp(TestBase):
         ramp.run()
         assert max(recorder.speeds) == 40
         assert recorder.speeds[-1] == 40
-        # the operator's intent survives the clamp
-        assert ramp.requested_speed == 120
+        # The lower ceiling becomes the ramp's permanent destination.
+        assert ramp.requested_speed == 40
         pdi_send.assert_not_called()
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 120, state, do_async=False, refresh=False)
-        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [120, 40]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
 
     @pytest.mark.parametrize("cleared", [180, UNSET_MAX_SPEED])
-    def test_speed_limit_raised_or_cleared_mid_ramp_resumes_the_original_target(self, cleared):
+    def test_speed_limit_raised_or_cleared_mid_ramp_does_not_resume_original_target(self, cleared):
         state = RampEngineState(speed=0, speed_limit=40)
 
         def hook(rec: Recorder, _count: int) -> None:
@@ -729,8 +769,9 @@ class TestSpeedRamp(TestBase):
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        assert recorder.speeds[-1] == 120
-        assert ramp.commanded_speed == 120
+        assert recorder.speeds[-1] == 40
+        assert ramp.commanded_speed == 40
+        assert ramp.requested_speed == 40
 
     def test_speed_limit_below_the_commanded_speed_reverses_the_ramp(self):
         state = RampEngineState(speed=80, rpm=tmcc2_speed_to_rpm(80))
@@ -980,5 +1021,5 @@ class TestSpeedRamp(TestBase):
         assert recorder.speeds[-1] == 9
         assert state.is_ramping is False
         pdi_send.assert_not_called()
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 3, state, do_async=False, refresh=False)
-        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [3, 9]
+        assert ramp_refresh_scheduling["flush"].call_count == 2

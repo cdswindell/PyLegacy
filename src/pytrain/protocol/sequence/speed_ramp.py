@@ -349,9 +349,8 @@ def effective_target(requested: int, state: EngineState) -> int:
     """
     Clamp the operator's requested target to the engine's live ceiling. This is the
     single place the speed_limit / max_speed ceiling is applied, so a limit set,
-    changed, or cleared mid-ramp is honored on the very next step. The requested
-    target itself is never rewritten, so raising or clearing a limit lets a ramp
-    resume toward what the operator originally asked for.
+    changed, or cleared mid-ramp is honored on the next step. The ramp worker
+    separately makes downward clamps permanent for the current request.
     """
     # noinspection PyUnreachableCode
     if requested is None:
@@ -527,9 +526,10 @@ class SpeedRamp(Thread):
         self._is_running = True
         self._abort_reason: str | None = None
 
-        # the operator's intent, deliberately left unclamped so that raising or
-        # clearing a speed limit lets this ramp resume toward it with no new request
+        # A lowered ceiling permanently caps the current ramp request.
+        # Only an explicit retarget can establish a higher destination.
         self._requested_target = target_speed
+        self._last_announced_target: int | None = None
 
         # what this thread last sent; the lagged Base 3 echo is read exactly once, here
         speed = state.speed
@@ -568,7 +568,7 @@ class SpeedRamp(Thread):
 
     @property
     def requested_speed(self) -> int:
-        """The operator's target, unclamped."""
+        """The current request, including any ceiling captured by the ramp."""
         with self._lock:
             return self._requested_target
 
@@ -801,24 +801,35 @@ class SpeedRamp(Thread):
             self._claim_pending = False
 
     def _send_initial_target(self) -> None:
+        """Preserve the startup entry point; subsequent retargets use the same path."""
+        self._announce_target()
+
+    def _capture_ceiling(self) -> None:
+        """Make a lowered speed ceiling sticky for this ramp request."""
+        with self._lock:
+            self._requested_target = effective_target(self._requested_target, self._state)
+
+    def _announce_target(self) -> None:
+        """Synchronize a changed destination before the next throttle step.
+
+        Only the ramp worker sends target updates. This coalesces rapid retargets,
+        preserves send ordering and reuses BaseReq's 2D/4D and write-dedup logic.
+        """
         from ...pdi.base_req import BaseReq
 
-        # Read live state before taking the send gate.
         with self._wire:
             if self._is_running is False or self._claim_acquired is False:
                 return
-
-            # if not self._state.is_d4:
-            #     target = encode_tmcc_speed(self.target_speed, self.is_legacy)
-            #     tr = BaseReq.update_target_speed(
-            #         address=self.tmcc_id,
-            #         speed=target,
-            #         scope=self.scope,
-            #     )
-            #     if tr:
-            #         tr.send(delay=0)
-            # Keep target-send failures on this worker before any component commands.
-            BaseReq.do_update_field("RAMP_TARGET_SPEED", self.target_speed, self._state, do_async=False, refresh=False)
+            self._capture_ceiling()
+            with self._lock:
+                target = self._requested_target
+                if target == self._last_announced_target:
+                    return
+            BaseReq.do_update_field("RAMP_TARGET_SPEED", target, self._state, do_async=False, refresh=False)
+            with self._lock:
+                self._last_announced_target = target
+            # Request a fresh record after the write; the refresh manager
+            # coalesces requests for the same engine/train.
             Base3DbRefreshManager.flush(self._state)
 
     def _release_claim(self) -> None:
@@ -849,6 +860,7 @@ class SpeedRamp(Thread):
             self._acquire_claim()
             self._send_initial_target()
             while self._is_running is True:
+                self._announce_target()
                 with self._lock:
                     requested = self._requested_target
                     commanded = self._commanded_speed
