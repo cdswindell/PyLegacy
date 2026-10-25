@@ -349,9 +349,8 @@ def effective_target(requested: int, state: EngineState) -> int:
     """
     Clamp the operator's requested target to the engine's live ceiling. This is the
     single place the speed_limit / max_speed ceiling is applied, so a limit set,
-    changed, or cleared mid-ramp is honored on the very next step. The requested
-    target itself is never rewritten, so raising or clearing a limit lets a ramp
-    resume toward what the operator originally asked for.
+    changed, or cleared mid-ramp is honored on the next step. The ramp worker
+    separately makes downward clamps permanent for the current request.
     """
     # noinspection PyUnreachableCode
     if requested is None:
@@ -527,8 +526,8 @@ class SpeedRamp(Thread):
         self._is_running = True
         self._abort_reason: str | None = None
 
-        # the operator's intent, deliberately left unclamped so that raising or
-        # clearing a speed limit lets this ramp resume toward it with no new request
+        # A lowered ceiling permanently caps the current ramp request.
+        # Only an explicit retarget can establish a higher destination.
         self._requested_target = target_speed
         self._last_announced_target: int | None = None
 
@@ -569,7 +568,7 @@ class SpeedRamp(Thread):
 
     @property
     def requested_speed(self) -> int:
-        """The operator's target, unclamped."""
+        """The current request, including any ceiling captured by the ramp."""
         with self._lock:
             return self._requested_target
 
@@ -805,6 +804,11 @@ class SpeedRamp(Thread):
         """Preserve the startup entry point; subsequent retargets use the same path."""
         self._announce_target()
 
+    def _capture_ceiling(self) -> None:
+        """Make a lowered speed ceiling sticky for this ramp request."""
+        with self._lock:
+            self._requested_target = effective_target(self._requested_target, self._state)
+
     def _announce_target(self) -> None:
         """Synchronize a changed destination before the next throttle step.
 
@@ -816,8 +820,9 @@ class SpeedRamp(Thread):
         with self._wire:
             if self._is_running is False or self._claim_acquired is False:
                 return
+            self._capture_ceiling()
             with self._lock:
-                target = effective_target(self._requested_target, self._state)
+                target = self._requested_target
                 if target == self._last_announced_target:
                     return
             BaseReq.do_update_field("RAMP_TARGET_SPEED", target, self._state, do_async=False, refresh=False)
