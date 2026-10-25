@@ -377,7 +377,7 @@ def test_upgrade_in_api_mode_signals_without_acting(monkeypatch, commands) -> No
 
     assert commands == []
     assert calls == []
-    assert pytrain.exit_status == PyTrainExitStatus.UPDATE
+    assert pytrain.exit_status == PyTrainExitStatus.UPGRADE
 
 
 def test_relaunch_restarts_the_service_when_running_as_one(monkeypatch, commands) -> None:
