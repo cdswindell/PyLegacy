@@ -729,6 +729,13 @@ class PyTrain:
                 self._flatpak_local_restart = True
         if self.is_client and command == TMCC1SyncCommandEnum.QUIT:
             log.info("Client exiting...")
+        gui_close = getattr(self, "_gui_admin_close", None)
+        if gui_close is not None:
+            # A GUI-hosted PyTrain uses the API worker for its command queue,
+            # but Tk owns the process: do not signal an external API host.
+            self.shutdown()
+            gui_close()
+            return
         if self._api_thread:
             self.shutdown()
         if self.is_api:
