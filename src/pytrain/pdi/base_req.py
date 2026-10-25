@@ -285,10 +285,10 @@ class BaseReq(PdiReq, CompDataMixin):
                     # Firmware 1.38+ requires a synthetic target-speed command for 2D records.
                     # Attach it to the write so it is sent only if the write survives deduplication.
                     if (
-            tmcc_id <= 99
-            and scope in {CommandScope.ENGINE, CommandScope.TRAIN}
-            and pkg.field == "target_speed"
-        ):
+                        tmcc_id <= 99
+                        and scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+                        and pkg.field == "target_speed"
+                    ):
                         from ..db.comp_data import decode_tmcc_speed
 
                         target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
