@@ -67,3 +67,29 @@ def test_pycab_gui_server_nonrestart_runs_deferred_action():
     cmd._perform_server_admin_action()
     assert train._api is False
     train.perform_deferred_admin_action.assert_called_once_with()
+
+
+def test_gui_hosted_client_restart_closes_tk_without_api_notification(monkeypatch):
+    from src.pytrain.cli.pycab import PyCabGuiCmd
+
+    cmd = object.__new__(PyCabGuiCmd)
+    gui = SimpleNamespace(close=MagicMock())
+    cmd._gui = gui
+    train = object.__new__(PyTrain)
+    train._admin_state_lock = Lock()
+    train._exit_requested = False
+    train._shutdown_started = False
+    train._admin_action = None
+    train._received_admin_cmds = set()
+    train._log_admin_exit = MagicMock()
+    train._api_thread = object()
+    train._api = True
+    train._gui_admin_close = cmd._close_for_admin_action
+    train.shutdown = MagicMock()
+    train._notify_api_exit = MagicMock()
+    monkeypatch.setattr("src.pytrain.cli.pytrain.os.kill", MagicMock(side_effect=AssertionError("SIGINT")))
+    train._request_admin_exit(Sync.RESTART, source="callback")
+    assert train._admin_action == Sync.RESTART
+    train.shutdown.assert_called_once_with()
+    gui.close.assert_called_once_with()
+    train._notify_api_exit.assert_not_called()
