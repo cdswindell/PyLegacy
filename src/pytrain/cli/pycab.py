@@ -346,6 +346,13 @@ class PyCabGuiCmd(CommandBase):
             echo=self._cli.args.echo,
         )
         self._command = self._build_command()
+        # CommandBase starts a PyTrain API-style worker to avoid blocking Tk.
+        # PyCab is its own GUI host, not PyTrainApi: close Tk on admin exits.
+        self.pytrain._gui_admin_close = self._close_for_admin_action
+
+    def _close_for_admin_action(self) -> None:
+        if self._gui is not None:
+            self._gui.close()
 
     @property
     def scope(self) -> CommandScope:
@@ -389,7 +396,7 @@ class PyCabGuiCmd(CommandBase):
             self.pytrain.shutdown()
             # GUI-hosted servers do not run PyTrain.run(), so execute their
             # recorded action only after Tk and communication have shut down.
-            if getattr(self.pytrain, "is_server", False) and getattr(self.pytrain, "_exit_requested", False):
+            if getattr(self.pytrain, "_exit_requested", False):
                 self._perform_server_admin_action()
 
     def _perform_server_admin_action(self) -> None:
