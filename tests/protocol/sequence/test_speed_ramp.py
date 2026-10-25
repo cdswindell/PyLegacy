@@ -305,7 +305,6 @@ class TestSpeedRamp(TestBase):
         self, scope, is_d4, ramp_target_update, ramp_refresh_scheduling
     ):
         state = RampEngineState(scope=scope, is_d4=is_d4, speed=0)
-        recorder = Recorder()
 
         def hook(rec, _count):
             if len(rec.speeds) == 4 and ramp.requested_speed == 102:
