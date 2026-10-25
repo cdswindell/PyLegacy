@@ -397,7 +397,9 @@ def test_remote_claim_preserves_command_targets(
                 assert isinstance(item, BaseReq)
                 assert item.data_bytes == b"\x2d"
                 assert item.tmcc_id == target_state.tmcc_id
-        injections = [item for item in updates if item not in memory]
+        injections = [
+            item._target_speed_update for item in memory if getattr(item, "_target_speed_update", None) is not None
+        ]
         if active or target_state.tmcc_id > 99:
             assert injections == []
         else:
@@ -507,7 +509,7 @@ def test_absolute_speed_updates_follow_ramp_lifecycle(
             updates.append(update)
         expected_commands = [PdiCommand.BASE_MEMORY]
         if not is_ramping:
-            expected_commands.extend([native_command, PdiCommand.BASE_MEMORY])
+            expected_commands.append(PdiCommand.BASE_MEMORY)
         assert [update.pdi_command for update in updates] == expected_commands
         memory_updates = [update for update in updates if update.pdi_command == PdiCommand.BASE_MEMORY]
         assert [(update.start, update.data_length, update.data_bytes) for update in memory_updates] == (
@@ -518,7 +520,8 @@ def test_absolute_speed_updates_follow_ramp_lifecycle(
             assert update.scope == state.scope
             assert update.flags == 0xC2
         if not is_ramping:
-            native = updates[1]
+            native = updates[1]._target_speed_update
+            assert native.pdi_command == native_command
             assert isinstance(native, BaseReq)
             assert native.record_no == 7
             assert native.target_speed == speed
@@ -1246,7 +1249,7 @@ def test_synthetic_target_update_follows_accepted_write_only(scope, isolated_db_
     dispatch(5)
     assert len(sent) == 4  # Changed target speed must never be suppressed.
     assert sent[2].target_speed == 5
-    assert sent[3].data_bytes == b"\\x05"
+    assert sent[3].data_bytes == bytes([5])
 
     clock[0] += base_req_module.BASE3_WRITE_DEDUP_SECONDS
     dispatch(5)
@@ -1255,7 +1258,7 @@ def test_synthetic_target_update_follows_accepted_write_only(scope, isolated_db_
 
 def test_non_target_database_write_has_no_synthetic_command(initialized_update_state, isolated_db_write_history):
     state = initialized_update_state(60)
-    reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("speed", 0x07, 1, b"\\x10")], refresh=False)
+    reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("speed", 0x07, 1, bytes([16]))], refresh=False)
     sent = []
     BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
     assert len(sent) == 1
