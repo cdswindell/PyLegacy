@@ -1220,11 +1220,10 @@ def test_changed_rpm_labor_byte_is_not_deduplicated(monkeypatch, initialized_upd
 
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
 def test_synthetic_target_update_follows_accepted_write_only(
-    scope, initialized_update_state, isolated_db_write_history, monkeypatch
+    scope, isolated_db_write_history, monkeypatch
 ):
     """The synthetic speed update is dispatched only with a non-suppressed 2D write."""
-    state = initialized_update_state(60)
-    state._scope = scope
+    state = SimpleNamespace(tmcc_id=60, scope=scope, is_legacy=True, is_ramp_active=False)
     clock = [100.0]
     monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
     sent = []
