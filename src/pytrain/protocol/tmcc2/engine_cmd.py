@@ -14,7 +14,7 @@ class EngineCmd(TMCC2Command):
         scope: CommandScope = CommandScope.ENGINE,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
-        server: str = None,
+        server: str | None = None,
     ) -> None:
         if scope is None or scope not in [CommandScope.ENGINE, CommandScope.TRAIN]:
             raise ValueError(f"Scope must be ENGINE or TRAIN ({scope})")

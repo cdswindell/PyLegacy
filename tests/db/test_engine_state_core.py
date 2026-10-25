@@ -15,6 +15,8 @@ assertions record what these classes do *today*, so that a later correction to a
 of them is a deliberate, visible change rather than a silent one.
 """
 
+from unittest.mock import Mock
+
 import pytest
 
 from src.pytrain import CommandScope, TMCC2EffectsControl
@@ -25,10 +27,11 @@ from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.db.prod_info import ProdInfo
-from src.pytrain.pdi.base_req import BaseReq
+from src.pytrain.pdi.base_req import BaseReq, EngineBits
 from src.pytrain.pdi.constants import D4Action, IrdaAction, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.irda_req import IrdaReq
+from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import (
     CAB1_CONTROL_TYPE,
@@ -42,6 +45,7 @@ from src.pytrain.protocol.multibyte.multibyte_constants import (
     TMCC2R4LCEnum,
     UnitAssignment,
 )
+from src.pytrain.protocol.sequence.speed_ramp import SpeedRamp
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
     TMCC1EngineCommandEnum as TMCC1,
     TMCC1HaltCommandEnum,
@@ -58,6 +62,24 @@ def pin_process_globals(monkeypatch):
     """
     monkeypatch.setattr(CommBuffer, "is_server", staticmethod(lambda: False))
     monkeypatch.setattr(ComponentStateStore, "is_state_synchronized", classmethod(lambda _cls: False))
+
+
+def known_address(state: EngineState) -> int:
+    address = state.address
+    assert isinstance(address, int)
+    return address
+
+
+def record_data(state: EngineState) -> CompData:
+    data = state.comp_data
+    assert isinstance(data, CompData)
+    return data
+
+
+def assert_unknown(value: object) -> None:
+    # Some production properties annotate a nonoptional result but return None
+    # before a record arrives. Check that runtime contract without false narrowing.
+    assert value is None
 
 
 def new_engine(addr: int = 7, *, legacy: bool = False) -> EngineState:
@@ -105,11 +127,11 @@ class TestEngineStateConstruction:
 
         assert state.direction is None
         assert state.direction_label == "--"
-        assert state.numeric is None
+        assert_unknown(state.numeric)
         assert state.stop_start is None
         assert state.is_started is False
         assert state.is_shutdown is False
-        assert state.year is None
+        assert_unknown(state.year)
         assert state.record_no is None
         assert state.record_no_label == ""
         assert state.is_lcs is False
@@ -130,9 +152,9 @@ class TestEngineStateConstruction:
         assert state.speed_limit == 255
         assert state.max_speed == 255
         assert state.smoke_level is None
-        assert state.train_tmcc_id is None
-        assert state.train_unit is None
-        assert state.bt_id is None
+        assert_unknown(state.train_tmcc_id)
+        assert_unknown(state.train_unit)
+        assert_unknown(state.bt_id)
         assert state.engine_type == 255
         assert state.engine_type_label == "NA"
         assert state.control_type == 255
@@ -254,8 +276,8 @@ class TestEngineStateWithoutARecord:
         train = TrainState(CommandScope.TRAIN)
         train._address = 21
 
-        assert train.consist_flags is None
-        assert train.consist_components is None
+        assert_unknown(train.consist_flags)
+        assert_unknown(train.consist_components)
 
         d = train.as_dict()
         assert d["flags"] is None
@@ -386,10 +408,10 @@ class TestEngineStateSpeedProperties:
         state = new_engine(legacy=True)
         state.comp_data._speed = 0
 
-        assert state.rr_speed.name == "STOP_HOLD"
+        assert state.rr_speed is TMCC2RRSpeedsEnum.STOP_HOLD
 
         state.comp_data._speed = 145
-        assert state.rr_speed.name == "NORMAL"
+        assert state.rr_speed is TMCC2RRSpeedsEnum.NORMAL
 
     #
     # a railroad speed names a band of speed steps, and an engine is running at that
@@ -409,7 +431,7 @@ class TestEngineStateSpeedProperties:
 
         for band in speeds:
             for step in band.value:
-                state.update(CommandReq.build(command, state.address, data=step))
+                state.update(CommandReq.build(command, known_address(state), data=step))
 
                 assert state.speed == step
                 assert state.rr_speed is band
@@ -425,7 +447,7 @@ class TestEngineStateSpeedProperties:
 
         assert state.speed == 45
         assert state.target_speed == target
-        assert state.comp_data.target_speed == target
+        assert record_data(state).target_speed == target
         assert state.is_ramping is is_ramping
         assert state.ramp is None
 
@@ -449,7 +471,7 @@ class TestEngineStateSpeedProperties:
         state.comp_data.target_speed = 45
         state.is_ramping = True
 
-        state.update(CommandReq.build(TMCC2.ENGINE_LABOR, state.address, data=18))
+        state.update(CommandReq.build(TMCC2.ENGINE_LABOR, known_address(state), data=18))
 
         assert state.labor == 18
         assert state.speed == state.target_speed == 45
@@ -461,10 +483,10 @@ class TestEngineStateSpeedProperties:
         # answering from the record scaled the speed down on the way back out
         state = new_engine(addr=1234)
 
-        state.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, state.address, data=75))
+        state.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, known_address(state), data=75))
 
-        assert state.comp_data.is_legacy is False  # the record still says nothing
-        assert state.comp_data._speed == 75
+        assert record_data(state).is_legacy is False  # the record still says nothing
+        assert record_data(state)._speed == 75
         assert state.speed == 75
         assert state.target_speed == 75
 
@@ -472,6 +494,8 @@ class TestEngineStateSpeedProperties:
         state = new_engine(legacy=True)
         state.comp_data._target_speed = 40
 
+        # Deliberately exercise the runtime guard for an absent target.
+        # noinspection PyTypeChecker
         state.sync_target_speed(None)
         assert state.target_speed == 40
 
@@ -498,8 +522,8 @@ class TestEngineStateDerivedProperties:
         state.comp_data._fuel_level = None
         state.comp_data._water_level = None
 
-        assert state.fuel_level_pct is None
-        assert state.water_level_pct is None
+        assert_unknown(state.fuel_level_pct)
+        assert_unknown(state.water_level_pct)
         assert state.fuel_level_label == "NA"
 
     @pytest.mark.parametrize(
@@ -641,7 +665,7 @@ class TestEngineStateDerivedProperties:
         state.comp_data._smoke = 255
 
         assert state.smoke_level is None
-        assert state.smoke_label is None
+        assert_unknown(state.smoke_label)
         assert state.smoke_text == ""
 
     def test_the_train_assignment_is_read_from_the_record(self):
@@ -657,7 +681,7 @@ class TestEngineStateDerivedProperties:
         state.comp_data._train_tmcc_id = 255
         state.comp_data._train_unit = 255
 
-        assert state.train_tmcc_id is None
+        assert_unknown(state.train_tmcc_id)
         assert state.train_unit is None
 
     def test_soft_status_is_passed_through(self):
@@ -709,7 +733,7 @@ class TestEngineStateDirectionAndAux:
         assert state.is_aux_on is False
         assert state.is_aux_off is True
 
-        state.update(CommandReq.build(TMCC1.AUX1_OPTION_ONE, state.address))
+        state.update(CommandReq.build(TMCC1.AUX1_OPTION_ONE, known_address(state)))
 
         assert state.aux1 is TMCC1.AUX1_OPTION_ONE
         assert state.is_aux_on is True
@@ -718,19 +742,19 @@ class TestEngineStateDirectionAndAux:
     def test_aux2_option_one_alternates_the_aux2_state(self):
         state = new_engine()
 
-        state.update(CommandReq.build(TMCC1.AUX2_OPTION_ONE, state.address))
+        state.update(CommandReq.build(TMCC1.AUX2_OPTION_ONE, known_address(state)))
         assert state.aux2 is TMCC1.AUX2_ON
         assert state.is_aux2 is True
 
         # the second press is inside the one second window the alternation is guarded by
         state._last_command = None
-        state.update(CommandReq.build(TMCC1.AUX2_OPTION_ONE, state.address))
+        state.update(CommandReq.build(TMCC1.AUX2_OPTION_ONE, known_address(state)))
         assert state.aux2 is TMCC1.AUX2_ON
 
     def test_an_explicit_aux2_command_is_recorded_as_sent(self):
         state = new_engine()
 
-        state.update(CommandReq.build(TMCC1.AUX2_OFF, state.address))
+        state.update(CommandReq.build(TMCC1.AUX2_OFF, known_address(state)))
 
         assert state.aux2 is TMCC1.AUX2_OFF
         assert state.is_aux2 is False
@@ -738,7 +762,7 @@ class TestEngineStateDirectionAndAux:
     def test_is_aux1_is_answered_from_the_aux1_setting(self):
         state = new_engine()
 
-        state.update(CommandReq.build(TMCC1.AUX1_ON, state.address))
+        state.update(CommandReq.build(TMCC1.AUX1_ON, known_address(state)))
 
         assert state.aux1 is TMCC1.AUX1_ON
         assert state.is_aux1 is True
@@ -753,6 +777,8 @@ class TestEngineStateDirectionAndAux:
         state = new_engine()
         state.comp_data._soft_status = soft_status
 
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.direction is direction
@@ -762,6 +788,8 @@ class TestEngineStateDirectionAndAux:
         state = new_engine(legacy=True)
         state.comp_data._soft_status = soft_status
 
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.direction is direction
@@ -772,6 +800,8 @@ class TestEngineStateDirectionAndAux:
         state = new_engine()
         state.comp_data._soft_status = None
 
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.direction is None
@@ -779,9 +809,13 @@ class TestEngineStateDirectionAndAux:
     def test_only_the_first_record_initializes_the_direction(self):
         state = new_engine()
         state.comp_data._soft_status = 0
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         state.comp_data._soft_status = 1
+        # Exercise a second snapshot through the same minimal record contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         # after the first record the command stream is the authority on direction, so a
@@ -793,9 +827,11 @@ class TestEngineStateDirectionAndAux:
         # only worth reading while we know nothing: a record arriving after the operator
         # had already reversed the engine used to turn it around again
         state = new_engine()
-        state.update(CommandReq.build(TMCC1.REVERSE_DIRECTION, state.address))
+        state.update(CommandReq.build(TMCC1.REVERSE_DIRECTION, known_address(state)))
         state.comp_data._soft_status = 0  # the Base says forward
 
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.direction is TMCC1.REVERSE_DIRECTION
@@ -805,16 +841,16 @@ class TestEngineStateCommandHandling:
     def test_a_numeric_command_is_remembered(self):
         state = new_engine()
 
-        state.update(CommandReq.build(TMCC1.NUMERIC, state.address, data=3))
+        state.update(CommandReq.build(TMCC1.NUMERIC, known_address(state), data=3))
 
         assert state.numeric == 3
         assert state._numeric_cmd is TMCC1.NUMERIC
 
     def test_a_tmcc1_aux1_prefixed_numeric_becomes_a_startup(self):
         state = new_engine()
-        state.update(CommandReq.build(TMCC1.AUX1_OPTION_ONE, state.address))
+        state.update(CommandReq.build(TMCC1.AUX1_OPTION_ONE, known_address(state)))
 
-        state.update(CommandReq.build(TMCC1.NUMERIC, state.address, data=3))
+        state.update(CommandReq.build(TMCC1.NUMERIC, known_address(state), data=3))
 
         assert state.stop_start is TMCC1.START_UP_IMMEDIATE
         assert state.is_started is True
@@ -822,9 +858,9 @@ class TestEngineStateCommandHandling:
 
     def test_a_tmcc1_aux1_prefixed_five_becomes_a_shutdown(self):
         state = new_engine()
-        state.update(CommandReq.build(TMCC1.AUX1_OPTION_ONE, state.address))
+        state.update(CommandReq.build(TMCC1.AUX1_OPTION_ONE, known_address(state)))
 
-        state.update(CommandReq.build(TMCC1.NUMERIC, state.address, data=5))
+        state.update(CommandReq.build(TMCC1.NUMERIC, known_address(state), data=5))
 
         assert state.stop_start is TMCC1.SHUTDOWN_IMMEDIATE
         assert state.is_shutdown is True
@@ -832,17 +868,17 @@ class TestEngineStateCommandHandling:
     def test_startup_and_shutdown_commands_are_recorded(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2.START_UP_IMMEDIATE, state.address))
+        state.update(CommandReq.build(TMCC2.START_UP_IMMEDIATE, known_address(state)))
         assert state.is_started is True
 
-        state.update(CommandReq.build(TMCC2.SHUTDOWN_DELAYED, state.address))
+        state.update(CommandReq.build(TMCC2.SHUTDOWN_DELAYED, known_address(state)))
         assert state.is_shutdown is True
         assert state.is_started is False
 
     def test_a_train_brake_command_is_written_to_the_record(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2.TRAIN_BRAKE, state.address, data=5))
+        state.update(CommandReq.build(TMCC2.TRAIN_BRAKE, known_address(state), data=5))
 
         assert state.train_brake == 5
 
@@ -857,14 +893,14 @@ class TestEngineStateCommandHandling:
     def test_the_momentum_commands_set_their_notch(self, command, expected):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(command, state.address))
+        state.update(CommandReq.build(command, known_address(state)))
 
         assert state.momentum == expected
 
     def test_the_legacy_momentum_command_carries_its_own_notch(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2.MOMENTUM, state.address, data=4))
+        state.update(CommandReq.build(TMCC2.MOMENTUM, known_address(state), data=4))
 
         assert state.momentum == 4
 
@@ -872,39 +908,71 @@ class TestEngineStateCommandHandling:
         state = new_engine(legacy=True)
         state.comp_data._engine_type = 0
 
-        state.update(CommandReq.build(TMCC2.DIESEL_RPM, state.address, data=6))
+        state.update(CommandReq.build(TMCC2.DIESEL_RPM, known_address(state), data=6))
 
         assert state.rpm == 6
 
     def test_a_labor_command_is_written_to_the_record(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2.ENGINE_LABOR, state.address, data=20))
+        state.update(CommandReq.build(TMCC2.ENGINE_LABOR, known_address(state), data=20))
 
         assert state.labor == 20
 
     @pytest.mark.parametrize("legacy, command", [(True, TMCC2.ABSOLUTE_SPEED), (False, TMCC1.ABSOLUTE_SPEED)])
-    @pytest.mark.parametrize("is_ramping", [False, True])
-    def test_an_absolute_speed_command_moves_speed_and_target_together(self, legacy, command, is_ramping):
+    def test_an_absolute_speed_command_moves_speed_and_target_together(self, legacy, command):
         state = new_engine(legacy=legacy)
         state.comp_data.target_speed = 90
-        state.is_ramping = is_ramping
+        assert state.is_ramp_active is False
 
-        for speed in (15, 25, 0):
-            state.update(CommandReq.build(command, state.address, data=speed))
+        for speed, encoded_speed in ((15, 96), (25, 160), (0, 0)):
+            state.update(CommandReq.build(command, known_address(state), data=speed))
 
             assert state.speed == speed
             assert state.target_speed == speed
-            assert state.comp_data.speed == state.comp_data.target_speed
-            assert state.is_ramping is is_ramping
+            assert record_data(state).speed == (speed if legacy else encoded_speed)
+            assert record_data(state).speed == record_data(state).target_speed
+            assert state.is_ramping is False
+            assert state.is_ramp_active is False
             assert state.ramp is None
+
+    @pytest.mark.parametrize("legacy, command", [(True, TMCC2.ABSOLUTE_SPEED), (False, TMCC1.ABSOLUTE_SPEED)])
+    def test_an_absolute_speed_command_preserves_target_until_local_ramping_ends(self, legacy, command):
+        state = new_engine(legacy=legacy)
+        # The same raw database target decodes differently for Legacy and TMCC1.
+        state.comp_data.target_speed = 90
+        state.is_ramping = True
+
+        for speed, encoded_speed in ((15, 96), (25, 160), (0, 0)):
+            state.update(CommandReq.build(command, known_address(state), data=speed))
+
+            assert state.speed == speed
+            assert state.target_speed == (90 if legacy else 14)
+            assert record_data(state).speed == (speed if legacy else encoded_speed)
+            assert record_data(state).target_speed == 90
+            assert state.is_ramping is True
+            assert state.is_ramp_active is True
+            assert state.is_remote_ramping is False
+            assert state.ramp is None
+
+        state.is_ramping = False
+        assert state.is_ramp_active is False
+        state.update(CommandReq.build(command, known_address(state), data=12))
+
+        assert state.speed == state.target_speed == 12
+        assert record_data(state).speed == record_data(state).target_speed == (12 if legacy else 77)
+        assert state.is_ramping is False
+        assert state.is_ramp_active is False
+        assert state.ramp is None
 
     def test_a_railroad_speed_command_resolves_its_alias(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2.SPEED_RESTRICTED, state.address))
+        state.update(CommandReq.build(TMCC2.SPEED_RESTRICTED, known_address(state)))
 
-        assert state.speed == int(TMCC2.SPEED_RESTRICTED.alias[1])
+        alias = TMCC2.SPEED_RESTRICTED.alias
+        assert isinstance(alias, tuple)
+        assert state.speed == int(alias[1])
 
     @pytest.mark.parametrize("is_ramping", [False, True])
     @pytest.mark.parametrize("target", [0, 20, 90])
@@ -914,17 +982,78 @@ class TestEngineStateCommandHandling:
         state.comp_data._target_speed = 20
         state.is_ramping = is_ramping
 
-        state.update(CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, state.address, data=target))
+        state.update(CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, known_address(state), data=target))
 
         assert state.target_speed == 20
         assert state.speed == 20
         assert state.is_ramping is is_ramping
         assert state.ramp is None
 
+    @pytest.mark.parametrize("legacy", [False, True], ids=["tmcc", "legacy"])
+    @pytest.mark.parametrize("is_ramping", [False, True], ids=["idle", "local-ramp"])
+    @pytest.mark.parametrize(
+        "scope, command, packet, raw_target, tmcc_target",
+        [
+            (CommandScope.ENGINE, PdiCommand.UPDATE_ENGINE_SPEED, "d1 2a 07 ff 00 d0 df", 0, 0),
+            (CommandScope.ENGINE, PdiCommand.UPDATE_ENGINE_SPEED, "d1 2a 07 ff 2d a3 df", 45, 7),
+            (CommandScope.ENGINE, PdiCommand.UPDATE_ENGINE_SPEED, "d1 2a 07 ff c7 09 df", 199, 31),
+            (CommandScope.TRAIN, PdiCommand.UPDATE_TRAIN_SPEED, "d1 2b 07 ff 00 cf df", 0, 0),
+            (CommandScope.TRAIN, PdiCommand.UPDATE_TRAIN_SPEED, "d1 2b 07 ff 2d a2 df", 45, 7),
+            (CommandScope.TRAIN, PdiCommand.UPDATE_TRAIN_SPEED, "d1 2b 07 ff c7 08 df", 199, 31),
+        ],
+    )
+    def test_native_target_updates_only_target_and_preserves_local_ramp(
+        self, legacy, is_ramping, scope, command, packet, raw_target, tmcc_target
+    ):
+        # Fixed incoming packets include the short-address marker and independent
+        # checksums; no outbound factory or serializer defines this expectation.
+        state = new_engine() if scope == CommandScope.ENGINE else new_train(addr=7)
+        assert state.comp_data is not None
+        # Set the reported control type without sending configuration commands.
+        # noinspection PyProtectedMember
+        state.comp_data._control_type = LEGACY_CONTROL_TYPE if legacy else TMCC_CONTROL_TYPE
+        # noinspection PyProtectedMember
+        state._is_legacy = legacy
+        state.comp_data.speed = 90
+        state.comp_data.target_speed = 90
+        ramp = Mock(spec=SpeedRamp, is_active=True, target_speed=18) if is_ramping else None
+        # Install an owner without starting a worker or accessing transport.
+        # noinspection PyProtectedMember
+        state._ramp = ramp
+        state.is_ramping = is_ramping
+
+        incoming = PdiReq.from_bytes(bytes.fromhex(packet))
+
+        assert isinstance(incoming, BaseReq)
+        assert incoming.pdi_command == command
+        assert incoming.scope == state.scope == scope
+        assert incoming.tmcc_id == state.address == 7
+        assert incoming.status == 0
+        assert incoming.is_valid(EngineBits.TARGET_SPEED)
+        assert not incoming.is_valid(EngineBits.SPEED)
+        assert incoming.target_speed == raw_target
+        assert incoming.speed is None
+
+        state.update(incoming)
+
+        updated_data = state.comp_data
+        assert isinstance(updated_data, CompData)
+        assert updated_data.target_speed == raw_target
+        assert state.target_speed == (raw_target if legacy else tmcc_target)
+        assert updated_data.speed == 90
+        assert state.speed == (90 if legacy else 14)
+        assert state.is_ramping is is_ramping
+        assert state.ramp is ramp
+        assert state.ramp_claim is None
+        if ramp is not None:
+            assert ramp.is_active is True
+            assert ramp.target_speed == 18
+            assert ramp.mock_calls == []
+
     def test_a_smoke_command_is_written_to_the_record(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2EffectsControl.SMOKE_MEDIUM, state.address))
+        state.update(CommandReq.build(TMCC2EffectsControl.SMOKE_MEDIUM, known_address(state)))
 
         assert state.smoke_level is TMCC2EffectsControl.SMOKE_MEDIUM
 
@@ -948,9 +1077,11 @@ class TestEngineStateCommandHandling:
         state = new_engine()
         state.comp_data._smoke = 255
 
-        state.update(CommandReq.build(command, state.address, data=data))
+        # None deliberately represents a smoke command without a data argument.
+        # noinspection PyTypeChecker
+        state.update(CommandReq.build(command, known_address(state), data=data))
 
-        assert state.comp_data.smoke == raw
+        assert record_data(state).smoke == raw
         assert state.smoke_level is smoke
 
     @pytest.mark.parametrize(
@@ -969,10 +1100,10 @@ class TestEngineStateCommandHandling:
         state = new_engine(addr=1234)
         state.comp_data._smoke = 255
 
-        state.update(CommandReq.build(smoke, state.address))
+        state.update(CommandReq.build(smoke, known_address(state)))
 
-        assert state.comp_data.is_legacy is False  # the record says nothing
-        assert state.comp_data.smoke == raw
+        assert record_data(state).is_legacy is False  # the record says nothing
+        assert record_data(state).smoke == raw
         assert state.smoke_level is smoke
 
     def test_a_tmcc1_keypress_on_a_legacy_engine_records_a_level(self):
@@ -981,9 +1112,9 @@ class TestEngineStateCommandHandling:
         state = new_engine(legacy=True)
         state.comp_data._smoke = 255
 
-        state.update(CommandReq.build(TMCC1.SMOKE_ON, state.address))
+        state.update(CommandReq.build(TMCC1.SMOKE_ON, known_address(state)))
 
-        assert state.comp_data.smoke == 1
+        assert record_data(state).smoke == 1
         assert state.smoke_level is TMCC2EffectsControl.SMOKE_LOW
 
     @pytest.mark.parametrize("command", [TMCC1HaltCommandEnum.HALT, TMCC2.SYSTEM_HALT])
@@ -995,13 +1126,13 @@ class TestEngineStateCommandHandling:
         state.comp_data.labor_tmcc = 20
         state._numeric = 3
 
-        state.update(CommandReq.build(command, state.address))
+        state.update(CommandReq.build(command, known_address(state)))
 
         assert state.speed == 0
         assert state.target_speed == 0
-        assert state.comp_data.rpm_tmcc == 0
+        assert record_data(state).rpm_tmcc == 0
         assert state.labor == 12
-        assert state.numeric is None
+        assert_unknown(state.numeric)
         assert state.aux1 is TMCC2.AUX1_OFF
         assert state.aux2 is TMCC2.AUX2_OFF
         assert state.is_ramping is False
@@ -1010,33 +1141,41 @@ class TestEngineStateCommandHandling:
         state = new_engine(legacy=True)
         state._direction = TMCC2.FORWARD_DIRECTION
 
-        assert state._update_state(CommandReq.build(TMCC2.FORWARD_DIRECTION, state.address)) is UpdateResult.NO_CHANGE
+        assert (
+            state._update_state(CommandReq.build(TMCC2.FORWARD_DIRECTION, known_address(state)))
+            is UpdateResult.NO_CHANGE
+        )
 
     def test_a_direction_command_that_changes_direction_is_an_update(self):
         state = new_engine(legacy=True)
         state._direction = TMCC2.FORWARD_DIRECTION
 
-        assert state._update_state(CommandReq.build(TMCC2.REVERSE_DIRECTION, state.address)) is UpdateResult.UPDATED
+        assert (
+            state._update_state(CommandReq.build(TMCC2.REVERSE_DIRECTION, known_address(state))) is UpdateResult.UPDATED
+        )
         assert state.direction is TMCC2.REVERSE_DIRECTION
 
     def test_no_command_at_all_is_ignored(self):
         state = new_engine()
 
+        # Deliberately exercise the runtime guard for an absent command.
+        # noinspection PyTypeChecker
         assert state._update_state(None) is UpdateResult.IGNORED
 
     def test_the_train_address_and_unit_come_from_an_r4lc_command(self):
         state = new_engine(legacy=True)
 
-        state.update(CommandReq.build(TMCC2R4LCEnum.TRAIN_ADDRESS, state.address, data=9))
+        state.update(CommandReq.build(TMCC2R4LCEnum.TRAIN_ADDRESS, known_address(state), data=9))
         assert state.train_tmcc_id == 9
 
-        state.update(CommandReq.build(TMCC2R4LCEnum.TRAIN_UNIT, state.address, data=1))
+        state.update(CommandReq.build(TMCC2R4LCEnum.TRAIN_UNIT, known_address(state), data=1))
         assert state.train_unit is UnitAssignment.HEAD_FORWARD
 
+    @pytest.mark.smoke
     def test_a_base_memory_field_update_is_applied_to_the_record(self):
         state = new_engine(legacy=True)
         req = BaseReq(
-            state.address,
+            known_address(state),
             pdi_command=PdiCommand.BASE_MEMORY,
             scope=CommandScope.ENGINE,
             start=0x6B,  # max speed
@@ -1051,7 +1190,7 @@ class TestEngineStateCommandHandling:
 
     def test_an_irda_data_record_carries_the_production_year(self):
         state = new_engine()
-        req = IrdaReq(state.address, PdiCommand.IRDA_RX, IrdaAction.DATA, scope=CommandScope.ENGINE)
+        req = IrdaReq(known_address(state), PdiCommand.IRDA_RX, IrdaAction.DATA, scope=CommandScope.ENGINE)
         req._prod_year = 2021
 
         state.update(req)
@@ -1063,6 +1202,8 @@ class TestEngineStateCommandHandling:
         state.comp_data.speed = 0
         state.comp_data.target_speed = 0
 
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.target_speed == 0
@@ -1075,6 +1216,8 @@ class TestEngineStateCommandHandling:
         state.comp_data.target_speed = target
         state.is_ramping = is_ramping
 
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.speed == 40
@@ -1235,9 +1378,13 @@ class TestEngineStateKnownDefects:
         # status byte leaves the direction unknown -- and no later record can supply it
         state = new_engine()
         state.comp_data._soft_status = None
+        # The record double intentionally implements only the consumed mixin contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         state.comp_data._soft_status = 1
+        # Exercise a second snapshot through the same minimal record contract.
+        # noinspection PyTypeChecker
         state._update_state(_CompDataRecord(state.comp_data))
 
         assert state.direction is None
@@ -1267,7 +1414,7 @@ class TestTrainStateCore:
     def test_a_multi_digit_train_is_legacy_by_its_address(self):
         train = new_train()
 
-        assert train.comp_data.is_legacy is False  # the record says nothing
+        assert record_data(train).is_legacy is False  # the record says nothing
         assert train.is_legacy is True
         assert train.is_tmcc is False
 
@@ -1291,7 +1438,7 @@ class TestTrainStateCore:
 
         assert train.is_legacy is False
 
-        train.update(CommandReq.build(TMCC2.NUMERIC, train.address, data=1, scope=CommandScope.TRAIN))
+        train.update(CommandReq.build(TMCC2.NUMERIC, known_address(train), data=1, scope=CommandScope.TRAIN))
 
         assert train.is_legacy is True
 
@@ -1322,7 +1469,7 @@ class TestTrainStateCore:
         # iterate it unguarded
         train = new_train()
 
-        assert train.consist_components is None
+        assert_unknown(train.consist_components)
 
         d = train.as_dict()
 
@@ -1349,10 +1496,10 @@ class TestTrainStateCore:
         # answer from the state's own view of the protocol flavor
         train = new_train()
 
-        train.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, train.address, data=75, scope=CommandScope.TRAIN))
+        train.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, known_address(train), data=75, scope=CommandScope.TRAIN))
 
-        assert train.comp_data.is_legacy is False  # the record still says nothing
-        assert train.comp_data._speed == 75
+        assert record_data(train).is_legacy is False  # the record still says nothing
+        assert record_data(train)._speed == 75
         assert train.speed == 75
         assert train.target_speed == 75
 
@@ -1360,6 +1507,6 @@ class TestTrainStateCore:
         train = new_train()
         train.comp_data._control_type = LEGACY_CONTROL_TYPE
 
-        train.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, train.address, data=75, scope=CommandScope.TRAIN))
+        train.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, known_address(train), data=75, scope=CommandScope.TRAIN))
 
         assert train.speed == 75

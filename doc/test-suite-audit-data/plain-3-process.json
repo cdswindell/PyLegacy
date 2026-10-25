@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/Users/davids/Documents/dev/PyLegacyEnv/bin/python3.13",
+    "-m",
+    "pytest",
+    "--durations=0",
+    "--durations-min=0"
+  ],
+  "wall_seconds": 16.70252612499462,
+  "status": 0,
+  "timeout_seconds": 120.0,
+  "python": "3.13.16 (main, Sep 30 2026, 18:57:20) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "environment": {
+    "PYTEST_ADDOPTS": null,
+    "PYTEST_PLUGINS": null,
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD": null,
+    "PYTRAIN_API_CHECKOUT": null,
+    "PYTHONPATH": "."
+  }
+}

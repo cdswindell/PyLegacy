@@ -161,7 +161,13 @@ class QueryPkg:
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length}"
 
-    def as_request(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE, record_no: int = None) -> PdiReq:
+    # noinspection bad-argument-type
+    def as_request(
+        self,
+        tmcc_id: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        record_no: int | None = None,
+    ) -> PdiReq:
         from ..pdi.base_req import BaseReq
         from ..pdi.d4_req import D4Req
 
@@ -175,7 +181,7 @@ class QueryPkg:
                 data_length=self.length,
             )
         else:
-            assert record_no != 0xFFFF
+            assert 0 <= record_no < 0xFFFF
             pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             return D4Req(
                 record_no,
@@ -194,7 +200,13 @@ class UpdatePkg(QueryPkg):
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length} data: {self.data_bytes.hex()}"
 
-    def as_request(self, tmcc_id: int, scope: CommandScope = CommandScope.ENGINE, record_no: int = None) -> PdiReq:
+    # noinspection unresolved-references
+    def as_request(
+        self,
+        tmcc_id: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        record_no: int | None = None,
+    ) -> PdiReq:
         from ..pdi.base_req import BaseReq
         from ..pdi.d4_req import D4Req
 
@@ -213,7 +225,7 @@ class UpdatePkg(QueryPkg):
                 from ..db.component_state_store import ComponentStateStore
 
                 state = ComponentStateStore.get_state(scope, tmcc_id, False)
-                record_no = state.record_no if state else 0xFFFF
+                record_no = state.record_no if state and state.record_no is not None else 0xFFFF
             assert record_no != 0xFFFF
             pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             return D4Req(
@@ -498,6 +510,7 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", encode_tmcc_speed),
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
+    "RAMP_TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -610,7 +623,7 @@ class CompData(ABC, Generic[R]):
         return cls._state_store
 
     @classmethod
-    def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
+    def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int | None = None) -> C:
         """
         Parse byte packet into a CompData object, based on scope.
         """
@@ -638,7 +651,7 @@ class CompData(ABC, Generic[R]):
 
     # noinspection PyTypeChecker
     @classmethod
-    def request_to_updates(cls, req: R) -> list[UpdatePkg] | None:
+    def request_to_updates(cls, req: R) -> list[UpdatePkg]:
         """
         Pushes derivative state changes to Base 3 in response to a CommandReq.
         For example, when an engine is reset (Numeric 0), its speed and RPM
@@ -657,13 +670,67 @@ class CompData(ABC, Generic[R]):
             for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []).copy():
                 if update not in updates:
                     updates.append(update)
+        updates = cls._filter_updates(updates, cmd.name, req.tmcc_id, req.scope)
         for update in updates:
+            # Instantiates and collects valid update packages from definitions
             if isinstance(update, tuple) and len(update) >= 1:
                 transform = update[1] if len(update) >= 2 else None
                 pkg = cls._create_update_pkg(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
                 if pkg:
                     update_pkgs.append(pkg)
         return update_pkgs
+
+    @classmethod
+    def _filter_updates(
+        cls,
+        updates,
+        field: str,
+        tmcc_id: int,
+        scope: CommandScope,
+    ) -> list:
+        """
+        Filters the given updates based on the specified field, tmcc_id, and scope.
+
+        Args:
+            updates: The list of updates to filter.
+            field: The field to filter the updates by.
+            tmcc_id: The tmcc_id to filter the updates by.
+            scope: The scope to filter the updates by.
+
+        Returns:
+            A list of filtered updates.
+
+        Command-derived target speeds are filtered for known local or remote ramp activity.
+        Explicit field writes bypass this filter.
+        """
+        from .engine_state import EngineState
+
+        state = cls.state_store().get_state(scope, tmcc_id, create=False)
+        if isinstance(state, EngineState):
+            return [update for update in updates if cls._is_valid_update(update, field, state)]
+        return updates
+
+    @classmethod
+    def _is_valid_update(cls, update: tuple, field: str, state: "ComponentState") -> bool:
+        """
+        Determines if an update is valid based on the field and state.
+
+        Args:
+            update: The update to check.
+            field: The field to check the update against.
+            state: The state to check the update against.
+
+        Returns:
+            True if the update is valid, False otherwise.
+
+        Suppresses only ABSOLUTE_SPEED target packages for this engine or train.
+        """
+        from .engine_state import EngineState
+
+        if field == "ABSOLUTE_SPEED" and isinstance(state, EngineState):
+            if len(update) >= 1 and update[0] == "target_speed" and state:
+                return not state.is_ramp_active
+        return True
 
     @classmethod
     def field_to_updates(
@@ -673,10 +740,11 @@ class CompData(ABC, Generic[R]):
         scope: CommandScope = CommandScope.ENGINE,
         data: Any = None,
         legacy: bool = True,
-    ) -> list[UpdatePkg] | None:
+    ) -> list[UpdatePkg]:
         update_pkgs: list[UpdatePkg] = []
         # get a copy of the updates, as we don't want to modify the original dict
-        updates = REQUEST_TO_UPDATES_MAP.get(field.strip().upper(), []).copy()
+        field_name = field.strip().upper()
+        updates = REQUEST_TO_UPDATES_MAP.get(field_name, []).copy()
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
                 # noinspection PyTypeChecker
@@ -819,8 +887,8 @@ class CompData(ABC, Generic[R]):
         field: str,
         data: Any,
         state=None,
-        scope: CommandScope = None,
-        address: int = None,
+        scope: CommandScope | None = None,
+        address: int | None = None,
         is_legacy: bool = False,
     ) -> PdiReq | None:
         from .engine_state import EngineState, TrainState
@@ -898,7 +966,7 @@ class CompData(ABC, Generic[R]):
         scope = state.scope
         address = state.address
         if scope:
-            reqs = [cls.clear_road_name_number_req(address, scope)]
+            reqs: list[PdiReq | ComponentState] = [cls.clear_road_name_number_req(address, scope)]
             reqs.append(cls._clear_record_req(address, scope))
             reqs.append(state)
             return reqs
@@ -1145,7 +1213,7 @@ class EngineData(CompData):
     def __init__(
         self,
         data: bytes | None,
-        tmcc_id: int = None,
+        tmcc_id: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
         self._signal_initializing()
@@ -1219,7 +1287,7 @@ class TrainData(EngineData):
             components are defined.
     """
 
-    def __init__(self, data: bytes | None, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
@@ -1236,19 +1304,19 @@ class SwitchData(CompData):
     it initializes TMCC ID, Name, Number, and state during its construction phase.
     """
 
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         super().__init__(data, scope=CommandScope.SWITCH, tmcc_id=tmcc_id)
 
 
 class AccessoryData(CompData):
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         super().__init__(data, scope=CommandScope.ACC, tmcc_id=tmcc_id)
 
 
 class RouteData(CompData):
-    def __init__(self, data: bytes, tmcc_id: int = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
         self._signal_initializing()
         self._components: list[RouteComponent] | None = None
         super().__init__(data, scope=CommandScope.ROUTE, tmcc_id=tmcc_id)

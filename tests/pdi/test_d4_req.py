@@ -9,6 +9,7 @@
 import time
 from datetime import datetime
 
+import pytest
 
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req, LIONEL_EPOCH
@@ -26,6 +27,7 @@ def test_lionel_timestamp_bytes_length_and_endianness(monkeypatch):
     assert ts_bytes == (123456).to_bytes(4, "little")
 
 
+@pytest.mark.smoke
 def test_build_count_request_roundtrip_engine():
     req = D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT, count=5)
     assert req.action == D4Action.COUNT
@@ -106,6 +108,8 @@ def test_timestamp_str_empty_when_none():
     req = D4Req(1, PdiCommand.D4_ENGINE, D4Action.QUERY, start=0x00, data_length=1, timestamp=None, data_bytes=b"\x00")
     # When building, as_bytes will insert a timestamp; but the object still has timestamp=None before build()
     assert req.timestamp is None
+    # timestamp can be None before serialization despite its production annotation.
+    # noinspection PyUnreachableCode
     assert req.timestamp_str == ""
 
 

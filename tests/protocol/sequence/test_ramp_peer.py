@@ -1,13 +1,17 @@
 import socket
+import sys
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from threading import Event, RLock
+from threading import Event, RLock, Thread
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
 from src.pytrain.comm.comm_buffer import CommBuffer, CommBufferProxy, CommBufferSingleton
+from src.pytrain.pdi import base_req
+from src.pytrain.pdi.constants import PdiCommand
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
@@ -19,6 +23,14 @@ from src.pytrain.protocol.sequence.ramp_peer import (
     advertised_host,
     publish_claim,
 )
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
+
+from .ramp_test_support import RampEngineState, Recorder, build_ramp
+
+pytestmark = [
+    pytest.mark.usefixtures("ramp_target_update"),
+    pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning"),
+]
 
 
 class PeerRamp:
@@ -40,10 +52,9 @@ class PeerRamp:
 def peers():
     instances = []
 
-    def create(publisher=lambda command: None):
-        instance = RampPeer("127.0.0.1", publisher=publisher)
-        instances.append(instance)
-        return instance
+    def create(publisher: Callable[[CommandReq], None] = lambda command: None):
+        instances.append(RampPeer("127.0.0.1", publisher=publisher))
+        return instances[-1]
 
     yield create
     for instance in instances:
@@ -62,6 +73,20 @@ def acknowledge(peer, ramp, command):
         ramp.state.ramp_claim = None
 
 
+def claim_publisher(announcements: Queue, releases: Queue | None = None) -> Callable[[CommandReq], None]:
+    """Record claim traffic without delivering an ownership echo."""
+
+    def publish(command):
+        if command.command == TMCC2EngineCommandEnumEx.RAMP_CLAIM:
+            announcements.put(command)
+        elif releases is not None:
+            releases.put(command)
+
+    return publish
+
+
+# The peer is deliberately driven by a minimal ramp double rather than a worker thread.
+# noinspection PyTypeChecker
 def test_first_claim_needs_only_normal_broadcast_and_no_sockets(peers, monkeypatch):
     monkeypatch.setattr(socket, "socket", Mock(side_effect=AssertionError("No listener")))
     monkeypatch.setattr(socket, "create_connection", Mock(side_effect=AssertionError("No peer connection")))
@@ -78,14 +103,15 @@ def test_first_claim_needs_only_normal_broadcast_and_no_sockets(peers, monkeypat
     assert ramp.is_active
     assert ramp.state.ramp_claim == ramp.claim
     assert len(published) == 1
-    command = published[0]
-    assert (command.host, command.port) == (peer.host, peer.port)
-    assert 1 <= command.claim_id <= 65535
+    assert (published[0].host, published[0].port) == (peer.host, peer.port)
+    assert 1 <= published[0].claim_id <= 65535
     assert not hasattr(peer, "_server")
     assert not hasattr(peer, "_listener")
     assert not hasattr(peer, "request_history")
 
 
+# Minimal ramp doubles isolate ownership from worker execution.
+# noinspection PyTypeChecker
 def test_known_owner_rejects_new_ramp_without_contacting_or_canceling_it(peers):
     old_peer = peers()
     old = PeerRamp(old_peer)
@@ -104,16 +130,18 @@ def test_known_owner_rejects_new_ramp_without_contacting_or_canceling_it(peers):
     assert new.claim is None
 
 
+# Minimal ramp doubles let the test control claim delivery independently of workers.
+# noinspection PyTypeChecker
 @pytest.mark.parametrize("reverse", [False, True])
 def test_simultaneous_claims_accept_first_in_broadcast_order(peers, monkeypatch, reverse):
     """Creation timestamps now decide the winner, regardless of broadcast order."""
     clock = [1_800_000_000_000_000_000]
+    # Patch the module's imported clock, not the process-wide time function.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp_peer, "time_ns", lambda: clock[0])
     published = Queue()
 
-    def publish(command):
-        if command.command == TMCC2EngineCommandEnumEx.RAMP_CLAIM:
-            published.put(command)
+    publish = claim_publisher(published)
 
     first_peer, second_peer = peers(publish), peers(publish)
     first, second = PeerRamp(first_peer), PeerRamp(second_peer)
@@ -136,6 +164,8 @@ def test_simultaneous_claims_accept_first_in_broadcast_order(peers, monkeypatch,
     assert first.claim.timestamp_ms + 1 == second.claim.timestamp_ms
 
 
+# Minimal ramp doubles are required to hold acquisition independently of worker startup.
+# noinspection PyTypeChecker
 def test_second_local_claim_cannot_bypass_pending_first_claim(peers):
     published = Queue()
     peer = peers(published.put)
@@ -151,6 +181,8 @@ def test_second_local_claim_cannot_bypass_pending_first_claim(peers):
     assert second.claim is None
 
 
+# The minimal ramp double isolates cancellation while the publisher is blocked.
+# noinspection PyTypeChecker
 def test_cancellation_during_claim_wait_never_succeeds(peers):
     published = Queue()
     proceed = Event()
@@ -171,6 +203,8 @@ def test_cancellation_during_claim_wait_never_succeeds(peers):
     assert ramp.reason == "HALT"
 
 
+# Inspect the peer's session for the minimal ramp double without starting a worker.
+# noinspection PyTypeChecker
 def test_missing_own_announcement_fails_closed(peers):
     # Claim echoes are optional: acquisition must return before one is delivered.
     peer = peers()
@@ -181,6 +215,8 @@ def test_missing_own_announcement_fails_closed(peers):
     assert ramp.state.ramp_claim == ramp.claim
 
 
+# A minimal ramp double isolates the peer's refresh and release lifecycle.
+# noinspection PyTypeChecker
 def test_release_is_nonblocking_and_claim_refresh_is_not_a_handoff(peers, monkeypatch):
     peer = peers()
     ramp = PeerRamp(peer)
@@ -196,6 +232,8 @@ def test_release_is_nonblocking_and_claim_refresh_is_not_a_handoff(peers, monkey
     peer._publisher = publish
     peer.acquire(ramp)
     session = peer._ramps[ramp]
+    # Patch the module's imported clock to force the refresh deadline.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp_peer, "monotonic", lambda: session.refreshed + CLAIM_REFRESH)
     peer._maintain()
     assert published[0].as_bytes == published[1].as_bytes
@@ -207,6 +245,8 @@ def test_release_is_nonblocking_and_claim_refresh_is_not_a_handoff(peers, monkey
     assert sum(command.command == TMCC2EngineCommandEnumEx.RAMP_RELEASE for command in published) == 1
 
 
+# Inspect retirement of a minimal ramp double after a publisher failure.
+# noinspection PyTypeChecker
 def test_publication_failure_releases_candidate_without_fallback(peers):
     peer = peers(Mock(side_effect=OSError("unavailable")))
     ramp = PeerRamp(peer)
@@ -246,6 +286,8 @@ def test_server_state_publication_never_enters_hardware_buffers(monkeypatch):
     command = RampClaim(CommandScope.ENGINE, 7, "127.0.0.1", 50000, 20).request()
     dispatcher = Mock()
     monkeypatch.setattr(CommandDispatcher, "get", lambda: dispatcher)
+    # A transport-free receiver proves this method uses only the dispatcher.
+    # noinspection PyTypeChecker
     CommBufferSingleton.update_state(SimpleNamespace(), command)
     dispatcher.offer.assert_called_once_with(command)
 
@@ -255,6 +297,8 @@ def test_client_state_publication_wraps_claim_in_existing_state_request():
 
     command = RampClaim(CommandScope.TRAIN, 7, "127.0.0.1", 50000, 20).request()
     client = SimpleNamespace(enqueue_command=Mock())
+    # Supply only the enqueue interface so this test cannot start a real client.
+    # noinspection PyTypeChecker
     CommBufferProxy.update_state(client, command)
     client.enqueue_command.assert_called_once_with(SENDING_STATE_REQUEST + command.as_bytes)
 
@@ -283,7 +327,9 @@ def engine_states(monkeypatch):
 
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
 @pytest.mark.parametrize("address", [7, 3180])
-def test_real_owner_keeps_destination_and_competitor_emits_nothing(peers, engine_states, monkeypatch, scope, address):
+def test_real_owner_keeps_destination_and_competitor_emits_nothing(
+    peers, engine_states, monkeypatch, scope, address, ramp_workers
+):
     from src.pytrain.protocol.sequence.speed_ramp import RampStep, SpeedRamp
 
     states = [engine_states(scope, address) for _ in range(2)]
@@ -301,6 +347,8 @@ def test_real_owner_keeps_destination_and_competitor_emits_nothing(peers, engine
     old_sent, new_sent = [], []
     old = SpeedRamp(states[0], 100, sender=lambda *args: old_sent.append(args), peer=old_peer)
     states[0]._ramp = old
+    # Override the inherited Thread method to drive this worker synchronously.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(old, "is_alive", lambda: True)
     old_peer.acquire(old)
     old._send_step(RampStep(63, None, None, 0.2))
@@ -308,10 +356,13 @@ def test_real_owner_keeps_destination_and_competitor_emits_nothing(peers, engine
     assert states[1].is_remote_ramping is True
     new = SpeedRamp(states[1], 20, sender=lambda *args: new_sent.append(args), peer=new_peer)
     states[1]._ramp = new
+    ramp_workers.track(new)
     new.start()
     new.join(timeout=1)
     assert not new.is_alive()
-    assert "already owned" in new.abort_reason
+    reason = new.abort_reason
+    assert reason is not None
+    assert "already owned" in reason
     assert old.is_active
     assert old.requested_speed == 100
     assert new_sent == []
@@ -324,38 +375,241 @@ def test_real_owner_keeps_destination_and_competitor_emits_nothing(peers, engine
     assert all(state.ramp_claim is None and not state.is_remote_ramping for state in states)
 
 
-def test_real_ramp_emits_only_after_claim_confirmation_and_releases_on_completion(peers, engine_states):
+@pytest.mark.parametrize("is_d4", [False, True])
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+@pytest.mark.parametrize(
+    "speed, target, first_command",
+    [
+        (0, 12, TMCC2EngineCommandEnum.ABSOLUTE_SPEED),
+        (120, 20, TMCC2EngineCommandEnum.ENGINE_LABOR),
+        (45, 45, TMCC2EngineCommandEnum.ABSOLUTE_SPEED),
+    ],
+)
+def test_startup_target_follows_claim_and_precedes_every_component(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, scope, speed, target, first_command, is_d4
+):
+    events = []
+    peer = Mock()
+    peer.acquire.side_effect = lambda _ramp: events.append("claim")
+    peer.release.side_effect = lambda _ramp: events.append("release")
+    # These record call order with mocked transport, not actual network delivery.
+    ramp_target_update.side_effect = lambda *_args, **_kwargs: events.append("database submission")
+    ramp_refresh_scheduling["flush"].side_effect = lambda _state: events.append("flush scheduling")
+    ramp_refresh_scheduling["request_refresh"].side_effect = lambda _state: events.append("final refresh")
+    state = RampEngineState(scope=scope, speed=speed, rpm=tmcc2_speed_to_rpm(speed), is_d4=is_d4)
+    recorder = Recorder(lambda _rec, _count: events.append("component"))
+    ramp = build_ramp(state, target, recorder, peer=peer)
+
+    ramp.run()
+
+    assert events == [
+        "claim",
+        "database submission",
+        "flush scheduling",
+        *(["component"] * len(recorder.sent)),
+        "release",
+        "final refresh",
+    ]
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", target, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    assert recorder.commands[0] == first_command
+    assert recorder.speeds[-1] == target
+    peer.acquire.assert_called_once_with(ramp)
+    peer.release.assert_called_once_with(ramp)
+    pdi_send.assert_not_called()
+
+
+@pytest.mark.parametrize("is_d4", [False, True])
+@pytest.mark.parametrize("canceled", [False, True])
+def test_failed_or_canceled_acquisition_never_announces_target(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, canceled, is_d4
+):
+    peer = Mock()
+    if canceled:
+        peer.acquire.side_effect = lambda worker: worker.abort("canceled during acquisition")
+    else:
+        peer.acquire.side_effect = OSError("claim unavailable")
+    recorder = Recorder()
+    state = RampEngineState(is_d4=is_d4)
+    ramp = build_ramp(state, 60, recorder, peer=peer)
+
+    ramp.run()
+
+    assert ramp.abort_reason == (
+        "canceled during acquisition" if canceled else "peer acquisition failed: claim unavailable"
+    )
+    assert state.is_ramping is False
+    assert recorder.sent == []
+    peer.release.assert_called_once_with(ramp)
+    pdi_send.assert_not_called()
+    ramp_target_update.assert_not_called()
+    ramp_refresh_scheduling["flush"].assert_not_called()
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+
+
+@pytest.mark.parametrize("ramp_target_update", [False], indirect=True)
+def test_target_send_failure_releases_claim_without_component_commands(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, monkeypatch
+):
+    assert ramp_target_update is None  # Opt out even though the module requests this fixture.
+    peer = Mock()
+    recorder = Recorder()
+    state = RampEngineState()
+    ramp = build_ramp(state, 60, recorder, peer=peer)
+    failure = OSError("target send failed")
+    send_threads = []
+    escaped = []
+    run_error = None
+
+    def fail_target_send(request):
+        if request.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED:
+            raise failure
+
+    def track_send_thread(*args, **kwargs):
+        target = kwargs["target"]
+
+        def capture_send_error(*target_args, **target_kwargs):
+            try:
+                return target(*target_args, **target_kwargs)
+            except OSError:
+                escaped.append(sys.exc_info()[1])
+
+        kwargs["target"] = capture_send_error
+        send_threads.append(Thread(*args, **kwargs))
+        return send_threads[-1]
+
+    pdi_send.side_effect = fail_target_send
+    # Patch the imported constructor only to track real threads through teardown.
+    # noinspection PyUnresolvedReferences
+    monkeypatch.setattr(base_req, "Thread", track_send_thread)
+    try:
+        try:
+            ramp.run()
+        except OSError as error:
+            run_error = error
+    finally:
+        # Join real send threads before transport patches end and inspect any escaped error.
+        for thread in send_threads:
+            thread.join(timeout=1)
+            assert not thread.is_alive()
+        target_requests = [
+            call.args[0]
+            for call in pdi_send.call_args_list
+            if call.args[0].pdi_command == PdiCommand.UPDATE_ENGINE_SPEED
+        ]
+        assert len(target_requests) == 1
+        assert target_requests[0].record_no == state.tmcc_id
+        assert target_requests[0].target_speed == 60
+
+    assert state.is_ramping is False
+    assert ramp.is_active is False
+    peer.release.assert_called_once_with(ramp)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    assert escaped == [], "target-send failure escaped to a background thread instead of ramp.run"
+    assert run_error is failure
+    assert recorder.sent == []
+    ramp_refresh_scheduling["flush"].assert_not_called()
+
+
+@pytest.mark.parametrize("is_d4", [False, True])
+def test_database_update_failure_releases_claim_without_component_commands(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling, is_d4
+):
+    peer = Mock()
+    recorder = Recorder()
+    state = RampEngineState(is_d4=is_d4)
+    ramp = build_ramp(state, 60, recorder, peer=peer)
+    ramp_target_update.side_effect = OSError("database update failed")
+
+    with pytest.raises(OSError, match="database update failed"):
+        ramp.run()
+
+    pdi_send.assert_not_called()
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 60, state, do_async=False, refresh=False)
+    assert state.is_ramping is False
+    assert ramp.is_active is False
+    assert recorder.sent == []
+    peer.release.assert_called_once_with(ramp)
+    ramp_refresh_scheduling["flush"].assert_not_called()
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+
+
+def test_flush_scheduling_failure_releases_claim_without_component_commands(
+    pdi_send, ramp_target_update, ramp_refresh_scheduling
+):
+    peer = Mock()
+    recorder = Recorder()
+    state = RampEngineState()
+    ramp = build_ramp(state, 60, recorder, peer=peer)
+    ramp_refresh_scheduling["flush"].side_effect = OSError("flush scheduling failed")
+
+    with pytest.raises(OSError, match="flush scheduling failed"):
+        ramp.run()
+
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 60, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    pdi_send.assert_not_called()
+    assert state.is_ramping is False
+    assert ramp.is_active is False
+    assert recorder.sent == []
+    peer.release.assert_called_once_with(ramp)
+
+
+def test_real_ramp_publishes_claim_without_waiting_for_echo_and_releases_on_completion(
+    peers, engine_states, monkeypatch, pdi_send, ramp_target_update, ramp_refresh_scheduling, ramp_workers
+):
     from src.pytrain.protocol.sequence.speed_ramp import SpeedRamp
 
     state = engine_states(CommandScope.ENGINE, 7)
     announcement = Queue()
     first_step, released = Event(), Event()
+    events = []
+    ramp_target_update.side_effect = lambda *_args, **_kwargs: events.append("database submission")
+    ramp_refresh_scheduling["flush"].side_effect = lambda _state: events.append("flush scheduling")
+    ramp_refresh_scheduling["request_refresh"].side_effect = lambda _state: events.append("final refresh")
 
     def publish(command):
         if command.command == TMCC2EngineCommandEnumEx.RAMP_CLAIM:
+            events.append("claim publication")
             announcement.put(command)
         else:
             state.update(command)
             released.set()
 
-    peer = peers(publish)
-    ramp = SpeedRamp(state, 63, sender=lambda *args: first_step.set(), peer=peer, delay_scale=0, linger=0)
+    def send_component(*_args):
+        events.append("component")
+        first_step.set()
+
+    peer: RampPeer = peers(publish)
+    release_claim = peer.release
+
+    def record_release_claim(owner):
+        events.append("claim release")
+        release_claim(owner)
+
+    monkeypatch.setattr(peer, "release", record_release_claim)
+    ramp = SpeedRamp(state, 63, sender=send_component, peer=peer, delay_scale=0, linger=0)
     state._ramp = ramp
+    ramp_workers.track(ramp)
     ramp.start()
-    try:
-        command = announcement.get(timeout=1)
-        assert first_step.wait(1)
-        ramp.join(timeout=1)
-        assert not ramp.is_alive()
-        assert ramp.commanded_speed == 63
-        assert released.wait(1)
-        assert state.ramp_claim is None
-        # Completion does not depend on an echo, and a late echo cannot relock it.
-        state.update(command)
-        assert state.ramp_claim is None
-    finally:
-        ramp.abort("test complete")
-        ramp.join(timeout=1)
+    assert first_step.wait(1)
+    ramp.join(timeout=1)
+    assert not ramp.is_alive()
+    assert ramp.commanded_speed == 63
+    assert released.wait(1)
+    assert state.ramp_claim is None
+    assert events[:3] == ["claim publication", "database submission", "flush scheduling"]
+    assert events[-2:] == ["claim release", "final refresh"]
+    assert all(event == "component" for event in events[3:-2])
+    ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 63, state, do_async=False, refresh=False)
+    ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+    ramp_refresh_scheduling["request_refresh"].assert_called_once_with(state)
+    pdi_send.assert_not_called()
+    # Startup follows publication without waiting for an echo, and a late echo cannot relock it.
+    state.update(announcement.get(timeout=1))
+    assert state.ramp_claim is None
 
 
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
@@ -368,15 +622,13 @@ def test_timestamp_race_converges_without_startup_echo(
     from src.pytrain.protocol.sequence.speed_ramp import RampStep, SpeedRamp
 
     clock = [1_800_000_000_000_000_000]
+    # Patch the module's imported clock to choose a deterministic claim winner.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp_peer, "time_ns", lambda: clock[0])
     states = [engine_states(scope, address) for _ in range(3)]
     announcements, releases = Queue(), Queue()
 
-    def publish(command):
-        if command.command == TMCC2EngineCommandEnumEx.RAMP_CLAIM:
-            announcements.put(command)
-        else:
-            releases.put(command)
+    publish = claim_publisher(announcements, releases)
 
     first_peer, second_peer = peers(publish), peers(publish)
     first_peer.port, second_peer.port = 40000, 40001
@@ -385,6 +637,8 @@ def test_timestamp_race_converges_without_startup_echo(
     second = SpeedRamp(states[1], 0, sender=lambda *args: second_sent.append(args), peer=second_peer)
     for state, ramp in zip(states, (first, second)):
         state._ramp = ramp
+        # Override the inherited Thread method while explicitly stepping both workers.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(ramp, "is_alive", lambda: True)
     first._acquire_claim()
     if not same_millisecond:
@@ -403,7 +657,9 @@ def test_timestamp_race_converges_without_startup_echo(
             replica.update(CommandReq.from_bytes(command.as_bytes))
     assert first.is_active
     assert not second.is_active
-    assert "earlier request" in second.abort_reason
+    reason = second.abort_reason
+    assert reason is not None
+    assert "earlier request" in reason
     assert all(state.ramp_claim == first.claim for state in states)
     assert not states[0].is_remote_ramping
     assert states[1].is_remote_ramping and states[2].is_remote_ramping
@@ -429,13 +685,18 @@ def test_unconfirmed_claim_refreshes_locally_and_keeps_original_timestamp(peers,
     from src.pytrain.protocol.sequence.speed_ramp import SpeedRamp
 
     clock = [100.0]
+    # Both modules import their clocks; keep state expiration and peer refresh synchronized.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(engine_state, "monotonic", lambda: clock[0])
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp_peer, "monotonic", lambda: clock[0])
     published = []
     peer = peers(published.append)
     state = engine_states(CommandScope.ENGINE, 7)
     ramp = SpeedRamp(state, 100, sender=lambda *args: None, peer=peer)
     state._ramp = ramp
+    # Override the inherited Thread method without starting a real ramp loop.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp, "is_alive", lambda: True)
     peer.acquire(ramp)
     peer._ramps[ramp].refreshed = clock[0]
@@ -455,6 +716,8 @@ def test_own_echo_does_not_cancel_or_rebase_local_destination(peers, engine_stat
     state = engine_states(CommandScope.ENGINE, 3180)
     ramp = SpeedRamp(state, 100, sender=lambda *args: None, peer=peer)
     state._ramp = ramp
+    # Override the inherited Thread method to test echoes without background sends.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(ramp, "is_alive", lambda: True)
     peer.acquire(ramp)
     original = ramp.claim

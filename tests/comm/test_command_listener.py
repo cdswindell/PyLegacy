@@ -15,9 +15,9 @@ from tests.test_base import TestBase, wait_until
 
 # noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
-def run_before_and_after_tests(tmpdir) -> None:
+def run_before_and_after_tests() -> None:
     """
-    Fixture to execute asserts before and after a tests is run
+    Clean up listener singletons after each test.
     """
     # Setup: fill with any logic you want
 

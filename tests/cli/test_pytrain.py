@@ -8,6 +8,9 @@ import pytest
 import src.pytrain as package
 from src.pytrain.cli import pytrain as module
 from src.pytrain.cli.pytrain import PyTrain, PyTrainExitException, PyTrainExitStatus
+
+# Singleton registry restoration is part of the isolation contract.
+# noinspection PyProtectedMember
 from src.pytrain.utils.singleton import _SingletonMeta
 from .conftest import isolated_pytrain_state
 
@@ -41,6 +44,7 @@ def test_server_startup(pytrain_startup, args, base, port, ser2):
     listeners = (d.listener, d.pdi) if base else (d.listener,)
     d.store.assert_called_once_with(listeners=listeners, is_base=base is not None, is_ser2=ser2)
     if base:
+        assert port is not None
         d.pdi_build.assert_called_once_with(base, int(port))
         d.roster.assert_called_once_with(is_startup=True)
         assert d.server_buffer.is_use_base3 is True
@@ -100,6 +104,7 @@ def test_client_startup(pytrain_startup, explicit):
     d.echo.assert_not_called()
 
 
+@pytest.mark.smoke
 def test_startup_options_and_api_handoff(pytrain_startup):
     d = pytrain_startup
     pt = d.initialize(
@@ -239,6 +244,8 @@ def test_basic_properties_and_representation(pytrain_startup, monkeypatch, args,
     d = pytrain_startup
     pt = d.initialize(args)
     monkeypatch.setattr(module, "timer", lambda: pt._started_at + 65)
+    # Patch the imported runtime symbol; setattr retains its existence check.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(module, "get_native_id", lambda: 123)
     assert repr(pt) == f"<PyTrain {role} 0:01:05>"
     assert pt.tid == 123
@@ -312,8 +319,12 @@ def test_isolation_restores_state_after_exception():
     handler_levels = [handler.level for handler in handlers]
     with pytest.raises(RuntimeError, match="fixture teardown"):
         with isolated_pytrain_state():
+            # Deliberately corrupt the registry to verify restoration of arbitrary values.
+            # noinspection PyTypeChecker
             PyTrain._current = object()
             _SingletonMeta._instances[PyTrain] = object()
+            # The invalid sentinel must also be restored by isolation.
+            # noinspection PyTypeChecker
             _SingletonMeta._init_done[PyTrain] = object()
             sys.argv.append("-debug")
             os.environ["PYTRAIN_ISOLATION_TEST"] = "changed"

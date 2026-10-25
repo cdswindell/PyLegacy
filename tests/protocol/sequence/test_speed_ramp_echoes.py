@@ -25,7 +25,12 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import (
 )
 
 from ...test_base import TestBase
-from .test_speed_ramp import RampEngineState, Recorder, build_ramp
+from .ramp_test_support import RampEngineState, Recorder, build_ramp
+
+pytestmark = [
+    pytest.mark.usefixtures("ramp_target_update"),
+    pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning"),
+]
 
 # the reordered stream CommandDispatcher.run documents: the Base 3 echoes each speed
 # almost instantly, and the LCS Ser2 re-echoes it a few seconds later, out of order
@@ -77,8 +82,10 @@ class TestEchoLedger(TestBase):
         assert ledger.claim(EchoFamily.SPEED, 34) is True
 
     @pytest.mark.parametrize("speeds", [(10, 20, 30, 40, 50), (50, 40, 30, 20, 10)])
-    def test_delayed_speed_reports_can_skip_steps_but_not_go_backward(self, monkeypatch, speeds):
+    def test_delayed_speed_reports_can_skip_steps_but_not_go_backward(self, monkeypatch, speeds: tuple[int, ...]):
         clock = [100.0]
+        # Patch the imported clock used by the ledger, not a public module export.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         ledger = EchoLedger()
         for speed in speeds:
@@ -203,6 +210,8 @@ class TestEchoLedger(TestBase):
 
     def test_an_echo_inside_the_ttl_survives_a_purge(self, monkeypatch):
         clock = [0.0]
+        # Patch the imported clock used by the ledger, not a public module export.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         ledger = EchoLedger()
         ledger.record(EchoFamily.SPEED, 10)
@@ -215,6 +224,8 @@ class TestEchoLedger(TestBase):
     @pytest.mark.parametrize("age", [1.0, 1.01])
     def test_echoes_expire_at_the_configured_ttl(self, monkeypatch, claimed, age):
         clock = [0.0]
+        # Patch the imported clock used by the ledger, not a public module export.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         ledger = EchoLedger()
         ledger.record(EchoFamily.SPEED, 10)
@@ -288,9 +299,13 @@ class TestRampArbitration(TestBase):
     )
     def test_feedback_streams_advance_independently(self, monkeypatch, leading_rx, command, values):
         clock = [100.0]
+        # Patch the imported clock used by the ledger, not a public module export.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         _, _, ramp = self.ramp()
 
+        # Each received value is explicit, not captured from the replay loops below.
+        # noinspection PyShadowingNames
         def receive(value, is_rx):
             request = CommandReq.from_bytes(req(command, value).as_bytes, from_tmcc_rx=is_rx)
             assert ramp.arbitrate(request) is EchoOutcome.MINE
@@ -311,6 +326,8 @@ class TestRampArbitration(TestBase):
     @pytest.mark.parametrize("foreign", ["backward", "unsent", "expired"])
     def test_each_feedback_stream_still_rejects_foreign_speeds(self, monkeypatch, is_rx, foreign):
         clock = [100.0]
+        # Patch the imported clock used by the ledger, not a public module export.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         _, _, ramp = self.ramp()
         command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED

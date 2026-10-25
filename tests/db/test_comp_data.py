@@ -11,8 +11,9 @@
 import re
 import types
 from dataclasses import FrozenInstanceError
+from inspect import signature
 from threading import RLock
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 
 import pytest
 
@@ -44,13 +45,24 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 CLEAR_ROAD_NAME_NUMBER_DATA = b"\x00" + (b"\xff" * 31) + b"\x00" + (b"\xff" * 4)
+GET_STATE_SIGNATURE = signature(ComponentStateStore.get_state)
 
 
-@pytest.fixture
+def assert_read_only_state_lookups(get_state: Mock, scope: CommandScope, address: int):
+    get_state.assert_called()
+    for lookup in get_state.call_args_list:
+        bound = GET_STATE_SIGNATURE.bind(*lookup.args, **lookup.kwargs)
+        bound.apply_defaults()
+        assert bound.args == (scope, address, False)
+
+
+@pytest.fixture(autouse=True)
 def isolated_state_store(monkeypatch):
     # Packet construction can initialize the store; restore its cached references after the test.
     monkeypatch.setattr(ComponentStateStore, "_instance", None)
     for cls in (CompData, EngineData, TrainData):
+        # Reset the inherited cache so packet construction cannot leak state between tests.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(cls, "_state_store", None)
 
 
@@ -59,7 +71,7 @@ def road_number_update_data(road_number_text: str | None) -> bytes:
     return road_number_len.to_bytes(1, "big") + PdiReq.encode_text(road_number_text, 4)
 
 
-def train_record(consist_flags_addr: int, consist_flags: int, tmcc_id: int = None) -> bytes:
+def train_record(consist_flags_addr: int, consist_flags: int, tmcc_id: int | None = None) -> bytes:
     """
     A train record as the Base sends it. A 4-digit train arrives over the D4 channel and
     carries its own id, as text, in the record; a 1-99 train arrives over the base memory
@@ -80,7 +92,7 @@ def train_record(consist_flags_addr: int, consist_flags: int, tmcc_id: int = Non
 class TestBitUpdate:
     @pytest.mark.parametrize("bit", range(8))
     @pytest.mark.parametrize("enabled", [False, True])
-    def test_preserves_other_bits_and_is_idempotent_for_every_byte(self, bit, enabled):
+    def test_preserves_other_bits_and_is_idempotent_for_every_byte(self, bit: int, enabled: bool):
         update = BitUpdate(bit=bit, enabled=enabled)
         mask = 1 << bit
         for current in range(256):
@@ -93,12 +105,16 @@ class TestBitUpdate:
     @pytest.mark.parametrize("bit", [-1, 8, 255, None, 1.0, "0", True, False])
     def test_rejects_invalid_bit(self, bit):
         with pytest.raises(ValueError, match="Bit position"):
+            # Invalid types deliberately exercise runtime validation.
+            # noinspection PyTypeChecker
             BitUpdate(bit=bit, enabled=True)
 
     @pytest.mark.parametrize("current", [-1, 256, None, 1.0, "0", b"\x00", True, False])
     @pytest.mark.parametrize("enabled", [False, True])
     def test_rejects_invalid_byte(self, current, enabled):
         with pytest.raises(ValueError, match="Current byte"):
+            # Invalid types deliberately exercise runtime validation.
+            # noinspection PyTypeChecker
             BitUpdate(bit=0, enabled=enabled)(current)
 
     @pytest.mark.parametrize(("field", "value"), [("bit", 1), ("enabled", False)])
@@ -152,7 +168,9 @@ class TestCompData:
         assert restored.prev_link == 3
         assert restored.next_link == 8
         assert restored.as_bytes() == raw
-        assert restored.set_components_req(restored.components).data_bytes == raw[0x60:0x80]
+        req = restored.set_components_req(restored.components)
+        assert isinstance(req, BaseReq)
+        assert req.data_bytes == raw[0x60:0x80]
 
     @pytest.mark.parametrize("tmcc_id", [0, 100, None, True])
     def test_route_components_request_rejects_invalid_route_id(self, tmcc_id):
@@ -224,6 +242,7 @@ class TestCompData:
 
         train = CompData.from_bytes(rec, CommandScope.TRAIN)  # the D4 channel supplies no id
 
+        assert isinstance(train, TrainData)
         assert train.tmcc_id == 1234  # it came from the record
         assert train.consist_flags == 0b10101010
         assert train.as_bytes() == rec
@@ -233,6 +252,7 @@ class TestCompData:
 
         train = CompData.from_bytes(rec, CommandScope.TRAIN, tmcc_id=21)
 
+        assert isinstance(train, TrainData)
         assert train.consist_flags == 0b11001100
         assert train.lighting == 0xFF  # the byte the D4 layout spends on the consist flags
         assert train.as_bytes() == rec
@@ -247,6 +267,7 @@ class TestCompData:
 
         train = CompData.from_bytes(rec, CommandScope.TRAIN)  # the D4 channel supplies no id
 
+        assert isinstance(train, TrainData)
         assert train.tmcc_id == 21
         assert train.consist_flags == 0b10101010  # read with the D4 layout
         with pytest.raises(AttributeError):
@@ -352,6 +373,8 @@ class TestCompData:
         # and the bare form only under its own, as it carries no data to be aliased by.
         # The write is what makes the level last: a numeric also asks the server for a
         # full record refresh, which replaces every field the Base 3 was never told about
+        # None deliberately exercises commands with no data.
+        # noinspection PyTypeChecker
         req = CommandReq.build(command, 24, data=data)
         assert req.command_alias is alias
 
@@ -395,40 +418,88 @@ class TestCompData:
     def test_absolute_speed_always_encodes_both_db_speed_fields(
         self, monkeypatch, scope, is_ramping, command, address, speed, expected
     ):
-        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping)
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping, is_ramp_active=is_ramping)
         get_state = Mock(return_value=state)
         monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
-        req = CommandReq.build(command, address, data=speed, scope=scope)
 
         expected_fields = [
             ("speed", 0x07, 1, expected),
             ("target_speed", 0x08, 1, expected),
         ]
-        expected_request_fields = expected_fields.copy()
+        pkgs = CompData.field_to_updates("absolute_speed", address, scope, speed, command.is_legacy)
+        assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == expected_fields
+        for pkg in pkgs:
+            update = pkg.as_request(address, scope, 4)
+            assert isinstance(update, (BaseReq, D4Req))
+            assert update.scope == scope
+            assert update.start == pkg.offset
+            if address > 99:
+                assert isinstance(update, D4Req)
+                assert update.action == D4Action.UPDATE
+                assert update.record_no == 4
+                assert update._data_bytes == expected
+            else:
+                assert isinstance(update, BaseReq)
+                assert update.pdi_command == PdiCommand.BASE_MEMORY
+                assert update.tmcc_id == address
+                assert update.data_bytes == expected
+        get_state.assert_not_called()
+
+    @pytest.mark.usefixtures("isolated_state_store")
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize(
+        "is_ramping, worker_active, remote_claim",
+        [(False, False, False), (True, False, False), (False, True, False), (False, False, True), (None, False, False)],
+        ids=["inactive", "local-flag", "active-worker", "remote-claim", "missing-state"],
+    )
+    @pytest.mark.parametrize(
+        "command, address, speed, expected",
+        [
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 18, b"\x12"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 3180, 51, b"\x33"),
+            (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 199, b"\xc7"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 7, b"\x2d"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 31, b"\xc7"),
+            (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 7, 0, b"\x00"),
+        ],
+    )
+    def test_absolute_speed_commands_preserve_target_during_ramp(
+        self, monkeypatch, scope, is_ramping, worker_active, remote_claim, command, address, speed, expected
+    ):
+        active = bool(is_ramping or worker_active or remote_claim)
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping, is_ramp_active=active)
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, address, data=speed, scope=scope)
+        expected_fields = [("speed", 0x07, 1, expected)]
+        if not active:
+            expected_fields.append(("target_speed", 0x08, 1, expected))
         if command == TMCC1EngineCommandEnum.ABSOLUTE_SPEED and speed == 0:
             assert req.command_alias == TMCC1EngineCommandEnum.EMERGENCY_STOP
-            expected_request_fields.extend(expected_fields)
-            expected_request_fields.append(("rpm_labor", 0x0C, 1, b"\x00"))
-        for pkgs, expected_pkgs in (
-            (CompData.request_to_updates(req), expected_request_fields),
-            (CompData.field_to_updates("absolute_speed", address, scope, speed, command.is_legacy), expected_fields),
-        ):
-            assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == expected_pkgs
-            for pkg in pkgs:
-                update = pkg.as_request(address, scope, 4)
-                assert update.scope == scope
-                assert update.start == pkg.offset
-                if address > 99:
-                    assert isinstance(update, D4Req)
-                    assert update.action == D4Action.UPDATE
-                    assert update.record_no == 4
-                    assert update._data_bytes == expected
-                else:
-                    assert isinstance(update, BaseReq)
-                    assert update.pdi_command == PdiCommand.BASE_MEMORY
-                    assert update.tmcc_id == address
-                    assert update.data_bytes == expected
-        get_state.assert_not_called()
+            # Current behavior also filters the alias's target zero during a ramp.
+            # This may leave a stale target after an operator's emergency stop.
+            expected_fields.extend(expected_fields.copy())
+            expected_fields.append(("rpm_labor", 0x0C, 1, b"\x00"))
+
+        pkgs = CompData.request_to_updates(req)
+
+        assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == expected_fields
+        get_state.assert_called_once_with(scope, address, create=False)
+        for pkg in pkgs:
+            update = pkg.as_request(address, scope, 4)
+            assert isinstance(update, (BaseReq, D4Req))
+            assert update.scope == scope
+            assert update.start == pkg.offset
+            if address > 99:
+                assert isinstance(update, D4Req)
+                assert update.action == D4Action.UPDATE
+                assert update.record_no == 4
+                assert update._data_bytes == expected
+            else:
+                assert isinstance(update, BaseReq)
+                assert update.pdi_command == PdiCommand.BASE_MEMORY
+                assert update.tmcc_id == address
+                assert update.data_bytes == expected
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("data_cls, scope", [(EngineData, CommandScope.ENGINE), (TrainData, CommandScope.TRAIN)])
@@ -464,6 +535,7 @@ class TestCompData:
                 ("soft_status", 0x0B, 1, expected)
             ]
             update = pkgs[0].as_request(address, scope, record_no=654)
+            assert isinstance(update, (BaseReq, D4Req))
             assert update.scope == scope
             assert update.start == 0x0B
             assert update.data_length == 1
@@ -495,7 +567,7 @@ class TestCompData:
             assert state.comp_data is comp_data
             assert comp_data.soft_status == current
             assert comp_data.as_bytes() == before
-        assert get_state.call_args_list == [call(scope, address, False)] * 2
+        assert_read_only_state_lookups(get_state, scope, address)
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
@@ -532,7 +604,7 @@ class TestCompData:
         assert CompData.field_to_updates(command.name, 7, scope) == []
 
         assert "soft_status" in caplog.text
-        assert get_state.call_args_list == [call(scope, 7, False)] * 2
+        assert_read_only_state_lookups(get_state, scope, 7)
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("data_cls, scope", [(EngineData, CommandScope.ENGINE), (TrainData, CommandScope.TRAIN)])
@@ -557,7 +629,7 @@ class TestCompData:
 
         assert comp_data.soft_status == current
         assert "soft_status" in caplog.text
-        assert get_state.call_args_list == [call(scope, 7, False)] * 2
+        assert_read_only_state_lookups(get_state, scope, 7)
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
@@ -568,13 +640,19 @@ class TestCompData:
         class GuardedData:
             @property
             def _soft_status(self):
+                # CPython's ownership probe verifies that the current thread holds the lock.
+                # noinspection PyUnresolvedReferences
                 assert synchronizer._is_owned()
                 reads.append("soft_status")
                 return 0xA5
 
         class GuardedState:
+            synchronizer: object
+
             @property
             def comp_data(self):
+                # CPython's ownership probe verifies that the current thread holds the lock.
+                # noinspection PyUnresolvedReferences
                 assert synchronizer._is_owned()
                 reads.append("comp_data")
                 return GuardedData()
@@ -585,6 +663,8 @@ class TestCompData:
         original_call = BitUpdate.__call__
 
         def checked_call(update, current):
+            # CPython's ownership probe verifies that the current thread holds the lock.
+            # noinspection PyUnresolvedReferences
             assert synchronizer._is_owned()
             reads.append("transform")
             return original_call(update, current)
@@ -597,6 +677,8 @@ class TestCompData:
         ):
             assert pkgs[0].data_bytes == b"\xa4"
         assert reads == ["comp_data", "soft_status", "transform"] * 2
+        # The ownership probe also verifies that conversion releases the lock.
+        # noinspection PyUnresolvedReferences
         assert not synchronizer._is_owned()
 
     @pytest.mark.usefixtures("isolated_state_store")
@@ -617,7 +699,36 @@ class TestCompData:
                 ("rpm_labor", 0x0C, 1, b"\x00"),
                 ("soft_status", 0x0B, 1, b"\x00"),
             ]
-        get_state.assert_not_called()
+        assert_read_only_state_lookups(get_state, scope, 7)
+
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("is_ramping", [True, False, None])
+    @pytest.mark.parametrize(
+        "command",
+        [
+            TMCC1EngineCommandEnum.RESET,
+            TMCC2EngineCommandEnum.RESET,
+            TMCC1EngineCommandEnum.EMERGENCY_STOP,
+            TMCC2EngineCommandEnum.EMERGENCY_STOP,
+        ],
+    )
+    def test_safety_commands_zero_target_regardless_of_ramp_state(self, monkeypatch, scope, is_ramping, command):
+        state = None if is_ramping is None else Mock(spec=EngineState, is_ramping=is_ramping, is_ramp_active=is_ramping)
+        get_state = Mock(return_value=state)
+        monkeypatch.setattr(ComponentStateStore, "get_state", get_state)
+        req = CommandReq.build(command, 7, scope=scope)
+        expected = [
+            ("speed", 0x07, 1, b"\x00"),
+            ("target_speed", 0x08, 1, b"\x00"),
+            ("rpm_labor", 0x0C, 1, b"\x00"),
+        ]
+        if command.name == "RESET":
+            expected.append(("soft_status", 0x0B, 1, b"\x00"))
+
+        pkgs = CompData.request_to_updates(req)
+
+        assert [(pkg.field, pkg.offset, pkg.length, pkg.data_bytes) for pkg in pkgs] == expected
+        assert_read_only_state_lookups(get_state, scope, 7)
 
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
@@ -639,7 +750,7 @@ class TestCompData:
                 ("rpm_labor", 0x0C, 1, expected)
             ]
         assert (state.rpm, state.labor) == (3, 14)
-        assert get_state.call_args_list == [call(scope, 7, False)] * 2
+        assert_read_only_state_lookups(get_state, scope, 7)
 
     def test_ordinary_transform_still_receives_command_data(self, monkeypatch):
         get_state = Mock()
@@ -648,6 +759,7 @@ class TestCompData:
 
         pkg = CompData._create_update_pkg("soft_status", True, CommandScope.ENGINE, 7, 0x12, transform)
 
+        assert pkg is not None
         assert pkg.data_bytes == b"\xab"
         transform.assert_called_once_with(0x12)
         get_state.assert_not_called()
@@ -827,7 +939,9 @@ class TestCompData:
         h = Holder()
         h.initialize(scope, tmcc_id=tmcc_id)
 
-        out = h.comp_data.as_bytes()
+        comp_data = h.comp_data
+        assert isinstance(comp_data, CompData)
+        out = comp_data.as_bytes()
 
         assert len(out) == PdiReq.scope_record_length(scope)
 
@@ -838,15 +952,19 @@ class TestCompData:
 
         route = Holder()
         route.initialize(CommandScope.ROUTE, tmcc_id=55)
-        route_data = route.comp_data.as_bytes()
-        assert route.comp_data.components is None
-        assert route.comp_data.payload() == ""
+        route_record = route.comp_data
+        assert isinstance(route_record, RouteData)
+        route_data = route_record.as_bytes()
+        assert route_record.components is None
+        assert route_record.payload() == ""
         assert route_data[0x60:0x80] == b"\xff" * 32
 
         train = Holder()
         train.initialize(CommandScope.TRAIN, tmcc_id=55)
-        train_data = train.comp_data.as_bytes()
-        assert train.comp_data.consist_comps is None
+        train_record_data = train.comp_data
+        assert isinstance(train_record_data, TrainData)
+        train_data = train_record_data.as_bytes()
+        assert train_record_data.consist_comps is None
         assert train_data[0x70:0x90] == b"\xff" * 32
 
     @pytest.mark.parametrize(
@@ -1009,6 +1127,8 @@ class TestCompData:
     def test_clear_record_reqs_include_full_record_clear_for_engine_train(self, data_cls, scope):
         state = types.SimpleNamespace(scope=scope, address=55)
 
+        # This double supplies only the state fields needed to build clear requests.
+        # noinspection PyTypeChecker
         reqs = data_cls.clear_record_reqs(state)
 
         assert len(reqs) == 3
@@ -1033,21 +1153,33 @@ class TestCompData:
     def test_clear_record_reqs_full_clear_payload_matches_scope_record_size(self, data_cls, scope):
         state = types.SimpleNamespace(scope=scope, address=42)
 
+        # This double supplies only the state fields needed to build clear requests.
+        # noinspection PyTypeChecker
         clear_req = data_cls.clear_record_reqs(state)[1]
 
-        assert clear_req.data_length == len(clear_req.data_bytes)
-        assert clear_req.start + clear_req.data_length == PdiReq.scope_record_length(scope)
+        assert isinstance(clear_req, BaseReq)
+        data_bytes = clear_req.data_bytes
+        data_length = clear_req.data_length
+        start = clear_req.start
+        assert data_bytes is not None
+        assert data_length is not None
+        assert start is not None
+        assert data_length == len(data_bytes)
+        assert start + data_length == PdiReq.scope_record_length(scope)
 
     def test_clear_record_reqs_route_uses_state_address_without_raising(self):
         state = types.SimpleNamespace(scope=CommandScope.ROUTE, address=42)
 
+        # This double supplies only the state fields needed to build clear requests.
+        # noinspection PyTypeChecker
         reqs = RouteData.clear_record_reqs(state)
 
         assert reqs[-1] is state
-        assert isinstance(reqs[0], BaseReq)
-        assert reqs[0].tmcc_id == 42
-        assert reqs[0].scope == CommandScope.ROUTE
-        assert reqs[0].start == 0x04
+        req = reqs[0]
+        assert isinstance(req, BaseReq)
+        assert req.tmcc_id == 42
+        assert req.scope == CommandScope.ROUTE
+        assert req.start == 0x04
 
     @pytest.mark.parametrize(
         ("data_cls", "scope", "expected_start"),
@@ -1118,6 +1250,7 @@ class TestCompData:
 
         req = comp_data.set_road_number_req(None)
 
+        assert isinstance(req, BaseReq)
         assert req.data_bytes == road_number_update_data(None)
         assert comp_data.road_number == ""
         assert comp_data.road_number_len == 0

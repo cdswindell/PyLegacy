@@ -12,6 +12,8 @@ def command_train(bare_pytrain, monkeypatch):
     monkeypatch.setattr(module.Thread, "start", Mock(side_effect=AssertionError("Unexpected background thread")))
     monkeypatch.setattr(module.CommBuffer, "build", Mock(side_effect=AssertionError("Unexpected transport")))
     bare_pytrain._state_store = Mock(spec=module.ComponentStateStore)
+    # The fixture's private store is a mock, not the shared singleton.
+    # noinspection PyProtectedMember
     bare_pytrain._state_store.get_state.return_value = None
     bare_pytrain._tmcc_buffer = Mock(spec=module.CommBufferSingleton)
     bare_pytrain._dispatcher = Mock()
@@ -96,6 +98,8 @@ def test_special_outputs_and_pdi_error(command_train, monkeypatch, capsys, caplo
     command_train._tmcc_buffer.base3_address = None
     command_train._handle_command("version")
     assert "1.2.3" in capsys.readouterr().out
+    # Patch the runtime method with the default existence guard.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(command_train, "_do_pdi", Mock(side_effect=ValueError("invalid PDI")))
     command_train._handle_command("pdi invalid")
     assert "invalid PDI" in caplog.text
@@ -139,13 +143,21 @@ def test_parse_failure_mode_isolation(command_train, monkeypatch, capsys, invali
 
     def track_parser():
         parser = command_parser()
+        # The factory returns the custom parser despite its base-class annotation.
+        # noinspection PyUnresolvedReferences
         assert parser.is_exit_on_error
+        # Wrap the custom parser method without relaxing setattr's existence guard.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(parser, "clear_exit_on_error", Mock(wraps=parser.clear_exit_on_error))
         parsers.append(parser)
         return parser
 
+    # Patch the runtime method with the default existence guard.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(command_train, "_command_parser", track_parser)
     send = Mock(side_effect=AssertionError("parse-only and help must not send"))
+    # send is inherited; keep the existence check on the patch target.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(module.EngineCli, "send", send)
 
     result = command_train.parse_cli(invalid)
@@ -192,6 +204,8 @@ def test_parse_failure_mode_isolation(command_train, monkeypatch, capsys, invali
 )
 def test_real_parse_only(command_train, monkeypatch, text, scope, tmcc):
     send = Mock(side_effect=AssertionError("parse-only must not send"))
+    # send is inherited; keep the existence check on the patch target.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(module.EngineCli, "send", send)
     request = command_train.parse_cli(text)
     assert isinstance(request, module.CommandReq)
@@ -215,16 +229,24 @@ def test_infer_engine_mode(command_train, is_tmcc):
 @pytest.mark.parametrize("text", ["engine 7 -b", "engine 7 -invalid"])
 def test_parser_restored(command_train, monkeypatch, text):
     parser = module.EngineCli.command_parser()
+    # The factory returns the custom parser despite its base-class annotation.
+    # noinspection PyUnresolvedReferences
     reset = Mock(wraps=parser.reset_exit_on_error)
+    # Wrap the real custom method with setattr's existence guard intact.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(parser, "reset_exit_on_error", reset)
     monkeypatch.setattr(module.EngineCli, "command_parser", lambda: parser)
     command_train.parse_cli(text)
     reset.assert_called_once_with()
+    # Custom parser state is not declared on the annotated base class.
+    # noinspection PyUnresolvedReferences
     assert parser.is_exit_on_error
 
 
 def test_normal_send(command_train, monkeypatch, caplog):
     send = Mock()
+    # send is inherited; keep the existence check on the patch target.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(module.EngineCli, "send", send)
     with caplog.at_level(logging.DEBUG, logger=module.__name__):
         command_train._handle_command("engine 7 -b")
@@ -261,7 +283,10 @@ def test_quit_routing(command_train, server, target):
 def test_admin_routing(command_train, monkeypatch):
     resync = Mock()
     admin = Mock()
+    # Patch runtime dispatch methods with their existence guards intact.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(command_train, "_get_system_state", resync)
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(command_train, "do_admin_cmd", admin)
     command_train._handle_command("resync")
     resync.assert_called_once_with()
@@ -269,7 +294,9 @@ def test_admin_routing(command_train, monkeypatch):
     admin.assert_called_once_with(module.TMCC1SyncCommandEnum.RESTART, ["me"])
 
 
-@pytest.mark.parametrize("pdi", [False, True])
+@pytest.mark.parametrize(
+    "pdi", [pytest.param(False, marks=pytest.mark.smoke), pytest.param(True, marks=pytest.mark.smoke)]
+)
 def test_decode_and_send(command_train, monkeypatch, capsys, pdi):
     request = (
         module.BaseReq(0, module.PdiCommand.BASE) if pdi else module.CommandReq(module.TMCC1SyncCommandEnum.RESYNC)
@@ -281,6 +308,8 @@ def test_decode_and_send(command_train, monkeypatch, capsys, pdi):
     assert decoded.as_bytes == raw
     assert raw.hex() in capsys.readouterr().out
     send = Mock()
+    # Both runtime request types expose send; preserve the existence guard.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(module.PdiReq if pdi else module.CommandReq, "send", send)
     command_train.send_command(text)
     send.assert_called_once_with()
@@ -305,7 +334,7 @@ def test_invalid_constructed_command(command_train, caplog, parse_only):
         assert "is not a valid command" in caplog.text
 
 
-@pytest.mark.parametrize("prefix", ["train", "engine"])
+@pytest.mark.parametrize("prefix", ["train", pytest.param("engine", marks=pytest.mark.smoke)])
 def test_subparser_mode_inference(command_train, prefix):
     request = command_train.parse_cli(f"{prefix} 7 speed 2 -relative")
     assert isinstance(request, module.CommandReq)
@@ -317,6 +346,8 @@ def test_subparser_mode_inference(command_train, prefix):
 
 def test_send_without_debug(command_train, monkeypatch, caplog):
     send = Mock()
+    # send is inherited; keep the existence check on the patch target.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(module.EngineCli, "send", send)
     with caplog.at_level(logging.INFO, logger=module.__name__):
         command_train._handle_command("engine 7 -b")
@@ -327,12 +358,16 @@ def test_send_without_debug(command_train, monkeypatch, caplog):
 @pytest.mark.parametrize("text", [None, "", "invalid"])
 def test_invalid_admin_enum(text):
     with pytest.raises(ValueError, match="Unrecognized admin command"):
+        # None intentionally exercises invalid-input rejection.
+        # noinspection PyTypeChecker
         module.PyTrain._admin_enum(text)
 
 
 def test_client_resync_routing(command_train, monkeypatch):
     command_train._tmcc_buffer = Mock()
     admin = Mock()
+    # Patch the runtime dispatch method with its existence guard intact.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(command_train, "do_admin_cmd", admin)
     command_train._handle_command("resync server")
     admin.assert_called_once_with(module.TMCC1SyncCommandEnum.RESYNC, ["server"])

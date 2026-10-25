@@ -129,11 +129,11 @@ class ComponentStateStore:
         return sd[max(sd.keys())] if sd else None
 
     @classmethod
-    def by_record_no(cls, record_no: int) -> T | None:
-        if CommandScope.ENGINE in cls._instance._state:
-            for address in cls._instance._state[CommandScope.ENGINE]:
-                if cls._instance._state[CommandScope.ENGINE][address].record_no == record_no:
-                    return cls._instance._state[CommandScope.ENGINE][address]
+    def by_record_no(cls, record_no: int, scope: CommandScope = CommandScope.ENGINE) -> T | None:
+        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and scope in cls._instance._state:
+            for address in cls._instance._state[scope]:
+                if cls._instance._state[scope][address].record_no == record_no:
+                    return cls._instance._state[scope][address]
         return None
 
     def __new__(cls, *args, **kwargs):
@@ -544,10 +544,10 @@ class DependencyCache(Generic[T, C, E]):
             Engine2.STOP_IMMEDIATE,
             Engine2.ABSOLUTE_SPEED,
             Engine2.FORWARD_DIRECTION,
-            Engine2.NUMERIC,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
             Engine2.BELL_OFF,
+            Engine2.NUMERIC,
         )
         self.causes(
             Engine2.STOP_IMMEDIATE,

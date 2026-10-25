@@ -133,9 +133,12 @@ def test_miss_is_cached_and_reset_hook(tmp_path: Path, monkeypatch):
 def test_non_default_places_are_fresh(tmp_path: Path):
     """The freshness escape hatch: non-default places re-walk every call."""
     reset_path_index()
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    _make_tree(project_dir)
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
-    places = (Path.cwd(), cache_dir)  # prod_info-style, non-default
+    places = (project_dir, cache_dir)  # prod_info-style, non-default
 
     assert find_file("engine.json", places) is None
     (cache_dir / "engine.json").write_text("{}")

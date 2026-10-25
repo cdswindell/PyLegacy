@@ -15,9 +15,9 @@ from tests.test_base import TestBase, wait_until
 
 # noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
-def run_before_and_after_tests(tmpdir) -> None:
+def run_before_and_after_tests() -> None:
     """
-    Fixture to execute asserts before and after a tests is run
+    Clean up listener singletons after each test.
     """
 
     yield  # this is where the testing happens
@@ -53,7 +53,8 @@ class TestComponentStateStore(TestBase):
         dispatcher.offer(sw_out)
         wait_until(lambda: store.is_empty is False)
         assert store.is_empty is False
-        sw_15_state: SwitchState = store.query(CommandScope.SWITCH, 15)
+        sw_15_state = store.query(CommandScope.SWITCH, 15)
+        assert isinstance(sw_15_state, SwitchState)
         assert sw_15_state is not None
         assert sw_15_state.last_updated is not None
         assert sw_15_state.last_command == sw_out
@@ -65,6 +66,8 @@ class TestComponentStateStore(TestBase):
         # throw to through
         sw_through = CommandReq.build(TMCC1SwitchCommandEnum.THRU, 15)
         dispatcher.offer(sw_through)
+        # The isinstance assertion above narrows the captured state at runtime.
+        # noinspection PyUnresolvedReferences
         wait_until(lambda: sw_15_state.last_command == sw_through)
         assert sw_15_state is not None
         assert sw_15_state.last_updated is not None
@@ -78,7 +81,8 @@ class TestComponentStateStore(TestBase):
         sw_addr = CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, 47)
         dispatcher.offer(sw_addr)
         wait_until(lambda: store.query(CommandScope.SWITCH, 47) is not None)
-        sw_47_state: SwitchState = store.query(CommandScope.SWITCH, 47)
+        sw_47_state = store.query(CommandScope.SWITCH, 47)
+        assert isinstance(sw_47_state, SwitchState)
         assert sw_47_state is not None
         assert sw_47_state.last_updated is not None
         assert sw_47_state.last_command == sw_addr
@@ -91,8 +95,11 @@ class TestComponentStateStore(TestBase):
         sw_out.address = 47
         assert sw_out.address == 47
         dispatcher.offer(sw_out)
+        # The isinstance assertion above narrows the captured state at runtime.
+        # noinspection PyUnresolvedReferences
         wait_until(lambda: sw_47_state.is_known is True)
-        sw_47_state: SwitchState = store.query(CommandScope.SWITCH, 47)
+        sw_47_state = store.query(CommandScope.SWITCH, 47)
+        assert isinstance(sw_47_state, SwitchState)
         assert sw_47_state is not None
         assert sw_47_state.last_updated is not None
         assert sw_47_state.last_command == sw_out

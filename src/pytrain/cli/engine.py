@@ -718,11 +718,17 @@ class EngineCli(CliBaseTMCC):
             ],
         )
 
-    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(
+        self,
+        arg_parser: ArgumentParser,
+        cmd_line: List[str] | None = None,
+        do_fire: bool = True,
+    ) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
-        self._engine = engine = self._args.engine
         try:
+            self._engine = engine = self._args.engine
             self._scope = scope = self._determine_scope()
+
             self._determine_command_format(scope, engine)
             option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:

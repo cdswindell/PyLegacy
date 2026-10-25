@@ -9,7 +9,12 @@ from src.pytrain.protocol.sequence.speed_ramp import EchoOutcome, RampStep
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
-from .test_speed_ramp import RampEngineState, Recorder, build_ramp
+from .ramp_test_support import RampEngineState, Recorder, build_ramp
+
+pytestmark = [
+    pytest.mark.usefixtures("ramp_target_update"),
+    pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning"),
+]
 
 
 def test_claim_is_public_and_initialized_before_acquisition():
@@ -17,11 +22,13 @@ def test_claim_is_public_and_initialized_before_acquisition():
     assert ramp.claim is None
 
 
-def test_start_returns_before_claim_acknowledgment_without_emitting():
+def test_start_returns_before_claim_acknowledgment_without_emitting(ramp_workers):
     recorder = Recorder()
     acquiring, acknowledge, returned = Event(), Event(), Event()
     peer = Mock()
 
+    # The callback must inspect its supplied worker, not capture the caller's handle.
+    # noinspection PyShadowingNames
     def acquire(ramp):
         assert current_thread() is ramp
         acquiring.set()
@@ -40,6 +47,9 @@ def test_start_returns_before_claim_acknowledgment_without_emitting():
             returned.set()
 
     caller = Thread(target=start)
+    # Join the starter before the ramp, even if cleanup begins before start() runs.
+    ramp_workers.track(caller)
+    ramp_workers.track(ramp, release=acknowledge.set)
     caller.start()
     try:
         assert acquiring.wait(2)
@@ -52,6 +62,8 @@ def test_start_returns_before_claim_acknowledgment_without_emitting():
         caller.join(2)
         if ramp.ident is not None:
             ramp.join(2)
+    assert caller.is_alive() is False
+    assert ramp.is_alive() is False
     assert not failures
     assert recorder.speeds[-1] == 12
     assert ramp._claim_pending is False
@@ -59,16 +71,19 @@ def test_start_returns_before_claim_acknowledgment_without_emitting():
     peer.release.assert_called_once_with(ramp)
 
 
-def test_race_rejection_aborts_worker_without_speed_or_component_transmissions(caplog):
+def test_race_rejection_aborts_worker_without_speed_or_component_transmissions(caplog, ramp_workers):
     recorder = Recorder()
     peer = Mock()
     peer.acquire.side_effect = ValueError("Ramp already owned by another process")
     ramp = build_ramp(RampEngineState(speed=60, labor=20, rpm=5), 12, recorder, peer=peer)
+    ramp_workers.track(ramp)
     ramp.start()
     ramp.join(2)
     assert recorder.sent == []
     assert ramp.is_alive() is False
-    assert "already owned" in ramp.abort_reason
+    reason = ramp.abort_reason
+    assert reason is not None
+    assert "already owned" in reason
     assert "already owned" in caplog.text
     assert ramp._is_running is False
     assert ramp._claim_pending is False
@@ -79,6 +94,8 @@ def test_race_rejection_aborts_worker_without_speed_or_component_transmissions(c
 def test_pending_claim_ignores_ordinary_reports_without_replaying_them():
     recorder = Recorder()
 
+    # Match the peer's instance callback interface and use its supplied worker.
+    # noinspection PyMethodMayBeStatic,PyShadowingNames
     class Peer:
         def acquire(self, ramp):
             assert ramp._claim_pending is True
@@ -150,6 +167,8 @@ def test_named_safety_aliases_override_pending_claim_on_every_repeat(protocol):
     assert {"RESET", "SHUTDOWN_IMMEDIATE"} <= set(tested)
 
 
+# The registry deliberately consumes a lightweight worker state double here.
+# noinspection PyTypeChecker
 def test_remote_registry_guard_precedes_retarget_and_construction(monkeypatch):
     state = RampEngineState()
     state.is_remote_ramping = True
@@ -168,6 +187,8 @@ def test_remote_registry_guard_precedes_retarget_and_construction(monkeypatch):
     construction.assert_not_called()
 
 
+# The registry deliberately consumes a lightweight worker state double here.
+# noinspection PyTypeChecker
 def test_mock_remote_flag_does_not_reject_local_retarget():
     state = RampEngineState()
     state.is_remote_ramping = Mock()
@@ -178,21 +199,28 @@ def test_mock_remote_flag_does_not_reject_local_retarget():
     owner.retarget.assert_called_once_with(90, dialog=False)
 
 
-def test_registry_retargets_pending_worker_without_reacquiring_or_blocking():
+# The registry deliberately consumes a lightweight worker state double here.
+# noinspection PyTypeChecker
+def test_registry_retargets_pending_worker_without_reacquiring_or_blocking(ramp_workers):
     state = RampEngineState()
     recorder = Recorder()
     registry = speed_ramp.RampRegistry()
     acquiring, acknowledge = Event(), Event()
     peer = Mock()
 
+    # The callback must inspect its supplied worker, not capture the caller's handle.
+    # noinspection PyShadowingNames
     def acquire(ramp):
         assert current_thread() is ramp
+        # The callback uses the same lightweight state as the registry scenario.
+        # noinspection PyTypeChecker
         assert registry.get(state) is ramp
         acquiring.set()
         assert acknowledge.wait(2)
 
     peer.acquire.side_effect = acquire
     ramp = registry.ramp_to(state, 12, sender=recorder, peer=peer, delay_scale=0)
+    ramp_workers.track(ramp, release=acknowledge.set)
     try:
         assert acquiring.wait(2)
         assert registry.ramp_to(state, 18, dialog=True) is ramp
@@ -202,23 +230,28 @@ def test_registry_retargets_pending_worker_without_reacquiring_or_blocking():
     finally:
         acknowledge.set()
         ramp.join(2)
+    assert ramp.is_alive() is False
     assert ramp.is_active is False
     assert recorder.speeds[-1] == 18
     peer.acquire.assert_called_once_with(ramp)
     peer.release.assert_called_once_with(ramp)
 
 
-def test_safety_abort_while_acquiring_stops_without_waiting_or_late_speeds():
+def test_safety_abort_while_acquiring_stops_without_waiting_or_late_speeds(ramp_workers):
     recorder = Recorder()
     acquiring, acknowledge = Event(), Event()
     peer = Mock()
 
+    # Keep the peer callback signature; this gate does not need the supplied worker.
+    # noinspection PyShadowingNames
     def acquire(ramp):
+        del ramp
         acquiring.set()
         assert acknowledge.wait(2)
 
     peer.acquire.side_effect = acquire
     ramp = build_ramp(RampEngineState(), 12, recorder, peer=peer)
+    ramp_workers.track(ramp, release=acknowledge.set)
     ramp.start()
     try:
         assert acquiring.wait(2)
@@ -233,6 +266,7 @@ def test_safety_abort_while_acquiring_stops_without_waiting_or_late_speeds():
     finally:
         acknowledge.set()
         ramp.join(2)
+    assert ramp.is_alive() is False
     assert ramp._claim_pending is False
     assert ramp._claim_acquired is False
     assert ramp.abort_reason == "STOP_IMMEDIATE"
@@ -264,7 +298,7 @@ def test_zero_is_foreign_even_when_it_was_sent(is_rx):
         assert ramp.arbitrate(report(0, is_rx=is_rx)) is EchoOutcome.FOREIGN
 
 
-def test_ordinary_abort_during_send_prevents_trailing_components():
+def test_ordinary_abort_during_send_prevents_trailing_components(ramp_workers):
     entered, resume = Event(), Event()
     recorder = Recorder()
     ramp = build_ramp(RampEngineState(), 93, recorder)
@@ -275,6 +309,7 @@ def test_ordinary_abort_during_send_prevents_trailing_components():
 
     recorder.hook = send
     worker = Thread(target=ramp._send_step, args=(RampStep(3, 20, 1, 0.2),))
+    ramp_workers.track(worker, release=resume.set, abort=lambda: ramp.abort("test cleanup"))
     worker.start()
     try:
         assert entered.wait(2)
@@ -308,14 +343,18 @@ def test_peer_acquisition_precedes_emission_and_always_releases(error):
     recorder = Recorder()
     events = []
 
+    # Match the peer's instance callback interface; only event order matters here.
+    # noinspection PyMethodMayBeStatic,PyShadowingNames
     class Peer:
         def acquire(self, ramp):
+            del ramp
             assert recorder.sent == []
             events.append("acquire")
             if error is not None:
                 raise error
 
         def release(self, ramp):
+            del ramp
             events.append("release")
 
     ramp = build_ramp(RampEngineState(), 12, recorder, peer=Peer())
@@ -328,7 +367,9 @@ def test_peer_acquisition_precedes_emission_and_always_releases(error):
         assert recorder.speeds[-1] == 12
         assert ramp.abort_reason is None
     else:
-        assert str(error) in ramp.abort_reason
+        reason = ramp.abort_reason
+        assert reason is not None
+        assert str(error) in reason
         assert recorder.sent == []
 
 
@@ -345,12 +386,16 @@ def test_default_peer_setup_is_lazy_and_fails_closed(monkeypatch, error):
 
     monkeypatch.setattr(speed_ramp, "default_sender", recorder)
     monkeypatch.setattr("src.pytrain.protocol.sequence.ramp_peer.RampPeer.build", build)
+    # Keep the real constructor's default sender with only a lightweight state double.
+    # noinspection PyTypeChecker
     ramp = speed_ramp.SpeedRamp(RampEngineState(), 12, linger=0, delay_scale=0)
     assert built == []
     ramp.run()
     assert built == [True]
     assert recorder.sent == []
-    assert "peer acquisition failed" in ramp.abort_reason
+    reason = ramp.abort_reason
+    assert reason is not None
+    assert "peer acquisition failed" in reason
     assert ramp._is_running is False
     assert ramp._claim_pending is False
     assert ramp.state.is_ramping is False
@@ -359,6 +404,8 @@ def test_default_peer_setup_is_lazy_and_fails_closed(monkeypatch, error):
 def test_peer_release_error_cannot_leave_running_flags_set(caplog):
     recorder = Recorder()
 
+    # Match the peer's instance callback interface and use its supplied worker.
+    # noinspection PyMethodMayBeStatic,PyShadowingNames
     class Peer:
         def acquire(self, ramp):
             ramp.abort("rejected")

@@ -22,6 +22,7 @@ from ..command_def import CommandDefEnum
 from ..constants import CommandScope, PROGRAM_NAME
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
+from ...pdi.base3_db_refresh_manager import Base3DbRefreshManager
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...db.engine_state import EngineState
@@ -248,7 +249,7 @@ class EchoLedger:
             claimed = self._claimed[family]
             return bool(claimed) and abs(claimed[-1].data - data) <= tolerance
 
-    def purge(self, ttl: float = None) -> None:
+    def purge(self, ttl: float | None = None) -> None:
         """Drop entries older than the lag budget, claimed or not."""
         ttl = self._ttl if ttl is None else ttl
         cutoff = time() - ttl
@@ -348,9 +349,8 @@ def effective_target(requested: int, state: EngineState) -> int:
     """
     Clamp the operator's requested target to the engine's live ceiling. This is the
     single place the speed_limit / max_speed ceiling is applied, so a limit set,
-    changed, or cleared mid-ramp is honored on the very next step. The requested
-    target itself is never rewritten, so raising or clearing a limit lets a ramp
-    resume toward what the operator originally asked for.
+    changed, or cleared mid-ramp is honored on the next step. The ramp worker
+    separately makes downward clamps permanent for the current request.
     """
     # noinspection PyUnreachableCode
     if requested is None:
@@ -488,7 +488,7 @@ class SpeedRamp(Thread):
         target_speed: int,
         *,
         dialog: bool = False,
-        sender: Sender = None,
+        sender: Sender | None = None,
         linger: float = DEFAULT_RAMP_LINGER,
         delay_scale: float = 1.0,
         peer=None,
@@ -526,9 +526,10 @@ class SpeedRamp(Thread):
         self._is_running = True
         self._abort_reason: str | None = None
 
-        # the operator's intent, deliberately left unclamped so that raising or
-        # clearing a speed limit lets this ramp resume toward it with no new request
+        # A lowered ceiling permanently caps the current ramp request.
+        # Only an explicit retarget can establish a higher destination.
         self._requested_target = target_speed
+        self._last_announced_target: int | None = None
 
         # what this thread last sent; the lagged Base 3 echo is read exactly once, here
         speed = state.speed
@@ -567,7 +568,7 @@ class SpeedRamp(Thread):
 
     @property
     def requested_speed(self) -> int:
-        """The operator's target, unclamped."""
+        """The current request, including any ceiling captured by the ramp."""
         with self._lock:
             return self._requested_target
 
@@ -605,6 +606,12 @@ class SpeedRamp(Thread):
 
     @property
     def is_active(self) -> bool:
+        """Whether this worker is running, including startup before thread launch.
+
+        Activity includes custom-sender retargeting linger after settlement; the
+        production peer-backed worker normally exits at settlement. A retained
+        finished handle alone is not active, and this is not remote claim status.
+        """
         return self._is_running is True and (self._starting or self.is_alive())
 
     @property
@@ -636,11 +643,11 @@ class SpeedRamp(Thread):
 
     def abort(
         self,
-        reason: str = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         """
         Stop silently on ordinary takeover. The winning controller owns all settings.
@@ -793,6 +800,38 @@ class SpeedRamp(Thread):
         finally:
             self._claim_pending = False
 
+    def _send_initial_target(self) -> None:
+        """Preserve the startup entry point; subsequent retargets use the same path."""
+        self._announce_target()
+
+    def _capture_ceiling(self) -> None:
+        """Make a lowered speed ceiling sticky for this ramp request."""
+        with self._lock:
+            self._requested_target = effective_target(self._requested_target, self._state)
+
+    def _announce_target(self) -> None:
+        """Synchronize a changed destination before the next throttle step.
+
+        Only the ramp worker sends target updates. This coalesces rapid retargets,
+        preserves send ordering and reuses BaseReq's 2D/4D and write-dedup logic.
+        """
+        from ...pdi.base_req import BaseReq
+
+        with self._wire:
+            if self._is_running is False or self._claim_acquired is False:
+                return
+            self._capture_ceiling()
+            with self._lock:
+                target = self._requested_target
+                if target == self._last_announced_target:
+                    return
+            BaseReq.do_update_field("RAMP_TARGET_SPEED", target, self._state, do_async=False, refresh=False)
+            with self._lock:
+                self._last_announced_target = target
+            # Request a fresh record after the write; the refresh manager
+            # coalesces requests for the same engine/train.
+            Base3DbRefreshManager.flush(self._state)
+
     def _release_claim(self) -> None:
         with self._lock:
             if self._peer is None or self._claim_released:
@@ -819,7 +858,9 @@ class SpeedRamp(Thread):
             if self._is_running is False:
                 return
             self._acquire_claim()
+            self._send_initial_target()
             while self._is_running is True:
+                self._announce_target()
                 with self._lock:
                     requested = self._requested_target
                     commanded = self._commanded_speed
@@ -850,11 +891,12 @@ class SpeedRamp(Thread):
                     self._is_running = False
                     self._claim_pending = False
                 self._set_ramping(False)
+                Base3DbRefreshManager.request_refresh(state)
 
     def _pause(self, delay: float) -> bool:
         """
-        Wait out one step delay, interruptibly. Returns True when the ramp is done,
-        so a retarget or an abort is acted on within one step interval rather than at
+        Wait out a one-step delay, interruptibly. Returns True when the ramp is done,
+        so a retarget or an abort is acted on within a one-step interval rather than at
         the end of a queued sequence.
         """
         self._wake.wait(delay * self._delay_scale)
@@ -1034,6 +1076,7 @@ class RampRegistry:
     _instance: RampRegistry | None = None
     _lock = RLock()
 
+    # noinspection bad-return
     @classmethod
     def build(cls) -> RampRegistry:
         with cls._lock:
@@ -1059,7 +1102,7 @@ class RampRegistry:
         speed: int,
         *,
         dialog: bool = False,
-        sender: Sender = None,
+        sender: Sender | None = None,
         **kwargs,
     ) -> SpeedRamp:
         """
@@ -1100,11 +1143,11 @@ class RampRegistry:
     def abort(
         self,
         state: EngineState,
-        reason: str = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         with self._ramps_lock:
             self._reap()
@@ -1114,10 +1157,10 @@ class RampRegistry:
 
     def abort_all(
         self,
-        scope: CommandScope = None,
-        reason: str = None,
+        scope: CommandScope | None = None,
+        reason: str | None = None,
         *,
-        target_speed: int = None,
+        target_speed: int | None = None,
         hard_stop: bool = False,
     ) -> None:
         """

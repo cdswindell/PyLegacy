@@ -73,11 +73,12 @@ class CommandReq:
         command: E | bytes,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
-        scope: CommandScope = None,
+        scope: CommandScope | None = None,
     ) -> Self:
         if isinstance(command, bytes):
             return cls.from_bytes(bytes(command))
         cls._vet_request(command, address, data, scope)
+
         # we have to do these imports here to avoid cyclic dependencies
         from ..protocol.multibyte.multibyte_constants import TMCC2MultiByteEnum
         from .sequence.sequence_constants import SequenceCommandEnum
@@ -225,7 +226,7 @@ class CommandReq:
         buffer=None,
         request: CommandReq | None = None,
         trigger_effects: bool = True,
-        interval: int = None,
+        interval: int | None = None,
     ) -> None:
         if isinstance(cmd, CommandReq):
             cmd._validate_send()
@@ -338,7 +339,7 @@ class CommandReq:
         command_def_enum: E,
         address: int = DEFAULT_ADDRESS,
         data: int = 0,
-        scope: CommandScope = None,
+        scope: CommandScope | None = None,
     ) -> None:
         self._command_def_enum: E = command_def_enum
         self._command_name = self._command_def_enum.name

@@ -9,13 +9,14 @@
 
 
 class Validations:
+    # noinspection bad-argument-type
     @classmethod
     def validate_int(
         cls,
-        value: int,
-        min_value: int = None,
-        max_value: int = None,
-        label: str = None,
+        value: int | None,
+        min_value: int | None = None,
+        max_value: int | None = None,
+        label: str | None = None,
         allow_none: bool = False,
     ) -> int | None:
         if value is None and allow_none is True:
@@ -38,13 +39,14 @@ class Validations:
             raise ValueError(f"{label} must be less than or equal to {max_value}{suffix}")
         return value
 
+    # noinspection bad-argument-type
     @classmethod
     def validate_float(
         cls,
-        value: float,
-        min_value: float = None,
-        max_value: float = None,
-        label: str = None,
+        value: float | None,
+        min_value: float | None = None,
+        max_value: float | None = None,
+        label: str | None = None,
         allow_none: bool = False,
     ) -> float | None:
         if value is None and allow_none is True:

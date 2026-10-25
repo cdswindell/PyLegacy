@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from enum import IntEnum, unique
 from math import floor
-from threading import Thread
-from typing import Any, Callable, Dict, List, Literal, Tuple, TypeVar
+from threading import Lock, Thread
+from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, TypeVar, cast
 
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
@@ -27,6 +28,11 @@ from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 S = TypeVar("S", bound=ComponentState)
 
 log = logging.getLogger(__name__)
+
+BASE3_WRITE_DEDUP_SECONDS = 0.020
+_write_dedup_lock = Lock()
+_recent_db_writes: dict[tuple, tuple[bytes, float]] = {}
+
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -67,6 +73,7 @@ class EngineBits(Mixins, IntEnum):
     DITCH_LIGHT = 21
     TRAIN_BRAKE = 22
     MOMENTUM = 23
+    TARGET_SPEED = 24
 
 
 ENGINE_WRITE_MAP = {
@@ -122,13 +129,14 @@ class BaseReq(PdiReq, CompDataMixin):
         refresh_requested = False
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state_changes = BaseReq.update_eng(cmd)
-            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send())
+            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send(), deduplicate_writes=True)
         return None if refresh_requested else cls.create_base_query_request(state)
 
+    # noinspection bad-argument-type
     @classmethod
     def create_base_query_request(cls, state: ComponentState) -> BaseReq | D4Req:
         if 1 <= state.tmcc_id <= 99:
-            return cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
+            return cls(state.tmcc_id, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
         else:
             from .d4_req import D4Req
 
@@ -140,16 +148,17 @@ class BaseReq(PdiReq, CompDataMixin):
                 data_length=0xC0,
             )
 
+    # noinspection bad-argument-type
     @classmethod
-    def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
+    def update_target_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
         if scope == CommandScope.TRAIN:
-            return cls(address, PdiCommand.UPDATE_TRAIN_SPEED, flags=0xC2, speed=speed)
+            return cls(address, PdiCommand.UPDATE_TRAIN_SPEED, flags=0xC2, target_speed=speed)
         else:
-            return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, flags=0xC2, speed=speed)
+            return cls(address, PdiCommand.UPDATE_ENGINE_SPEED, flags=0xC2, target_speed=speed)
 
     # noinspection PyUnreachableCode
     @classmethod
-    def update_eng(cls, cmd: CommandDefEnum | CommandReq) -> List[BaseReq] | None:
+    def update_eng(cls, cmd: CommandDefEnum | CommandReq) -> list[PdiReq | ComponentState]:
         #
         # Given a TMCC command, determine how it indirectly impacts engine state and
         # return a list of commands to send to the Base 3 to set that state
@@ -205,10 +214,11 @@ class BaseReq(PdiReq, CompDataMixin):
                             )
                         )
             # harvest state update pkgs based on command
-            cmds = []
+            cmds: list[PdiReq | ComponentState] = []
             pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
             if pkgs:
-                cmds = BaseReq.updates_to_reqs(cur_state, pkgs)
+                # The initialized engine/train store contract applies here, not arbitrary scopes.
+                cmds = BaseReq.updates_to_reqs(cast(EngineState, cur_state), pkgs)
             elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
                 log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
                 bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
@@ -245,18 +255,18 @@ class BaseReq(PdiReq, CompDataMixin):
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
+    # noinspection bad-argument-type
     @classmethod
     def updates_to_reqs(
         cls,
         state: EngineState,
         packages: List[UpdatePkg],
         refresh: bool = True,
-    ) -> List[BaseReq] | None:
-        cmds = []
-        if packages:
+    ) -> list[PdiReq | ComponentState]:
+        cmds: list[PdiReq | ComponentState] = []
+        if packages and state and state.tmcc_id is not None:
             from .d4_req import D4Req
 
-            assert state
             tmcc_id = state.tmcc_id
             scope = state.scope
             for pkg in packages:
@@ -271,30 +281,77 @@ class BaseReq(PdiReq, CompDataMixin):
                         data_length=pkg.length,
                         data_bytes=pkg.data_bytes,
                     )
-                    cmds.append(req)
-                else:
-                    assert state.record_no != 0xFFFF
-                    pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-                    cmds.append(
-                        D4Req(
-                            state.record_no,
-                            pdi_cmd,
-                            D4Action.UPDATE,
-                            start=pkg.offset,
-                            data_length=pkg.length,
-                            data_bytes=pkg.data_bytes,
+                    req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
+                    # Firmware 1.38+ requires a synthetic target-speed command for 2D records.
+                    # Attach it to the write so it is sent only if the write survives deduplication.
+                    if (
+                        tmcc_id <= 99
+                        and scope in {CommandScope.ENGINE, CommandScope.TRAIN}
+                        and pkg.field == "target_speed"
+                    ):
+                        from ..db.comp_data import decode_tmcc_speed
+
+                        target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
+                        req._target_speed_update = BaseReq.update_target_speed(
+                            address=tmcc_id, scope=scope, speed=target_speed
                         )
+                    cmds.append(req)
+                elif 101 <= tmcc_id <= 9999 and state.record_no is not None and 0 <= state.record_no < 0xFFFF:
+                    pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+                    req = D4Req(
+                        state.record_no,
+                        pdi_cmd,
+                        D4Action.UPDATE,
+                        start=pkg.offset,
+                        data_length=pkg.length,
+                        data_bytes=pkg.data_bytes,
                     )
-            if cmds and refresh:
-                # adding state to the command que will trigger refresh request
+                    req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
+                    cmds.append(req)
+            if cmds and refresh and not state.is_ramp_active:
+                # Adding state to the command queue will trigger a refresh request.
                 cmds.append(state)
         return cmds
 
+    @staticmethod
+    def _database_write_key(req: PdiReq) -> tuple | None:
+        """Return the destination and payload of a CompData database write."""
+        return getattr(req, "_update_dedup_key", None)
+
+    @classmethod
+    def _should_send_database_write(cls, req: PdiReq) -> bool:
+        key = cls._database_write_key(req)
+        if key is None:
+            return True
+        if BASE3_WRITE_DEDUP_SECONDS <= 0:
+            return True
+        destination, payload = key[:4], key[4]
+        now = time.monotonic()
+        with _write_dedup_lock:
+            for old_key, (_, timestamp) in list(_recent_db_writes.items()):
+                if now - timestamp >= BASE3_WRITE_DEDUP_SECONDS:
+                    del _recent_db_writes[old_key]
+            previous = _recent_db_writes.get(destination)
+            if previous is not None and previous[0] == payload:
+                log.debug(
+                    "Base 3 write dedup SUPPRESS: key=%r elapsed=%.3f ms window=%.3f ms",
+                    key,
+                    (now - previous[1]) * 1000,
+                    BASE3_WRITE_DEDUP_SECONDS * 1000,
+                )
+                return False
+            _recent_db_writes[destination] = (payload, now)
+            return True
+
     @classmethod
     def process_sync_reqs(
-        cls, sync_reqs: list[BaseReq], callback: Callable = lambda r: r.send(), do_async: bool = False
+        cls,
+        sync_reqs: Sequence[PdiReq | ComponentState],
+        callback: Callable[[PdiReq], Any] = lambda r: r.send(),
+        do_async: bool = False,
+        deduplicate_writes: bool = False,
     ) -> bool:
-        """Processes sync requests dispatching engine refreshes or callbacks"""
+        """Dispatch refreshes and callbacks, optionally deduplicating Base 3 writes."""
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
         refresh_requested = False
@@ -304,32 +361,43 @@ class BaseReq(PdiReq, CompDataMixin):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
                 else:
-                    if do_async:
-                        Thread(
-                            target=callback,
-                            args=(sync_req,),
-                            daemon=True,
-                        ).start()
-                    else:
-                        callback(sync_req)
+                    if deduplicate_writes:
+                        if not cls._should_send_database_write(sync_req):
+                            continue
+                    # Keep the synthetic 0x2A/0x2B command paired with its accepted
+                    # target-speed database write, preserving the original send order.
+                    target_speed_update = getattr(sync_req, "_target_speed_update", None)
+                    for req in (target_speed_update, sync_req) if target_speed_update is not None else (sync_req,):
+                        if do_async:
+                            Thread(target=callback, args=(req,), daemon=True).start()
+                        else:
+                            callback(req)
         return refresh_requested
 
     @classmethod
-    def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[BaseReq]:
+    def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[PdiReq | ComponentState]:
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
-            cls.process_sync_reqs(sync_reqs, lambda r: r.send())
+            cls.process_sync_reqs(sync_reqs, lambda r: r.send(), deduplicate_writes=True)
         return sync_reqs
 
     @classmethod
-    def do_update_field(cls, field: str, data: Any, state: S, do_async: bool = True) -> list[BaseReq]:
-        sync_reqs = []
-        if state:
+    def do_update_field(
+        cls,
+        field: str,
+        data: Any,
+        state: S,
+        do_async: bool = True,
+        refresh: bool = True,
+    ) -> list[PdiReq | ComponentState]:
+        sync_reqs: list[PdiReq | ComponentState] = []
+        if state and state.tmcc_id is not None:
+            # noinspection bad-argument-type
             pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
             if pkgs:
-                sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
+                sync_reqs = BaseReq.updates_to_reqs(state, pkgs, refresh=refresh)
                 if sync_reqs:
-                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
+                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async, deduplicate_writes=True)
         return sync_reqs
 
     def __init__(
@@ -337,10 +405,11 @@ class BaseReq(PdiReq, CompDataMixin):
         data: bytes | int = 0,
         pdi_command: PdiCommand = PdiCommand.BASE,
         flags: int = 2,
-        scope: CommandScope = None,
-        speed: int = None,
+        scope: CommandScope | None = None,
+        speed: int | None = None,
+        target_speed: int | None = None,
         base_name: str | None = None,
-        state: ComponentState = None,
+        state: ComponentState | None = None,
         start: int = 0,
         data_length: int = 0,
         data_bytes: bytes | None = None,
@@ -354,16 +423,22 @@ class BaseReq(PdiReq, CompDataMixin):
         self._rev_link = self._fwd_link = None
         self._loco_type = self._control_type = self._sound_type = self._loco_class = None
         self._speed_step = self._speed_limit = self._max_speed = self._labor_bias = None
-        self._fuel_level = self._water_level = self._last_train_id = self._train_pos = None
-        self._train_brake = None
-        self._smoke_level = self._ditch_lights = self._momentum = None
+        self._fuel_level: int | None = None
+        self._water_level: int | None = None
+        self._last_train_id = self._train_pos = None
+        self._speed = self._target_speed = None
+        self._train_brake: int | None = None
+        self._smoke_level = self._ditch_lights = None
+        self._momentum: int | None = None
         self._consist_flags = None
         self._consist_comps = []
         self._state = state
         self._valid1 = self._valid2 = None
         self._spare_1 = None
         self._data_length = self._data_bytes = self._start = self._record_type = None
+        # Initializes object state from raw bytes or existing model instances
         if isinstance(data, bytes):
+            # noinspection bad-argument-type
             data_len = len(self._data)
             self._record_no = self.tmcc_id = self._data[1] if data_len > 1 else None
             self._flags = self._data[2] if data_len > 2 else None
@@ -468,13 +543,33 @@ class BaseReq(PdiReq, CompDataMixin):
                         self._comp_data_record = False
                         self._name = self._number = None
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
-                self._speed = self._data[2] if data_len > 2 else None
-                self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
+                if data_len >= 2:
+                    self._scope = scope = (
+                        CommandScope.ENGINE
+                        if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED
+                        else CommandScope.TRAIN
+                    )
+                    self._target_speed = self._data[-1]
+                    if data_len == 2 or (data_len > 2 and self._data[2] == 0xFF):
+                        self._tmcc_id = self._data[1]
+                    elif data_len > 2:
+                        from ..db.component_state_store import ComponentStateStore
+
+                        d4_no = int.from_bytes(self._data[1:3], "little")
+                        state = ComponentStateStore.by_record_no(d4_no, scope)
+                        if state:
+                            self._tmcc_id = state.tmcc_id
+                    self._set_valid(EngineBits.TARGET_SPEED)
+                    self._status = 0
+                else:
+                    self._target_speed = None
+
         else:
             self._record_no = int(data)
             self._flags = flags
             self._speed_step = speed
             self._base_name = base_name
+            self._target_speed = target_speed
             self._valid1 = 0b1111
             if self.pdi_command == PdiCommand.BASE_MEMORY:
                 self._tmcc_id = self.record_no
@@ -539,11 +634,27 @@ class BaseReq(PdiReq, CompDataMixin):
                             self._consist_comps = state.consist_components
 
     def is_valid(self, field: EngineBits) -> bool:
-        if self._valid1 and field.value <= 15:
+        if self._valid1 is not None and field.value <= 15:
             return (self._valid1 & (1 << field.value)) != 0
-        elif self._valid2 and field.value <= 31:
+        elif self._valid2 is not None and 15 < field.value <= 31:
             return (self._valid2 & (1 << (field.value - 16))) != 0
         return False
+
+    def _set_valid(self, field: EngineBits):
+        if field.value <= 15:
+            self._valid1 = self._valid1 or 0
+            self._valid1 |= 1 << field.value
+        elif field.value <= 31:
+            self._valid2 = self._valid2 or 0
+            self._valid2 |= 1 << (field.value - 16)
+
+    def _clear_valid(self, field: EngineBits):
+        if field.value <= 15:
+            self._valid1 = self._valid1 or 0
+            self._valid1 &= ~(1 << field.value)
+        elif field.value <= 31:
+            self._valid2 = self._valid2 or 0
+            self._valid2 &= ~(1 << (field.value - 16))
 
     @property
     def as_key(self) -> tuple:
@@ -554,35 +665,35 @@ class BaseReq(PdiReq, CompDataMixin):
         return f"{self.scope.title} - {self.record_no}"
 
     @property
-    def record_no(self) -> int:
+    def record_no(self) -> int | None:
         return self._record_no
 
     @property
-    def last_train_id(self) -> int:
+    def last_train_id(self) -> int | None:
         return self._last_train_id
 
     @property
-    def train_pos(self) -> int:
+    def train_pos(self) -> int | None:
         return self._train_pos
 
     @property
-    def flags(self) -> int:
+    def flags(self) -> int | None:
         return self._flags
 
     @property
-    def status(self) -> int:
+    def status(self) -> int | None:
         return self._status
 
     @property
-    def spare_1(self) -> int:
+    def spare_1(self) -> int | None:
         return self._spare_1
 
     @property
-    def reverse_link(self) -> int:
+    def reverse_link(self) -> int | None:
         return self._rev_link
 
     @property
-    def forward_link(self) -> int:
+    def forward_link(self) -> int | None:
         return self._fwd_link
 
     @property
@@ -590,28 +701,32 @@ class BaseReq(PdiReq, CompDataMixin):
         return self._valid1
 
     @property
-    def valid2(self) -> int:
+    def valid2(self) -> int | None:
         return self._valid2
 
     @property
-    def name(self) -> str:
+    def name(self) -> str | None:
         return self._name
 
     @property
-    def number(self) -> str:
+    def number(self) -> str | None:
         return self._number
 
     @property
-    def speed(self) -> int:
+    def speed(self) -> int | None:
         return self._speed_step
 
     @property
-    def max_speed(self) -> int:
+    def max_speed(self) -> int | None:
         return self._max_speed
 
     @property
-    def speed_limit(self) -> int:
+    def speed_limit(self) -> int | None:
         return self._speed_limit
+
+    @property
+    def target_speed(self) -> int | None:
+        return self._target_speed
 
     @property
     def smoke(self) -> CommandDefEnum | None:
@@ -620,37 +735,39 @@ class BaseReq(PdiReq, CompDataMixin):
         return SMOKE_LEVEL_MAP.get(self._smoke_level, None)
 
     @property
-    def smoke_level(self) -> int:
+    def smoke_level(self) -> int | None:
         return self._smoke_level
 
     @property
-    def train_brake(self) -> int:
+    def train_brake(self) -> int | None:
         return self._train_brake
 
     @property
-    def train_brake_tmcc(self) -> int:
-        if self.train_brake:
-            return min(round(self._train_brake * 0.4667), 7)
+    def train_brake_tmcc(self) -> int | None:
+        train_brake = self.train_brake
+        if train_brake:
+            return int(min(round(train_brake * 0.4667), 7))
         else:
-            return self._train_brake
+            return train_brake
 
     @property
-    def momentum(self) -> int:
+    def momentum(self) -> int | None:
         return self._momentum
 
     @property
-    def momentum_tmcc(self) -> int:
-        if self.momentum:
-            return min(round(self._momentum * 0.05512), 7)
+    def momentum_tmcc(self) -> int | None:
+        momentum = self.momentum
+        if momentum:
+            return int(min(round(momentum * 0.05512), 7))
         else:
-            return self._momentum
+            return momentum
 
     @property
-    def run_level(self) -> int:
+    def run_level(self) -> int | None:
         return self._run_level
 
     @property
-    def labor_bias(self) -> int:
+    def labor_bias(self) -> int | None:
         return self._labor_bias
 
     @property
@@ -671,34 +788,46 @@ class BaseReq(PdiReq, CompDataMixin):
 
     @property
     def control(self) -> str:
-        return CONTROL_TYPE.get(self._control_type, "NA")
+        if self._control_type is not None:
+            return CONTROL_TYPE.get(self._control_type, "NA")
+        else:
+            return "NA"
 
     @property
-    def control_id(self) -> int:
+    def control_id(self) -> int | None:
         return self._control_type
 
     @property
     def sound(self) -> str:
-        return SOUND_TYPE.get(self._sound_type, "NA")
+        if self._sound_type is not None:
+            return SOUND_TYPE.get(self._sound_type, "NA")
+        else:
+            return "NA"
 
     @property
-    def sound_id(self) -> int:
+    def sound_id(self) -> int | None:
         return self._sound_type
 
     @property
     def loco_type(self) -> str:
-        return LOCO_TYPE.get(self._loco_type, "NA")
+        if self._loco_type is not None:
+            return LOCO_TYPE.get(self._loco_type, "NA")
+        else:
+            return "NA"
 
     @property
-    def loco_type_id(self) -> int:
+    def loco_type_id(self) -> int | None:
         return self._loco_type
 
     @property
     def loco_class(self) -> str:
-        return LOCO_CLASS.get(self._loco_class, "NA")
+        if self._loco_class is not None:
+            return LOCO_CLASS.get(self._loco_class, "NA")
+        else:
+            return "NA"
 
     @property
-    def loco_class_id(self) -> int:
+    def loco_class_id(self) -> int | None:
         return self._loco_class
 
     @property
@@ -706,15 +835,15 @@ class BaseReq(PdiReq, CompDataMixin):
         return self._consist_comps
 
     @property
-    def consist_flags(self) -> int:
+    def consist_flags(self) -> int | None:
         return self._consist_flags
 
     @property
-    def components(self) -> List[int]:
+    def components(self) -> List[int] | None:
         return self._route_components
 
     @property
-    def route_throw_rate(self) -> float:
+    def route_throw_rate(self) -> float | None:
         return self._route_throw_rate
 
     @property
@@ -754,20 +883,21 @@ class BaseReq(PdiReq, CompDataMixin):
         return self._start
 
     @property
-    def data_length(self) -> int:
+    def data_length(self) -> int | None:
         return self._data_length
 
     @property
-    def data_bytes(self) -> bytes:
+    def data_bytes(self) -> bytes | None:
         return self._data_bytes
 
+    # noinspection bad-argument-type
     @property
     def payload(self) -> str:
         f = hex(self.flags) if self.flags is not None else "NA"
         s = self.status if self.status is not None else "NA"
         if self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
             scope = "Engine" if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else "Train"
-            return f"{scope} #{self.tmcc_id} New Speed: {self.speed}"
+            return f"{scope} #{self.tmcc_id} Target Speed: {self.target_speed} ({self.packet})"
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
             dt = ""
             sc = f"Scope: {self.scope}"
@@ -850,12 +980,28 @@ class BaseReq(PdiReq, CompDataMixin):
 
     @property
     def as_bytes(self) -> bytes:
-        if self._original:
+        if isinstance(self._original, bytes):
             return self._original
         byte_str = self.pdi_command.as_bytes
-        byte_str += self.record_no.to_bytes(1, byteorder="big")
+        if self.record_no <= 100:
+            byte_str += self.record_no.to_bytes(1, byteorder="big")
         if self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
-            byte_str += self.speed.to_bytes(1, byteorder="little")
+            # with Rev 1.38 of the firmware, these commands have been usurped to transmit target speed
+            if self.record_no >= 100:
+                from ..db.component_state_store import ComponentStateStore
+
+                byte_str = self.pdi_command.as_bytes
+                scope = (
+                    CommandScope.ENGINE if self.pdi_command == PdiCommand.UPDATE_ENGINE_SPEED else CommandScope.TRAIN
+                )
+                # Non-byte construction assigns int(data); incoming requests returned above.
+                address = cast(int, self._record_no)
+                state = ComponentStateStore.get_state(scope, address, False)
+                if state and state.is_d4:
+                    byte_str += state.record_no.to_bytes(2, byteorder="little")
+                else:
+                    raise ValueError(f"Invalid record number {self._record_no}")
+            byte_str += self.target_speed.to_bytes(1, byteorder="little")
         elif self.pdi_command == PdiCommand.BASE_MEMORY:
             byte_str += self.flags.to_bytes(1, byteorder="little")
             byte_str += (0).to_bytes(1, byteorder="little")  # Status
@@ -907,7 +1053,7 @@ class BaseReq(PdiReq, CompDataMixin):
                             byte_str += c.tmcc_id.to_bytes(1, byteorder="little")
                             i -= 1
                         byte_str += (max(i, 0) * 2) * ff
-                elif self.pdi_command == PdiCommand.BASE_ROUTE:
+                elif self.pdi_command == PdiCommand.BASE_ROUTE and self._route_components:
                     for sw in self._route_components:
                         byte_str += sw.to_bytes(2, byteorder="big")
         else:
@@ -926,7 +1072,7 @@ class BaseReq(PdiReq, CompDataMixin):
             return None
 
     @staticmethod
-    def encode_throw_rate(data: float) -> int | None:
+    def encode_throw_rate(data: float | None) -> int:
         if data is not None:
             for key, value in ROUTE_THROW_RATE_MAP.items():
                 if value <= data < value + 0.25:

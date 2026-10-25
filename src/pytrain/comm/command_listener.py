@@ -771,6 +771,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def update_base_state(self, cmd: CommandReq, update_clients: bool = False):
         if isinstance(cmd, CommandReq):
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
+            # Synchronizes base state updates across connected clients
             if isinstance(action, tuple) and len(action) >= 1:
                 sync_reqs = action[0](cmd)
                 if sync_reqs and update_clients:
@@ -965,7 +966,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 # On receipt of select commands, we must update the Base 3 state to reflect the new state
 #
 REQUIRE_BASE_UPDATE = {
-    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.do_update_eng,),
-    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.do_update_eng,),
+    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.update_eng,),
+    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.update_eng,),
     TMCC2EngineCommandEnum.CLEAR_CONSIST: (CommandDispatcher.on_clear_consist,),
 }

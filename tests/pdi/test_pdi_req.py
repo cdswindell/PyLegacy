@@ -14,7 +14,6 @@ from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
 
 
-# noinspection PyTypeChecker
 def test_encode_decode_text_roundtrip_ascii_and_nulls():
     # Normal ASCII text, padded to field length
     txt = "ABC"
@@ -34,6 +33,14 @@ def test_encode_decode_text_roundtrip_ascii_and_nulls():
     # All 0xFF payload decodes to None
     dec_ffs = PdiReq.decode_text(b"\xff\xff\xff\xff")
     assert dec_ffs is None
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [(None, b"\xff" * 5), ("", b"\xff" * 5), (" \t\n", b"\xff" * 5), (" ABC ", b"ABC\xff\xff")],
+)
+def test_encode_text_exact_bytes(text, expected):
+    assert PdiReq.encode_text(text, 5) == expected
 
 
 def test_decode_text_stops_at_null_and_skips_ffs():

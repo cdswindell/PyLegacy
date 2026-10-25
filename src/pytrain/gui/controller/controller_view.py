@@ -72,6 +72,7 @@ FREIGHT_HORN_RELIEF = "ridge"
 EXTRA_COLUMN_SLACK = 10
 
 
+# noinspection bad-argument-type
 def fit_freight_pair(host) -> None:
     """Shrink the freight pair to the cell Tk actually gave it.
 
@@ -734,7 +735,7 @@ class ControllerView:
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
 
-    # noinspection PyProtectedMember
+    # noinspection PyProtectedMember,unresolved-references,string-format
     def update(self, state: EngineState | None, throttle_state: EngineState | None):
         """
         Paint throttle/brake/momentum + direction buttons from the given state.
@@ -1635,7 +1636,7 @@ class ControllerView:
         self._throttle_committed = None
         self._throttle_committed_at = None
 
-    def _commit_latch_holds(self, throttle_state) -> bool:
+    def _commit_latch_holds(self, throttle_state: EngineState) -> bool:
         """Protect a pending command, not a database target acknowledgment."""
         if self._throttle_committed is None:
             return False

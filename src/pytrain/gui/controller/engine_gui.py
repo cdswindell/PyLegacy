@@ -141,6 +141,7 @@ def preload_engine_button_image_paths() -> None:
     _common_button_image_paths()
 
 
+# noinspection bad-return
 class EngineGui(GuiZeroBase, Generic[S]):
     @classmethod
     def name(cls) -> str:
@@ -148,8 +149,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def __init__(
         self,
-        width: int = None,
-        height: int = None,
+        width: int | None = None,
+        height: int | None = None,
         enabled_bg: str = "green",
         disabled_bg: str = "white",
         enabled_text: str = "black",
@@ -159,8 +160,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scale_by: float = 1.5,
         repeat: int = 2,
         num_recents: int = 5,
-        sensor_track_id: int = None,
-        tmcc_id: int = None,
+        sensor_track_id: int | None = None,
+        tmcc_id: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
         enable_editing: bool = True,
@@ -316,7 +317,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._separator = None
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
-        self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
+        self.throttle_box = self.throttle_title_box = self.throttle = None
+        self.speed = self._rr_speed_btn = self._rr_speed_box = None
         self._bell_btn = self._horn_btn = None
         self._freight_sounds_bell_horn_box = None
         # The extra function column beside the sliders, on the layouts wide enough to hold one;
@@ -481,12 +483,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # The image box above the keypad is sized once, from the keypad's height, and
         # ImagePresenter.calc_box_size caches that in avail_image_height. When the taller
         # Sequence box replaces the keypad, the image keeps its keypad-sized allocation,
-        # so the extra height the 10 radio rows need has nowhere to come from and the last
+        # so the extra height the 10 radio rows need has nowhere to come from, and the last
         # row spills off the bottom of the compact (Steam Deck) pane. Trimming the per-row
         # padding reclaims ~60px there, which clears the shortfall with room to spare.
         # The taller portrait pane has no such problem, so it keeps the standard padding.
         return 5 if self._compact else 6
 
+    # noinspection unsupported-operator
     def fit_image_box_size(self, available_height: int, available_width: int) -> tuple[int, int]:
         if not self._compact:
             return available_height, available_width
@@ -1367,7 +1370,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return upd
 
     # noinspection PyUnusedLocal
-    def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
+    def on_new_engine(
+        self,
+        state: EngineState | None = None,
+        ops_mode_setup: bool = False,
+        is_engine: bool = True,
+    ) -> None:
         if state and state.is_deleted:
             return
         self._active_engine_state = state
@@ -1401,13 +1409,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # UI painting lives in ControllerView now
             self._controller_view.update(state=state, throttle_state=throttle_state)
 
-        # update info detail popup, if its visible
+        # update info detail popup if it's visible
         if ops_mode_setup:
             pass
         elif self._state_info and self._state_info.visible:
             self._state_info.update(state)
 
-    def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
+    def on_new_train(self, state: TrainState | None = None, ops_mode_setup: bool = False) -> None:
         if state and state.is_deleted:
             return
         if state and state != self._active_train_state:

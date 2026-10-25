@@ -1528,9 +1528,10 @@ class PyTrain:
                     if (is_train_cmd or is_engine_cmd) and self._is_int(ui_parts[1]):
                         assert self._state_store is not None
                         tmcc_id = int(ui_parts[1])
-                        state = self._state_store.get_state(
-                            CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
-                        )
+                        cmd_scope = CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN
+                        state = self._state_store.get_state(cmd_scope, tmcc_id, False)
+                        if state is None and 101 <= tmcc_id <= 9999:
+                            raise ValueError(f"{cmd_scope.label} TMCC ID {tmcc_id} not found")
                         if state.is_tmcc if isinstance(state, EngineState) else True:
                             has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
@@ -1553,7 +1554,7 @@ class PyTrain:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"Sending {cli_cmd.command.command_req}")
                     cli_cmd.send()
-                except (ArgumentError, NotImplementedError) as e:
+                except (ArgumentError, NotImplementedError, ValueError) as e:
                     if parse_only:
                         return e.message
                     log.warning(e)

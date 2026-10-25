@@ -356,6 +356,7 @@ class EngineState(ComponentState):
 
     @property
     def is_ramping(self) -> bool:
+        """The local worker-maintained flag, not remote ownership or startup status."""
         return self._ramping
 
     @is_ramping.setter
@@ -368,17 +369,35 @@ class EngineState(ComponentState):
 
     @property
     def ramp(self):
-        """The live speed ramp for this engine, if this instance owns one."""
+        """The local ramp handle, which may remain present after the worker finishes."""
         return self._ramp
 
     @property
+    def is_ramp_active(self) -> bool:
+        """Known local or remote ramp activity for this engine or train.
+
+        The local flag preserves worker status; the captured handle also covers
+        startup and custom-sender retargeting linger. Remote ownership lasts until
+        release or claim expiration. This is not an atomic distributed snapshot:
+        asynchronous claim delivery can delay visibility of startup or release.
+        """
+        ramp = self.ramp
+        return self.is_ramping or (ramp is not None and ramp.is_active) or self.is_remote_ramping
+
+    @property
     def ramp_claim(self) -> RampClaim | None:
-        """Transient PyTrain ownership metadata, never a Lionel database field."""
+        """Unexpired PyTrain ownership metadata, never a Lionel database field.
+
+        Claims refresh every 5 seconds and expire after 15 seconds without refresh.
+        """
         return self._ramp_claim if monotonic() < self._ramp_claim_expires else None
 
     @property
     def is_remote_ramping(self) -> bool:
-        """Lock other throttles without making them manage the owner's ramp."""
+        """Whether an unexpired claim lacks a matching active local owner.
+
+        This remote-only throttle lockout does not set the local ramping flag.
+        """
         claim = self.ramp_claim
         if claim is None:
             return False
@@ -630,7 +649,8 @@ class EngineState(ComponentState):
                     # as an RPM or effort trim: either way, the train keeps ramping
                     pass
                 else:
-                    log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
+                    if self._ramp is not None and self._ramp.is_active is True:
+                        log.debug("Cancelling active ramp TMCC ID: %s %s", self.tmcc_id, command.command)
                     # Hard stops retain stop protection; ordinary takeover makes the
                     # losing ramp silent, even if some of its old steps are in flight.
                     hard_stop = command.command in CANCEL_PENDINGS_SET
@@ -726,11 +746,11 @@ class EngineState(ComponentState):
                     self.comp_data.rpm_tmcc = rpm[1]
                 elif isinstance(rpm, CommandDefEnum):
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
+                        log.debug(f"{command} {rpm} {rpm.command_def}")
                     self.comp_data.rpm_tmcc = 0
                 else:
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
+                        log.debug(f"{command} {rpm} {cmd_effects}")
                     self.comp_data.rpm_tmcc = 0
 
             # handle labor
@@ -742,7 +762,7 @@ class EngineState(ComponentState):
                     self.comp_data.labor_tmcc = labor[1]
                 else:
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
+                        log.debug(f"{command} {labor} {cmd_effects}")
                     self.comp_data.labor_tmcc = 12
 
             # handle speed
@@ -757,7 +777,8 @@ class EngineState(ComponentState):
                 else:
                     data = command.data
                 self.comp_data.speed = encode_tmcc_speed(data, self._speed_is_legacy)
-                self.comp_data.target_speed = self.comp_data.speed
+                if not self.is_ramp_active:
+                    self.comp_data.target_speed = self.comp_data.speed
             elif self.is_synchronized() and cmd_effects & SPEED_SET:
                 # ignore impact of direction command while synchronizing state
                 # it is only in command stream to set initial state
@@ -766,7 +787,7 @@ class EngineState(ComponentState):
                     self.comp_data.speed = encode_tmcc_speed(speed[1], self._speed_is_legacy)
                 else:
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
+                        log.debug(f"{command} {speed} {cmd_effects}")
                     self.comp_data.speed = 0
                 self.comp_data.target_speed = self.comp_data.speed
 
@@ -829,8 +850,8 @@ class EngineState(ComponentState):
             from ..pdi.base_req import EngineBits
 
             # noinspection unbound-local-variable
-            if self.speed is None and command.is_valid(EngineBits.SPEED):
-                self.comp_data.speed = command.speed
+            if command.is_valid(EngineBits.TARGET_SPEED) and command.target_speed is not None:
+                self.comp_data.target_speed = command.target_speed
         elif (
             isinstance(command, BaseReq)
             and command.pdi_command == PdiCommand.BASE_MEMORY
@@ -856,11 +877,11 @@ class EngineState(ComponentState):
 
     def cancel_ramps(
         self,
-        target_speed: int = None,
+        target_speed: int | None = None,
         *,
-        reason: str = None,
+        reason: str | None = None,
         hard_stop: bool = False,
-        yield_speed: int = None,
+        yield_speed: int | None = None,
     ) -> None:
         from ..comm.comm_buffer import CommBuffer
 
@@ -1093,13 +1114,13 @@ class EngineState(ComponentState):
         return None
 
     @property
-    def target_speed(self) -> int:
+    def target_speed(self) -> int | None:
         if self.comp_data:
             return decode_tmcc_speed(self.comp_data.target_speed, self._speed_is_legacy)
         return None
 
     @property
-    def speed_limit(self) -> int:
+    def speed_limit(self) -> int | None:
         if self.comp_data:
             return decode_tmcc_speed(self.comp_data.speed_limit, self._speed_is_legacy)
         return None
@@ -1388,7 +1409,7 @@ class EngineState(ComponentState):
         return self._aux2 in {TMCC1.AUX2_ON, TMCC2.AUX2_ON}
 
     @property
-    def record_no(self) -> int:
+    def record_no(self) -> int | None:
         return self._d4_rec_no
 
     @property
@@ -1422,6 +1443,10 @@ class EngineState(ComponentState):
     @property
     def is_lcs(self) -> bool:
         return False
+
+    @property
+    def is_d4(self) -> bool:
+        return self._is_d4 and self.record_no is not None
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
