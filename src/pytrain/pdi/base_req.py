@@ -284,8 +284,6 @@ class BaseReq(PdiReq, CompDataMixin):
                         target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
                         tr = BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed)
                         if tr:
-                            if log.isEnabledFor(logging.DEBUG):
-                                log.debug(f"Ramping: {state.is_ramp_active} Injecting {tr}\n{packages}")
                             cmds.append(tr)
                     req = BaseReq(
                         tmcc_id,
@@ -324,10 +322,8 @@ class BaseReq(PdiReq, CompDataMixin):
     def _should_send_database_write(cls, req: PdiReq) -> bool:
         key = cls._database_write_key(req)
         if key is None:
-            log.debug("Base 3 write dedup BYPASS (not database write): %s", req)
             return True
         if BASE3_WRITE_DEDUP_SECONDS <= 0:
-            log.debug("Base 3 write dedup BYPASS (disabled): key=%r", key)
             return True
         destination, payload = key[:4], key[4]
         now = time.monotonic()
@@ -345,11 +341,6 @@ class BaseReq(PdiReq, CompDataMixin):
                 )
                 return False
             _recent_db_writes[destination] = (payload, now)
-            log.debug(
-                "Base 3 write dedup SEND: key=%r window=%.3f ms",
-                key,
-                BASE3_WRITE_DEDUP_SECONDS * 1000,
-            )
             return True
 
     @classmethod
@@ -373,8 +364,6 @@ class BaseReq(PdiReq, CompDataMixin):
                     if deduplicate_writes:
                         if not cls._should_send_database_write(sync_req):
                             continue
-                    else:
-                        log.debug("Base 3 write dedup NOT ENABLED for dispatch: %s", sync_req)
                     if do_async:
                         Thread(target=callback, args=(sync_req,), daemon=True).start()
                     else:
