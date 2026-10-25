@@ -29,7 +29,7 @@ S = TypeVar("S", bound=ComponentState)
 
 log = logging.getLogger(__name__)
 
-BASE3_WRITE_DEDUP_SECONDS = 0.025
+BASE3_WRITE_DEDUP_SECONDS = 0.020
 _write_dedup_lock = Lock()
 _recent_db_writes: dict[tuple, tuple[bytes, float]] = {}
 
