@@ -293,8 +293,46 @@ class TestSpeedRamp(TestBase):
         assert len(speeds) == len(set(speeds))
         assert speeds[-1] == 60
         pdi_send.assert_not_called()
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 12, state, do_async=False, refresh=False)
-        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [12, 60]
+        assert all(call.args[0] == "RAMP_TARGET_SPEED" and call.args[2] is state
+                   and call.kwargs == {"do_async": False, "refresh": False}
+                   for call in ramp_target_update.call_args_list)
+        assert ramp_refresh_scheduling["flush"].call_count == 2
+
+    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+    @pytest.mark.parametrize("is_d4", [False, True])
+    def test_retarget_announces_new_destination_and_refreshes_record(
+        self, scope, is_d4, ramp_target_update, ramp_refresh_scheduling
+    ):
+        state = RampEngineState(scope=scope, is_d4=is_d4, speed=0)
+        recorder = Recorder()
+
+        def hook(rec, _count):
+            if len(rec.speeds) == 4 and ramp.requested_speed == 102:
+                ramp.retarget(43)
+
+        ramp = build_ramp(state, 102, Recorder(hook))
+        ramp.run()
+
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [102, 43]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
+        assert ramp.commanded_speed == 43
+
+    def test_rapid_retargets_coalesce_and_duplicate_targets_are_skipped(
+        self, ramp_target_update, ramp_refresh_scheduling
+    ):
+        state = RampEngineState(speed=0)
+
+        def hook(rec, _count):
+            if len(rec.speeds) == 1 and ramp.requested_speed == 102:
+                for target in (60, 55, 50, 43, 43):
+                    ramp.retarget(target)
+
+        ramp = build_ramp(state, 102, Recorder(hook))
+        ramp.run()
+
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [102, 43]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
 
     def test_retarget_up_to_down_reverses_from_the_commanded_speed(self):
         state = RampEngineState(speed=0)
