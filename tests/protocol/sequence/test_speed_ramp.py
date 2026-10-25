@@ -93,7 +93,7 @@ class TestSpeedRamp(TestBase):
 
         ramp._send_initial_target()
 
-        assert ramp.requested_speed == target
+        assert ramp.requested_speed == ceiling
         pdi_send.assert_not_called()
         ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", ceiling, state, do_async=False, refresh=False)
         ramp_refresh_scheduling["flush"].assert_called_once_with(state)
@@ -752,14 +752,14 @@ class TestSpeedRamp(TestBase):
         ramp.run()
         assert max(recorder.speeds) == 40
         assert recorder.speeds[-1] == 40
-        # the operator's intent survives the clamp
-        assert ramp.requested_speed == 120
+        # The lower ceiling becomes the ramp's permanent destination.
+        assert ramp.requested_speed == 40
         pdi_send.assert_not_called()
         assert [call.args[1] for call in ramp_target_update.call_args_list] == [120, 40]
         assert ramp_refresh_scheduling["flush"].call_count == 2
 
     @pytest.mark.parametrize("cleared", [180, UNSET_MAX_SPEED])
-    def test_speed_limit_raised_or_cleared_mid_ramp_resumes_the_original_target(self, cleared):
+    def test_speed_limit_raised_or_cleared_mid_ramp_does_not_resume_original_target(self, cleared):
         state = RampEngineState(speed=0, speed_limit=40)
 
         def hook(rec: Recorder, _count: int) -> None:
@@ -769,8 +769,9 @@ class TestSpeedRamp(TestBase):
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        assert recorder.speeds[-1] == 120
-        assert ramp.commanded_speed == 120
+        assert recorder.speeds[-1] == 40
+        assert ramp.commanded_speed == 40
+        assert ramp.requested_speed == 40
 
     def test_speed_limit_below_the_commanded_speed_reverses_the_ramp(self):
         state = RampEngineState(speed=80, rpm=tmcc2_speed_to_rpm(80))
