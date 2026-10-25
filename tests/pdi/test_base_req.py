@@ -1171,9 +1171,7 @@ def test_compdata_update_package_dedup_key_survives_request_conversion(
         pytest.param(2, 13, b"\x0a", id="rpm-2-labor-13"),
     ],
 )
-def test_rpm_labor_updates_generate_base_memory_write(
-    rpm, labor, expected_byte, initialized_update_state
-):
+def test_rpm_labor_updates_generate_base_memory_write(rpm, labor, expected_byte, initialized_update_state):
     """RPM and labor share the single BASE_MEMORY byte at offset 0x0C."""
     state = initialized_update_state(60)
     encoded = bytes([encode_labor_rpm(rpm, labor)])
@@ -1191,9 +1189,7 @@ def test_rpm_labor_updates_generate_base_memory_write(
     assert request.as_bytes.startswith(b"\xd1\x26\x3c\xc2")
 
 
-def test_changed_rpm_labor_byte_is_not_deduplicated(
-    monkeypatch, initialized_update_state, isolated_db_write_history
-):
+def test_changed_rpm_labor_byte_is_not_deduplicated(monkeypatch, initialized_update_state, isolated_db_write_history):
     """A nonzero RPM change and subsequent labor change must both be sent inside 25 ms."""
     state = initialized_update_state(60)
     clock = [100.0]
@@ -1202,12 +1198,8 @@ def test_changed_rpm_labor_byte_is_not_deduplicated(
 
     def dispatch(rpm, labor):
         data = bytes([encode_labor_rpm(rpm, labor)])
-        requests = BaseReq.updates_to_reqs(
-            state, [UpdatePkg("rpm_labor", 0x0C, 1, data)], refresh=False
-        )
-        BaseReq.process_sync_reqs(
-            requests, lambda req: sent_packets.append(req.as_bytes), deduplicate_writes=True
-        )
+        requests = BaseReq.updates_to_reqs(state, [UpdatePkg("rpm_labor", 0x0C, 1, data)], refresh=False)
+        BaseReq.process_sync_reqs(requests, lambda req: sent_packets.append(req.as_bytes), deduplicate_writes=True)
 
     dispatch(0, 12)
     clock[0] += 0.005
