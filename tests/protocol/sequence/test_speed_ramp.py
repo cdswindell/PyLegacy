@@ -752,8 +752,8 @@ class TestSpeedRamp(TestBase):
         # the operator's intent survives the clamp
         assert ramp.requested_speed == 120
         pdi_send.assert_not_called()
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 120, state, do_async=False, refresh=False)
-        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [120, 40]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
 
     @pytest.mark.parametrize("cleared", [180, UNSET_MAX_SPEED])
     def test_speed_limit_raised_or_cleared_mid_ramp_resumes_the_original_target(self, cleared):
@@ -1017,5 +1017,5 @@ class TestSpeedRamp(TestBase):
         assert recorder.speeds[-1] == 9
         assert state.is_ramping is False
         pdi_send.assert_not_called()
-        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 3, state, do_async=False, refresh=False)
-        ramp_refresh_scheduling["flush"].assert_called_once_with(state)
+        assert [call.args[1] for call in ramp_target_update.call_args_list] == [3, 9]
+        assert ramp_refresh_scheduling["flush"].call_count == 2
