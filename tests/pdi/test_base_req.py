@@ -1219,9 +1219,7 @@ def test_changed_rpm_labor_byte_is_not_deduplicated(monkeypatch, initialized_upd
 
 
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
-def test_synthetic_target_update_follows_accepted_write_only(
-    scope, isolated_db_write_history, monkeypatch
-):
+def test_synthetic_target_update_follows_accepted_write_only(scope, isolated_db_write_history, monkeypatch):
     """The synthetic speed update is dispatched only with a non-suppressed 2D write."""
     state = SimpleNamespace(tmcc_id=60, scope=scope, is_legacy=True, is_ramp_active=False)
     clock = [100.0]
@@ -1229,9 +1227,7 @@ def test_synthetic_target_update_follows_accepted_write_only(
     sent = []
 
     def dispatch(value):
-        reqs = BaseReq.updates_to_reqs(
-            state, [UpdatePkg("target_speed", 0x08, 1, bytes([value]))], refresh=False
-        )
+        reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, bytes([value]))], refresh=False)
         assert len(reqs) == 1
         BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
 
@@ -1257,9 +1253,7 @@ def test_synthetic_target_update_follows_accepted_write_only(
     assert len(sent) == 6  # Both commands are sent again after the window.
 
 
-def test_non_target_database_write_has_no_synthetic_command(
-    initialized_update_state, isolated_db_write_history
-):
+def test_non_target_database_write_has_no_synthetic_command(initialized_update_state, isolated_db_write_history):
     state = initialized_update_state(60)
     reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("speed", 0x07, 1, b"\\x10")], refresh=False)
     sent = []
