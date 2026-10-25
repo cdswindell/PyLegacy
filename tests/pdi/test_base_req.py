@@ -1263,3 +1263,12 @@ def test_non_target_database_write_has_no_synthetic_command(initialized_update_s
     BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
     assert len(sent) == 1
     assert sent[0].pdi_command == PdiCommand.BASE_MEMORY
+
+
+@pytest.mark.parametrize("address", [99, 100, 1234])
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_synthetic_target_speed_only_for_2d_addresses(address, scope):
+    state = SimpleNamespace(tmcc_id=address, scope=scope, is_legacy=True, is_ramp_active=False, record_no=0x1234)
+    requests = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, bytes([10]))], refresh=False)
+    assert len(requests) == 1
+    assert (getattr(requests[0], "_target_speed_update", None) is not None) is (address <= 99)
