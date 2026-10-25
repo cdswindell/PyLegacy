@@ -583,8 +583,9 @@ def test_updates_to_reqs_converts_native_target_to_engine_speed_scale(
 
     reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("target_speed", 0x08, 1, data_bytes)], refresh=False)
 
-    assert len(reqs) == 2
-    native, memory = reqs
+    assert len(reqs) == 1
+    memory = reqs[0]
+    native = memory._target_speed_update
     assert isinstance(native, BaseReq)
     # Constructed native requests carry scope in the command and address in record_no.
     assert native.pdi_command == expected_command
@@ -1215,3 +1216,54 @@ def test_changed_rpm_labor_byte_is_not_deduplicated(monkeypatch, initialized_upd
         b"\x02",
         b"\x0a",
     ]
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_synthetic_target_update_follows_accepted_write_only(
+    scope, initialized_update_state, isolated_db_write_history, monkeypatch
+):
+    """The synthetic speed update is dispatched only with a non-suppressed 2D write."""
+    state = initialized_update_state(60)
+    state._scope = scope
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    sent = []
+
+    def dispatch(value):
+        reqs = BaseReq.updates_to_reqs(
+            state, [UpdatePkg("target_speed", 0x08, 1, bytes([value]))], refresh=False
+        )
+        assert len(reqs) == 1
+        BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
+
+    dispatch(0)
+    assert [req.pdi_command for req in sent] == [
+        PdiCommand.UPDATE_ENGINE_SPEED if scope == CommandScope.ENGINE else PdiCommand.UPDATE_TRAIN_SPEED,
+        PdiCommand.BASE_MEMORY,
+    ]
+    assert sent[0].target_speed == 0
+
+    clock[0] += 0.005
+    dispatch(0)
+    assert len(sent) == 2  # Both synthetic command and duplicate write are suppressed.
+
+    clock[0] += 0.005
+    dispatch(5)
+    assert len(sent) == 4  # Changed target speed must never be suppressed.
+    assert sent[2].target_speed == 5
+    assert sent[3].data_bytes == b"\\x05"
+
+    clock[0] += base_req_module.BASE3_WRITE_DEDUP_SECONDS
+    dispatch(5)
+    assert len(sent) == 6  # Both commands are sent again after the window.
+
+
+def test_non_target_database_write_has_no_synthetic_command(
+    initialized_update_state, isolated_db_write_history
+):
+    state = initialized_update_state(60)
+    reqs = BaseReq.updates_to_reqs(state, [UpdatePkg("speed", 0x07, 1, b"\\x10")], refresh=False)
+    sent = []
+    BaseReq.process_sync_reqs(reqs, sent.append, deduplicate_writes=True)
+    assert len(sent) == 1
+    assert sent[0].pdi_command == PdiCommand.BASE_MEMORY
