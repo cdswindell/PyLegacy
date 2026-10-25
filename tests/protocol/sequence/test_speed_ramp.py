@@ -294,9 +294,12 @@ class TestSpeedRamp(TestBase):
         assert speeds[-1] == 60
         pdi_send.assert_not_called()
         assert [call.args[1] for call in ramp_target_update.call_args_list] == [12, 60]
-        assert all(call.args[0] == "RAMP_TARGET_SPEED" and call.args[2] is state
-                   and call.kwargs == {"do_async": False, "refresh": False}
-                   for call in ramp_target_update.call_args_list)
+        assert all(
+            call.args[0] == "RAMP_TARGET_SPEED"
+            and call.args[2] is state
+            and call.kwargs == {"do_async": False, "refresh": False}
+            for call in ramp_target_update.call_args_list
+        )
         assert ramp_refresh_scheduling["flush"].call_count == 2
 
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
