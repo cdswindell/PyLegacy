@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import time
 from enum import IntEnum, unique
 from math import floor
-from threading import Thread
+from threading import Lock, Thread
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, TypeVar, cast
 
 from ..db.comp_data import (
@@ -27,6 +28,11 @@ from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 S = TypeVar("S", bound=ComponentState)
 
 log = logging.getLogger(__name__)
+
+BASE3_WRITE_DEDUP_SECONDS = 0.020
+_write_dedup_lock = Lock()
+_recent_db_writes: dict[tuple, tuple[bytes, float]] = {}
+
 
 ROUTE_THROW_RATE_MAP: Dict[int, float] = {
     1: 0.00,
@@ -123,7 +129,7 @@ class BaseReq(PdiReq, CompDataMixin):
         refresh_requested = False
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state_changes = BaseReq.update_eng(cmd)
-            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send())
+            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send(), deduplicate_writes=True)
         return None if refresh_requested else cls.create_base_query_request(state)
 
     # noinspection bad-argument-type
@@ -278,8 +284,6 @@ class BaseReq(PdiReq, CompDataMixin):
                         target_speed = decode_tmcc_speed(pkg.data_bytes[0], state.is_legacy)
                         tr = BaseReq.update_target_speed(address=tmcc_id, scope=scope, speed=target_speed)
                         if tr:
-                            if log.isEnabledFor(logging.DEBUG):
-                                log.debug(f"Ramping: {state.is_ramp_active} Injecting {tr}\n{packages}")
                             cmds.append(tr)
                     req = BaseReq(
                         tmcc_id,
@@ -290,23 +294,54 @@ class BaseReq(PdiReq, CompDataMixin):
                         data_length=pkg.length,
                         data_bytes=pkg.data_bytes,
                     )
+                    req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
                     cmds.append(req)
                 elif 101 <= tmcc_id <= 9999 and state.record_no is not None and 0 <= state.record_no < 0xFFFF:
                     pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-                    cmds.append(
-                        D4Req(
-                            state.record_no,
-                            pdi_cmd,
-                            D4Action.UPDATE,
-                            start=pkg.offset,
-                            data_length=pkg.length,
-                            data_bytes=pkg.data_bytes,
-                        )
+                    req = D4Req(
+                        state.record_no,
+                        pdi_cmd,
+                        D4Action.UPDATE,
+                        start=pkg.offset,
+                        data_length=pkg.length,
+                        data_bytes=pkg.data_bytes,
                     )
+                    req._update_dedup_key = (scope, tmcc_id, pkg.offset, pkg.length, pkg.data_bytes)
+                    cmds.append(req)
             if cmds and refresh and not state.is_ramp_active:
                 # Adding state to the command queue will trigger a refresh request.
                 cmds.append(state)
         return cmds
+
+    @staticmethod
+    def _database_write_key(req: PdiReq) -> tuple | None:
+        """Return the destination and payload of a CompData database write."""
+        return getattr(req, "_update_dedup_key", None)
+
+    @classmethod
+    def _should_send_database_write(cls, req: PdiReq) -> bool:
+        key = cls._database_write_key(req)
+        if key is None:
+            return True
+        if BASE3_WRITE_DEDUP_SECONDS <= 0:
+            return True
+        destination, payload = key[:4], key[4]
+        now = time.monotonic()
+        with _write_dedup_lock:
+            for old_key, (_, timestamp) in list(_recent_db_writes.items()):
+                if now - timestamp >= BASE3_WRITE_DEDUP_SECONDS:
+                    del _recent_db_writes[old_key]
+            previous = _recent_db_writes.get(destination)
+            if previous is not None and previous[0] == payload:
+                log.debug(
+                    "Base 3 write dedup SUPPRESS: key=%r elapsed=%.3f ms window=%.3f ms",
+                    key,
+                    (now - previous[1]) * 1000,
+                    BASE3_WRITE_DEDUP_SECONDS * 1000,
+                )
+                return False
+            _recent_db_writes[destination] = (payload, now)
+            return True
 
     @classmethod
     def process_sync_reqs(
@@ -314,8 +349,9 @@ class BaseReq(PdiReq, CompDataMixin):
         sync_reqs: Sequence[PdiReq | ComponentState],
         callback: Callable[[PdiReq], Any] = lambda r: r.send(),
         do_async: bool = False,
+        deduplicate_writes: bool = False,
     ) -> bool:
-        """Processes sync requests dispatching component refreshes or callbacks."""
+        """Dispatch refreshes and callbacks, optionally deduplicating Base 3 writes."""
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
         refresh_requested = False
@@ -325,12 +361,11 @@ class BaseReq(PdiReq, CompDataMixin):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
                 else:
+                    if deduplicate_writes:
+                        if not cls._should_send_database_write(sync_req):
+                            continue
                     if do_async:
-                        Thread(
-                            target=callback,
-                            args=(sync_req,),
-                            daemon=True,
-                        ).start()
+                        Thread(target=callback, args=(sync_req,), daemon=True).start()
                     else:
                         callback(sync_req)
         return refresh_requested
@@ -339,7 +374,7 @@ class BaseReq(PdiReq, CompDataMixin):
     def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[PdiReq | ComponentState]:
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
-            cls.process_sync_reqs(sync_reqs, lambda r: r.send())
+            cls.process_sync_reqs(sync_reqs, lambda r: r.send(), deduplicate_writes=True)
         return sync_reqs
 
     @classmethod
@@ -358,7 +393,7 @@ class BaseReq(PdiReq, CompDataMixin):
             if pkgs:
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs, refresh=refresh)
                 if sync_reqs:
-                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
+                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async, deduplicate_writes=True)
         return sync_reqs
 
     def __init__(

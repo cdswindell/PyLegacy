@@ -21,6 +21,7 @@ from src.pytrain.db.component_state import ComponentStateDict, RouteState
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_state import EngineState
 from src.pytrain.pdi.base3_db_refresh_manager import Base3DbRefreshManager
+import src.pytrain.pdi.base_req as base_req_module
 from src.pytrain.pdi.base_req import BaseReq, EngineBits, decode_labor_rpm, encode_labor_rpm
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
@@ -645,10 +646,20 @@ def test_updates_to_reqs_preserves_requests_and_refresh_marker(
     assert BaseReq.updates_to_reqs(state, [], refresh=refresh) == []
 
 
+@pytest.fixture
+def isolated_db_write_history():
+    # This test checks each entry point independently, not suppression across calls.
+    with base_req_module._write_dedup_lock:
+        base_req_module._recent_db_writes.clear()
+    yield
+    with base_req_module._write_dedup_lock:
+        base_req_module._recent_db_writes.clear()
+
+
 @pytest.mark.parametrize("address", [7, 1234])
 @pytest.mark.parametrize("entry_point", ["update_eng", "do_update_eng", "do_update_field"])
 def test_initialized_update_paths_preserve_mixed_results(
-    address, entry_point, initialized_update_state, sync_dispatch, monkeypatch
+    address, entry_point, initialized_update_state, sync_dispatch, monkeypatch, isolated_db_write_history
 ):
     state = initialized_update_state(address)
     package = UpdatePkg("speed", 7, 1, b"\x2d")
@@ -1126,3 +1137,81 @@ def test_as_key_tuple_shape_and_content_stability():
     # record_no and command should be stable
     assert k[0] == 5
     assert k[1] == PdiCommand.BASE_MEMORY
+
+
+@pytest.mark.parametrize("address", [7, 1234])
+def test_compdata_update_package_dedup_key_survives_request_conversion(
+    address, initialized_update_state, isolated_db_write_history, monkeypatch
+):
+    """Exercise the real UpdatePkg -> BaseReq/D4Req -> deduplicating dispatch path."""
+    state = initialized_update_state(address)
+    pkg = UpdatePkg("speed", 0x07, 1, b"\x12")
+    requests = BaseReq.updates_to_reqs(state, [pkg], refresh=False)
+    assert len(requests) == 1
+    req = requests[0]
+    assert BaseReq._database_write_key(req) == (state.scope, address, pkg.offset, pkg.length, pkg.data_bytes)
+
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    send = Mock()
+    BaseReq.process_sync_reqs(requests, send, deduplicate_writes=True)
+    BaseReq.process_sync_reqs(BaseReq.updates_to_reqs(state, [pkg], refresh=False), send, deduplicate_writes=True)
+    assert send.call_count == 1
+
+    changed = UpdatePkg("speed", 0x07, 1, b"\x13")
+    BaseReq.process_sync_reqs(BaseReq.updates_to_reqs(state, [changed], refresh=False), send, deduplicate_writes=True)
+    assert send.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "rpm,labor,expected_byte",
+    [
+        pytest.param(0, 12, b"\x00", id="stopped"),
+        pytest.param(2, 12, b"\x02", id="rpm-2"),
+        pytest.param(2, 13, b"\x0a", id="rpm-2-labor-13"),
+    ],
+)
+def test_rpm_labor_updates_generate_base_memory_write(rpm, labor, expected_byte, initialized_update_state):
+    """RPM and labor share the single BASE_MEMORY byte at offset 0x0C."""
+    state = initialized_update_state(60)
+    encoded = bytes([encode_labor_rpm(rpm, labor)])
+    assert encoded == expected_byte
+    pkg = UpdatePkg("rpm_labor", 0x0C, 1, encoded)
+
+    requests = BaseReq.updates_to_reqs(state, [pkg], refresh=False)
+
+    assert len(requests) == 1
+    request = requests[0]
+    assert isinstance(request, BaseReq)
+    assert request.pdi_command == PdiCommand.BASE_MEMORY
+    assert request.flags == 0xC2
+    assert BaseReq._database_write_key(request) == (state.scope, 60, 0x0C, 1, expected_byte)
+    assert request.as_bytes.startswith(b"\xd1\x26\x3c\xc2")
+
+
+def test_changed_rpm_labor_byte_is_not_deduplicated(monkeypatch, initialized_update_state, isolated_db_write_history):
+    """A nonzero RPM change and subsequent labor change must both be sent inside 25 ms."""
+    state = initialized_update_state(60)
+    clock = [100.0]
+    monkeypatch.setattr(base_req_module.time, "monotonic", lambda: clock[0])
+    sent_packets = []
+
+    def dispatch(rpm, labor):
+        data = bytes([encode_labor_rpm(rpm, labor)])
+        requests = BaseReq.updates_to_reqs(state, [UpdatePkg("rpm_labor", 0x0C, 1, data)], refresh=False)
+        BaseReq.process_sync_reqs(requests, lambda req: sent_packets.append(req.as_bytes), deduplicate_writes=True)
+
+    dispatch(0, 12)
+    clock[0] += 0.005
+    dispatch(2, 12)
+    clock[0] += 0.005
+    dispatch(2, 12)  # Identical byte is suppressed.
+    clock[0] += 0.005
+    dispatch(2, 13)  # Same offset, changed labor bits: must be sent.
+
+    assert len(sent_packets) == 3
+    assert [PdiReq.from_bytes(packet).data_bytes for packet in sent_packets] == [
+        b"\x00",
+        b"\x02",
+        b"\x0a",
+    ]

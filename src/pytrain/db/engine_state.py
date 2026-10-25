@@ -649,7 +649,8 @@ class EngineState(ComponentState):
                     # as an RPM or effort trim: either way, the train keeps ramping
                     pass
                 else:
-                    log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
+                    if self._ramp is not None and self._ramp.is_active is True:
+                        log.debug("Cancelling active ramp TMCC ID: %s %s", self.tmcc_id, command.command)
                     # Hard stops retain stop protection; ordinary takeover makes the
                     # losing ramp silent, even if some of its old steps are in flight.
                     hard_stop = command.command in CANCEL_PENDINGS_SET
@@ -745,11 +746,11 @@ class EngineState(ComponentState):
                     self.comp_data.rpm_tmcc = rpm[1]
                 elif isinstance(rpm, CommandDefEnum):
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {rpm} {type(rpm)} {rpm.command_def} {type(rpm.command_def)}")
+                        log.debug(f"{command} {rpm} {rpm.command_def}")
                     self.comp_data.rpm_tmcc = 0
                 else:
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {rpm} {type(rpm)} {cmd_effects}")
+                        log.debug(f"{command} {rpm} {cmd_effects}")
                     self.comp_data.rpm_tmcc = 0
 
             # handle labor
@@ -761,7 +762,7 @@ class EngineState(ComponentState):
                     self.comp_data.labor_tmcc = labor[1]
                 else:
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
+                        log.debug(f"{command} {labor} {cmd_effects}")
                     self.comp_data.labor_tmcc = 12
 
             # handle speed
@@ -786,7 +787,7 @@ class EngineState(ComponentState):
                     self.comp_data.speed = encode_tmcc_speed(speed[1], self._speed_is_legacy)
                 else:
                     if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
+                        log.debug(f"{command} {speed} {cmd_effects}")
                     self.comp_data.speed = 0
                 self.comp_data.target_speed = self.comp_data.speed
 

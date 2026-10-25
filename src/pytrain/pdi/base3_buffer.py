@@ -112,6 +112,8 @@ class Base3Buffer(Thread):
 
     def send(self, data: bytes) -> None:
         if data:
+            if data != KEEP_ALIVE_CMD and log.isEnabledFor(logging.DEBUG):
+                log.debug("Base3Buffer.send queueing: 0x%s", data.hex())
             with self._send_cv:
                 self._send_queue.put(data)
                 self._send_cv.notify_all()
@@ -215,7 +217,7 @@ class Base3Buffer(Thread):
             self._is_running = False
 
     @classmethod
-    def sync_state(cls, data: bytes, pdi_req: PdiReq = None, tmcc_cmd: CommandReq = None) -> None:
+    def sync_state(cls, data: bytes, pdi_req: PdiReq | None = None, tmcc_cmd: CommandReq | None = None) -> None:
         """
         Send State Update to Base 3 if it is available and if this
         command packet is relevant
@@ -264,14 +266,12 @@ class Base3Buffer(Thread):
                 # is it a command that requires a state sync?
                 sync_reqs = BaseReq.update_eng(tmcc_cmd)
                 if sync_reqs:
-                    for sync_req in sync_reqs:
-                        from ..db.engine_state import EngineState
-                        from .base3_db_refresh_manager import Base3DbRefreshManager
-
-                        if isinstance(sync_req, EngineState):
-                            Base3DbRefreshManager.request_refresh(sync_req)
-                        else:
-                            cls._instance.send(sync_req.as_bytes)
+                    # noinspection unresolved-references
+                    BaseReq.process_sync_reqs(
+                        sync_reqs,
+                        callback=lambda req: cls._instance.send(req.as_bytes),
+                        deduplicate_writes=True,
+                    )
 
 
 class KeepAlive(Thread):
