@@ -25,6 +25,16 @@ def test_flatpak_restart_requests_clean_local_shutdown():
     assert calls == ["restart"]
 
 
+def test_flatpak_all_scope_restart_dispatches_to_server_not_local():
+    panel = _panel("v2.14.3")
+    panel._scope_btns.value = "1"
+    calls = []
+    panel._pytrain = SimpleNamespace(request_local_restart=lambda: pytest.fail("local restart bypasses server"))
+    panel._gui = SimpleNamespace(do_tmcc_request=lambda cmd: calls.append(cmd))
+    panel.do_admin_command(Sync.RESTART)
+    assert calls == [Sync.RESTART]
+
+
 @pytest.mark.parametrize("command", [Sync.REBOOT, Sync.SHUTDOWN])
 def test_flatpak_local_power_commands_are_noops(command):
     panel = _panel("v2.12.4")
