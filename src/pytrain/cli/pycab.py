@@ -405,7 +405,7 @@ class PyCabGuiCmd(CommandBase):
         from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
         action = self.pytrain._admin_action
-        if action == TMCC1SyncCommandEnum.RESTART:
+        if action == TMCC1SyncCommandEnum.RESTART and not self.pytrain._flatpak_local_restart:
             log.info("PyCab server restarting...")
             os.execv(sys.executable, [sys.executable, *sys.argv])
         else:
