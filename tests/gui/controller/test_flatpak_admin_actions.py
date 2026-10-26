@@ -185,3 +185,41 @@ def test_flatpak_server_restart_still_uses_launcher_path():
     )
     panel.do_admin_command(Sync.RESTART)
     assert calls == ["flatpak-restart"]
+
+
+@pytest.mark.parametrize("scope", ["0", "1"], ids=["local", "all"])
+@pytest.mark.parametrize("command", [Sync.RESTART, Sync.UPDATE, Sync.REBOOT, Sync.SHUTDOWN])
+@pytest.mark.parametrize("update_available", [False, True], ids=["current", "new-release"])
+def test_flatpak_admin_dispatch_matrix(monkeypatch, tmp_path, command, scope, update_available):
+    """Scope must control network dispatch independently of local Flatpak updates."""
+    panel = _panel("v2.14.3")
+    panel._scope_btns.value = scope
+    panel._flatpak_update_available = update_available
+    events = []
+    panel._pytrain = SimpleNamespace(
+        is_client=True,
+        is_server=False,
+        request_local_restart=lambda: events.append("local-restart"),
+        broadcast_update_to_other_nodes=lambda: events.append("broadcast-update"),
+    )
+    panel._gui = SimpleNamespace(do_tmcc_request=lambda cmd: events.append(("dispatch", cmd)))
+    monkeypatch.setattr(
+        mod, "request_flatpak_update",
+        lambda: (events.append("request-update"), tmp_path / "update-request")[1],
+    )
+
+    panel.do_admin_command(command)
+
+    if command == Sync.RESTART:
+        expected = ["local-restart"] if scope == "0" else [("dispatch", Sync.RESTART)]
+    elif command == Sync.UPDATE:
+        expected = ["broadcast-update"] if scope == "1" else []
+        if update_available:
+            expected += ["request-update", "local-restart"]
+        elif scope == "1":
+            expected += ["local-restart"]
+    elif scope == "1":
+        expected = [("dispatch", command)]
+    else:
+        expected = []
+    assert events == expected
