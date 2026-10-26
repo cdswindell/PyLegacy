@@ -1026,8 +1026,12 @@ class AdminPanel(OverlayPanel):
                     self._gui.do_tmcc_request(command)
                 return
             if command == TMCC1SyncCommandEnum.RESTART:
-                # Request local clean shutdown; the host launcher restarts after exit 42.
-                self._pytrain.request_local_restart()
+                if self._scope_btns.value == "1":
+                    # Dispatch to the server; the propagated command triggers exit 42.
+                    self._gui.do_tmcc_request(command)
+                else:
+                    # Local restart must not affect other nodes.
+                    self._pytrain.request_local_restart()
                 return
             if command == TMCC1SyncCommandEnum.UPDATE:
                 # Propagate first: shutting down the local Deck must not interrupt
