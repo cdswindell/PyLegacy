@@ -84,6 +84,7 @@ def test_gui_hosted_client_restart_closes_tk_without_api_notification(monkeypatc
     train._log_admin_exit = MagicMock()
     train._api_thread = object()
     train._api = True
+    train._tmcc_buffer = SimpleNamespace()
     train._gui_admin_close = cmd._close_for_admin_action
     train.shutdown = MagicMock()
     train._notify_api_exit = MagicMock()
