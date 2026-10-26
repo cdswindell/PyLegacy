@@ -58,6 +58,28 @@ def test_pycab_gui_server_restart_reexecs_python(monkeypatch):
     execv.assert_called_once_with(sys.executable, [sys.executable, *sys.argv])
 
 
+def test_pycab_gui_flatpak_restart_uses_launcher_exit_code(monkeypatch):
+    """Propagated RESTART on a Deck must exit 42, not reexec inside Flatpak."""
+    from src.pytrain.cli.pycab import PyCabGuiCmd
+
+    cmd = object.__new__(PyCabGuiCmd)
+    train = object.__new__(PyTrain)
+    train._admin_action = Sync.RESTART
+    train._flatpak_local_restart = True
+    train._api = True
+    train._admin_state_lock = Lock()
+    train._log_admin_exit = MagicMock()
+    cmd._pytrain = train
+    monkeypatch.setattr(
+        "src.pytrain.cli.pycab.os.execv",
+        MagicMock(side_effect=AssertionError("Flatpak must restart via host launcher")),
+    )
+    with pytest.raises(SystemExit) as exc:
+        cmd._perform_server_admin_action()
+    assert exc.value.code == 42
+    assert train._api is False
+
+
 def test_pycab_gui_server_nonrestart_runs_deferred_action():
     from src.pytrain.cli.pycab import PyCabGuiCmd
 
