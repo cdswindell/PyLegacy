@@ -88,7 +88,7 @@ def main():
         print(json.dumps({"origins": origins, "python": sys.version, "uvicorn": uvicorn.__version__}), flush=True)
 
         action = pt.TMCC1SyncCommandEnum[action_name]
-        expected_name = "UPDATE" if route == "queued" and action_name == "UPGRADE" else action_name
+        expected_name = action_name
         expected = pt.PyTrainExitStatus[expected_name]
         buffer = Mock(spec=pt.CommBufferSingleton if role == "server" else CommBufferProxy)
         listener = Mock(spec=pt.CommandListener if role == "server" else pt.ClientStateListener)
