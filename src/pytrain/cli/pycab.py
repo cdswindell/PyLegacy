@@ -348,7 +348,8 @@ class PyCabGuiCmd(CommandBase):
         self._command = self._build_command()
         # CommandBase starts a PyTrain API-style worker to avoid blocking Tk.
         # PyCab is its own GUI host, not PyTrainApi: close Tk on admin exits.
-        self.pytrain._gui_admin_close = self._close_for_admin_action
+        if getattr(self, "_pytrain", None) is not None:
+            self.pytrain._gui_admin_close = self._close_for_admin_action
 
     def _close_for_admin_action(self) -> None:
         if self._gui is not None:
