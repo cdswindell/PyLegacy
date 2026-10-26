@@ -162,10 +162,17 @@ class SteamDeckGui(GuiZeroBase):
         root = self.app.tk
         try:
             log.warning(
-                "TOUCH_TRACE %s widget=%s x=%s y=%s root_x=%s root_y=%s "
-                "state=0x%x grab=%s focus=%s %s",
-                action, event.widget, event.x, event.y, event.x_root, event.y_root,
-                event.state, root.grab_current(), root.focus_get(), note,
+                "TOUCH_TRACE %s widget=%s x=%s y=%s root_x=%s root_y=%s state=0x%x grab=%s focus=%s %s",
+                action,
+                event.widget,
+                event.x,
+                event.y,
+                event.x_root,
+                event.y_root,
+                event.state,
+                root.grab_current(),
+                root.focus_get(),
+                note,
             )
         except TclError:
             log.exception("TOUCH_TRACE logging failed")
@@ -182,8 +189,7 @@ class SteamDeckGui(GuiZeroBase):
 
     def _touch_trace_up(self, event: Any) -> None:
         previous = self._touch_trace_press
-        self._touch_trace_log("RELEASE" if previous else "RELEASE_WITHOUT_PRESS", event,
-                              note=f"previous={previous}")
+        self._touch_trace_log("RELEASE" if previous else "RELEASE_WITHOUT_PRESS", event, note=f"previous={previous}")
         self._touch_trace_press = None
         if self._touch_trace_watchdog is not None:
             self.app.tk.after_cancel(self._touch_trace_watchdog)
@@ -198,9 +204,12 @@ class SteamDeckGui(GuiZeroBase):
     def _touch_trace_still_down(self) -> None:
         self._touch_trace_watchdog = None
         if self._touch_trace_press is not None:
-            log.warning("TOUCH_TRACE PRESS_STILL_ACTIVE after=1500ms press=%s "
-                        "grab=%s focus=%s", self._touch_trace_press,
-                        self.app.tk.grab_current(), self.app.tk.focus_get())
+            log.warning(
+                "TOUCH_TRACE PRESS_STILL_ACTIVE after=1500ms press=%s grab=%s focus=%s",
+                self._touch_trace_press,
+                self.app.tk.grab_current(),
+                self.app.tk.focus_get(),
+            )
 
     @property
     def controller_profile(self) -> ControlProfile:
