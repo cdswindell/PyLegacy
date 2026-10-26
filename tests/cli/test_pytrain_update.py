@@ -47,12 +47,12 @@ def test_api_power_records_status_without_subprocess(monkeypatch, commands, rebo
     assert commands == []
 
 
-def test_api_update_upgrades_pip_before_exit(monkeypatch, commands):
+def test_api_update_exits_without_upgrading_pip(monkeypatch, commands):
     obj = _shell_out_pytrain(monkeypatch, is_api=True)
     with pytest.raises(mod.PyTrainExitException):
         obj.update()
     assert obj.exit_status == PyTrainExitStatus.UPDATE
-    assert commands == [[sys.executable, "-m", "pip", "install", "-U", "pip"]]
+    assert commands == []
 
 
 @pytest.mark.parametrize("returncode", [0, 1])
@@ -377,7 +377,7 @@ def test_upgrade_in_api_mode_signals_without_acting(monkeypatch, commands) -> No
 
     assert commands == []
     assert calls == []
-    assert pytrain.exit_status == PyTrainExitStatus.UPDATE
+    assert pytrain.exit_status == PyTrainExitStatus.UPGRADE
 
 
 def test_relaunch_restarts_the_service_when_running_as_one(monkeypatch, commands) -> None:

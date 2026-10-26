@@ -35,7 +35,7 @@ def test_flatpak_local_power_commands_are_noops(command):
 def test_conda_restart_uses_existing_dispatch(monkeypatch):
     panel = _panel(None)
     calls = []
-    panel._pytrain = SimpleNamespace(do_admin_cmd=lambda *args: calls.append(args))
+    panel._pytrain = SimpleNamespace(is_server=False, do_admin_cmd=lambda *args: calls.append(args))
 
     class ImmediateThread:
         def __init__(self, *, target, args, daemon):
@@ -145,3 +145,33 @@ def test_server_gui_quit_broadcasts_and_closes_without_tmcc_or_restart(tag, scop
     )
     panel.do_admin_command(Sync.QUIT)
     assert calls == ["broadcast", "close"]
+
+
+@pytest.mark.parametrize("command", [Sync.RESTART, Sync.UPDATE, Sync.UPGRADE, Sync.REBOOT, Sync.SHUTDOWN])
+@pytest.mark.parametrize("scope", ["0", "1"])
+def test_nonflatpak_server_action_always_broadcasts_and_closes_gui(command, scope):
+    panel = _panel(None)
+    panel._scope_btns.value = scope
+    calls = []
+    panel._pytrain = SimpleNamespace(
+        is_server=True,
+        request_gui_server_action=lambda action, *, broadcast: calls.append(("action", action, broadcast)),
+    )
+    panel._gui = SimpleNamespace(
+        close=lambda: calls.append(("close",)),
+        do_tmcc_request=lambda *_: pytest.fail("server action must not enter TMCC queue"),
+    )
+    panel.do_admin_command(command)
+    assert calls == [("action", command, True), ("close",)]
+
+
+def test_flatpak_server_restart_still_uses_launcher_path():
+    panel = _panel("v2.12.13")
+    calls = []
+    panel._pytrain = SimpleNamespace(
+        is_server=True,
+        request_local_restart=lambda: calls.append("flatpak-restart"),
+        request_gui_server_action=lambda *_args, **_kwargs: pytest.fail("Flatpak must not use GUI server action"),
+    )
+    panel.do_admin_command(Sync.RESTART)
+    assert calls == ["flatpak-restart"]

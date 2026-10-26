@@ -88,7 +88,7 @@ def main():
         print(json.dumps({"origins": origins, "python": sys.version, "uvicorn": uvicorn.__version__}), flush=True)
 
         action = pt.TMCC1SyncCommandEnum[action_name]
-        expected_name = "UPDATE" if route == "queued" and action_name == "UPGRADE" else action_name
+        expected_name = action_name
         expected = pt.PyTrainExitStatus[expected_name]
         buffer = Mock(spec=pt.CommBufferSingleton if role == "server" else CommBufferProxy)
         listener = Mock(spec=pt.CommandListener if role == "server" else pt.ClientStateListener)
@@ -367,7 +367,7 @@ def main():
         }
         assert host_actions == expected_actions[expected_name], host_actions
         assert events.count("exec") == (action_name != "QUIT")
-        assert events.count("pytrain-pip") == (route == "queued" and action_name == "UPDATE")
+        assert events.count("pytrain-pip") == 0  # API host alone performs pip upgrades
         updates = expected_name in {"UPDATE", "UPGRADE"}
         assert sum("pip install -U pip" in c for c in host_commands) == updates
         assert sum("git pull" in c for c in host_commands) == updates

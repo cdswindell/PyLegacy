@@ -442,6 +442,10 @@ class PyTrain:
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
 
+        self.perform_deferred_admin_action()
+
+    def perform_deferred_admin_action(self) -> None:
+        """Execute the action recorded during shutdown (also used by GUI hosts)."""
         api_status: PyTrainExitStatus | None = None
         if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
             aa = cast(TMCC1SyncCommandEnum, self._admin_action)
@@ -725,6 +729,13 @@ class PyTrain:
                 self._flatpak_local_restart = True
         if self.is_client and command == TMCC1SyncCommandEnum.QUIT:
             log.info("Client exiting...")
+        gui_close = getattr(self, "_gui_admin_close", None)
+        if gui_close is not None:
+            # A GUI-hosted PyTrain uses the API worker for its command queue,
+            # but Tk owns the process: do not signal an external API host.
+            self.shutdown()
+            gui_close()
+            return
         if self._api_thread:
             self.shutdown()
         if self.is_api:
@@ -783,15 +794,19 @@ class PyTrain:
             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
 
     def request_gui_server_quit(self) -> None:
-        """Broadcast server QUIT; the GUI owner closes its event loop afterward."""
+        """Broadcast GUI server QUIT (compatibility entry point)."""
+        self.request_gui_server_action(TMCC1SyncCommandEnum.QUIT)
+
+    def request_gui_server_action(self, command: TMCC1SyncCommandEnum, *, broadcast: bool = True) -> None:
+        """Record a GUI-hosted server action; the Tk owner closes the window afterward."""
         if not self.is_server:
-            raise RuntimeError("GUI server Quit requires server mode")
-        command = TMCC1SyncCommandEnum.QUIT
+            raise RuntimeError("GUI server admin action requires server mode")
         if not self._claim_admin_exit(command, source="local"):
             return
         try:
-            assert self._dispatcher is not None
-            self._dispatcher.signal_clients(CommandReq(command))
+            if broadcast:
+                assert self._dispatcher is not None
+                self._dispatcher.signal_clients(CommandReq(command))
         except BaseException:
             with self._admin_state_lock:
                 if not self._shutdown_started:
@@ -1061,11 +1076,12 @@ class PyTrain:
 
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        # always update pip
-        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
+        # API hosts own the update lifecycle; do not modify their environment.
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+        # always update pip
+        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
 
         if is_package():
             # update from Pypi; the Steam Deck runs a distribution of its own
@@ -1111,8 +1127,8 @@ class PyTrain:
         # status and hands control back to the host, the same as reboot(), update() and
         # relaunch() do. Checked before anything runs, not after.
         if self.is_api:
-            self._exit_status = PyTrainExitStatus.UPDATE
-            raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+            self._exit_status = PyTrainExitStatus.UPGRADE
+            raise PyTrainExitException(PyTrainExitStatus.UPGRADE)
         # PyTrain updates first, while the machine is still up. `sudo reboot` returns as
         # soon as systemd accepts the shutdown job rather than blocking until the machine
         # goes down. Anything sequenced after it races the teardown -- and a pip

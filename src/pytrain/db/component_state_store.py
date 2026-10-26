@@ -155,6 +155,11 @@ class ComponentStateStore:
         is_ser2: bool = False,
     ) -> None:
         if self._initialized:
+            # The singleton may have been created by an early state lookup before
+            # PyTrain has constructed its command listeners. Bind them when the
+            # owning PyTrain instance supplies them during startup.
+            if listeners is not None:
+                self._listeners = listeners
             return
         else:
             self._initialized = True
@@ -163,7 +168,7 @@ class ComponentStateStore:
         from .engine_state import EngineState
 
         self._dependencies = DependencyCache.build()
-        self._listeners = listeners
+        self._listeners = listeners if listeners is not None else ()
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
         self._bt_index: dict[int, SortedDict[int, EngineState]] = {}
