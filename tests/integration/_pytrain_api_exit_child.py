@@ -367,7 +367,7 @@ def main():
         }
         assert host_actions == expected_actions[expected_name], host_actions
         assert events.count("exec") == (action_name != "QUIT")
-        assert events.count("pytrain-pip") == (route == "queued" and action_name == "UPDATE")
+        assert events.count("pytrain-pip") == 0  # API host alone performs pip upgrades
         updates = expected_name in {"UPDATE", "UPGRADE"}
         assert sum("pip install -U pip" in c for c in host_commands) == updates
         assert sum("git pull" in c for c in host_commands) == updates
