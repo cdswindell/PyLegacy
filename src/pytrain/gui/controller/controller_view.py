@@ -1835,7 +1835,7 @@ class ControllerView:
         level_size = level_size if level_size is not None else host.s_18
         slider_width = slider_width if slider_width is not None else int(host.button_size / 3)
         # Extra horizontal room on Deck; preserve the Pi's narrower slider.
-        is_deck = type(getattr(host, "parent_gui", None)).__name__ == "SteamDeckGui"
+        is_deck = type(getattr(host, "_parent_gui", None)).__name__ == "SteamDeckGui"
         if is_deck and title in {"Brake", "Moment", "Horn"}:
             slider_width *= 2
         slider_height = slider_height if slider_height is not None else host.slider_height
