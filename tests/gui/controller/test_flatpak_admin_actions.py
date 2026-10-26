@@ -204,7 +204,8 @@ def test_flatpak_admin_dispatch_matrix(monkeypatch, tmp_path, command, scope, up
     )
     panel._gui = SimpleNamespace(do_tmcc_request=lambda cmd: events.append(("dispatch", cmd)))
     monkeypatch.setattr(
-        mod, "request_flatpak_update",
+        mod,
+        "request_flatpak_update",
         lambda: (events.append("request-update"), tmp_path / "update-request")[1],
     )
 
