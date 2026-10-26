@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import tkinter as tk
 from contextlib import contextmanager
 from threading import Condition, RLock
@@ -1780,6 +1781,20 @@ class ControllerView:
     TkCfg = dict[str, Any]
 
     # noinspection PyUnusedLocal
+    def _trace_slider_event(self, name: str, event: tk.Event) -> None:
+        """Log pointer and focus state without affecting event propagation."""
+        root = self._host.app.tk
+        try:
+            log.warning(
+                "SLIDER_TRACE %s event=%s widget=%s x=%s y=%s state=0x%x "
+                "grab=%s focus=%s",
+                name, event.type, event.widget, getattr(event, "x", None),
+                getattr(event, "y", None), getattr(event, "state", 0),
+                root.grab_current(), root.focus_get(),
+            )
+        except (TclError, AttributeError):
+            log.exception("SLIDER_TRACE failed for %s", name)
+
     def make_slider(
         self,
         parent: Box,
@@ -1819,6 +1834,10 @@ class ControllerView:
         level_font = level_font if level_font is not None else getattr(host, "digital_font", "TkDefaultFont")
         level_size = level_size if level_size is not None else host.s_18
         slider_width = slider_width if slider_width is not None else int(host.button_size / 3)
+        # Extra horizontal room on Deck; preserve the Pi's narrower slider.
+        is_deck = type(getattr(host, "parent_gui", None)).__name__ == "SteamDeckGui"
+        if is_deck and title in {"Brake", "Moment", "Horn"}:
+            slider_width *= 2
         slider_height = slider_height if slider_height is not None else host.slider_height
 
         box = Box(
@@ -1873,6 +1892,17 @@ class ControllerView:
             cfg.update(tk_config)
 
         s.tk.config(**cfg)
+
+        # Observe touchscreen events without changing Tk's binding behavior.
+        if os.environ.get("PYTRAIN_SLIDER_TRACE") == "1":
+            for sequence in ("<ButtonPress-1>", "<ButtonRelease-1>",
+                             "<B1-Motion>", "<Motion>", "<FocusIn>", "<FocusOut>",
+                             "<Enter>", "<Leave>"):
+                s.tk.bind(
+                    sequence,
+                    lambda event, name=title: self._trace_slider_event(name, event),
+                    add="+",
+                )
 
         # Common focus/clear bindings
         if focus_on_press:
