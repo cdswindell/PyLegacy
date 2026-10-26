@@ -5,8 +5,8 @@ pluggy>=1.6.0
 pypi-cleanup>=0.1.11
 pytest>=9.1.1
 pytest-cov>=7.0.0
-coverage>=7.16.2
-ruff>=0.17.0
+coverage>=7.17.0
+ruff>=0.17.2
 tox>=4.65.4
 twine>=6.2.0
 ipython>=9.17.0; python_version>="3.12"
