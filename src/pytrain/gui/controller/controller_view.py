@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import tkinter as tk
 from contextlib import contextmanager
 from threading import Condition, RLock
@@ -1780,25 +1779,6 @@ class ControllerView:
     # type alias for tk config dict
     TkCfg = dict[str, Any]
 
-    # noinspection PyUnusedLocal
-    def _trace_slider_event(self, name: str, event: tk.Event) -> None:
-        """Log pointer and focus state without affecting event propagation."""
-        root = self._host.app.tk
-        try:
-            log.warning(
-                "SLIDER_TRACE %s event=%s widget=%s x=%s y=%s state=0x%x grab=%s focus=%s",
-                name,
-                event.type,
-                event.widget,
-                getattr(event, "x", None),
-                getattr(event, "y", None),
-                getattr(event, "state", 0),
-                root.grab_current(),
-                root.focus_get(),
-            )
-        except (TclError, AttributeError):
-            log.exception("SLIDER_TRACE failed for %s", name)
-
     def make_slider(
         self,
         parent: Box,
@@ -1896,24 +1876,6 @@ class ControllerView:
             cfg.update(tk_config)
 
         s.tk.config(**cfg)
-
-        # Observe touchscreen events without changing Tk's binding behavior.
-        if os.environ.get("PYTRAIN_SLIDER_TRACE") == "1":
-            for sequence in (
-                "<ButtonPress-1>",
-                "<ButtonRelease-1>",
-                "<B1-Motion>",
-                "<Motion>",
-                "<FocusIn>",
-                "<FocusOut>",
-                "<Enter>",
-                "<Leave>",
-            ):
-                s.tk.bind(
-                    sequence,
-                    lambda event, name=title: self._trace_slider_event(name, event),
-                    add="+",
-                )
 
         # Common focus/clear bindings
         if focus_on_press:
