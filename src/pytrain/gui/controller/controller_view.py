@@ -1818,10 +1818,14 @@ class ControllerView:
         level_font = level_font if level_font is not None else getattr(host, "digital_font", "TkDefaultFont")
         level_size = level_size if level_size is not None else host.s_18
         slider_width = slider_width if slider_width is not None else int(host.button_size / 3)
-        # Extra horizontal room on Deck; preserve the Pi's narrower slider.
+        # Deck-only widths: match Brake/Momentum/Horn to the former throttle
+        # width and make the throttle slightly wider. Preserve Pi dimensions.
         is_deck = type(getattr(host, "_parent_gui", None)).__name__ == "SteamDeckGui"
-        if is_deck and title in {"Brake", "Moment", "Horn"}:
-            slider_width *= 2
+        if is_deck:
+            if title in {"Brake", "Moment", "Horn"}:
+                slider_width = int(host.button_size / 2)
+            elif title == "Speed":
+                slider_width = int(host.button_size * 0.55)
         slider_height = slider_height if slider_height is not None else host.slider_height
 
         box = Box(
