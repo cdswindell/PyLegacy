@@ -146,8 +146,6 @@ class SteamDeckGui(GuiZeroBase):
         self._controls_overlay: Box | None = None
         self._touch_trace_press = None
         self._touch_trace_watchdog = None
-        if os.environ.get("PYTRAIN_TOUCH_TRACE") == "1" or os.environ.get("PYTRAIN_SLIDER_TRACE") == "1":
-            self._install_touch_trace()
         self.init_complete()
 
     def _install_touch_trace(self) -> None:
@@ -234,6 +232,8 @@ class SteamDeckGui(GuiZeroBase):
 
     def build_gui(self) -> None:
         app = self.app
+        if os.environ.get("PYTRAIN_TOUCH_TRACE") == "1" or os.environ.get("PYTRAIN_SLIDER_TRACE") == "1":
+            self._install_touch_trace()
         self.body = Box(app, align="top", layout="grid", width=self.width, height=self.height)
         self.body.tk.pack_propagate(False)
         self.left_pane = self.left_root = self._build_pane("left", 0)
