@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from pathlib import Path
 from tkinter import Canvas, TclError
@@ -144,70 +143,7 @@ class SteamDeckGui(GuiZeroBase):
         # both of them (see _build_controls_overlay).
         self._controls_panel: ControlsPanel | None = None
         self._controls_overlay: Box | None = None
-        self._touch_trace_press = None
-        self._touch_trace_watchdog = None
         self.init_complete()
-
-    def _install_touch_trace(self) -> None:
-        """Observe pointer input across all Tk widgets without changing bindings."""
-        root = self.app.tk
-        root.bind_all("<ButtonPress-1>", self._touch_trace_down, add="+")
-        root.bind_all("<ButtonRelease-1>", self._touch_trace_up, add="+")
-        root.bind_all("<B1-Motion>", self._touch_trace_motion, add="+")
-        log.warning("TOUCH_TRACE enabled (application-wide Tk button-1 events)")
-
-    def _touch_trace_log(self, action: str, event: Any, *, note: str = "") -> None:
-        root = self.app.tk
-        try:
-            log.warning(
-                "TOUCH_TRACE %s widget=%s x=%s y=%s root_x=%s root_y=%s state=0x%x grab=%s focus=%s %s",
-                action,
-                event.widget,
-                event.x,
-                event.y,
-                event.x_root,
-                event.y_root,
-                event.state,
-                root.grab_current(),
-                root.focus_get(),
-                note,
-            )
-        except TclError:
-            log.exception("TOUCH_TRACE logging failed")
-
-    def _touch_trace_down(self, event: Any) -> None:
-        previous = self._touch_trace_press
-        if previous is not None:
-            self._touch_trace_log("PRESS_WITHOUT_RELEASE", event, note=f"previous={previous}")
-        self._touch_trace_press = (str(event.widget), event.time)
-        self._touch_trace_log("PRESS", event)
-        if self._touch_trace_watchdog is not None:
-            self.app.tk.after_cancel(self._touch_trace_watchdog)
-        self._touch_trace_watchdog = self.app.tk.after(1500, self._touch_trace_still_down)
-
-    def _touch_trace_up(self, event: Any) -> None:
-        previous = self._touch_trace_press
-        self._touch_trace_log("RELEASE" if previous else "RELEASE_WITHOUT_PRESS", event, note=f"previous={previous}")
-        self._touch_trace_press = None
-        if self._touch_trace_watchdog is not None:
-            self.app.tk.after_cancel(self._touch_trace_watchdog)
-            self._touch_trace_watchdog = None
-
-    def _touch_trace_motion(self, event: Any) -> None:
-        # One line per drag is enough to establish that movement is reaching Tk.
-        if self._touch_trace_press is not None and len(self._touch_trace_press) == 2:
-            self._touch_trace_log("DRAG", event)
-            self._touch_trace_press = (*self._touch_trace_press, "drag_logged")
-
-    def _touch_trace_still_down(self) -> None:
-        self._touch_trace_watchdog = None
-        if self._touch_trace_press is not None:
-            log.warning(
-                "TOUCH_TRACE PRESS_STILL_ACTIVE after=1500ms press=%s grab=%s focus=%s",
-                self._touch_trace_press,
-                self.app.tk.grab_current(),
-                self.app.tk.focus_get(),
-            )
 
     @property
     def controller_profile(self) -> ControlProfile:
@@ -232,8 +168,6 @@ class SteamDeckGui(GuiZeroBase):
 
     def build_gui(self) -> None:
         app = self.app
-        if os.environ.get("PYTRAIN_TOUCH_TRACE") == "1" or os.environ.get("PYTRAIN_SLIDER_TRACE") == "1":
-            self._install_touch_trace()
         self.body = Box(app, align="top", layout="grid", width=self.width, height=self.height)
         self.body.tk.pack_propagate(False)
         self.left_pane = self.left_root = self._build_pane("left", 0)
