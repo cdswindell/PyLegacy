@@ -149,13 +149,13 @@ def test_explicit_state_recreation_clears_tombstone(scope):
 def test_deleted_component_rejects_queued_update(scope):
     from src.pytrain.db.component_state import ComponentState
 
-    state = object.__new__(ComponentState)
+    state = MagicMock()
     state._deleted = True
-    state._cv = __import__("threading").Condition()
+    state.synchronizer = __import__("threading").Condition()
     command = MagicMock()
     with patch.object(ComponentState, "_prepare_update") as prepare:
         with patch.object(ComponentState, "_update_state") as update:
-            state.update(command)
+            ComponentState.update(state, command)
     prepare.assert_not_called()
     update.assert_not_called()
 
