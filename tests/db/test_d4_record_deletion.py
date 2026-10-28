@@ -1,6 +1,6 @@
 """Regression coverage for Base 3 D4 engine/train record deletion."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -127,3 +127,111 @@ def test_deleted_alias_ignores_late_updates(scope):
 
     assert store._state[scope] == {}
     assert (scope, 737) in store._deleted_addresses
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_explicit_state_recreation_clears_tombstone(scope):
+    store = object.__new__(ComponentStateStore)
+    store._state = {scope: {}}
+    store._deleted_addresses = {(scope, 50)}
+    previous = ComponentStateStore._instance
+    try:
+        ComponentStateStore._instance = store
+        replacement = MagicMock()
+        ComponentStateStore.set_state(scope, 50, replacement)
+        assert store.query(scope, 50) is replacement
+        assert (scope, 50) not in store._deleted_addresses
+    finally:
+        ComponentStateStore._instance = previous
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_deleted_component_rejects_queued_update(scope):
+    from src.pytrain.db.component_state import ComponentState
+
+    state = object.__new__(ComponentState)
+    state._deleted = True
+    state._cv = __import__("threading").Condition()
+    command = MagicMock()
+    with patch.object(ComponentState, "_prepare_update") as prepare:
+        with patch.object(ComponentState, "_update_state") as update:
+            state.update(command)
+    prepare.assert_not_called()
+    update.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("scope", "command"),
+    [
+        (CommandScope.ENGINE, PdiCommand.D4_ENGINE),
+        (CommandScope.TRAIN, PdiCommand.D4_TRAIN),
+    ],
+)
+def test_d4_clear_dispatch_removes_state_and_notifies_clients(scope, command, monkeypatch):
+    import threading
+    from queue import Queue
+
+    from src.pytrain.pdi.pdi_listener import PdiDispatcher
+
+    state = MagicMock()
+    state.record_no = 7
+    state.is_deleted = False
+    state.is_deletable = True
+    state.clear.return_value = True
+
+    queue = Queue()
+    queue.put(D4Req(7, command, D4Action.CLEAR))
+    dispatcher = object.__new__(PdiDispatcher)
+    dispatcher._queue = queue
+    dispatcher._cv = threading.Condition()
+    dispatcher._is_running = True
+    dispatcher._broadcasts = False
+    dispatcher._deletes = True
+    dispatcher._is_server = True
+    published = []
+    forwarded = []
+    dispatcher.publish = lambda topic, payload: published.append((topic, payload))
+    dispatcher.update_client_state = lambda payload: forwarded.append(payload)
+
+    monkeypatch.setattr(ComponentStateStore, "by_record_no", lambda record, requested_scope: (
+        state if record == 7 and requested_scope == scope else None
+    ))
+
+    def stop_after_first():
+        dispatcher._is_running = False
+
+    original_task_done = queue.task_done
+    def finish():
+        original_task_done()
+        stop_after_first()
+    queue.task_done = finish
+
+    dispatcher.run()
+
+    from src.pytrain.pdi.pdi_listener import DELETE_TOPIC
+
+    state.clear.assert_called_once_with()
+    assert (DELETE_TOPIC, state) in published
+    assert len(forwarded) == 1
+    assert forwarded[0].record_no == 7
+    assert forwarded[0].scope == scope
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_d2_deleted_address_rejects_late_base_memory_update(scope):
+    from src.pytrain.pdi.base_req import BaseReq
+    from src.pytrain.pdi.constants import PdiCommand
+
+    store = object.__new__(ComponentStateStore)
+    store._state = {scope: {}}
+    store._deleted_addresses = {(scope, 50)}
+    store._filter_updates = False
+    command = MagicMock(spec=BaseReq)
+    command.scope = scope
+    command.address = 50
+    command.is_filtered = False
+    command.is_comp_data_record = False
+    store(command)
+
+    assert store._state[scope] == {}
+    assert (scope, 50) in store._deleted_addresses
