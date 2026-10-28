@@ -218,7 +218,6 @@ class D4Req(PdiReq, CompDataMixin):
         byte_str += self.record_no.to_bytes(2, byteorder="little")
         byte_str += self.action.as_bytes
         if self.action in {
-            D4Action.CLEAR,
             D4Action.COUNT,
             D4Action.MAP,
             D4Action.NEXT_REC,
@@ -229,6 +228,8 @@ class D4Req(PdiReq, CompDataMixin):
         if self.action == D4Action.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()
+        elif self.action == D4Action.CLEAR:
+            byte_str += (self.post_action if self.post_action else 0).to_bytes(1, byteorder="little")
         elif self.action == D4Action.FIRST_REC:
             self._scope = CommandScope.SYSTEM
             byte_str += (0).to_bytes(1, byteorder="big")
