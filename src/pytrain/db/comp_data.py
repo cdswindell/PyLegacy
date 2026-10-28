@@ -965,7 +965,7 @@ class CompData(ABC, Generic[R]):
     def clear_record_reqs(cls, state: "ComponentState") -> list[PdiReq | "ComponentState"]:
         scope = state.scope
         address = state.address
-        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and state.is_d4:
+        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and getattr(state, "is_d4", False):
             from ..pdi.d4_req import D4Req
 
             record_no = state.record_no
