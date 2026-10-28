@@ -220,7 +220,6 @@ def test_d4_clear_dispatch_removes_state_and_notifies_clients(scope, command, mo
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
 def test_d2_deleted_address_rejects_late_base_memory_update(scope):
     from src.pytrain.pdi.base_req import BaseReq
-    from src.pytrain.pdi.constants import PdiCommand
 
     store = object.__new__(ComponentStateStore)
     store._state = {scope: {}}
