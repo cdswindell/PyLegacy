@@ -92,7 +92,6 @@ class ComponentStateStore:
         if cls._instance is None:
             raise AttributeError("ComponentStateStore not built")
         if state:
-            # noinspection PyTypeChecker
             cls._instance._delete_state(state.scope, state.address)
 
     @classmethod
@@ -359,8 +358,20 @@ class ComponentStateStore:
         return set(self._state[scope].keys())
 
     def _delete_state(self, scope: CommandScope, address: int) -> None:
-        if scope in self._state and address in self._state[scope]:
-            del self._state[scope][address]
+        with self._lock:
+            if scope not in self._state or address not in self._state[scope]:
+                return
+            state = self._state[scope][address]
+            # A road number can be another key for the same state object.
+            for key, value in list(self._state[scope].items()):
+                if value is state:
+                    del self._state[scope][key]
+            for bt_id, entries in list(self._bt_index.items()):
+                for key, value in list(entries.items()):
+                    if value is state:
+                        del entries[key]
+                if not entries:
+                    del self._bt_index[bt_id]
 
 
 # noinspection DuplicatedCode
