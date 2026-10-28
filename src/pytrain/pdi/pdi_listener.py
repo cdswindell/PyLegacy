@@ -19,7 +19,8 @@ from threading import Thread
 from typing import Generic, Tuple
 
 from .base_req import BaseReq
-from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
+from .d4_req import D4Req
+from .constants import D4Action, PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Channel, CommandDispatcher, Message, SYNC_COMPLETE, Subscriber, Topic
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -344,6 +345,17 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
 
                 # publish dispatched pdi commands to listeners
                 if isinstance(cmd, PdiReq):
+                    if isinstance(cmd, D4Req) and cmd.action == D4Action.CLEAR:
+                        from ..db.component_state_store import ComponentStateStore
+
+                        state = ComponentStateStore.by_record_no(cmd.record_no, cmd.scope)
+                        if state and not state.is_deleted and state.is_deletable:
+                            state.clear()
+                            if self.is_deletes_enabled:
+                                self.publish(DELETE_TOPIC, state)
+                        if self.is_server:
+                            self.update_client_state(cmd)
+                        continue
                     if isinstance(cmd, BaseReq):
                         # on the PyTrain server, we need to know when the initial
                         # roster sync is complete; we do this by looking for the
