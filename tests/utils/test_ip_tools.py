@@ -149,7 +149,9 @@ def test_get_ip_address_script_failure_uses_local_ipv4(monkeypatch, tmp_path, fa
         assert cmd == ["/bin/bash", str(script), "-I"]
         if failure == "oserror":
             raise OSError("Cannot launch script")
-        return DummyCompleted(returncode=1, stdout="192.168.1.10") if failure == "nonzero" else DummyCompleted(stdout=" \\n\\t")
+        if failure == "nonzero":
+            return DummyCompleted(returncode=1, stdout="192.168.1.10")
+        return DummyCompleted(stdout=" \n\t")
 
     monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
     assert get_ip_address() == ["192.168.0.42"]
