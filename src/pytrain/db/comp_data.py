@@ -299,12 +299,12 @@ class CompDataMixin(Generic[C]):
 
         if self._comp_data:
             reqs = []
-            req = self._comp_data.on_clear_req()
-            if req:
-                reqs.append(req)
+            if not (state.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and state.is_d4):
+                req = self._comp_data.on_clear_req()
+                if req:
+                    reqs.append(req)
             reqs.extend(self._comp_data.clear_record_reqs(state))
             if reqs:
-                # send the requests and do a BASE_MEMORY query on this entity
                 BaseReq.process_sync_reqs(reqs, do_async=background)
 
 
@@ -965,6 +965,14 @@ class CompData(ABC, Generic[R]):
     def clear_record_reqs(cls, state: "ComponentState") -> list[PdiReq | "ComponentState"]:
         scope = state.scope
         address = state.address
+        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and getattr(state, "is_d4", False):
+            from ..pdi.d4_req import D4Req
+
+            record_no = state.record_no
+            if record_no is None or not 0 <= record_no < 0xFFFF:
+                raise ValueError(f"Invalid D4 record number: {record_no}")
+            command = PdiCommand.D4_TRAIN if scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
+            return [D4Req(record_no, command, D4Action.CLEAR)]
         if scope:
             reqs: list[PdiReq | ComponentState] = [cls.clear_road_name_number_req(address, scope)]
             reqs.append(cls._clear_record_req(address, scope))

@@ -86,13 +86,13 @@ class ComponentStateStore:
         if cls._instance is None:
             raise AttributeError("ComponentStateStore not built")
         cls._instance._state[scope][address] = state
+        cls._instance._deleted_addresses.discard((scope, address))
 
     @classmethod
     def delete_state(cls, state: T) -> None:
         if cls._instance is None:
             raise AttributeError("ComponentStateStore not built")
         if state:
-            # noinspection PyTypeChecker
             cls._instance._delete_state(state.scope, state.address)
 
     @classmethod
@@ -100,6 +100,8 @@ class ComponentStateStore:
         with cls._lock:
             if cls._instance:
                 cls._instance._state.clear()
+                cls._instance._bt_index.clear()
+                cls._instance._deleted_addresses.clear()
 
     @classmethod
     def is_state_synchronized(cls) -> bool:
@@ -172,6 +174,8 @@ class ComponentStateStore:
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
         self._bt_index: dict[int, SortedDict[int, EngineState]] = {}
+        # Prevent queued updates from recreating recently deleted states.
+        self._deleted_addresses: set[tuple[CommandScope, int]] = set()
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
@@ -228,6 +232,11 @@ class ComponentStateStore:
                             # make sure we haven't filled a slot based on a previous engine's road number
                             address = command.address
                             scope = command.scope
+                            if (scope, address) in self._deleted_addresses:
+                                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                                    self._deleted_addresses.discard((scope, address))
+                                else:
+                                    return
                             if address > 99:
                                 state = self.query(scope, address)
                                 if state and state.address != address:
@@ -359,8 +368,21 @@ class ComponentStateStore:
         return set(self._state[scope].keys())
 
     def _delete_state(self, scope: CommandScope, address: int) -> None:
-        if scope in self._state and address in self._state[scope]:
-            del self._state[scope][address]
+        with self._lock:
+            if scope not in self._state or address not in self._state[scope]:
+                return
+            state = self._state[scope][address]
+            # A road number can be another key for the same state object.
+            for key, value in list(self._state[scope].items()):
+                if value is state:
+                    self._deleted_addresses.add((scope, key))
+                    del self._state[scope][key]
+            for bt_id, entries in list(self._bt_index.items()):
+                for key, value in list(entries.items()):
+                    if value is state:
+                        del entries[key]
+                if not entries:
+                    del self._bt_index[bt_id]
 
 
 # noinspection DuplicatedCode
