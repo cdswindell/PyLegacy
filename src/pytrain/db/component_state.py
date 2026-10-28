@@ -279,6 +279,8 @@ class ComponentState(ABC, CompDataMixin):
             return
 
         with self.synchronizer:
+            if self._deleted:
+                return
             self.changed.clear()
             self._prepare_update(command)  # current base-class validation/setup
             result = self._update_state(command)  # subclass-specific behavior
@@ -396,7 +398,15 @@ class ComponentState(ABC, CompDataMixin):
         """
         from .component_state_store import ComponentStateStore
 
+        if clear_db and isinstance(self, CompDataMixin) and self.is_comp_data_record:
+            # Validate the D4 record before removing the local state.
+            if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self.is_d4:
+                if self.record_no is None or not 0 <= self.record_no < 0xFFFF:
+                    raise ValueError(f"Invalid D4 record number: {self.record_no}")
+
         with self._cv:
+            if self._deleted:
+                return False
             if not self.is_deletable:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"Component state {self} is not deletable")
