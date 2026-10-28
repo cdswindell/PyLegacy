@@ -100,9 +100,7 @@ def get_local_ipv4() -> str | None:
             sock.connect(TEST_NET_IP)
             address = sock.getsockname()[0]
         ip = ipaddress.ip_address(address)
-        if isinstance(ip, ipaddress.IPv4Address) and not (
-            ip.is_loopback or ip.is_link_local or ip.is_unspecified
-        ):
+        if isinstance(ip, ipaddress.IPv4Address) and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified):
             return address
     except (OSError, ValueError):
         pass
@@ -129,9 +127,7 @@ def get_ip_address(max_attempts: int = 32) -> List[str]:
         script_path = _find_hostname_script()
         if script_path is not None:
             try:
-                result = subprocess.run(
-                    ["/bin/bash", str(script_path), "-I"], capture_output=True, text=True
-                )
+                result = subprocess.run(["/bin/bash", str(script_path), "-I"], capture_output=True, text=True)
             except OSError:
                 result = None
             if result is not None and result.returncode == 0:
