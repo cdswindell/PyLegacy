@@ -93,27 +93,55 @@ def get_ip_from_command():
         raise e
 
 
+def get_local_ipv4() -> str | None:
+    """Find the IPv4 source address selected by the routing table."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(TEST_NET_IP)
+            address = sock.getsockname()[0]
+        ip = ipaddress.ip_address(address)
+        if isinstance(ip, ipaddress.IPv4Address) and not (
+            ip.is_loopback or ip.is_link_local or ip.is_unspecified
+        ):
+            return address
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def get_ip_address(max_attempts: int = 32) -> List[str]:
     from .. import is_linux
 
     wait_for_network()
 
-    # if on linux, use hostname to get IP addr
+    # Prefer the native Linux command, then the Steam Deck helper script,
+    # then a command-free socket fallback (e.g. BusyBox/Buildroot).
     if is_linux():
         try:
-            result = subprocess.run("hostname -I".split(), capture_output=True, text=True)
-        except FileNotFoundError:
+            result = subprocess.run(["hostname", "-I"], capture_output=True, text=True)
+        except OSError:
             result = None
-            script_path = _find_hostname_script()
-            if script_path is not None:
-                try:
-                    result = subprocess.run(["/bin/bash", str(script_path), "-I"], capture_output=True, text=True)
-                except OSError:
-                    pass
         if result is not None and result.returncode == 0:
-            output = result.stdout.strip().split()
-            if output and output[0]:
+            output = result.stdout.split()
+            if output:
                 return [output[0]]
+
+        script_path = _find_hostname_script()
+        if script_path is not None:
+            try:
+                result = subprocess.run(
+                    ["/bin/bash", str(script_path), "-I"], capture_output=True, text=True
+                )
+            except OSError:
+                result = None
+            if result is not None and result.returncode == 0:
+                output = result.stdout.split()
+                if output:
+                    return [output[0]]
+
+        local_ip = get_local_ipv4()
+        if local_ip is not None:
+            return [local_ip]
 
     # Otherwise, use socket technique
     hostname = socket.gethostname()
