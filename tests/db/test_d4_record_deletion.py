@@ -66,3 +66,64 @@ def test_delete_state_removes_aliases_and_bt_index():
         (CommandScope.ENGINE, 88),
         (CommandScope.ENGINE, 2021),
     }
+
+
+@pytest.mark.parametrize(
+    ("scope", "command"),
+    [
+        (CommandScope.ENGINE, PdiCommand.D4_ENGINE),
+        (CommandScope.TRAIN, PdiCommand.D4_TRAIN),
+    ],
+)
+@pytest.mark.parametrize("record_no", [0, 1, 255, 256, 65534])
+def test_d4_clear_round_trip(scope, command, record_no):
+    state = MagicMock(scope=scope, address=50, is_d4=True, record_no=record_no)
+    req = CompData.clear_record_reqs(state)[0]
+
+    decoded = D4Req(req.as_bytes)
+
+    assert decoded.pdi_command == command
+    assert decoded.action == D4Action.CLEAR
+    assert decoded.record_no == record_no
+    assert decoded.as_bytes == req.as_bytes
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_deleted_address_ignores_late_updates(scope):
+    store = object.__new__(ComponentStateStore)
+    store._state = {scope: {}}
+    store._deleted_addresses = {(scope, 50)}
+
+    command = MagicMock()
+    command.scope = scope
+    command.address = 50
+    command.is_filtered = False
+
+    store._filter_updates = False
+    store(command)
+
+    assert store._state[scope] == {}
+    assert (scope, 50) in store._deleted_addresses
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_deleted_alias_ignores_late_updates(scope):
+    store = object.__new__(ComponentStateStore)
+    state = MagicMock()
+    state.scope = scope
+    state.address = 50
+    store._state = {scope: {50: state, 737: state}}
+    store._bt_index = {}
+    store._deleted_addresses = set()
+    store._filter_updates = False
+
+    store._delete_state(scope, 50)
+
+    command = MagicMock()
+    command.scope = scope
+    command.address = 737
+    command.is_filtered = False
+    store(command)
+
+    assert store._state[scope] == {}
+    assert (scope, 737) in store._deleted_addresses
