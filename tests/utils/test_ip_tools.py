@@ -209,12 +209,15 @@ def test_get_ip_address_all_linux_fallbacks_fail_uses_hostname_resolution(monkey
     assert get_ip_address() == ["192.168.0.42"]
 
 
-@pytest.mark.parametrize("address, expected", [
-    ("192.168.1.199", "192.168.1.199"),
-    ("127.0.0.1", None),
-    ("169.254.2.3", None),
-    ("0.0.0.0", None),
-])
+@pytest.mark.parametrize(
+    "address, expected",
+    [
+        ("192.168.1.199", "192.168.1.199"),
+        ("127.0.0.1", None),
+        ("169.254.2.3", None),
+        ("0.0.0.0", None),
+    ],
+)
 def test_get_local_ipv4_filters_unusable_addresses(monkeypatch, address, expected):
     class FakeSocket:
         def __enter__(self):
