@@ -134,17 +134,12 @@ def test_get_ip_address_missing_hostname_uses_script(monkeypatch, tmp_path, loca
 
 
 @pytest.mark.parametrize("failure", ["missing", "oserror", "nonzero", "blank"])
-def test_get_ip_address_script_failure_uses_socket(monkeypatch, tmp_path, failure):
+def test_get_ip_address_script_failure_uses_local_ipv4(monkeypatch, tmp_path, failure):
     monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
     script = tmp_path / "hostname.sh"
     monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: None if failure == "missing" else script)
-    monkeypatch.setattr(ip_tools.socket, "gethostname", lambda: "myhost.local")
-
-    def fake_resolve(hostname):
-        assert hostname == "myhost.local"
-        return hostname, [], ["127.0.0.1", "192.168.0.42"]
-
-    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", fake_resolve)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: "192.168.0.42")
+    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: pytest.fail("Must not resolve hostname"))
     calls = []
 
     def fake_run(cmd, *, capture_output, text):
@@ -154,30 +149,101 @@ def test_get_ip_address_script_failure_uses_socket(monkeypatch, tmp_path, failur
         assert cmd == ["/bin/bash", str(script), "-I"]
         if failure == "oserror":
             raise OSError("Cannot launch script")
-        return (
-            DummyCompleted(returncode=1, stdout="192.168.1.10")
-            if failure == "nonzero"
-            else DummyCompleted(stdout=" \n\t")
-        )
+        return DummyCompleted(returncode=1, stdout="192.168.1.10") if failure == "nonzero" else DummyCompleted(stdout=" \\n\\t")
 
     monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
     assert get_ip_address() == ["192.168.0.42"]
     assert len(calls) == (1 if failure == "missing" else 2)
 
 
-@pytest.mark.parametrize("returncode, stdout", [(1, "192.168.1.10"), (0, " \n\t")])
-def test_get_ip_address_native_failure_does_not_use_script(monkeypatch, returncode, stdout):
+@pytest.mark.parametrize("returncode, stdout", [(1, "192.168.1.10"), (0, " \\n\\t")])
+def test_get_ip_address_native_failure_uses_script(monkeypatch, tmp_path, returncode, stdout):
     monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
-    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: pytest.fail("Must not search for script"))
-    monkeypatch.setattr(ip_tools.socket, "gethostname", lambda: "myhost")
-    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: (name, [], ["192.168.0.42"]))
+    script = tmp_path / "hostname.sh"
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: script)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: pytest.fail("Script should succeed"))
+    calls = []
 
     def fake_run(cmd, *, capture_output, text):
-        assert cmd == ["hostname", "-I"]
-        return DummyCompleted(returncode, stdout)
+        calls.append(cmd)
+        if cmd == ["hostname", "-I"]:
+            return DummyCompleted(returncode, stdout)
+        assert cmd == ["/bin/bash", str(script), "-I"]
+        return DummyCompleted(stdout="192.168.0.42\\n")
 
     monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
     assert get_ip_address() == ["192.168.0.42"]
+    assert calls == [["hostname", "-I"], ["/bin/bash", str(script), "-I"]]
+
+
+@pytest.mark.parametrize("native_failure", ["nonzero", "missing"])
+def test_get_ip_address_busybox_and_broken_script_use_socket(monkeypatch, tmp_path, native_failure):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: tmp_path / "hostname.sh")
+    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: pytest.fail("Should not use DNS"))
+    calls = []
+
+    def fake_run(cmd, *, capture_output, text):
+        calls.append(cmd)
+        if cmd == ["hostname", "-I"]:
+            if native_failure == "missing":
+                raise FileNotFoundError("hostname")
+            return DummyCompleted(returncode=1, stdout="")
+        return DummyCompleted(returncode=127, stdout="")
+
+    monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: "192.168.1.199")
+    assert get_ip_address() == ["192.168.1.199"]
+    assert len(calls) == 2
+
+
+def test_get_ip_address_all_linux_fallbacks_fail_uses_hostname_resolution(monkeypatch):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: None)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: None)
+    monkeypatch.setattr(ip_tools.subprocess, "run", lambda *a, **kw: DummyCompleted(returncode=1))
+    monkeypatch.setattr(ip_tools.socket, "gethostname", lambda: "myhost.local")
+    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: (name, [], ["192.168.0.42"]))
+    assert get_ip_address() == ["192.168.0.42"]
+
+
+@pytest.mark.parametrize("address, expected", [
+    ("192.168.1.199", "192.168.1.199"),
+    ("127.0.0.1", None),
+    ("169.254.2.3", None),
+    ("0.0.0.0", None),
+])
+def test_get_local_ipv4_filters_unusable_addresses(monkeypatch, address, expected):
+    class FakeSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def connect(self, target):
+            assert target == ip_tools.TEST_NET_IP
+
+        def getsockname(self):
+            return (address, 4567)
+
+    monkeypatch.setattr(ip_tools.socket, "socket", lambda *args: FakeSocket())
+    assert ip_tools.get_local_ipv4() == expected
+
+
+def test_get_local_ipv4_socket_failure(monkeypatch):
+    class FakeSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def connect(self, target):
+            raise OSError("No route")
+
+    monkeypatch.setattr(ip_tools.socket, "socket", lambda *args: FakeSocket())
+    assert ip_tools.get_local_ipv4() is None
 
 
 @pytest.mark.parametrize("exception", [KeyboardInterrupt, SystemExit])
