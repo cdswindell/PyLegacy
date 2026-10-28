@@ -193,17 +193,21 @@ def test_d4_clear_dispatch_removes_state_and_notifies_clients(scope, command, mo
     dispatcher.publish = lambda topic, payload: published.append((topic, payload))
     dispatcher.update_client_state = lambda payload: forwarded.append(payload)
 
-    monkeypatch.setattr(ComponentStateStore, "by_record_no", lambda record, requested_scope: (
-        state if record == 7 and requested_scope == scope else None
-    ))
+    monkeypatch.setattr(
+        ComponentStateStore,
+        "by_record_no",
+        lambda record, requested_scope: state if record == 7 and requested_scope == scope else None,
+    )
 
     def stop_after_first():
         dispatcher._is_running = False
 
     original_task_done = queue.task_done
+
     def finish():
         original_task_done()
         stop_after_first()
+
     queue.task_done = finish
 
     dispatcher.run()
