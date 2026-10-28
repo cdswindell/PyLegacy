@@ -158,7 +158,7 @@ def test_get_ip_address_script_failure_uses_local_ipv4(monkeypatch, tmp_path, fa
     assert len(calls) == (1 if failure == "missing" else 2)
 
 
-@pytest.mark.parametrize("returncode, stdout", [(1, "192.168.1.10"), (0, " \\n\\t")])
+@pytest.mark.parametrize("returncode, stdout", [(1, "192.168.1.10"), (0, " \n\t")])
 def test_get_ip_address_native_failure_uses_script(monkeypatch, tmp_path, returncode, stdout):
     monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
     script = tmp_path / "hostname.sh"
@@ -171,7 +171,7 @@ def test_get_ip_address_native_failure_uses_script(monkeypatch, tmp_path, return
         if cmd == ["hostname", "-I"]:
             return DummyCompleted(returncode, stdout)
         assert cmd == ["/bin/bash", str(script), "-I"]
-        return DummyCompleted(stdout="192.168.0.42\\n")
+        return DummyCompleted(stdout="192.168.0.42\n")
 
     monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
     assert get_ip_address() == ["192.168.0.42"]
