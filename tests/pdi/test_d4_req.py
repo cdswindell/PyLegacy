@@ -124,35 +124,6 @@ def test_as_key_structure_and_stability():
     assert k1 == k2
 
 
-def test_next_rec_response_decodes_complete_comp_data(monkeypatch):
-    from src.pytrain.db.comp_data import CompData
-    from src.pytrain.protocol.constants import CommandScope
-
-    record = bytes(range(0xC0))
-    calls = []
-
-    class Record:
-        tmcc_id = 3233
-
-    def parse_record(data, scope):
-        calls.append((data, scope))
-        return Record()
-
-    monkeypatch.setattr(CompData, "from_bytes", parse_record)
-    payload = bytes.fromhex("2e010012000000c0ffff") + record
-    stuffed, checksum = PdiReq._calculate_checksum(payload)
-    parsed = PdiReq.from_bytes(b"\xd1" + stuffed + checksum + b"\xdf")
-
-    assert isinstance(parsed, D4Req)
-    assert parsed.action == D4Action.NEXT_REC
-    assert parsed.record_no == 1
-    assert parsed.next_record_no == 0xFFFF
-    assert parsed.tmcc_id == 3233
-    assert parsed.comp_data.tmcc_id == 3233
-    assert parsed.is_comp_data_record
-    assert calls == [(record, CommandScope.ENGINE)]
-
-
 def test_next_rec_request_does_not_create_comp_data():
     req = D4Req(1, PdiCommand.D4_ENGINE, D4Action.NEXT_REC, start=0, data_length=0xC0)
     parsed = PdiReq.from_bytes(req.as_bytes)

@@ -108,7 +108,7 @@ class StartupState(Thread):
                             self._waiting_for[req.as_key] = req
                         self.pdi_listener.enqueue_command(req)
                         # get the record number of the next engine/train
-                        req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC)
+                        req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC, data_length=0xC0)
                     elif self._defer_d4_train_harvest:
                         self._defer_d4_train_harvest = False
                         req = D4Req(0, PdiCommand.D4_TRAIN, D4Action.FIRST_REC)
