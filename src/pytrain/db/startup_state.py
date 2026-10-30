@@ -96,18 +96,10 @@ class StartupState(Thread):
                     )
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
                     if cmd.next_record_no is not None and cmd.next_record_no != 0xFFFF:
-                        # query current state of 4-digit engine/train
-                        req = D4Req(
-                            cmd.next_record_no,
-                            cmd.pdi_command,
-                            D4Action.QUERY,
-                            start=0,
-                            data_length=0xC0,
-                        )
-                        with self._cv:
-                            self._waiting_for[req.as_key] = req
-                        self.pdi_listener.enqueue_command(req)
-                        # get the record number of the next engine/train
+                        # NEXT_REC replies carry a complete CompData record, which
+                        # PdiDispatcher publishes to the state store and clients.
+                        # The first record still needs a NEXT_REC request after
+                        # FIRST_REC; subsequent records are discovered by traversal.
                         req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC)
                     elif self._defer_d4_train_harvest:
                         self._defer_d4_train_harvest = False
