@@ -1789,7 +1789,7 @@ class PyTrain:
                     if action == D4Action.CLEAR:
                         agr = D4Req(rec_no, pdi, action=action)
                     else:
-                        agr = D4Req(rec_no, pdi, action=action, start=1, data_length=0xC0)
+                        agr = D4Req(rec_no, pdi, action=action, start=0, data_length=0xC0)
                 elif action in {D4Action.QUERY, D4Action.UPDATE}:
                     rec_no = int(param[2], 16) if "0x" in param[2] else int(param[2])
                     start = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 3 else 0
