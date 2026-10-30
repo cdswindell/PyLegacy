@@ -46,7 +46,7 @@ class D4Req(PdiReq, CompDataMixin):
     ) -> None:
         """Initializes D4Req; parses data; overrides fields from engine state"""
         super().__init__(data, pdi_command)
-        # Scope should only ever be ENGIne or TRAIN
+        # D4 scope is determined by the PDI command: ENGINE or TRAIN.
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
         self._data_length = self._data_bytes = self._start = self._timestamp = self._next_record_post_bytes = None
@@ -77,7 +77,6 @@ class D4Req(PdiReq, CompDataMixin):
                     elif isinstance(data_bytes, int):
                         self._data_bytes = data_bytes.to_bytes(data_length, byteorder="little")
             elif self.action == D4Action.COUNT:
-                self._scope = CommandScope.BASE
                 self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
             elif self.action == D4Action.MAP:
                 self._suffix = None
@@ -105,7 +104,6 @@ class D4Req(PdiReq, CompDataMixin):
                         self._comp_data_record = True
                 else:
                     self._next_record_no = self.record_no
-                    self._scope = CommandScope.BASE  # send first record information to Base
         else:
             from ..db.engine_state import EngineState
 
@@ -119,16 +117,13 @@ class D4Req(PdiReq, CompDataMixin):
             self._timestamp = timestamp
             self._state = state
 
-            # Overrides fields from engine state or sets base scope for initial actions
+            # Overrides fields from engine state
             if state and isinstance(state, EngineState):
                 self._tmcc_id = state.tmcc_id
                 self._start = 0
                 self._data_length = PdiReq.scope_record_length(CommandScope.ENGINE)
                 if isinstance(state, CompDataMixin):
                     self._data_bytes = state.comp_data.as_bytes()
-                self._scope = state.scope
-            elif self.action in {D4Action.FIRST_REC, D4Action.COUNT}:
-                self._scope = CommandScope.BASE
 
     @property
     def as_key(self):
@@ -243,7 +238,6 @@ class D4Req(PdiReq, CompDataMixin):
         elif self.action == D4Action.CLEAR:
             byte_str += (self.post_action if self.post_action else 0).to_bytes(1, byteorder="little")
         elif self.action == D4Action.FIRST_REC:
-            self._scope = CommandScope.SYSTEM
             byte_str += (0).to_bytes(1, byteorder="big")
         elif self.action == D4Action.NEXT_REC:
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
