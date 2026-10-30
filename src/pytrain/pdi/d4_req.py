@@ -93,6 +93,14 @@ class D4Req(PdiReq, CompDataMixin):
                     self._next_record_no = (
                         int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
                     )
+                    # NEXT_REC responses include the requested record after the next-record pointer.
+                    # Requests contain no record bytes; only decode complete responses.
+                    record_length = PdiReq.scope_record_length(self.scope)
+                    if self._data_length == record_length and data_len >= 10 + record_length:
+                        self._data_bytes = self._data[10 : 10 + record_length]
+                        self._comp_data = CompData.from_bytes(self._data_bytes, self.scope)
+                        self._tmcc_id = self._comp_data.tmcc_id
+                        self._comp_data_record = True
                 else:
                     self._next_record_no = self.record_no
                     self._scope = CommandScope.BASE  # send first record information to Base
