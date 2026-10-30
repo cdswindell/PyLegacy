@@ -51,7 +51,7 @@ def transport(bare_pytrain):
         ("d4_engine count 7", module.D4Req(0, module.PdiCommand.D4_ENGINE, action=module.D4Action.COUNT)),
         ("d4_train first_rec", module.D4Req(0, module.PdiCommand.D4_TRAIN, action=module.D4Action.FIRST_REC)),
         ("d4_engine map 1234", module.D4Req(0, module.PdiCommand.D4_ENGINE, action=module.D4Action.MAP, tmcc_id=1234)),
-        ("d4_engine next_rec 7", module.D4Req(7, module.PdiCommand.D4_ENGINE, action=module.D4Action.NEXT_REC)),
+        ("d4_engine next_rec 7", module.D4Req(7, module.PdiCommand.D4_ENGINE, action=module.D4Action.NEXT_REC, data_length=0xC0)),
         *[
             (
                 f"d4_engine {action} 7",
