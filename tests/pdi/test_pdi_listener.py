@@ -16,7 +16,8 @@ from src.pytrain.comm.command_listener import CommandDispatcher
 from src.pytrain.db.comp_data import EngineData
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.pdi.base_req import BaseReq
-from src.pytrain.pdi.constants import PdiCommand
+from src.pytrain.pdi.constants import D4Action, PdiCommand
+from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_listener import PdiDispatcher, PdiListener
 from src.pytrain.pdi.pdi_req import PdiReq
 from tests.test_base import wait_until
@@ -207,3 +208,64 @@ def test_dispatcher_publishes_delete_for_inactive_base_memory_record(monkeypatch
     assert state.is_deleted is True
 
     dispatcher.unsubscribe_delete(catcher)
+
+
+@pytest.mark.parametrize("tmcc_id,record_no", [(737, 7), (100, 0)])
+def test_next_rec_broadcast_creates_and_updates_client_engine_state(monkeypatch, tmcc_id, record_no):
+    """The server forwards complete NEXT_REC packets; clients consume them as state updates."""
+    from src.pytrain.db.component_state import ComponentState
+
+    ComponentStateStore.reset()
+    # Avoid configuration requests while constructing the new engine state.
+    monkeypatch.setattr(ComponentState, "request_config", lambda self, command: None)
+    dispatcher = PdiDispatcher.build()
+    forwarded = []
+    monkeypatch.setattr(dispatcher, "update_client_state", lambda cmd: forwarded.append(cmd.as_bytes))
+    dispatcher._is_server = True
+    dispatcher.subscribe(ComponentStateStore(), CommandScope.ENGINE)
+
+    data = EngineData(None, tmcc_id)
+    data.road_name = "Amtrak"
+    data.road_name_len = 6
+    data.bt_id = 0x573A
+    record = data.as_bytes()
+    assert len(record) == 0xC0
+
+    # NEXT_REC reply: record number, action, post-action, start, length,
+    # next record pointer, two metadata bytes, then the complete record.
+    payload = (
+        PdiCommand.D4_ENGINE.as_bytes
+        + record_no.to_bytes(2, "little")
+        + D4Action.NEXT_REC.as_bytes
+        + b"\\x00\\x00\\x00\\xc0\\xff\\xff\\xc0\\x10"
+        + record
+    )
+    escaped, checksum = PdiReq._calculate_checksum(payload)
+    packet = b"\\xd1" + escaped + checksum + b"\\xdf"
+    response = PdiReq.from_bytes(packet)
+    assert isinstance(response, D4Req)
+    assert response.is_comp_data_record
+    assert response.tmcc_id == tmcc_id
+
+    dispatcher.offer(response)
+    assert wait_until(lambda: len(forwarded) == 1)
+    assert forwarded == [packet]
+    server_state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, False)
+    assert server_state is not None
+    assert server_state.record_no == record_no
+    assert server_state.comp_data.bt_id == 0x573A
+
+    # Simulate a separate client receiving the forwarded packet.
+    ComponentStateStore.reset()
+    client_store = ComponentStateStore()
+    client_response = PdiReq.from_bytes(forwarded[0])
+    client_store(client_response)
+    client_state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, False)
+    assert client_state is not None
+    assert client_state.record_no == record_no
+    assert client_state.comp_data.bt_id == 0x573A
+    assert client_state.road_name == "Amtrak"
+
+    # Replaying the same packet updates the existing client state, not a second engine.
+    client_store(client_response)
+    assert ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, False) is client_state
