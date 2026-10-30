@@ -185,7 +185,14 @@ def test_debug_pdi_dispatch(transport, caplog):
     transport._pdi_buffer.enqueue_command.assert_called_once()
 
 
-def test_d4_clear_is_currently_noop(transport):
+def test_d4_clear_dispatches_packet(transport):
     transport._do_pdi(["d4_engine", "clear", "7"])
-    transport._pdi_buffer.enqueue_command.assert_not_called()
+    transport._pdi_buffer.enqueue_command.assert_called_once()
+    actual = transport._pdi_buffer.enqueue_command.call_args.args[0]
+    assert isinstance(actual, module.D4Req)
+    assert actual.pdi_command == module.PdiCommand.D4_ENGINE
+    assert actual.action == module.D4Action.CLEAR
+    assert actual.record_no == 7
+    expected = module.D4Req(7, module.PdiCommand.D4_ENGINE, action=module.D4Action.CLEAR)
+    assert actual.as_bytes == expected.as_bytes
     transport._tmcc_buffer.enqueue_command.assert_not_called()
