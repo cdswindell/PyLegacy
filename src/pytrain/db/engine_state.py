@@ -983,10 +983,15 @@ class EngineState(ComponentState):
         # Encode the engine state as represented on the Base 3;
         if self.tmcc_id <= 99:
             pdi = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
-        else:
+        elif self.record_no is not None:
             pdi_cmd = PdiCommand.D4_ENGINE if self.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             pdi = D4Req(self.record_no, pdi_cmd, state=self)
-        packets.append(pdi.as_bytes)
+        else:
+            # A 4D engine may receive operational updates before Base 3 has
+            # supplied its record number. Its remaining state is still serializable.
+            pdi = None
+        if pdi is not None:
+            packets.append(pdi.as_bytes)
 
         if not self._pdi_source:
             # now encode state not managed by the Base 3, AFAIK
