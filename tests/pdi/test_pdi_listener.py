@@ -237,11 +237,11 @@ def test_next_rec_broadcast_creates_and_updates_client_engine_state(monkeypatch,
         PdiCommand.D4_ENGINE.as_bytes
         + record_no.to_bytes(2, "little")
         + D4Action.NEXT_REC.as_bytes
-        + b"\\x00\\x00\\x00\\xc0\\xff\\xff\\xc0\\x10"
+        + b"\x00\x00\x00\xc0\xff\xff\xc0\x10"
         + record
     )
     escaped, checksum = PdiReq._calculate_checksum(payload)
-    packet = b"\\xd1" + escaped + checksum + b"\\xdf"
+    packet = b"\xd1" + escaped + checksum + b"\xdf"
     response = PdiReq.from_bytes(packet)
     assert isinstance(response, D4Req)
     assert response.is_comp_data_record
