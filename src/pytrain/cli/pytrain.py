@@ -1784,9 +1784,9 @@ class PyTrain:
                         agr = D4Req(0, pdi, action=action, tmcc_id=tmcc_id)
                     else:
                         raise AttributeError(f"PDI {action.label} only supported for 4-digit TMCC IDs")
-                elif action == D4Action.NEXT_REC:
+                elif action in {D4Action.NEXT_REC, D4Action.CLEAR}:
                     rec_no = int(param[2])
-                    agr = D4Req(rec_no, pdi, action=D4Action.NEXT_REC)
+                    agr = D4Req(rec_no, pdi, action=action)
                 elif action in {D4Action.QUERY, D4Action.UPDATE}:
                     rec_no = int(param[2], 16) if "0x" in param[2] else int(param[2])
                     start = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 3 else 0
@@ -1799,6 +1799,8 @@ class PyTrain:
                         db = None
                         action = D4Action.QUERY
                     agr = D4Req(rec_no, pdi, action=action, start=start, data_length=length, data_bytes=db)
+                else:
+                    log.info(f"Unsupported D4 command: {action.label} --> {param}")
         elif param_len >= 2 and param[0].lower().startswith("m"):  # Base Memory commands
             pdi = PdiCommand.BASE_MEMORY
             rec_no = int(param[1], 16) if "0x" in param[1] else int(param[1])
