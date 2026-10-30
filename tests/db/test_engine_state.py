@@ -1145,3 +1145,19 @@ class TestEngineStateRampArbitration:
         assert state.is_ramping is True
         assert new_ramp.requested_speed == 90
         request_refresh.assert_called_once_with(state)
+
+
+def test_provisional_d4_engine_state_serializes_without_record_number():
+    state = EngineState(CommandScope.ENGINE)
+    state.initialize(CommandScope.ENGINE, 3233)
+    state._address = 3233
+    assert state.record_no is None
+    assert isinstance(state.as_bytes(), list)
+
+
+def test_provisional_d4_train_state_serializes_without_record_number():
+    state = TrainState(CommandScope.TRAIN)
+    state.initialize(CommandScope.TRAIN, 3233)
+    state._address = 3233
+    assert state.record_no is None
+    assert isinstance(state.as_bytes(), list)
