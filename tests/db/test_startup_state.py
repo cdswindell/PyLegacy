@@ -376,3 +376,43 @@ def test_base_memory_id1_responses_trigger_id2_requests_per_scope():
             and req.tmcc_id == 2
             for req in listener.enqueued
         ), f"Expected BASE_MEMORY tmcc_id=2 for scope {scope}"
+
+
+@pytest.mark.parametrize(
+    "command,scope",
+    [(PdiCommand.D4_ENGINE, CommandScope.ENGINE), (PdiCommand.D4_TRAIN, CommandScope.TRAIN)],
+)
+@pytest.mark.parametrize("action", [D4Action.FIRST_REC, D4Action.NEXT_REC])
+def test_d4_roster_walk_uses_next_rec_without_query(command, scope, action):
+    listener = MockPdiListener()
+    ss = StartupState(listener, MockDispatcher(), MockPdiStateStore())
+    response = make_dummy_d4req(action, pdi_command=command, next_record_no=7)
+    response._scope = scope
+
+    ss(response)
+
+    assert len(listener.enqueued) == 1
+    next_req = listener.enqueued[0]
+    assert next_req.action == D4Action.NEXT_REC
+    assert next_req.pdi_command == command
+    assert next_req.scope == scope
+    assert next_req.record_no == 7
+    assert next_req.data_length == 0xC0
+    assert next_req.start == 0
+    assert next_req.as_key in ss._waiting_for
+    assert not any(req.action == D4Action.QUERY for req in listener.enqueued)
+
+
+def test_d4_engine_roster_completion_starts_deferred_train_harvest():
+    listener = MockPdiListener()
+    ss = StartupState(listener, MockDispatcher(), MockPdiStateStore())
+    ss._defer_d4_train_harvest = True
+    response = make_dummy_d4req(D4Action.NEXT_REC, next_record_no=0xFFFF)
+
+    ss(response)
+
+    assert len(listener.enqueued) == 1
+    assert listener.enqueued[0].action == D4Action.FIRST_REC
+    assert listener.enqueued[0].pdi_command == PdiCommand.D4_TRAIN
+    assert not ss._defer_d4_train_harvest
+    assert not any(req.action == D4Action.QUERY for req in listener.enqueued)
