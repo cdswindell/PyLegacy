@@ -96,18 +96,8 @@ class StartupState(Thread):
                     )
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
                     if cmd.next_record_no is not None and cmd.next_record_no != 0xFFFF:
-                        # query current state of 4-digit engine/train
-                        req = D4Req(
-                            cmd.next_record_no,
-                            cmd.pdi_command,
-                            D4Action.QUERY,
-                            start=0,
-                            data_length=0xC0,
-                        )
-                        with self._cv:
-                            self._waiting_for[req.as_key] = req
-                        self.pdi_listener.enqueue_command(req)
-                        # get the record number of the next engine/train
+                        # NEXT_REC returns the requested record's CompData and the following record number.
+                        # The dispatcher can populate the D4 roster directly from this response.
                         req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC, data_length=0xC0)
                     elif self._defer_d4_train_harvest:
                         self._defer_d4_train_harvest = False
