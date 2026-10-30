@@ -14,6 +14,7 @@ import pytest
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req, LIONEL_EPOCH
 from src.pytrain.pdi.pdi_req import PdiReq
+from src.pytrain.protocol.constants import CommandScope
 
 
 def test_lionel_timestamp_bytes_length_and_endianness(monkeypatch):
@@ -31,18 +32,14 @@ def test_lionel_timestamp_bytes_length_and_endianness(monkeypatch):
 def test_build_count_request_roundtrip_engine():
     req = D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT, count=5)
     assert req.action == D4Action.COUNT
-    # COUNT requests are scoped to BASE
-    from src.pytrain.protocol.constants import CommandScope
-
-    assert req.scope == CommandScope.BASE
+    assert req.scope == CommandScope.ENGINE
 
     packet = req.as_bytes
     parsed = PdiReq.from_bytes(packet)
     assert isinstance(parsed, D4Req)
     assert parsed.action == D4Action.COUNT
     assert parsed.count == 5
-    # COUNT responses maintain BASE scope
-    assert parsed.scope == CommandScope.BASE
+    assert parsed.scope == CommandScope.ENGINE
 
 
 def test_build_first_rec_request_roundtrip_train():
@@ -51,10 +48,8 @@ def test_build_first_rec_request_roundtrip_train():
     parsed = PdiReq.from_bytes(packet)
     assert isinstance(parsed, D4Req)
     assert parsed.action == D4Action.FIRST_REC
-    # FIRST_REC requests are sent to SYSTEM but parsed responses set BASE (see __init__ logic)
-    from src.pytrain.protocol.constants import CommandScope
-
-    assert parsed.scope == CommandScope.BASE
+    assert req.scope == CommandScope.TRAIN
+    assert parsed.scope == CommandScope.TRAIN
 
 
 def test_build_map_request_roundtrip_with_tmcc_id():
@@ -130,3 +125,22 @@ def test_next_rec_request_does_not_create_comp_data():
     assert parsed.action == D4Action.NEXT_REC
     assert parsed.comp_data is None
     assert not parsed.is_comp_data_record
+
+
+@pytest.mark.parametrize(
+    "command,scope",
+    [(PdiCommand.D4_ENGINE, CommandScope.ENGINE), (PdiCommand.D4_TRAIN, CommandScope.TRAIN)],
+)
+@pytest.mark.parametrize("action", [D4Action.COUNT, D4Action.FIRST_REC, D4Action.NEXT_REC])
+def test_d4_roster_actions_preserve_command_scope(command, scope, action):
+    kwargs = {"count": 2} if action == D4Action.COUNT else {}
+    if action == D4Action.NEXT_REC:
+        kwargs["start"] = 0
+        kwargs["data_length"] = PdiReq.scope_record_length(scope)
+    req = D4Req(1, command, action, **kwargs)
+    assert req.scope == scope
+    packet = req.as_bytes
+    assert req.scope == scope
+    parsed = PdiReq.from_bytes(packet)
+    assert parsed.scope == scope
+    assert parsed.as_key[-1] == scope
