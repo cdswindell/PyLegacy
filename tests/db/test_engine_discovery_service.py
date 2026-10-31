@@ -6,9 +6,9 @@ from unittest.mock import Mock
 import pytest
 
 from src.pytrain.db.component_state_store import ComponentStateStore
-from src.pytrain.db.engine_discovery_service import EngineDiscoveryService
+from src.pytrain.db.engine_discovery_service import EngineDiscoveryService, four_digit_map_request
 from src.pytrain.pdi.ble_req import BleReq
-from src.pytrain.pdi.constants import PdiCommand
+from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -101,3 +101,19 @@ def test_invalid_addresses_are_ignored(discovery):
     assert not service.request_discovery(0)
     assert not service.request_discovery(10000)
     callback.assert_not_called()
+
+
+@pytest.mark.parametrize("tmcc_id", [100, 101, 737, 9999])
+def test_four_digit_map_request(tmcc_id):
+    request = four_digit_map_request(tmcc_id)
+    assert request.pdi_command == PdiCommand.D4_ENGINE
+    assert request.action == D4Action.MAP
+    assert request.record_no == 0
+    assert request.tmcc_id == tmcc_id
+    assert request.as_bytes.startswith(bytes.fromhex("d12e"))
+
+
+@pytest.mark.parametrize("tmcc_id", [0, 37, 99, 10000])
+def test_four_digit_map_request_rejects_non_d4_address(tmcc_id):
+    with pytest.raises(ValueError, match="between 100 and 9999"):
+        four_digit_map_request(tmcc_id)
