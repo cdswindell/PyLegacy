@@ -13,7 +13,6 @@ from collections import deque
 from threading import RLock, Timer
 from typing import Callable
 
-from ..comm.command_observer import CommandObserver
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..pdi.base_req import BaseReq
@@ -22,10 +21,7 @@ from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq
-from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 log = logging.getLogger(__name__)
 
@@ -206,17 +202,6 @@ class EngineDiscoveryService:
             log.info("Engine %s discovered in Base 3 database", tmcc_id)
             self.complete(tmcc_id)
 
-    def on_command(self, command: CommandReq) -> None:
-        if (
-            command.command
-            in {
-                TMCC1EngineCommandEnum.SET_ADDRESS,
-                TMCC2EngineCommandEnum.SET_ADDRESS,
-            }
-            and command.scope == CommandScope.ENGINE
-        ):
-            self.request_discovery(command.address)
-
     def __call__(self, notification: PdiReq) -> None:
         if isinstance(notification, BleReq) and notification.is_programming:
             self.request_discovery(notification.tmcc_id)
@@ -226,24 +211,15 @@ class EngineDiscoveryService:
     def start(self) -> None:
         if self._started:
             return
-        CommandObserver.register(TMCC1EngineCommandEnum.SET_ADDRESS, self.on_command)
-        CommandObserver.register(TMCC2EngineCommandEnum.SET_ADDRESS, self.on_command)
-        try:
             # Like StartupState, subscribe to all PDI responses so FIRST_REC
             # can be received even though it has no engine TMCC ID.
             PdiListener.get().subscribe_any(self)
-        except Exception:
-            CommandObserver.unregister(TMCC1EngineCommandEnum.SET_ADDRESS, self.on_command)
-            CommandObserver.unregister(TMCC2EngineCommandEnum.SET_ADDRESS, self.on_command)
-            raise
         self._started = True
         self._begin_next()
 
     def stop(self) -> None:
         if not self._started:
             return
-        CommandObserver.unregister(TMCC1EngineCommandEnum.SET_ADDRESS, self.on_command)
-        CommandObserver.unregister(TMCC2EngineCommandEnum.SET_ADDRESS, self.on_command)
         PdiListener.get().unsubscribe_any(self)
         with self._lock:
             if self._timeout is not None:
