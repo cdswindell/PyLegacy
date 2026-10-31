@@ -17,6 +17,7 @@ import time
 from threading import Condition, Thread
 
 from .base_req import BaseReq
+from ..comm.command_observer import CommandObserver
 from .constants import KEEP_ALIVE_CMD, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
@@ -143,6 +144,7 @@ class Base3Buffer(Thread):
                                     sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
+                                        CommandObserver.offer(sending)
                                         try:
                                             self.sync_state(sending)
                                         except ValueError:
