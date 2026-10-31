@@ -4,7 +4,7 @@
 #  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-"""Discover newly programmed four-digit engines using Base 3 roster traversal."""
+"""Discover newly programmed engines using Base 3 database records."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from typing import Callable
 from ..comm.command_observer import CommandObserver
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
+from ..pdi.base_req import BaseReq
 from ..pdi.ble_req import BleReq
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
@@ -30,7 +31,7 @@ log = logging.getLogger(__name__)
 
 
 class EngineDiscoveryService:
-    """Walk the Base 3 D4 engine roster after an unknown engine is programmed."""
+    """Discover 2D engines by memory query and 4D engines by roster traversal."""
 
     def __init__(self, on_discovery: Callable[[int], None]) -> None:
         self._on_discovery = on_discovery
@@ -54,13 +55,12 @@ class EngineDiscoveryService:
             state
             and not state.is_deleted
             and state.is_comp_data_record
-            and state.record_no is not None
-            and state.record_no != 0xFFFF
+            and (tmcc_id < 100 or (state.record_no is not None and state.record_no != 0xFFFF))
         )
 
     def request_discovery(self, tmcc_id: int) -> bool:
-        """Queue one traversal per unknown four-digit engine."""
-        if not 100 <= tmcc_id <= 9999:
+        """Queue discovery for an unknown engine."""
+        if not 1 <= tmcc_id <= 9999:
             return False
         with self._lock:
             if self._exists(tmcc_id) or tmcc_id in self._pending:
@@ -107,7 +107,14 @@ class EngineDiscoveryService:
                 self._pending.discard(candidate)
             else:
                 return
-        PdiListener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.FIRST_REC))
+        if candidate < 100:
+            with self._lock:
+                self._found_record = 0xFFFF  # 2D records have no D4 record number.
+                state = ComponentStateStore.get_state(CommandScope.ENGINE, candidate)
+                self._watcher = StateWatcher(state, lambda: self._verify_found(candidate))
+            PdiListener.enqueue_command(BaseReq(candidate, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
+        else:
+            PdiListener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.FIRST_REC))
 
     def complete(self, tmcc_id: int) -> None:
         """Release the discovery slot, including after failure or timeout."""
@@ -177,11 +184,14 @@ class EngineDiscoveryService:
             return False
         if not state.is_comp_data_record or state.comp_data is None:
             return False
-        if state.record_no is None or state.record_no == 0xFFFF:
-            return False
-        if record_no is not None and state.record_no != record_no:
-            return False
-        if tmcc_id >= 100 and (not state.is_d4 or not state.is_legacy):
+        if tmcc_id >= 100:
+            if state.record_no is None or state.record_no == 0xFFFF:
+                return False
+            if record_no is not None and state.record_no != record_no:
+                return False
+            if not state.is_d4 or not state.is_legacy:
+                return False
+        elif not state.comp_data.is_active():
             return False
         return True
 
@@ -190,9 +200,10 @@ class EngineDiscoveryService:
             if self._active != tmcc_id or self._found_record is None:
                 return
             state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
-            if not self._is_discovery_complete(state, tmcc_id, self._found_record):
+            expected_record = self._found_record if tmcc_id >= 100 else None
+            if not self._is_discovery_complete(state, tmcc_id, expected_record):
                 return
-            log.info("Engine %s discovered in Base 3 roster", tmcc_id)
+            log.info("Engine %s discovered in Base 3 database", tmcc_id)
             self.complete(tmcc_id)
 
     def on_command(self, command: CommandReq) -> None:
