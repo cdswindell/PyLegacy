@@ -157,7 +157,6 @@ def test_ble_notification_does_not_create_engine_state(monkeypatch):
     assert not calls
 
 
-
 def test_base3_receives_while_outbound_command_is_waiting(monkeypatch):
     """Baseline: select handles an incoming Base 3 packet before queued outbound work."""
     events = []
