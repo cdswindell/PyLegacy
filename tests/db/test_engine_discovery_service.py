@@ -9,7 +9,10 @@ from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_discovery_service import EngineDiscoveryService
 from src.pytrain.pdi.ble_req import BleReq
 from src.pytrain.pdi.constants import PdiCommand
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 @pytest.fixture
@@ -23,6 +26,20 @@ def discovery(monkeypatch):
     )
     callback = Mock()
     return EngineDiscoveryService(callback), state, callback
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        TMCC1EngineCommandEnum.SET_ADDRESS,
+        TMCC2EngineCommandEnum.SET_ADDRESS,
+    ],
+)
+def test_set_address_discovers_unknown_engine(discovery, command):
+    service, _, callback = discovery
+    request = CommandReq.build(command, address=37, scope=CommandScope.ENGINE)
+    service.on_command(request)
+    callback.assert_called_once_with(37)
 
 
 def test_existing_engine_does_not_enter_discovery(discovery):
