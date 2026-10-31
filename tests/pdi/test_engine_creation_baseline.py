@@ -2,6 +2,7 @@
 
 These tests intentionally do not introduce CommandObserver or discovery behavior.
 """
+
 import threading
 from unittest.mock import MagicMock, Mock
 
@@ -53,9 +54,11 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
     monkeypatch.setattr(base3_module.select, "select", lambda *args: ([buffer._send_queue], [], []))
     monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
+
     def sync(data):
         events.append(("sync", data))
         buffer._is_running = False
+
     monkeypatch.setattr(buffer, "sync_state", sync)
     buffer.run()
     assert events == [("send", packet.hex().upper().encode()), ("sync", packet)]
@@ -66,7 +69,9 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
 
     cmd = CommandReq.build(
-        TMCC2EngineCommandEnum.ABSOLUTE_SPEED, address=1234, data=42,
+        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+        address=1234,
+        data=42,
         scope=CommandScope.ENGINE,
     )
     packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
@@ -107,10 +112,13 @@ def test_sync_state_decodes_tmcc_commands(monkeypatch, enum, address, data):
     assert seen[0].address == address
 
 
-@pytest.mark.parametrize("packet_hex,tmcc_id", [
-    ("d1760012000030373337a7df", 737),
-    ("d176001225ff54df", 37),
-])
+@pytest.mark.parametrize(
+    "packet_hex,tmcc_id",
+    [
+        ("d1760012000030373337a7df", 737),
+        ("d176001225ff54df", 37),
+    ],
+)
 def test_ble_programming_notification_published_on_engine_scope(packet_hex, tmcc_id):
     """A valid BLE programming message reaches existing scoped subscribers."""
     listener = PdiListener.build(base3=None, build_base3_reader=False)
@@ -135,7 +143,8 @@ def test_ble_notification_does_not_create_engine_state(monkeypatch):
 
     calls = []
     monkeypatch.setattr(
-        ComponentStateStore, "get_state",
+        ComponentStateStore,
+        "get_state",
         lambda *args, **kwargs: calls.append((args, kwargs)) or None,
     )
     listener = PdiListener.build(base3=None, build_base3_reader=False)
