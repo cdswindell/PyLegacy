@@ -57,9 +57,14 @@ class EngineDiscoveryService:
     def request_discovery(self, tmcc_id: int) -> bool:
         """Queue discovery for an unknown engine."""
         if not 1 <= tmcc_id <= 9999:
+            log.info("Engine discovery rejected invalid TMCC ID %s", tmcc_id)
             return False
         with self._lock:
-            if self._exists(tmcc_id) or tmcc_id in self._pending:
+            if self._exists(tmcc_id):
+                log.info("Engine %s discovery skipped: database record already exists", tmcc_id)
+                return False
+            if tmcc_id in self._pending:
+                log.info("Engine %s discovery skipped: request already pending", tmcc_id)
                 return False
             self._pending.add(tmcc_id)
             self._queue.append(tmcc_id)
@@ -89,7 +94,11 @@ class EngineDiscoveryService:
 
     def _begin_next(self) -> None:
         with self._lock:
-            if not self._started or self._active is not None:
+            if not self._started:
+                log.info("Engine discovery queued; service not started")
+                return
+            if self._active is not None:
+                log.debug("Engine discovery waiting for active engine %s", self._active)
                 return
             while self._queue:
                 candidate = self._queue.popleft()
@@ -100,16 +109,19 @@ class EngineDiscoveryService:
                     self._visited.clear()
                     self._arm_timeout()
                     break
+                log.info("Engine %s discovery skipped before dispatch: record already exists or no longer pending", candidate)
                 self._pending.discard(candidate)
             else:
                 return
         if candidate < 100:
+            log.info("Engine %s discovery sending BASE_MEMORY query", candidate)
             with self._lock:
                 self._found_record = 0xFFFF  # 2D records have no D4 record number.
                 state = ComponentStateStore.get_state(CommandScope.ENGINE, candidate)
                 self._watcher = StateWatcher(state, lambda: self._verify_found(candidate))
             PdiListener.enqueue_command(BaseReq(candidate, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE))
         else:
+            log.info("Engine %s discovery sending D4 FIRST_REC", candidate)
             PdiListener.enqueue_command(D4Req(0, PdiCommand.D4_ENGINE, D4Action.FIRST_REC))
 
     def complete(self, tmcc_id: int) -> None:
@@ -203,8 +215,14 @@ class EngineDiscoveryService:
             self.complete(tmcc_id)
 
     def __call__(self, notification: PdiReq) -> None:
-        if isinstance(notification, BleReq) and notification.is_programming:
-            self.request_discovery(notification.tmcc_id)
+        if isinstance(notification, BleReq):
+            log.info(
+                "Engine discovery received BLE notification: TMCC ID %s, programming=%s",
+                notification.tmcc_id,
+                notification.is_programming,
+            )
+            if notification.is_programming:
+                self.request_discovery(notification.tmcc_id)
         elif isinstance(notification, D4Req):
             self._on_d4(notification)
 
@@ -215,12 +233,14 @@ class EngineDiscoveryService:
         # can be received even though it has no engine TMCC ID.
         PdiListener.get().subscribe_any(self)
         self._started = True
+        log.info("Engine discovery subscribed to PDI broadcasts")
         self._begin_next()
 
     def stop(self) -> None:
         if not self._started:
             return
         PdiListener.get().unsubscribe_any(self)
+        log.info("Engine discovery unsubscribed from PDI broadcasts")
         with self._lock:
             if self._timeout is not None:
                 self._timeout.cancel()
