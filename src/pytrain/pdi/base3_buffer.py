@@ -155,7 +155,7 @@ class Base3Buffer(Thread):
                     socket_list = [s, self._send_queue]
                     while self._is_running and keep_trying:
                         try:
-                            if getattr(self, "_pending_packets", None):
+                            if self._pending_packets:
                                 readable = [self._send_queue]
                             else:
                                 readable, _, _ = select.select(socket_list, [], [])
@@ -233,8 +233,6 @@ class Base3Buffer(Thread):
             tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
             # This is a legacy/tmcc2 multibyte parameter command. We have to send it
             # as 3 byte packets, using PdiCommand.TMCC_RX
-            if not hasattr(self, "_pending_packets"):
-                self._pending_packets = deque()
             for packet in TmccReq.as_packets(tmcc_cmd):
                 self._pending_packets.append(_TransmitPacket(packet))
                 time.sleep(0.001)
