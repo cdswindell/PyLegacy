@@ -49,7 +49,9 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     buffer._base3_addr = "127.0.0.1"
     buffer._base3_port = 1234
     buffer._send_queue = Mock()
-    buffer._fragment_observation_counts = {}
+    from collections import Counter
+
+    buffer._fragment_observation_counts = Counter()
     buffer._send_queue.get.return_value = packet
     buffer._listener = None
     monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
