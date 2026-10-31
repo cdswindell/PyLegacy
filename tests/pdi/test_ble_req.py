@@ -10,7 +10,7 @@ from src.pytrain.protocol.constants import CommandScope
     ("packet_hex", "tmcc_id", "record_no"),
     [
         ("d1760012000030373337a7df", 737, 0),
-        ("d176001225ff54df", 37, 0xFF25),
+        ("d176001225ff54df", 37, 0xFFFF),
     ],
 )
 def test_ble_programming_notification(packet_hex, tmcc_id, record_no):
