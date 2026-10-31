@@ -80,19 +80,17 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     buffer.send = Mock()
     buffer.sync_state = Mock()
     buffer._send_queue = Mock()
-    from collections import Counter
-
-    buffer._fragment_observation_counts = Counter()
     monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
     monkeypatch.setattr(TmccReq, "as_packets", lambda request: fragments)
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
 
     assert buffer._packetize_multibyte_cmds(packet) is None
     assert buffer.send.call_count == 0
-    assert [call.args[0].data for call in buffer._send_queue.put.call_args_list[:-1]] == fragments
+    assert [item.data for item in list(buffer._pending_packets)[:-1]] == fragments
     buffer.sync_state.assert_called_once()
-    assert buffer._send_queue.put.call_count == 3
-    assert buffer._send_queue.put.call_args.args[0].data == packet
+    assert buffer._send_queue.put.call_count == 0
+    assert len(buffer._pending_packets) == 3
+    assert buffer._pending_packets[-1].data == packet
     assert buffer.sync_state.call_args.args[0] == packet
     assert buffer.sync_state.call_args.kwargs["tmcc_cmd"].command == cmd.command
 
@@ -175,18 +173,18 @@ def test_multibyte_queue_preserves_duplicate_fragment_identity(monkeypatch):
     )
     packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
     buffer = object.__new__(Base3Buffer)
-    queued = []
     buffer._send_queue = Mock()
-    buffer._send_queue.put.side_effect = queued.append
     buffer.sync_state = Mock()
     monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
     monkeypatch.setattr(TmccReq, "as_packets", lambda request: [b"same", b"same"])
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
 
     assert buffer._packetize_multibyte_cmds(packet) is None
+    queued = list(buffer._pending_packets)
     assert len(queued) == 3
     assert all(isinstance(item, _TransmitPacket) for item in queued[:2])
     assert queued[0].data == queued[1].data == b"same"
     assert isinstance(queued[2], _ObserveAfterSend)
     assert queued[2].data == packet
+    buffer._send_queue.put.assert_not_called()
     buffer.sync_state.assert_called_once()
