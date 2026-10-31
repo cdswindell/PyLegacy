@@ -16,6 +16,7 @@ import threading
 import time
 from threading import Condition, Thread
 from dataclasses import dataclass
+from collections import Counter
 
 from .base_req import BaseReq
 from ..comm.command_observer import CommandObserver
@@ -103,6 +104,7 @@ class Base3Buffer(Thread):
         # created when this instance is started
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
         self._send_cv = Condition()
+        self._fragment_observation_counts = Counter()
         # we must send a keepalive packet to the Base 3 every few seconds to keep it
         # from closing the connection
         self._keep_alive = KeepAlive(self)
@@ -157,7 +159,10 @@ class Base3Buffer(Thread):
                                     sending = self._packetize_multibyte_cmds(queued)
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
-                                        if not getattr(self, "_suppress_fragment_observation", False):
+                                        fragments = self._fragment_observation_counts
+                                        if fragments[sending]:
+                                            fragments[sending] -= 1
+                                        else:
                                             CommandObserver.offer(sending)
                                         try:
                                             self.sync_state(sending)
@@ -220,6 +225,8 @@ class Base3Buffer(Thread):
             # This is a legacy/tmcc2 multibyte parameter command. We have to send it
             # as 3 byte packets, using PdiCommand.TMCC_RX
             for packet in TmccReq.as_packets(tmcc_cmd):
+                if hasattr(self, "_fragment_observation_counts"):
+                    self._fragment_observation_counts[packet] += 1
                 self.send(packet)  # recursive call
                 time.sleep(0.001)
             # Observe only the complete command, after the queued fragments transmit.
