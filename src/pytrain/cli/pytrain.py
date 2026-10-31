@@ -222,7 +222,6 @@ class PyTrain:
 
         listeners = []
         self._pdi_buffer = None
-        self._engine_discovery: EngineDiscoveryService | None = None
         if isinstance(self.tmcc_buffer, CommBufferSingleton):
             # Remember the Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
@@ -882,8 +881,9 @@ class PyTrain:
             self._lifecycle_phase = "shutdown"
         self._log_admin_exit("Full teardown entered", self._admin_action, source="shutdown")
         try:
-            if self._engine_discovery is not None:
-                self._engine_discovery.stop()
+            discovery = getattr(self, "_engine_discovery", None)
+            if discovery is not None:
+                discovery.stop()
                 self._engine_discovery = None
             CommandObserver.stop()
         except Exception as e:
