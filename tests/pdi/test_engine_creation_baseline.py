@@ -3,8 +3,7 @@
 These tests intentionally do not introduce CommandObserver or discovery behavior.
 """
 import threading
-from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -13,7 +12,7 @@ from src.pytrain.pdi.base3_buffer import Base3Buffer
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import PdiCommand
 from src.pytrain.pdi.pdi_listener import PdiDispatcher, PdiListener
-from src.pytrain.pdi.pdi_req import PdiReq, TmccReq
+from src.pytrain.pdi.pdi_req import TmccReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -39,9 +38,8 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     """sync_state must not run before socket.sendall has completed."""
     events = []
     packet = bytes.fromhex("d129d7df")
-    fake_socket = Mock()
-    fake_socket.__enter__ = Mock(return_value=fake_socket)
-    fake_socket.__exit__ = Mock(return_value=False)
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
     fake_socket.connect.return_value = None
     fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
 
