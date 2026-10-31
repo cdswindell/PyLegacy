@@ -188,3 +188,31 @@ def test_multibyte_queue_preserves_duplicate_fragment_identity(monkeypatch):
     assert queued[2].data == packet
     buffer._send_queue.put.assert_not_called()
     buffer.sync_state.assert_called_once()
+
+
+def test_multibyte_expansion_does_not_write_to_full_send_queue(monkeypatch):
+    """The consumer must never block inserting fragments into its own full queue."""
+    from queue import Queue
+
+    from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
+
+    cmd = CommandReq.build(
+        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+        address=1234,
+        data=42,
+        scope=CommandScope.ENGINE,
+    )
+    packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
+    buffer = object.__new__(Base3Buffer)
+    buffer._send_queue = Queue(maxsize=1)
+    buffer._send_queue.put_nowait(b"other-command")
+    buffer.sync_state = Mock()
+    monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
+    monkeypatch.setattr(TmccReq, "as_packets", lambda request: [b"first", b"second"])
+    monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
+
+    assert buffer._packetize_multibyte_cmds(packet) is None
+    assert buffer._send_queue.full()
+    assert buffer._send_queue.get_nowait() == b"other-command"
+    assert [item.data for item in buffer._pending_packets] == [b"first", b"second", packet]
+    buffer.sync_state.assert_called_once()
