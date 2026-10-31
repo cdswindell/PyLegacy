@@ -14,7 +14,6 @@ from typing import Callable
 from ..comm.command_observer import CommandObserver
 from ..db.component_state_store import ComponentStateStore
 from ..pdi.ble_req import BleReq
-from ..pdi.constants import PdiCommand
 from ..pdi.pdi_listener import PdiListener
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
@@ -79,7 +78,7 @@ class EngineDiscoveryService:
         CommandObserver.register(TMCC1EngineCommandEnum.SET_ADDRESS, self.on_command)
         CommandObserver.register(TMCC2EngineCommandEnum.SET_ADDRESS, self.on_command)
         try:
-            PdiListener.listen_for(self, PdiCommand.BLE_RX)
+            PdiListener.listen_for(self, CommandScope.ENGINE)
         except Exception:
             CommandObserver.unregister(TMCC1EngineCommandEnum.SET_ADDRESS, self.on_command)
             CommandObserver.unregister(TMCC2EngineCommandEnum.SET_ADDRESS, self.on_command)
@@ -91,5 +90,5 @@ class EngineDiscoveryService:
             return
         CommandObserver.unregister(TMCC1EngineCommandEnum.SET_ADDRESS, self.on_command)
         CommandObserver.unregister(TMCC2EngineCommandEnum.SET_ADDRESS, self.on_command)
-        PdiListener.get().unsubscribe(self, PdiCommand.BLE_RX)
+        PdiListener.get().unsubscribe(self, CommandScope.ENGINE)
         self._started = False
