@@ -13,7 +13,7 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from queue import SimpleQueue
-from threading import RLock, Thread
+from threading import RLock, Thread, current_thread
 from typing import Callable
 
 from ..pdi.constants import KEEP_ALIVE_CMD, PDI_SOP, PdiCommand
@@ -65,7 +65,7 @@ class CommandObserver(Thread):
             cls._instance = None
         if observer is not None:
             observer._queue.put(None)
-            if observer is not observer.current_thread():
+            if observer is not current_thread():
                 observer.join(timeout=2)
 
     def __init__(self) -> None:
