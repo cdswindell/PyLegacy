@@ -10,16 +10,13 @@
 from __future__ import annotations
 
 import logging
-from collections import deque
 import select
 import socket
 import threading
 import time
-from dataclasses import dataclass
 from threading import Condition, Thread
 
 from .base_req import BaseReq
-from ..comm.command_observer import CommandObserver
 from .constants import KEEP_ALIVE_CMD, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
@@ -33,20 +30,6 @@ from ..protocol.constants import (
 from ..utils.pollable_queue import PollableQueue
 
 log = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class _ObserveAfterSend:
-    """Queue marker: notify the observer after preceding fragments are sent."""
-
-    data: bytes
-
-
-@dataclass(frozen=True)
-class _TransmitPacket:
-    """Physical packet that belongs to a logical multibyte command."""
-
-    data: bytes
 
 
 class Base3Buffer(Thread):
@@ -110,8 +93,6 @@ class Base3Buffer(Thread):
         # created when this instance is started
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
         self._send_cv = Condition()
-        # Consumer-owned expansion; never enqueue fragments into the bounded queue.
-        self._pending_packets = deque()
         # we must send a keepalive packet to the Base 3 every few seconds to keep it
         # from closing the connection
         self._keep_alive = KeepAlive(self)
@@ -155,24 +136,13 @@ class Base3Buffer(Thread):
                     socket_list = [s, self._send_queue]
                     while self._is_running and keep_trying:
                         try:
-                            if self._pending_packets:
-                                readable = [self._send_queue]
-                            else:
-                                readable, _, _ = select.select(socket_list, [], [])
+                            readable, _, _ = select.select(socket_list, [], [])
                             for sock in readable:
                                 if sock == self._send_queue:
                                     received = None
-                                    pending = getattr(self, "_pending_packets", None)
-                                    queued = pending.popleft() if pending else sock.get()
-                                    if isinstance(queued, _ObserveAfterSend):
-                                        CommandObserver.offer(queued.data)
-                                        continue
-                                    fragment = isinstance(queued, _TransmitPacket)
-                                    sending = queued.data if fragment else self._packetize_multibyte_cmds(queued)
+                                    sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
-                                        if not fragment:
-                                            CommandObserver.offer(sending)
                                         try:
                                             self.sync_state(sending)
                                         except ValueError:
@@ -234,11 +204,9 @@ class Base3Buffer(Thread):
             # This is a legacy/tmcc2 multibyte parameter command. We have to send it
             # as 3 byte packets, using PdiCommand.TMCC_RX
             for packet in TmccReq.as_packets(tmcc_cmd):
-                self._pending_packets.append(_TransmitPacket(packet))
+                self.send(packet)  # recursive call
                 time.sleep(0.001)
-            # Observe only the complete command, after the queued fragments transmit.
-            # Keep existing sync_state timing unchanged.
-            self._pending_packets.append(_ObserveAfterSend(data))
+            # do a sync_state on the complete command
             self.sync_state(data, tmcc_cmd=tmcc_cmd)
             return None
         else:
