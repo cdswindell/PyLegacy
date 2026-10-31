@@ -32,6 +32,7 @@ class BleReq(PdiReq):
             # Observed D2 form: 76 00 12 <binary TMCC ID> FF.
             elif len(self._data) == 5 and self._data[4] == 0xFF:
                 self._tmcc_id = self._data[3]
+                self._record_no = 0xFFFF
             if 1 <= self._tmcc_id <= 9999:
                 self._scope = CommandScope.ENGINE
 
