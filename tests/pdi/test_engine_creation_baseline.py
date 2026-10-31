@@ -38,6 +38,7 @@ def clean_singletons():
 def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     """sync_state must not run before socket.sendall has completed."""
     events = []
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: events.append(("observe", data)))
     packet = bytes.fromhex("d129d7df")
     fake_socket = MagicMock()
     fake_socket.__enter__.return_value = fake_socket
@@ -61,7 +62,7 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
 
     monkeypatch.setattr(buffer, "sync_state", sync)
     buffer.run()
-    assert events == [("send", packet.hex().upper().encode()), ("sync", packet)]
+    assert events == [("send", packet.hex().upper().encode()), ("observe", packet), ("sync", packet)]
 
 
 def test_multibyte_command_syncs_complete_request_once(monkeypatch):
@@ -80,6 +81,8 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     buffer.send = Mock()
     buffer.sync_state = Mock()
     buffer._send_queue = Mock()
+    observed = []
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", observed.append)
     monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
     monkeypatch.setattr(TmccReq, "as_packets", lambda request: fragments)
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
@@ -88,6 +91,7 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     assert [call.args[0] for call in buffer.send.call_args_list] == fragments
     buffer.sync_state.assert_called_once()
     buffer._send_queue.put.assert_not_called()
+    assert observed == [packet]
     assert buffer.sync_state.call_args.args[0] == packet
     assert buffer.sync_state.call_args.kwargs["tmcc_cmd"].command == cmd.command
 
@@ -173,6 +177,7 @@ def test_base3_receives_while_outbound_command_is_waiting(monkeypatch):
     buffer._base3_port = 1234
     buffer._send_queue = Mock()
     buffer._send_queue.get.return_value = outbound
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: None)
     buffer._listener = Mock()
     buffer._listener.offer.side_effect = lambda data: events.append(("receive", data))
     monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
@@ -209,6 +214,7 @@ def test_base3_transmits_queued_packets_in_fifo_order(monkeypatch):
     buffer._send_queue = Mock()
     buffer._send_queue.get.side_effect = packets
     buffer._listener = None
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: None)
     monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
     monkeypatch.setattr(base3_module.select, "select", lambda *args: ([buffer._send_queue], [], []))
     monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
