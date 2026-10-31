@@ -10,12 +10,13 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 import select
 import socket
 import threading
 import time
-from threading import Condition, Thread
 from dataclasses import dataclass
+from threading import Condition, Thread
 
 from .base_req import BaseReq
 from ..comm.command_observer import CommandObserver
@@ -109,6 +110,8 @@ class Base3Buffer(Thread):
         # created when this instance is started
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
         self._send_cv = Condition()
+        # Consumer-owned expansion; never enqueue fragments into the bounded queue.
+        self._pending_packets = deque()
         # we must send a keepalive packet to the Base 3 every few seconds to keep it
         # from closing the connection
         self._keep_alive = KeepAlive(self)
@@ -152,11 +155,15 @@ class Base3Buffer(Thread):
                     socket_list = [s, self._send_queue]
                     while self._is_running and keep_trying:
                         try:
-                            readable, _, _ = select.select(socket_list, [], [])
+                            if getattr(self, "_pending_packets", None):
+                                readable = [self._send_queue]
+                            else:
+                                readable, _, _ = select.select(socket_list, [], [])
                             for sock in readable:
                                 if sock == self._send_queue:
                                     received = None
-                                    queued = sock.get()
+                                    pending = getattr(self, "_pending_packets", None)
+                                    queued = pending.popleft() if pending else sock.get()
                                     if isinstance(queued, _ObserveAfterSend):
                                         CommandObserver.offer(queued.data)
                                         continue
@@ -226,12 +233,14 @@ class Base3Buffer(Thread):
             tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
             # This is a legacy/tmcc2 multibyte parameter command. We have to send it
             # as 3 byte packets, using PdiCommand.TMCC_RX
+            if not hasattr(self, "_pending_packets"):
+                self._pending_packets = deque()
             for packet in TmccReq.as_packets(tmcc_cmd):
-                self._send_queue.put(_TransmitPacket(packet))
+                self._pending_packets.append(_TransmitPacket(packet))
                 time.sleep(0.001)
             # Observe only the complete command, after the queued fragments transmit.
             # Keep existing sync_state timing unchanged.
-            self._send_queue.put(_ObserveAfterSend(data))
+            self._pending_packets.append(_ObserveAfterSend(data))
             self.sync_state(data, tmcc_cmd=tmcc_cmd)
             return None
         else:
