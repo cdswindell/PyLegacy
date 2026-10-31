@@ -23,6 +23,7 @@ class BleReq(PdiReq):
         self._payload_bytes = self._data[1:]
         self._is_programming = len(self._data) >= 5 and self._data[2] == 0x12
         self._tmcc_id = 0
+        self._record_no = int.from_bytes(self._data[3:5], byteorder="little") if self._is_programming else None
         if self._is_programming:
             # Observed D4 form: 76 00 12 00 00 <ASCII digits>.
             digits = self._data[5:]
@@ -39,10 +40,15 @@ class BleReq(PdiReq):
         return self._is_programming and 1 <= self.tmcc_id <= 9999
 
     @property
+    def record_no(self) -> int | None:
+        return self._record_no
+
+    @property
     def payload_bytes(self) -> bytes:
         return self._payload_bytes
 
     @property
     def payload(self) -> str:
         address = f" TMCC ID: {self.tmcc_id}" if self.is_programming else ""
-        return f"BLE notification{address} data: {self.payload_bytes.hex()}"
+        record = f" Record: {self.record_no}" if self.record_no is not None else ""
+        return f"BLE notification{address}{record} data: {self.payload_bytes.hex()}"
