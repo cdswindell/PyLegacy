@@ -211,9 +211,9 @@ class EngineDiscoveryService:
     def start(self) -> None:
         if self._started:
             return
-            # Like StartupState, subscribe to all PDI responses so FIRST_REC
-            # can be received even though it has no engine TMCC ID.
-            PdiListener.get().subscribe_any(self)
+        # Like StartupState, subscribe to all PDI responses so FIRST_REC
+        # can be received even though it has no engine TMCC ID.
+        PdiListener.get().subscribe_any(self)
         self._started = True
         self._begin_next()
 
