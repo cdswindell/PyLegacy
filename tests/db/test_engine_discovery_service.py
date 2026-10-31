@@ -8,7 +8,9 @@ import pytest
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_discovery_service import EngineDiscoveryService
 from src.pytrain.pdi.ble_req import BleReq
-from src.pytrain.pdi.constants import PdiCommand
+from src.pytrain.pdi.d4_req import D4Req
+from src.pytrain.pdi.pdi_listener import PdiListener
+from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -123,3 +125,108 @@ def test_d4_traversal_requests_first_and_full_next_record(discovery, monkeypatch
     assert sent[-1].data_length == PdiReq.scope_record_length(CommandScope.ENGINE)
     service._started = False
     service.complete(737)
+
+
+@pytest.fixture
+def traversal(discovery, monkeypatch):
+    service, state, callback = discovery
+    sent = []
+    monkeypatch.setattr(PdiListener, "enqueue_command", sent.append)
+    monkeypatch.setattr(service, "_arm_timeout", lambda: None)
+    service._started = True
+    return service, state, callback, sent
+
+
+def _first_record(record_no):
+    response = D4Req(record_no, PdiCommand.D4_ENGINE, D4Action.FIRST_REC)
+    response._next_record_no = record_no
+    return response
+
+
+def _next_record(record_no, next_record, tmcc_id, complete=True):
+    response = D4Req(record_no, PdiCommand.D4_ENGINE, D4Action.NEXT_REC)
+    response._next_record_no = next_record
+    response._tmcc_id = tmcc_id
+    response._comp_data_record = complete
+    response._comp_data = object() if complete else None
+    return response
+
+
+def test_traversal_stops_at_matching_record(traversal, monkeypatch):
+    service, state, _, sent = traversal
+    verified = []
+    monkeypatch.setattr(service, "_verify_found", verified.append)
+    # Avoid real asynchronous timers; invoke the verification callback explicitly.
+    class ImmediateTimer:
+        daemon = True
+
+        def __init__(self, delay, callback, args=()):
+            self.callback = callback
+            self.args = args
+
+        def start(self):
+            self.callback(*self.args)
+
+    monkeypatch.setattr("src.pytrain.db.engine_discovery_service.Timer", ImmediateTimer)
+    assert service.request_discovery(737)
+    service(_first_record(0))
+    service(_next_record(0, 1, 1065))
+    service(_next_record(1, 2, 4062))
+    service(_next_record(2, 3, 353))
+    assert [request.record_no for request in sent[1:]] == [0, 1, 2, 3]
+    service(_next_record(3, 4, 737))
+    assert verified == [737]
+    assert len(sent) == 5
+
+
+def test_traversal_exhausted_roster_releases_slot(traversal):
+    service, _, _, sent = traversal
+    assert service.request_discovery(737)
+    service(_first_record(0))
+    service(_next_record(0, 0xFFFF, 1065))
+    assert service._active is None
+    assert len(sent) == 2
+    assert service.request_discovery(738)
+    assert sent[-1].action == D4Action.FIRST_REC
+
+
+def test_traversal_repeated_record_terminates(traversal):
+    service, _, _, sent = traversal
+    assert service.request_discovery(737)
+    service(_first_record(0))
+    service(_next_record(0, 0, 1065))
+    assert service._active is None
+    assert len(sent) == 2
+
+
+def test_incomplete_next_record_aborts_discovery(traversal):
+    service, _, _, sent = traversal
+    assert service.request_discovery(737)
+    service(_first_record(3))
+    service(_next_record(3, 4, 737, complete=False))
+    assert service._active is None
+    assert len(sent) == 2
+
+
+def test_queued_discoveries_run_in_order(traversal):
+    service, _, callback, sent = traversal
+    assert service.request_discovery(737)
+    assert service.request_discovery(738)
+    assert not service.request_discovery(738)
+    assert len(sent) == 1
+    service(_first_record(0xFFFF))
+    assert service._active == 738
+    assert [request.action for request in sent] == [D4Action.FIRST_REC, D4Action.FIRST_REC]
+    assert callback.call_count == 2
+
+
+def test_timeout_releases_slot_and_starts_next(traversal):
+    service, _, _, sent = traversal
+    assert service.request_discovery(737)
+    assert service.request_discovery(738)
+    service._timed_out(737, None)
+    assert service._active == 738
+    assert len(sent) == 2
+    # A stale timeout must not interrupt the next discovery.
+    service._timed_out(737, None)
+    assert service._active == 738
