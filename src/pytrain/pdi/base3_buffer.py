@@ -15,6 +15,7 @@ import socket
 import threading
 import time
 from threading import Condition, Thread
+from dataclasses import dataclass
 
 from .base_req import BaseReq
 from ..comm.command_observer import CommandObserver
@@ -31,6 +32,14 @@ from ..protocol.constants import (
 from ..utils.pollable_queue import PollableQueue
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _ObserveAfterSend:
+    """Queue marker: notify the observer after preceding fragments are sent."""
+
+    data: bytes
+
 
 
 class Base3Buffer(Thread):
@@ -141,10 +150,15 @@ class Base3Buffer(Thread):
                             for sock in readable:
                                 if sock == self._send_queue:
                                     received = None
-                                    sending = self._packetize_multibyte_cmds(sock.get())
+                                    queued = sock.get()
+                                    if isinstance(queued, _ObserveAfterSend):
+                                        CommandObserver.offer(queued.data)
+                                        continue
+                                    sending = self._packetize_multibyte_cmds(queued)
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
-                                        CommandObserver.offer(sending)
+                                        if not getattr(self, "_suppress_fragment_observation", False):
+                                            CommandObserver.offer(sending)
                                         try:
                                             self.sync_state(sending)
                                         except ValueError:
@@ -208,7 +222,9 @@ class Base3Buffer(Thread):
             for packet in TmccReq.as_packets(tmcc_cmd):
                 self.send(packet)  # recursive call
                 time.sleep(0.001)
-            # do a sync_state on the complete command
+            # Observe only the complete command, after the queued fragments transmit.
+            # Keep existing sync_state timing unchanged.
+            self._send_queue.put(_ObserveAfterSend(data))
             self.sync_state(data, tmcc_cmd=tmcc_cmd)
             return None
         else:
