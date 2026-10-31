@@ -33,11 +33,13 @@ from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange,
 from .cache import CacheCli
 from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
+from ..comm.command_observer import CommandObserver
 from ..comm.command_listener import CommandDispatcher, CommandListener, Subscriber, Message
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.cache_sync import CacheSyncManager, default_cache_sync_port
 from ..db.client_state_listener import ClientStateListener
 from ..db.component_state_store import ComponentStateStore
+from ..db.engine_discovery_service import EngineDiscoveryService
 from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
@@ -220,6 +222,7 @@ class PyTrain:
 
         listeners = []
         self._pdi_buffer = None
+        self._engine_discovery: EngineDiscoveryService | None = None
         if isinstance(self.tmcc_buffer, CommBufferSingleton):
             # Remember the Base 3 address on the comm buffer; it is an object that both
             # clients and servers both have
@@ -294,6 +297,8 @@ class PyTrain:
         self._pdi_state_store = PdiStateStore()
         if self._pdi_buffer is not None:
             self._get_system_state(is_startup=True)
+            self._engine_discovery = EngineDiscoveryService(self._on_engine_discovery)
+            self._engine_discovery.start()
 
         # a bit of a hack, but remember on the class this instance of PyTrain is the current one
         PyTrain._current = self
@@ -866,12 +871,23 @@ class PyTrain:
         state = self._state_store.get_state(CommandScope.SYNC, 99, False)
         return state.is_synchronized() if state else False
 
+    def _on_engine_discovery(self, tmcc_id: int) -> None:
+        """Record an unknown engine trigger until Base 3 retrieval is implemented."""
+        log.info("Engine %s requires Base 3 discovery", tmcc_id)
+
     def shutdown(self):
         """Attempt every subsystem's teardown despite ordinary failures; let cancellation propagate."""
         with self._admin_state_lock:
             self._shutdown_started = True
             self._lifecycle_phase = "shutdown"
         self._log_admin_exit("Full teardown entered", self._admin_action, source="shutdown")
+        try:
+            if self._engine_discovery is not None:
+                self._engine_discovery.stop()
+                self._engine_discovery = None
+            CommandObserver.stop()
+        except Exception as e:
+            log.warning(f"Error closing engine discovery, continuing shutdown: {e}")
         try:
             self.shutdown_service()
         except Exception as e:
