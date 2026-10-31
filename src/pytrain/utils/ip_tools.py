@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sysconfig
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import List
@@ -178,8 +179,8 @@ def is_base_address(address, base3_port: int = DEFAULT_BASE_PORT) -> str | None:
         return None
 
 
-def find_base_address() -> str | None:
-    """Discovers Base 3 address by parallel port scanning local network"""
+def find_base_address_multiprocessing() -> str | None:
+    """Original process-based Base discovery, retained for comparison."""
     num_cpus = cpu_count() - 1
     possible_ips = list()
     local_ips = get_ip_address()
@@ -197,3 +198,35 @@ def find_base_address() -> str | None:
                 p.terminate()
                 return result
     return None
+
+
+def find_base_address() -> str | None:
+    """Discover a Lionel Base using bounded concurrent TCP probes.
+
+    Threading avoids multiprocessing semaphore resources. On an early match,
+    outstanding probes are cancelled where possible; in-flight socket probes
+    finish within their existing 150 ms timeout.
+    """
+    possible_ips = []
+    for ip in get_ip_address():
+        parts = ip.split(".")
+        me = int(parts[-1])
+        network = ".".join(parts[:-1]) + "."
+        possible_ips.extend(network + str(i) for i in range(2, 255) if i != me)
+
+    if not possible_ips:
+        return None
+
+    executor = ThreadPoolExecutor(max_workers=min(32, len(possible_ips)))
+    futures = []
+    try:
+        futures = [executor.submit(is_base_address, ip) for ip in possible_ips]
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                return result
+        return None
+    finally:
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
