@@ -59,10 +59,14 @@ class EngineDiscoveryService:
             self._pending.discard(tmcc_id)
 
     def on_command(self, command: CommandReq) -> None:
-        if command.command in {
-            TMCC1EngineCommandEnum.SET_ADDRESS,
-            TMCC2EngineCommandEnum.SET_ADDRESS,
-        } and command.scope == CommandScope.ENGINE:
+        if (
+            command.command
+            in {
+                TMCC1EngineCommandEnum.SET_ADDRESS,
+                TMCC2EngineCommandEnum.SET_ADDRESS,
+            }
+            and command.scope == CommandScope.ENGINE
+        ):
             self.request_discovery(command.address)
 
     def __call__(self, notification: BleReq) -> None:
