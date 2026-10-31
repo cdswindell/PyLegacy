@@ -23,11 +23,13 @@ class BleReq(PdiReq):
         self._payload_bytes = self._data[1:]
         self._is_programming = len(self._data) >= 5 and self._data[2] == 0x12
         self._tmcc_id = 0
-        self._record_no = int.from_bytes(self._data[3:5], byteorder="little") if self._is_programming else None
+        self._record_no = 0xFFFF
         if self._is_programming:
             # Observed D4 form: 76 00 12 00 00 <ASCII digits>.
             digits = self._data[5:]
             if digits and all(0x30 <= byte <= 0x39 for byte in digits):
+                if len(self._data) >= 5:
+                    self._record_no = int.from_bytes(self._data[3:5], byteorder="little")
                 self._tmcc_id = int(digits.decode("ascii"))
             # Observed D2 form: 76 00 12 <binary TMCC ID> FF.
             elif len(self._data) == 5 and self._data[4] == 0xFF:
