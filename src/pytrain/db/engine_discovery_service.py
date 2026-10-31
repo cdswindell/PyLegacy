@@ -109,7 +109,10 @@ class EngineDiscoveryService:
                     self._visited.clear()
                     self._arm_timeout()
                     break
-                log.info("Engine %s discovery skipped before dispatch: record already exists or no longer pending", candidate)
+                log.info(
+                    "Engine %s discovery skipped before dispatch: record already exists or no longer pending",
+                    candidate,
+                )
                 self._pending.discard(candidate)
             else:
                 return
