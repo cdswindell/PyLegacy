@@ -37,21 +37,21 @@ def discovery(monkeypatch):
 )
 def test_set_address_discovers_unknown_engine(discovery, command):
     service, _, callback = discovery
-    request = CommandReq.build(command, address=737, scope=CommandScope.ENGINE)
+    request = CommandReq.build(command, address=37, scope=CommandScope.ENGINE)
     service.on_command(request)
-    callback.assert_called_once_with(737)
+    callback.assert_not_called()  # TMCC1/TMCC2 addresses cannot encode a D4 ID.
 
 
 def test_existing_engine_does_not_enter_discovery(discovery):
     service, state, callback = discovery
-    state["value"] = SimpleNamespace(is_deleted=False, comp_data=object())
+    state["value"] = SimpleNamespace(is_deleted=False, comp_data=object(), is_comp_data_record=True, record_no=3)
     service.request_discovery(737)
     callback.assert_not_called()
 
 
 def test_placeholder_without_database_record_is_not_existing(discovery):
     service, state, callback = discovery
-    state["value"] = SimpleNamespace(is_deleted=False, comp_data=None)
+    state["value"] = SimpleNamespace(is_deleted=False, comp_data=None, is_comp_data_record=False, record_no=None)
     assert service.request_discovery(737)
     callback.assert_called_once_with(737)
 
@@ -81,7 +81,7 @@ def test_ble_programming_requests_discovery(discovery, packet_hex):
 
 def test_ble_programming_existing_engine_is_ignored(discovery):
     service, state, callback = discovery
-    state["value"] = SimpleNamespace(is_deleted=False, comp_data=object())
+    state["value"] = SimpleNamespace(is_deleted=False, comp_data=object(), is_comp_data_record=True, record_no=3)
     service(BleReq(bytes.fromhex("d1760012000030373337a7df"), PdiCommand.BLE_RX))
     callback.assert_not_called()
 
@@ -121,4 +121,5 @@ def test_d4_traversal_requests_first_and_full_next_record(discovery, monkeypatch
     assert sent[-1].action == D4Action.NEXT_REC
     assert sent[-1].record_no == 3
     assert sent[-1].data_length == PdiReq.scope_record_length(CommandScope.ENGINE)
-    service.stop()
+    service._started = False
+    service.complete(737)
