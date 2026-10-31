@@ -49,6 +49,44 @@ def test_set_address_has_no_discovery_subscription(monkeypatch, discovery):
     callback.assert_not_called()
 
 
+
+def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
+    service, _, callback = discovery
+    subscribers = set()
+
+    def subscribe(subscriber):
+        subscribers.add(subscriber)
+
+    def unsubscribe(subscriber):
+        subscribers.remove(subscriber)
+
+    monkeypatch.setattr(
+        PdiListener,
+        "get",
+        lambda: SimpleNamespace(subscribe_any=subscribe, unsubscribe_any=unsubscribe),
+    )
+    monkeypatch.setattr(PdiListener, "enqueue_command", lambda request: None)
+    monkeypatch.setattr(service, "_arm_timeout", lambda: None)
+
+    service.start()
+    assert service in subscribers
+    service.start()  # Idempotent registration.
+    assert len(subscribers) == 1
+
+    notification = BleReq(bytes.fromhex("d1760012000030373337a7df"), PdiCommand.BLE_RX)
+    for subscriber in tuple(subscribers):
+        subscriber(notification)
+    callback.assert_called_once_with(notification.tmcc_id)
+    assert service._active == notification.tmcc_id
+
+    service.stop()
+    assert not subscribers
+    service.stop()  # Idempotent shutdown.
+    service.start()  # Restart must re-register the listener.
+    assert service in subscribers
+    service.stop()
+    assert not subscribers
+
 def test_existing_engine_does_not_enter_discovery(discovery):
     service, state, callback = discovery
     state["value"] = SimpleNamespace(is_deleted=False, comp_data=object(), is_comp_data_record=True, record_no=3)
