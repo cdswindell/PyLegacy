@@ -12,10 +12,7 @@ from src.pytrain.pdi.ble_req import BleReq
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_listener import PdiListener
 from src.pytrain.pdi.constants import D4Action, PdiCommand
-from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 @pytest.fixture
@@ -31,18 +28,21 @@ def discovery(monkeypatch):
     return EngineDiscoveryService(callback), state, callback
 
 
-@pytest.mark.parametrize(
-    "command",
-    [
-        TMCC1EngineCommandEnum.SET_ADDRESS,
-        TMCC2EngineCommandEnum.SET_ADDRESS,
-    ],
-)
-def test_set_address_discovers_unknown_engine(discovery, command):
+def test_set_address_has_no_discovery_subscription(monkeypatch, discovery):
+    from src.pytrain.comm.command_observer import CommandObserver
+
     service, _, callback = discovery
-    request = CommandReq.build(command, address=37, scope=CommandScope.ENGINE)
-    service.on_command(request)
-    callback.assert_called_once_with(37)  # 2D discovery uses a direct memory query.
+    registered = []
+    monkeypatch.setattr(CommandObserver, "register", lambda *args: registered.append(args))
+    monkeypatch.setattr(CommandObserver, "unregister", lambda *args: registered.append(args))
+    monkeypatch.setattr(PdiListener, "get", lambda: SimpleNamespace(
+        subscribe_any=lambda subscriber: None,
+        unsubscribe_any=lambda subscriber: None,
+    ))
+    service.start()
+    service.stop()
+    assert registered == []
+    callback.assert_not_called()
 
 
 def test_existing_engine_does_not_enter_discovery(discovery):
