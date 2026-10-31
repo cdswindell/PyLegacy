@@ -47,10 +47,15 @@ def test_server_startup(pytrain_startup, args, base, port, ser2):
         assert port is not None
         d.pdi_build.assert_called_once_with(base, int(port))
         d.roster.assert_called_once_with(is_startup=True)
+        d.engine_discovery.assert_called_once_with(pt._on_engine_discovery)
+        d.engine_discovery.return_value.start.assert_called_once_with()
+        assert pt._engine_discovery is d.engine_discovery.return_value
         assert d.server_buffer.is_use_base3 is True
     else:
         d.pdi_build.assert_not_called()
         d.roster.assert_not_called()
+        d.engine_discovery.assert_not_called()
+        assert not hasattr(pt, "_engine_discovery")
     assert d.server_buffer.base3_address == base
     d.discovery.assert_not_called()
     assert d.base_discovery.call_count == (args == ["-base"])
@@ -80,6 +85,8 @@ def test_client_startup(pytrain_startup, explicit):
     d.receiver.assert_not_called()
     d.pdi_build.assert_not_called()
     d.roster.assert_not_called()
+    d.engine_discovery.assert_not_called()
+    assert not hasattr(pt, "_engine_discovery")
     d.client_listener.subscribe.assert_called_once_with(pt, module.CommandScope.SYNC)
     assert pt.store.listen_for.call_args_list == [
         call(scope)
