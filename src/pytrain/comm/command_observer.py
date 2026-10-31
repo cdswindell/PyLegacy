@@ -106,9 +106,9 @@ class CommandObserver(Thread):
                     for handler in handlers:
                         try:
                             handler(request)
-                        except Exception:
-                            log.exception("Command observer handler failed for %s", request)
+                        except (ValueError, TypeError, RuntimeError, OSError) as exc:
+                            log.error("Command observer handler failed for %s: %s", request, exc, exc_info=True)
             except (ValueError, NotImplementedError):
                 log.debug("Ignoring unrecognized outgoing command: %s", data.hex())
-            except Exception:
-                log.exception("Failed to observe outgoing command: %s", data.hex())
+            except (TypeError, IndexError, KeyError, AttributeError) as exc:
+                log.error("Failed to observe outgoing command %s: %s", data.hex(), exc, exc_info=True)
