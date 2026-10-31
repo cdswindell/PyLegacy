@@ -4,6 +4,7 @@ These tests intentionally do not introduce CommandObserver or discovery behavior
 """
 
 import threading
+from collections import deque
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -45,6 +46,7 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
 
     buffer = object.__new__(Base3Buffer)
+    buffer._pending_packets = deque()
     buffer._is_running = True
     buffer._base3_addr = "127.0.0.1"
     buffer._base3_port = 1234
@@ -77,6 +79,7 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
     fragments = [b"fragment-one", b"fragment-two"]
     buffer = object.__new__(Base3Buffer)
+    buffer._pending_packets = deque()
     buffer.send = Mock()
     buffer.sync_state = Mock()
     buffer._send_queue = Mock()
@@ -106,6 +109,7 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
 def test_sync_state_decodes_tmcc_commands(monkeypatch, enum, address, data):
     """Existing sync_state sends decoded logical commands to BaseReq.update_eng."""
     buffer = object.__new__(Base3Buffer)
+    buffer._pending_packets = deque()
     buffer.send = Mock()
     monkeypatch.setattr(Base3Buffer, "_instance", buffer)
     seen = []
@@ -173,6 +177,7 @@ def test_multibyte_queue_preserves_duplicate_fragment_identity(monkeypatch):
     )
     packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
     buffer = object.__new__(Base3Buffer)
+    buffer._pending_packets = deque()
     buffer._send_queue = Mock()
     buffer.sync_state = Mock()
     monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
@@ -204,6 +209,7 @@ def test_multibyte_expansion_does_not_write_to_full_send_queue(monkeypatch):
     )
     packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
     buffer = object.__new__(Base3Buffer)
+    buffer._pending_packets = deque()
     buffer._send_queue = Queue(maxsize=1)
     buffer._send_queue.put_nowait(b"other-command")
     buffer.sync_state = Mock()
