@@ -156,6 +156,7 @@ def test_traversal_stops_at_matching_record(traversal, monkeypatch):
     service, state, _, sent = traversal
     verified = []
     monkeypatch.setattr(service, "_verify_found", verified.append)
+
     # Avoid real asynchronous timers; invoke the verification callback explicitly.
     class ImmediateTimer:
         daemon = True
