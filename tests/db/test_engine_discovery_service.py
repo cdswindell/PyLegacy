@@ -49,7 +49,6 @@ def test_set_address_has_no_discovery_subscription(monkeypatch, discovery):
     callback.assert_not_called()
 
 
-
 def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
     service, _, callback = discovery
     subscribers = set()
@@ -86,6 +85,7 @@ def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
     assert service in subscribers
     service.stop()
     assert not subscribers
+
 
 def test_existing_engine_does_not_enter_discovery(discovery):
     service, state, callback = discovery
