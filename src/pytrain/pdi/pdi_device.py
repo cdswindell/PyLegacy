@@ -353,6 +353,7 @@ class PdiDevice(Mixins, FriendlyMixins):
 
     from .asc2_req import Asc2Req
     from .base_req import BaseReq
+    from .ble_req import BleReq
     from .block_req import BlockReq
     from .bpc2_req import Bpc2Req
     from .d4_req import D4Req
@@ -363,6 +364,7 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .wifi_req import WiFiReq
 
     BASE = DeviceWrapper(BaseReq)
+    BLE = DeviceWrapper(BleReq, PdiCommand.BLE_RX, scope=CommandScope.ENGINE)
     D4 = DeviceWrapper(D4Req, enums=D4Action, common_actions=False, scope=CommandScope.ENGINE)
     PING = DeviceWrapper(PingReq)
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
