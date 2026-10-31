@@ -188,7 +188,7 @@ def find_base_address_multiprocessing() -> str | None:
         parts = ip.split(".")
         me = int(parts[-1])
         network = ".".join(parts[:-1]) + "."
-        for i in range(2, 255):
+        for i in range(1, 255):
             if i == me:
                 continue
             possible_ips.append(network + str(i))
@@ -212,7 +212,7 @@ def find_base_address() -> str | None:
         parts = ip.split(".")
         me = int(parts[-1])
         network = ".".join(parts[:-1]) + "."
-        possible_ips.extend(network + str(i) for i in range(2, 255) if i != me)
+        possible_ips.extend(network + str(i) for i in range(1, 255) if i != me)
 
     if not possible_ips:
         return None
