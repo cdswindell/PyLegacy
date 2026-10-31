@@ -101,6 +101,7 @@ def test_invalid_addresses_are_ignored(discovery):
     assert not service.request_discovery(10000)
     callback.assert_not_called()
 
+
 def test_d4_traversal_requests_first_and_full_next_record(discovery, monkeypatch):
     from src.pytrain.pdi.constants import D4Action
     from src.pytrain.pdi.d4_req import D4Req
