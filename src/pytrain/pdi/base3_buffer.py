@@ -42,7 +42,6 @@ class _ObserveAfterSend:
     data: bytes
 
 
-
 class Base3Buffer(Thread):
     # noinspection GrazieInspection
     """
