@@ -157,24 +157,21 @@ def test_traversal_stops_at_matching_record(traversal, monkeypatch):
     verified = []
     monkeypatch.setattr(service, "_verify_found", verified.append)
 
-    # Avoid real asynchronous timers; invoke the verification callback explicitly.
-    class ImmediateTimer:
-        daemon = True
-
-        def __init__(self, delay, callback, args=()):
+    class FakeWatcher:
+        def __init__(self, state, callback):
             self.callback = callback
-            self.args = args
 
-        def start(self):
-            self.callback(*self.args)
+        def shutdown(self):
+            pass
 
-    monkeypatch.setattr("src.pytrain.db.engine_discovery_service.Timer", ImmediateTimer)
+    monkeypatch.setattr("src.pytrain.db.engine_discovery_service.StateWatcher", FakeWatcher)
     assert service.request_discovery(737)
     service(_first_record(0))
     service(_next_record(0, 1, 1065))
     service(_next_record(1, 2, 4062))
     service(_next_record(2, 3, 353))
     assert [request.record_no for request in sent[1:]] == [0, 1, 2, 3]
+    state["value"] = SimpleNamespace()
     service(_next_record(3, 4, 737))
     assert verified == [737]
     assert len(sent) == 5
@@ -231,3 +228,34 @@ def test_timeout_releases_slot_and_starts_next(traversal):
     # A stale timeout must not interrupt the next discovery.
     service._timed_out(737, None)
     assert service._active == 738
+
+
+@pytest.mark.parametrize("tmcc_id", [37, 737])
+def test_discovery_requires_complete_state(tmcc_id):
+    valid = dict(
+        tmcc_id=tmcc_id,
+        is_deleted=False,
+        is_comp_data_record=True,
+        comp_data=object(),
+        record_no=3,
+        is_d4=tmcc_id >= 100,
+        is_legacy=tmcc_id >= 100,
+    )
+    assert EngineDiscoveryService._is_discovery_complete(SimpleNamespace(**valid), tmcc_id, 3)
+    for key, invalid in (
+        ("tmcc_id", tmcc_id + 1),
+        ("is_deleted", True),
+        ("is_comp_data_record", False),
+        ("comp_data", None),
+        ("record_no", None),
+        ("record_no", 0xFFFF),
+    ):
+        assert not EngineDiscoveryService._is_discovery_complete(
+            SimpleNamespace(**(valid | {key: invalid})), tmcc_id, 3
+        )
+    assert not EngineDiscoveryService._is_discovery_complete(SimpleNamespace(**valid), tmcc_id, 4)
+    if tmcc_id >= 100:
+        for key in ("is_d4", "is_legacy"):
+            assert not EngineDiscoveryService._is_discovery_complete(
+                SimpleNamespace(**(valid | {key: False})), tmcc_id, 3
+            )
