@@ -49,6 +49,7 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     buffer._base3_addr = "127.0.0.1"
     buffer._base3_port = 1234
     buffer._send_queue = Mock()
+    buffer._fragment_observation_counts = {}
     buffer._send_queue.get.return_value = packet
     buffer._listener = None
     monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
@@ -79,6 +80,10 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     buffer = object.__new__(Base3Buffer)
     buffer.send = Mock()
     buffer.sync_state = Mock()
+    buffer._send_queue = Mock()
+    from collections import Counter
+
+    buffer._fragment_observation_counts = Counter()
     monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
     monkeypatch.setattr(TmccReq, "as_packets", lambda request: fragments)
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
@@ -86,6 +91,8 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     assert buffer._packetize_multibyte_cmds(packet) is None
     assert [call.args[0] for call in buffer.send.call_args_list] == fragments
     buffer.sync_state.assert_called_once()
+    assert buffer._send_queue.put.call_count == 1
+    assert buffer._send_queue.put.call_args.args[0].data == packet
     assert buffer.sync_state.call_args.args[0] == packet
     assert buffer.sync_state.call_args.kwargs["tmcc_cmd"].command == cmd.command
 
