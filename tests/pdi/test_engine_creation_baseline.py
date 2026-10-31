@@ -160,3 +160,33 @@ def test_ble_notification_does_not_create_engine_state(monkeypatch):
     listener.offer(bytes.fromhex("d176001225ff54df"))
     assert done.wait(2)
     assert not calls
+
+
+def test_multibyte_queue_preserves_duplicate_fragment_identity(monkeypatch):
+    """Identical fragment bytes remain distinct tagged transmissions."""
+    from src.pytrain.pdi.base3_buffer import _ObserveAfterSend, _TransmitPacket
+    from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
+
+    cmd = CommandReq.build(
+        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+        address=1234,
+        data=42,
+        scope=CommandScope.ENGINE,
+    )
+    packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
+    buffer = object.__new__(Base3Buffer)
+    queued = []
+    buffer._send_queue = Mock()
+    buffer._send_queue.put.side_effect = queued.append
+    buffer.sync_state = Mock()
+    monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
+    monkeypatch.setattr(TmccReq, "as_packets", lambda request: [b"same", b"same"])
+    monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
+
+    assert buffer._packetize_multibyte_cmds(packet) is None
+    assert len(queued) == 3
+    assert all(isinstance(item, _TransmitPacket) for item in queued[:2])
+    assert queued[0].data == queued[1].data == b"same"
+    assert isinstance(queued[2], _ObserveAfterSend)
+    assert queued[2].data == packet
+    buffer.sync_state.assert_called_once()
