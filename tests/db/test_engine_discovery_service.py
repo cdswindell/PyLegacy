@@ -17,8 +17,6 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 @pytest.fixture
 def discovery(monkeypatch):
-    from src.pytrain.db import engine_discovery_service as module
-
     monkeypatch.setattr(ComponentStateStore, "is_built", lambda: True)
     state = {"value": None}
     monkeypatch.setattr(
@@ -30,10 +28,13 @@ def discovery(monkeypatch):
     return EngineDiscoveryService(callback), state, callback
 
 
-@pytest.mark.parametrize("command", [
-    TMCC1EngineCommandEnum.SET_ADDRESS,
-    TMCC2EngineCommandEnum.SET_ADDRESS,
-])
+@pytest.mark.parametrize(
+    "command",
+    [
+        TMCC1EngineCommandEnum.SET_ADDRESS,
+        TMCC2EngineCommandEnum.SET_ADDRESS,
+    ],
+)
 def test_set_address_discovers_unknown_engine(discovery, command):
     service, _, callback = discovery
     request = CommandReq.build(command, address=37, scope=CommandScope.ENGINE)
@@ -65,10 +66,13 @@ def test_duplicate_requests_from_multiple_sources_are_suppressed(discovery):
     assert callback.call_count == 2
 
 
-@pytest.mark.parametrize("packet_hex", [
-    "d176001225ff54df",
-    "d1760012000030373337a7df",
-])
+@pytest.mark.parametrize(
+    "packet_hex",
+    [
+        "d176001225ff54df",
+        "d1760012000030373337a7df",
+    ],
+)
 def test_ble_programming_requests_discovery(discovery, packet_hex):
     service, _, callback = discovery
     notification = BleReq(bytes.fromhex(packet_hex), PdiCommand.BLE_RX)
