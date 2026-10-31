@@ -11,14 +11,23 @@ from __future__ import annotations
 from threading import RLock
 from typing import Callable
 
-from ..db.component_state_store import ComponentStateStore
 from ..comm.command_observer import CommandObserver
+from ..db.component_state_store import ComponentStateStore
 from ..pdi.ble_req import BleReq
+from ..pdi.constants import D4Action, PdiCommand
+from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+
+
+def four_digit_map_request(tmcc_id: int) -> D4Req:
+    """Build the non-mutating Base 3 lookup for a four-digit engine address."""
+    if not 100 <= tmcc_id <= 9999:
+        raise ValueError("Four-digit engine addresses must be between 100 and 9999")
+    return D4Req(0, PdiCommand.D4_ENGINE, D4Action.MAP, tmcc_id=tmcc_id)
 
 
 class EngineDiscoveryService:
