@@ -156,3 +156,72 @@ def test_ble_notification_does_not_create_engine_state(monkeypatch):
     assert done.wait(2)
     assert not calls
 
+
+
+def test_base3_receives_while_outbound_command_is_waiting(monkeypatch):
+    """Baseline: select handles an incoming Base 3 packet before queued outbound work."""
+    events = []
+    inbound = bytes.fromhex("d129d7df")
+    outbound = bytes.fromhex("d12729df")
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
+    fake_socket.recv.return_value = inbound.hex().upper().encode()
+    fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
+
+    buffer = object.__new__(Base3Buffer)
+    buffer._is_running = True
+    buffer._base3_addr = "127.0.0.1"
+    buffer._base3_port = 1234
+    buffer._send_queue = Mock()
+    buffer._send_queue.get.return_value = outbound
+    buffer._listener = Mock()
+    buffer._listener.offer.side_effect = lambda data: events.append(("receive", data))
+    monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
+    selected = iter([([fake_socket], [], []), ([buffer._send_queue], [], [])])
+    monkeypatch.setattr(base3_module.select, "select", lambda *args: next(selected))
+    monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
+
+    def sync(data):
+        events.append(("sync", data))
+        buffer._is_running = False
+
+    monkeypatch.setattr(buffer, "sync_state", sync)
+    buffer.run()
+
+    assert events == [
+        ("receive", inbound),
+        ("send", outbound.hex().upper().encode()),
+        ("sync", outbound),
+    ]
+
+
+def test_base3_transmits_queued_packets_in_fifo_order(monkeypatch):
+    """Baseline: the normal send queue determines outbound packet order."""
+    packets = [bytes.fromhex("d12729df"), bytes.fromhex("d129d7df")]
+    sent = []
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
+    fake_socket.sendall.side_effect = sent.append
+
+    buffer = object.__new__(Base3Buffer)
+    buffer._is_running = True
+    buffer._base3_addr = "127.0.0.1"
+    buffer._base3_port = 1234
+    buffer._send_queue = Mock()
+    buffer._send_queue.get.side_effect = packets
+    buffer._listener = None
+    monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
+    monkeypatch.setattr(base3_module.select, "select", lambda *args: ([buffer._send_queue], [], []))
+    monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
+    synced = []
+
+    def sync(data):
+        synced.append(data)
+        if len(synced) == len(packets):
+            buffer._is_running = False
+
+    monkeypatch.setattr(buffer, "sync_state", sync)
+    buffer.run()
+
+    assert sent == [packet.hex().upper().encode() for packet in packets]
+    assert synced == packets
