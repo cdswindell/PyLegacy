@@ -35,10 +35,14 @@ def test_set_address_has_no_discovery_subscription(monkeypatch, discovery):
     registered = []
     monkeypatch.setattr(CommandObserver, "register", lambda *args: registered.append(args))
     monkeypatch.setattr(CommandObserver, "unregister", lambda *args: registered.append(args))
-    monkeypatch.setattr(PdiListener, "get", lambda: SimpleNamespace(
-        subscribe_any=lambda subscriber: None,
-        unsubscribe_any=lambda subscriber: None,
-    ))
+    monkeypatch.setattr(
+        PdiListener,
+        "get",
+        lambda: SimpleNamespace(
+            subscribe_any=lambda subscriber: None,
+            unsubscribe_any=lambda subscriber: None,
+        ),
+    )
     service.start()
     service.stop()
     assert registered == []
