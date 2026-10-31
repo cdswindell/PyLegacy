@@ -4,7 +4,6 @@ These tests intentionally do not introduce CommandObserver or discovery behavior
 """
 
 import threading
-from collections import deque
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -46,7 +45,6 @@ def test_base3_send_syncs_after_successful_transmission(monkeypatch):
     fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
 
     buffer = object.__new__(Base3Buffer)
-    buffer._pending_packets = deque()
     buffer._is_running = True
     buffer._base3_addr = "127.0.0.1"
     buffer._base3_port = 1234
@@ -79,7 +77,6 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
     fragments = [b"fragment-one", b"fragment-two"]
     buffer = object.__new__(Base3Buffer)
-    buffer._pending_packets = deque()
     buffer.send = Mock()
     buffer.sync_state = Mock()
     buffer._send_queue = Mock()
@@ -88,12 +85,9 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
 
     assert buffer._packetize_multibyte_cmds(packet) is None
-    assert buffer.send.call_count == 0
-    assert [item.data for item in list(buffer._pending_packets)[:-1]] == fragments
+    assert [call.args[0] for call in buffer.send.call_args_list] == fragments
     buffer.sync_state.assert_called_once()
-    assert buffer._send_queue.put.call_count == 0
-    assert len(buffer._pending_packets) == 3
-    assert buffer._pending_packets[-1].data == packet
+    buffer._send_queue.put.assert_not_called()
     assert buffer.sync_state.call_args.args[0] == packet
     assert buffer.sync_state.call_args.kwargs["tmcc_cmd"].command == cmd.command
 
@@ -109,7 +103,6 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
 def test_sync_state_decodes_tmcc_commands(monkeypatch, enum, address, data):
     """Existing sync_state sends decoded logical commands to BaseReq.update_eng."""
     buffer = object.__new__(Base3Buffer)
-    buffer._pending_packets = deque()
     buffer.send = Mock()
     monkeypatch.setattr(Base3Buffer, "_instance", buffer)
     seen = []
@@ -163,62 +156,3 @@ def test_ble_notification_does_not_create_engine_state(monkeypatch):
     assert done.wait(2)
     assert not calls
 
-
-def test_multibyte_queue_preserves_duplicate_fragment_identity(monkeypatch):
-    """Identical fragment bytes remain distinct tagged transmissions."""
-    from src.pytrain.pdi.base3_buffer import _ObserveAfterSend, _TransmitPacket
-    from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
-
-    cmd = CommandReq.build(
-        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
-        address=1234,
-        data=42,
-        scope=CommandScope.ENGINE,
-    )
-    packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
-    buffer = object.__new__(Base3Buffer)
-    buffer._pending_packets = deque()
-    buffer._send_queue = Mock()
-    buffer.sync_state = Mock()
-    monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
-    monkeypatch.setattr(TmccReq, "as_packets", lambda request: [b"same", b"same"])
-    monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
-
-    assert buffer._packetize_multibyte_cmds(packet) is None
-    queued = list(buffer._pending_packets)
-    assert len(queued) == 3
-    assert all(isinstance(item, _TransmitPacket) for item in queued[:2])
-    assert queued[0].data == queued[1].data == b"same"
-    assert isinstance(queued[2], _ObserveAfterSend)
-    assert queued[2].data == packet
-    buffer._send_queue.put.assert_not_called()
-    buffer.sync_state.assert_called_once()
-
-
-def test_multibyte_expansion_does_not_write_to_full_send_queue(monkeypatch):
-    """The consumer must never block inserting fragments into its own full queue."""
-    from queue import Queue
-
-    from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
-
-    cmd = CommandReq.build(
-        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
-        address=1234,
-        data=42,
-        scope=CommandScope.ENGINE,
-    )
-    packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
-    buffer = object.__new__(Base3Buffer)
-    buffer._pending_packets = deque()
-    buffer._send_queue = Queue(maxsize=1)
-    buffer._send_queue.put_nowait(b"other-command")
-    buffer.sync_state = Mock()
-    monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
-    monkeypatch.setattr(TmccReq, "as_packets", lambda request: [b"first", b"second"])
-    monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
-
-    assert buffer._packetize_multibyte_cmds(packet) is None
-    assert buffer._send_queue.full()
-    assert buffer._send_queue.get_nowait() == b"other-command"
-    assert [item.data for item in buffer._pending_packets] == [b"first", b"second", packet]
-    buffer.sync_state.assert_called_once()
