@@ -7,6 +7,7 @@ import pytest
 
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_discovery_service import EngineDiscoveryService
+from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.ble_req import BleReq
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_listener import PdiListener
@@ -41,7 +42,7 @@ def test_set_address_discovers_unknown_engine(discovery, command):
     service, _, callback = discovery
     request = CommandReq.build(command, address=37, scope=CommandScope.ENGINE)
     service.on_command(request)
-    callback.assert_not_called()  # TMCC1/TMCC2 addresses cannot encode a D4 ID.
+    callback.assert_called_once_with(37)  # 2D discovery uses a direct memory query.
 
 
 def test_existing_engine_does_not_enter_discovery(discovery):
@@ -72,6 +73,7 @@ def test_duplicate_requests_from_multiple_sources_are_suppressed(discovery):
     "packet_hex",
     [
         "d1760012000030373337a7df",
+        "d176001225ff54df",
     ],
 )
 def test_ble_programming_requests_discovery(discovery, packet_hex):
@@ -236,8 +238,8 @@ def test_discovery_requires_complete_state(tmcc_id):
         tmcc_id=tmcc_id,
         is_deleted=False,
         is_comp_data_record=True,
-        comp_data=object(),
-        record_no=3,
+        comp_data=SimpleNamespace(is_active=lambda: True),
+        record_no=3 if tmcc_id >= 100 else None,
         is_d4=tmcc_id >= 100,
         is_legacy=tmcc_id >= 100,
     )
@@ -247,15 +249,50 @@ def test_discovery_requires_complete_state(tmcc_id):
         ("is_deleted", True),
         ("is_comp_data_record", False),
         ("comp_data", None),
-        ("record_no", None),
-        ("record_no", 0xFFFF),
+        *((("record_no", None), ("record_no", 0xFFFF)) if tmcc_id >= 100 else ()),
     ):
         assert not EngineDiscoveryService._is_discovery_complete(
             SimpleNamespace(**(valid | {key: invalid})), tmcc_id, 3
         )
-    assert not EngineDiscoveryService._is_discovery_complete(SimpleNamespace(**valid), tmcc_id, 4)
+    if tmcc_id >= 100:
+        assert not EngineDiscoveryService._is_discovery_complete(SimpleNamespace(**valid), tmcc_id, 4)
     if tmcc_id >= 100:
         for key in ("is_d4", "is_legacy"):
             assert not EngineDiscoveryService._is_discovery_complete(
                 SimpleNamespace(**(valid | {key: False})), tmcc_id, 3
             )
+
+
+def test_2d_discovery_sends_memory_query(traversal, monkeypatch):
+    service, state, callback, sent = traversal
+
+    class FakeWatcher:
+        def __init__(self, state, action):
+            self.action = action
+            self.stopped = False
+
+        def shutdown(self):
+            self.stopped = True
+
+    monkeypatch.setattr("src.pytrain.db.engine_discovery_service.StateWatcher", FakeWatcher)
+    state["value"] = SimpleNamespace(
+        tmcc_id=37,
+        is_deleted=False,
+        is_comp_data_record=False,
+        comp_data=None,
+        record_no=None,
+    )
+    assert service.request_discovery(37)
+    callback.assert_called_once_with(37)
+    assert len(sent) == 1
+    assert isinstance(sent[0], BaseReq)
+    assert sent[0].pdi_command == PdiCommand.BASE_MEMORY
+    assert sent[0].tmcc_id == 37
+    watcher = service._watcher
+    service._verify_found(37)
+    assert service._active == 37  # An incomplete state cannot finish discovery.
+    state["value"].is_comp_data_record = True
+    state["value"].comp_data = SimpleNamespace(is_active=lambda: True)
+    watcher.action()
+    assert service._active is None
+    assert watcher.stopped
