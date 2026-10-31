@@ -16,7 +16,6 @@ import threading
 import time
 from threading import Condition, Thread
 from dataclasses import dataclass
-from collections import Counter
 
 from .base_req import BaseReq
 from ..comm.command_observer import CommandObserver
@@ -38,6 +37,13 @@ log = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class _ObserveAfterSend:
     """Queue marker: notify the observer after preceding fragments are sent."""
+
+    data: bytes
+
+
+@dataclass(frozen=True)
+class _TransmitPacket:
+    """Physical packet that belongs to a logical multibyte command."""
 
     data: bytes
 
@@ -103,7 +109,6 @@ class Base3Buffer(Thread):
         # created when this instance is started
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
         self._send_cv = Condition()
-        self._fragment_observation_counts = Counter()
         # we must send a keepalive packet to the Base 3 every few seconds to keep it
         # from closing the connection
         self._keep_alive = KeepAlive(self)
@@ -155,13 +160,11 @@ class Base3Buffer(Thread):
                                     if isinstance(queued, _ObserveAfterSend):
                                         CommandObserver.offer(queued.data)
                                         continue
-                                    sending = self._packetize_multibyte_cmds(queued)
+                                    fragment = isinstance(queued, _TransmitPacket)
+                                    sending = queued.data if fragment else self._packetize_multibyte_cmds(queued)
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
-                                        fragments = self._fragment_observation_counts
-                                        if fragments[sending]:
-                                            fragments[sending] -= 1
-                                        else:
+                                        if not fragment:
                                             CommandObserver.offer(sending)
                                         try:
                                             self.sync_state(sending)
@@ -224,9 +227,7 @@ class Base3Buffer(Thread):
             # This is a legacy/tmcc2 multibyte parameter command. We have to send it
             # as 3 byte packets, using PdiCommand.TMCC_RX
             for packet in TmccReq.as_packets(tmcc_cmd):
-                if hasattr(self, "_fragment_observation_counts"):
-                    self._fragment_observation_counts[packet] += 1
-                self.send(packet)  # recursive call
+                self._send_queue.put(_TransmitPacket(packet))
                 time.sleep(0.001)
             # Observe only the complete command, after the queued fragments transmit.
             # Keep existing sync_state timing unchanged.
