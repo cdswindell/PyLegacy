@@ -80,7 +80,8 @@ def test_discovery_worker_configuration(monkeypatch, explicit, environment, expe
 
 
 @pytest.mark.parametrize(
-    "value", ["0", "-2", "abc", "1.5", ""],
+    "value",
+    ["0", "-2", "abc", "1.5", ""],
 )
 def test_invalid_discovery_environment(monkeypatch, value):
     monkeypatch.setenv("PYTRAIN_DISCOVERY_WORKERS", value)
