@@ -372,9 +372,7 @@ def test_correct_default_momentum_only_when_both_bytes_uninitialized(monkeypatch
     EngineDiscoveryService._correct_default_momentum(state)
 
     assert generated == expected
-    assert [(request.field, request.value) for request in sent] == (
-        expected + ([("query", None)] if expected else [])
-    )
+    assert [(request.field, request.value) for request in sent] == (expected + ([("query", None)] if expected else []))
     if expected:
         assert sent[-1] is query
     else:
