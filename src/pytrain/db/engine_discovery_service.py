@@ -218,14 +218,17 @@ class EngineDiscoveryService:
         raw = raw if raw is not None else comp_data.as_bytes()
         if raw[0x18] != 0xFF or raw[0x17] != 0xFF:
             return
+        requests = []
         for field, value in (("momentum", 0), ("momentum_setting", 0x63)):
             request = CompData.generate_update_req(field, value, state=state)
             if request is None:
                 log.warning("Engine %s momentum correction could not update %s", state.tmcc_id, field)
-                continue
+                return
+            requests.append(request)
+        for request in requests:
             PdiListener.enqueue_command(request)
-            setattr(comp_data, field, value)
-        log.info("Engine %s corrected uninitialized Base 3 momentum values", state.tmcc_id)
+        PdiListener.enqueue_command(BaseReq.create_base_query_request(state))
+        log.info("Engine %s queued momentum correction and database refresh", state.tmcc_id)
 
     def _verify_found(self, tmcc_id: int) -> None:
         with self._lock:
