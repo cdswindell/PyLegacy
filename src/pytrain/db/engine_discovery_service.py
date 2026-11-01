@@ -168,7 +168,7 @@ class EngineDiscoveryService:
                     return
                 if response.tmcc_id == target:
                     self._found_record = response.record_no
-                    self._found_raw = response._data_bytes
+                    self._found_raw = getattr(response, "_data_bytes") if hasattr(response, "_data_bytes") else None
                     # Subscribe before the dispatcher applies this record, so the
                     # state notification can confirm successful population.
                     state = ComponentStateStore.get_state(CommandScope.ENGINE, target)
@@ -238,6 +238,7 @@ class EngineDiscoveryService:
             expected_record = self._found_record if tmcc_id >= 100 else None
             if not self._is_discovery_complete(state, tmcc_id, expected_record):
                 return
+            # We must fix up momentum values in for 4D engines, because of an error in the Lionel firmware
             if tmcc_id >= 100:
                 self._correct_default_momentum(state, self._found_raw)
             log.info("Engine %s discovered in Base 3 database", tmcc_id)
