@@ -356,7 +356,10 @@ def test_correct_default_momentum_only_when_both_bytes_uninitialized(
 
     sent = []
     generated = []
-    data = SimpleNamespace(momentum=momentum, momentum_setting=setting)
+    raw = bytearray(0x19)
+    raw[0x17] = setting
+    raw[0x18] = momentum
+    data = SimpleNamespace(momentum=momentum, momentum_setting=setting, as_bytes=lambda: bytes(raw))
     state = SimpleNamespace(tmcc_id=113, comp_data=data)
 
     def make_request(field, value, state):
