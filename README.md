@@ -113,6 +113,23 @@ PyTrain Service registered successfully!
 >> 
 ```
 
+#### Automatic Base 3 discovery
+
+Run `pytrain -base` without an IP address to discover a Lionel Base 3 on the local network.
+Discovery probes addresses `.1` through `.254` on each detected local subnet, excluding the host's own address.
+The probes run concurrently using threads, with a default maximum of **32** workers.
+
+Set the optional `PYTRAIN_DISCOVERY_WORKERS` environment variable to tune concurrency for the machine or network:
+
+```bash
+PYTRAIN_DISCOVERY_WORKERS=16 pytrain -base
+```
+
+The value must be a positive integer. Larger values allow more simultaneous TCP probes but may increase
+network and system activity; smaller values reduce concurrency. The effective worker count never exceeds
+the number of addresses to scan. If you supply an explicit Base address (for example,
+`pytrain -base 192.168.1.124`), automatic discovery is skipped and this setting has no effect.
+
 ### Raspberry Pi Configuration
 
 Out of the box, the Raspberry Pi 4 and 5 support **PyTrain**, which can be installed and run as
