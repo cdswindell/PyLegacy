@@ -238,7 +238,8 @@ class EngineDiscoveryService:
             expected_record = self._found_record if tmcc_id >= 100 else None
             if not self._is_discovery_complete(state, tmcc_id, expected_record):
                 return
-            self._correct_default_momentum(state, self._found_raw)
+            if tmcc_id >= 100:
+                self._correct_default_momentum(state, self._found_raw)
             log.info("Engine %s discovered in Base 3 database", tmcc_id)
             self.complete(tmcc_id)
 
