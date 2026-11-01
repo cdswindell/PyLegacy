@@ -40,6 +40,7 @@ class EngineDiscoveryService:
         self._timeout: Timer | None = None
         self._watcher: StateWatcher | None = None
         self._found_record: int | None = None
+        self._found_raw: bytes | None = None
         self._lock = RLock()
         self._started = False
 
@@ -107,6 +108,7 @@ class EngineDiscoveryService:
                     self._active = candidate
                     self._record = None
                     self._found_record = None
+                    self._found_raw = None
                     self._visited.clear()
                     self._arm_timeout()
                     break
@@ -142,6 +144,7 @@ class EngineDiscoveryService:
                     watcher.shutdown()
                 self._active = None
                 self._found_record = None
+                self._found_raw = None
                 self._record = None
                 self._visited.clear()
         self._begin_next()
@@ -165,6 +168,7 @@ class EngineDiscoveryService:
                     return
                 if response.tmcc_id == target:
                     self._found_record = response.record_no
+                    self._found_raw = response._data_bytes
                     # Subscribe before the dispatcher applies this record, so the
                     # state notification can confirm successful population.
                     state = ComponentStateStore.get_state(CommandScope.ENGINE, target)
@@ -208,10 +212,10 @@ class EngineDiscoveryService:
         return True
 
     @staticmethod
-    def _correct_default_momentum(state) -> None:
+    def _correct_default_momentum(state, raw: bytes | None = None) -> None:
         """Replace uninitialized Base 3 momentum bytes after discovery."""
         comp_data = state.comp_data
-        raw = comp_data.as_bytes()
+        raw = raw if raw is not None else comp_data.as_bytes()
         if raw[0x18] != 0xFF or raw[0x17] != 0xFF:
             return
         for field, value in (("momentum", 0), ("momentum_setting", 0x63)):
@@ -231,7 +235,7 @@ class EngineDiscoveryService:
             expected_record = self._found_record if tmcc_id >= 100 else None
             if not self._is_discovery_complete(state, tmcc_id, expected_record):
                 return
-            self._correct_default_momentum(state)
+            self._correct_default_momentum(state, self._found_raw)
             log.info("Engine %s discovered in Base 3 database", tmcc_id)
             self.complete(tmcc_id)
 
@@ -270,6 +274,7 @@ class EngineDiscoveryService:
                 self._watcher.shutdown()
                 self._watcher = None
             self._found_record = None
+            self._found_raw = None
             self._started = False
             self._active = None
             self._record = None
