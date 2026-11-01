@@ -168,7 +168,7 @@ class EngineDiscoveryService:
                     return
                 if response.tmcc_id == target:
                     self._found_record = response.record_no
-                    self._found_raw = getattr(response, "_data_bytes") if hasattr(response, "_data_bytes") else None
+                    self._found_raw = getattr(response, "_data_bytes", None)
                     # Subscribe before the dispatcher applies this record, so the
                     # state notification can confirm successful population.
                     state = ComponentStateStore.get_state(CommandScope.ENGINE, target)
