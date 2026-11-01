@@ -1554,8 +1554,8 @@ class PyTrain:
                         tmcc_id = int(ui_parts[1])
                         cmd_scope = CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN
                         state = self._state_store.get_state(cmd_scope, tmcc_id, False)
-                        if state is None and 101 <= tmcc_id <= 9999:
-                            raise ValueError(f"{cmd_scope.label} TMCC ID {tmcc_id} not found")
+                        if state is None and 100 <= tmcc_id <= 9999:
+                            log.info(ValueError(f"{cmd_scope.label} TMCC ID {tmcc_id} not found"))
                         if state.is_tmcc if isinstance(state, EngineState) else True:
                             has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
@@ -1566,7 +1566,7 @@ class PyTrain:
                                         has_legacy_arg = True
                                 else:
                                     break  # we're into a subparser
-                            if not has_tmcc_arg and not has_legacy_arg:
+                            if not has_tmcc_arg and not has_legacy_arg and tmcc_id <= 99:
                                 ui_parts.insert(2, "-tmcc")
 
                     # parse command line with the appropriate parser
