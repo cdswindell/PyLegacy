@@ -228,7 +228,7 @@ class EngineDiscoveryService:
         for request in requests:
             PdiListener.enqueue_command(request)
         PdiListener.enqueue_command(BaseReq.create_base_query_request(state))
-        log.info("Engine %s queued momentum correction and database refresh", state.tmcc_id)
+        log.debug("Engine %s queued momentum correction and database refresh", state.tmcc_id)
 
     def _verify_found(self, tmcc_id: int) -> None:
         with self._lock:
