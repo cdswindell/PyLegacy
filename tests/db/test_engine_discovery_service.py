@@ -375,7 +375,10 @@ def test_correct_default_momentum_only_when_both_bytes_uninitialized(monkeypatch
     assert [(request.field, request.value) for request in sent] == (
         expected + ([("query", None)] if expected else [])
     )
-    assert sent[-1] is query if expected else not sent
+    if expected:
+        assert sent[-1] is query
+    else:
+        assert not sent
     assert data.momentum == momentum
     assert data.momentum_setting == setting
 
