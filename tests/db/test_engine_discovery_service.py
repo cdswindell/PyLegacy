@@ -364,12 +364,45 @@ def test_correct_default_momentum_only_when_both_bytes_uninitialized(monkeypatch
         generated.append((field, value))
         return SimpleNamespace(field=field, value=value)
 
+    query = SimpleNamespace(field="query", value=None)
     monkeypatch.setattr(CompData, "generate_update_req", make_request)
+    monkeypatch.setattr(BaseReq, "create_base_query_request", lambda current: query)
     monkeypatch.setattr(PdiListener, "enqueue_command", sent.append)
 
     EngineDiscoveryService._correct_default_momentum(state)
 
     assert generated == expected
-    assert [(request.field, request.value) for request in sent] == expected
-    assert data.momentum == (0 if expected else momentum)
-    assert data.momentum_setting == (0x63 if expected else setting)
+    assert [(request.field, request.value) for request in sent] == (
+        expected + ([("query", None)] if expected else [])
+    )
+    assert sent[-1] is query if expected else not sent
+    assert data.momentum == momentum
+    assert data.momentum_setting == setting
+
+
+@pytest.mark.parametrize("failed_field", ["momentum", "momentum_setting"])
+def test_momentum_correction_requires_both_writes_before_queueing(monkeypatch, failed_field):
+    from src.pytrain.db.comp_data import CompData
+
+    raw = bytearray(0x19)
+    raw[0x17] = raw[0x18] = 0xFF
+    data = SimpleNamespace(momentum=0xFF, momentum_setting=0xFF, as_bytes=lambda: bytes(raw))
+    state = SimpleNamespace(tmcc_id=113, comp_data=data)
+    sent = []
+
+    def make_request(field, value, state):
+        return None if field == failed_field else SimpleNamespace(field=field, value=value)
+
+    monkeypatch.setattr(CompData, "generate_update_req", make_request)
+    monkeypatch.setattr(PdiListener, "enqueue_command", sent.append)
+    monkeypatch.setattr(
+        BaseReq,
+        "create_base_query_request",
+        lambda current: pytest.fail("Query must not be sent when an update cannot be generated"),
+    )
+
+    EngineDiscoveryService._correct_default_momentum(state)
+
+    assert not sent
+    assert data.momentum == 0xFF
+    assert data.momentum_setting == 0xFF
