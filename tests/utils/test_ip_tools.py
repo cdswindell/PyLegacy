@@ -13,7 +13,7 @@ import subprocess
 import pytest
 
 from src.pytrain.utils import ip_tools
-from src.pytrain.utils.ip_tools import find_base_address, get_ip_address, is_base_address, get_ip_from_command
+from src.pytrain.utils.ip_tools import get_ip_address, is_base_address, get_ip_from_command
 
 
 class DummyCompleted:
@@ -391,5 +391,5 @@ def test_find_base_address_returns_first_found(monkeypatch):
     monkeypatch.setattr("src.pytrain.utils.ip_tools.Pool", lambda n: DummyPool(n), raising=True)
 
     # Run and verify we got the discovered address
-    found = find_base_address()
+    found = ip_tools.find_base_address_multiprocessing()
     assert found == "192.168.1.99"
