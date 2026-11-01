@@ -46,9 +46,10 @@ class D4Req(PdiReq, CompDataMixin):
     ) -> None:
         """Initializes D4Req; parses data; overrides fields from engine state"""
         super().__init__(data, pdi_command)
+        # D4 scope is determined by the PDI command: ENGINE or TRAIN.
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
-        self._data_length = self._data_bytes = self._start = self._timestamp = None
+        self._data_length = self._data_bytes = self._start = self._timestamp = self._next_record_post_bytes = None
         self._error = error
         self._tmcc_id = tmcc_id
         if isinstance(data, bytes):
@@ -76,7 +77,6 @@ class D4Req(PdiReq, CompDataMixin):
                     elif isinstance(data_bytes, int):
                         self._data_bytes = data_bytes.to_bytes(data_length, byteorder="little")
             elif self.action == D4Action.COUNT:
-                self._scope = CommandScope.BASE
                 self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
             elif self.action == D4Action.MAP:
                 self._suffix = None
@@ -93,9 +93,17 @@ class D4Req(PdiReq, CompDataMixin):
                     self._next_record_no = (
                         int.from_bytes(self._data[8:10], byteorder="little") if data_len > 9 else None
                     )
+                    self._next_record_post_bytes = self._data[10:12] if data_len > 11 else None
+                    # NEXT_REC responses include the requested record after the next-record pointer.
+                    # Requests contain no record bytes; only decode complete responses.
+                    record_length = PdiReq.scope_record_length(self.scope)
+                    if self._data_length == record_length and data_len >= 12 + record_length:
+                        self._data_bytes = self._data[12 : 12 + record_length]
+                        self._comp_data = CompData.from_bytes(self._data_bytes, self.scope)
+                        self._tmcc_id = self._comp_data.tmcc_id
+                        self._comp_data_record = True
                 else:
                     self._next_record_no = self.record_no
-                    self._scope = CommandScope.BASE  # send first record information to Base
         else:
             from ..db.engine_state import EngineState
 
@@ -108,15 +116,14 @@ class D4Req(PdiReq, CompDataMixin):
             self._count = count
             self._timestamp = timestamp
             self._state = state
-            # Overrides fields from engine state or sets base scope for initial actions
+
+            # Overrides fields from engine state
             if state and isinstance(state, EngineState):
                 self._tmcc_id = state.tmcc_id
                 self._start = 0
                 self._data_length = PdiReq.scope_record_length(CommandScope.ENGINE)
                 if isinstance(state, CompDataMixin):
                     self._data_bytes = state.comp_data.as_bytes()
-            elif self.action in {D4Action.FIRST_REC, D4Action.COUNT}:
-                self._scope = CommandScope.BASE
 
     @property
     def as_key(self):
@@ -231,15 +238,12 @@ class D4Req(PdiReq, CompDataMixin):
         elif self.action == D4Action.CLEAR:
             byte_str += (self.post_action if self.post_action else 0).to_bytes(1, byteorder="little")
         elif self.action == D4Action.FIRST_REC:
-            self._scope = CommandScope.SYSTEM
             byte_str += (0).to_bytes(1, byteorder="big")
         elif self.action == D4Action.NEXT_REC:
-            self._scope = CommandScope.SYSTEM
             byte_str += self.start.to_bytes(1, byteorder="big") if self.start is not None else bytes()
             byte_str += self.data_length.to_bytes(1, byteorder="big") if self.data_length is not None else bytes()
-            byte_str += (
-                self.next_record_no.to_bytes(2, byteorder="little") if self.next_record_no is not None else bytes()
-            )
+            if self.next_record_no is not None:
+                byte_str += self.next_record_no.to_bytes(2, byteorder="little")
         elif self.action == D4Action.MAP:
             byte_str += str(self.tmcc_id).zfill(4).encode("ascii") if self.tmcc_id else bytes()
         elif self.action in {D4Action.QUERY, D4Action.UPDATE}:

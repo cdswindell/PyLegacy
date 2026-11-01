@@ -33,11 +33,13 @@ from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange,
 from .cache import CacheCli
 from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
+from ..comm.command_observer import CommandObserver
 from ..comm.command_listener import CommandDispatcher, CommandListener, Subscriber, Message
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.cache_sync import CacheSyncManager, default_cache_sync_port
 from ..db.client_state_listener import ClientStateListener
 from ..db.component_state_store import ComponentStateStore
+from ..db.engine_discovery_service import EngineDiscoveryService
 from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
@@ -294,6 +296,8 @@ class PyTrain:
         self._pdi_state_store = PdiStateStore()
         if self._pdi_buffer is not None:
             self._get_system_state(is_startup=True)
+            self._engine_discovery = EngineDiscoveryService(self._on_engine_discovery)
+            self._engine_discovery.start()
 
         # a bit of a hack, but remember on the class this instance of PyTrain is the current one
         PyTrain._current = self
@@ -866,12 +870,24 @@ class PyTrain:
         state = self._state_store.get_state(CommandScope.SYNC, 99, False)
         return state.is_synchronized() if state else False
 
+    def _on_engine_discovery(self, tmcc_id: int) -> None:
+        """Record an unknown engine trigger until Base 3 retrieval is implemented."""
+        log.info("Engine %s requires Base 3 discovery", tmcc_id)
+
     def shutdown(self):
         """Attempt every subsystem's teardown despite ordinary failures; let cancellation propagate."""
         with self._admin_state_lock:
             self._shutdown_started = True
             self._lifecycle_phase = "shutdown"
         self._log_admin_exit("Full teardown entered", self._admin_action, source="shutdown")
+        try:
+            discovery = getattr(self, "_engine_discovery", None)
+            if discovery is not None:
+                discovery.stop()
+                self._engine_discovery = None
+            CommandObserver.stop()
+        except Exception as e:
+            log.warning(f"Error closing engine discovery, continuing shutdown: {e}")
         try:
             self.shutdown_service()
         except Exception as e:
@@ -1538,8 +1554,8 @@ class PyTrain:
                         tmcc_id = int(ui_parts[1])
                         cmd_scope = CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN
                         state = self._state_store.get_state(cmd_scope, tmcc_id, False)
-                        if state is None and 101 <= tmcc_id <= 9999:
-                            raise ValueError(f"{cmd_scope.label} TMCC ID {tmcc_id} not found")
+                        if state is None and 100 <= tmcc_id <= 9999:
+                            log.info(ValueError(f"{cmd_scope.label} TMCC ID {tmcc_id} not found"))
                         if state.is_tmcc if isinstance(state, EngineState) else True:
                             has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
@@ -1550,7 +1566,7 @@ class PyTrain:
                                         has_legacy_arg = True
                                 else:
                                     break  # we're into a subparser
-                            if not has_tmcc_arg and not has_legacy_arg:
+                            if not has_tmcc_arg and not has_legacy_arg and tmcc_id <= 99:
                                 ui_parts.insert(2, "-tmcc")
 
                     # parse command line with the appropriate parser
@@ -1786,7 +1802,10 @@ class PyTrain:
                         raise AttributeError(f"PDI {action.label} only supported for 4-digit TMCC IDs")
                 elif action in {D4Action.NEXT_REC, D4Action.CLEAR}:
                     rec_no = int(param[2])
-                    agr = D4Req(rec_no, pdi, action=action)
+                    if action == D4Action.CLEAR:
+                        agr = D4Req(rec_no, pdi, action=action)
+                    else:
+                        agr = D4Req(rec_no, pdi, action=action, start=0, data_length=0xC0)
                 elif action in {D4Action.QUERY, D4Action.UPDATE}:
                     rec_no = int(param[2], 16) if "0x" in param[2] else int(param[2])
                     start = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 3 else 0

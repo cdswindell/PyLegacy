@@ -197,10 +197,15 @@ class ComponentStateStore:
 
     # noinspection PyProtectedMember
     def __call__(self, command: Message) -> None:
+        from ..pdi.ble_req import BleReq
+
         """
         Callback, per the Subscriber protocol in CommandListener
         """
         if command:
+            if isinstance(command, BleReq):
+                log.debug(f"ComponentStateStore.__call__ ignoring: {command}")
+                return
             try:
                 if isinstance(command, CommandReq):
                     if command.is_halt:  # send to all known devices
@@ -241,6 +246,7 @@ class ComponentStateStore:
                                 state = self.query(scope, address)
                                 if state and state.address != address:
                                     del self._state[scope][address]
+
                             self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
                                 self._lcs_config_reqs[(command.command, address)] = command

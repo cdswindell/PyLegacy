@@ -338,7 +338,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x11: CompDataHandler("_unk_11"),
     0x12: CompDataHandler("_unk_12", default=0),
     0x13: CompDataHandler("_unk_13", default=0),
-    0x17: CompDataHandler("_momentum_setting"),
+    0x17: CompDataHandler("_momentum_setting", default=0x63),
     0x18: CompDataHandler("_momentum", default=0),
     0x1C: CompDataHandler("_train_tmcc_id"),
     0x1D: CompDataHandler("_train_unit"),
