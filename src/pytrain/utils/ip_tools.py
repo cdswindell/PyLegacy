@@ -8,6 +8,7 @@
 #
 import ipaddress
 import logging
+import os
 import shutil
 import socket
 import subprocess
@@ -200,13 +201,22 @@ def find_base_address_multiprocessing() -> str | None:
     return None
 
 
-def find_base_address() -> str | None:
+def find_base_address(max_workers: int | None = None) -> str | None:
     """Discover a Lionel Base using bounded concurrent TCP probes.
 
     Threading avoids multiprocessing semaphore resources. On an early match,
     outstanding probes are cancelled where possible; in-flight socket probes
     finish within their existing 150 ms timeout.
     """
+    if max_workers is None:
+        configured_workers = os.getenv("PYTRAIN_DISCOVERY_WORKERS", "32")
+        try:
+            max_workers = int(configured_workers)
+        except ValueError as exc:
+            raise ValueError("PYTRAIN_DISCOVERY_WORKERS must be a positive integer") from exc
+    if isinstance(max_workers, bool) or not isinstance(max_workers, int) or max_workers < 1:
+        raise ValueError("Discovery max_workers must be a positive integer")
+
     possible_ips = []
     for ip in get_ip_address():
         parts = ip.split(".")
@@ -217,7 +227,7 @@ def find_base_address() -> str | None:
     if not possible_ips:
         return None
 
-    executor = ThreadPoolExecutor(max_workers=min(32, len(possible_ips)))
+    executor = ThreadPoolExecutor(max_workers=min(max_workers, len(possible_ips)))
     futures = []
     try:
         futures = [executor.submit(is_base_address, ip) for ip in possible_ips]
