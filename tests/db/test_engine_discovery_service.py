@@ -334,7 +334,7 @@ def test_2d_discovery_sends_memory_query(traversal, monkeypatch):
     service._verify_found(37)
     assert service._active == 37  # An incomplete state cannot finish discovery.
     state["value"].is_comp_data_record = True
-    state["value"].comp_data = SimpleNamespace(is_active=lambda: True)
+    state["value"].comp_data = SimpleNamespace(is_active=lambda: True, as_bytes=lambda: bytes(0x19))
     watcher.action()
     assert service._active is None
     assert watcher.stopped
