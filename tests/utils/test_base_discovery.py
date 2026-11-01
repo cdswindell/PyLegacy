@@ -1,3 +1,5 @@
+import pytest
+
 from pytrain.utils import ip_tools
 
 
@@ -46,9 +48,6 @@ def test_threaded_base_discovery_excludes_local_host(monkeypatch):
     assert "192.168.1.2" in scanned
     assert "192.168.1.254" in scanned
     assert "192.168.1.255" not in scanned
-
-
-import pytest
 
 
 @pytest.mark.parametrize(
