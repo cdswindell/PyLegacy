@@ -211,7 +211,8 @@ class EngineDiscoveryService:
     def _correct_default_momentum(state) -> None:
         """Replace uninitialized Base 3 momentum bytes after discovery."""
         comp_data = state.comp_data
-        if comp_data.momentum != 0xFF or comp_data.momentum_setting != 0xFF:
+        raw = comp_data.as_bytes()
+        if raw[0x18] != 0xFF or raw[0x17] != 0xFF:
             return
         for field, value in (("momentum", 0), ("momentum_setting", 0x63)):
             request = CompData.generate_update_req(field, value, state=state)
