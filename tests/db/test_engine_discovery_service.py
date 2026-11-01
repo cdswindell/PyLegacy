@@ -349,9 +349,7 @@ def test_2d_discovery_sends_memory_query(traversal, monkeypatch):
         (0, 0x63, []),
     ],
 )
-def test_correct_default_momentum_only_when_both_bytes_uninitialized(
-    monkeypatch, momentum, setting, expected
-):
+def test_correct_default_momentum_only_when_both_bytes_uninitialized(monkeypatch, momentum, setting, expected):
     from src.pytrain.db.comp_data import CompData
 
     sent = []
