@@ -1005,3 +1005,27 @@ def test_callback_only_api_exit_still_notifies_once(runtime, monkeypatch):
     p.run()
     module.os.kill.assert_called_once_with(4321, module.signal.SIGINT)
     assert p.exit_status == module.PyTrainExitStatus.RESTART
+
+
+@pytest.mark.parametrize("has_discovery", [False, True])
+def test_shutdown_stops_engine_discovery_before_pdi(runtime, monkeypatch, has_discovery):
+    p = runtime.p
+    discovery = Mock()
+    if has_discovery:
+        p._engine_discovery = discovery
+    effects = Mock()
+    monkeypatch.setattr(module.CommandObserver, "stop", effects.observer_stop)
+    monkeypatch.setattr(module.PdiListener, "stop", effects.pdi_stop)
+    if has_discovery:
+        discovery.stop = effects.discovery_stop
+    module.PyTrain.shutdown(p)
+    if has_discovery:
+        assert effects.mock_calls == [call.discovery_stop(), call.observer_stop(), call.pdi_stop()]
+        assert p._engine_discovery is None
+    else:
+        assert effects.mock_calls == [call.observer_stop(), call.pdi_stop()]
+    module.PyTrain.shutdown(p)
+    assert effects.observer_stop.call_count == 2
+    assert effects.pdi_stop.call_count == 2
+    if has_discovery:
+        effects.discovery_stop.assert_called_once_with()

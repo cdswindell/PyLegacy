@@ -1361,16 +1361,15 @@ class TestEngineStateKnownDefects:
     so that a correction is a deliberate, visible change to this file.
     """
 
-    def test_a_four_digit_engine_cannot_be_serialized_before_its_record_number_arrives(self):
-        # NOTE: characterizes today's behavior. `as_bytes` builds a D4 request from
-        # `record_no`, which is None until a D4 mapping arrives, so a client asking for
-        # the state of a 4-digit engine anywhere in that window gets an exception rather
-        # than the state the Base has already reported
+    def test_a_four_digit_engine_can_be_serialized_before_its_record_number_arrives(self):
+        # Operational state remains serializable while the D4 database record
+        # number is unknown; only the D4 record packet must be omitted.
         state = new_engine(addr=1234, legacy=True)
 
         assert state.record_no is None
-        with pytest.raises(TypeError):
-            state.as_bytes()
+        packets = state.as_bytes()
+        assert isinstance(packets, list)
+        assert all(isinstance(packet, bytes) for packet in packets)
 
     def test_a_runt_first_record_spends_the_one_chance_to_read_the_direction(self):
         # NOTE: characterizes today's behavior. The one-shot flag is spent before the

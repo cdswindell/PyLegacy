@@ -100,6 +100,7 @@ def pytrain_startup(bare_pytrain, monkeypatch):
     doubles.listen = replace(module.CommandListener, "build", return_value=doubles.listener)
     doubles.client_listen = replace(module.ClientStateListener, "build", return_value=doubles.client_listener)
     doubles.pdi_build = replace(module.PdiListener, "build", return_value=doubles.pdi)
+    doubles.engine_discovery = replace(module, "EngineDiscoveryService")
     doubles.receiver = replace(module, "EnqueueProxyRequests")
     doubles.store = replace(module, "ComponentStateStore")
     doubles.pdi_store = replace(module, "PdiStateStore")

@@ -328,7 +328,7 @@ class ComponentState(ABC, CompDataMixin):
                 # initialize comp data, if it's empty
                 if not self.is_comp_data_record:
                     self.initialize(self.scope, self.tmcc_id)
-                if not (isinstance(command, BaseReq) and command.is_comp_data_record):
+                if not (isinstance(command, CompDataMixin) and command.is_comp_data_record):
                     self.request_config(command)
 
             if self.scope != command.scope:
@@ -364,6 +364,10 @@ class ComponentState(ABC, CompDataMixin):
                     self._spare_1 = command.spare_1
 
     def request_config(self, command: CommandReq):
+        # A full Base 3 record already supplies the configuration being requested.
+        if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+            return
+
         from ..comm.comm_buffer import CommBuffer
         from ..pdi.base_req import BaseReq
 
