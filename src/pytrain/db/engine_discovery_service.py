@@ -13,6 +13,7 @@ from collections import deque
 from threading import RLock, Timer
 from typing import Callable
 
+from ..db.comp_data import CompData
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..pdi.base_req import BaseReq
@@ -206,6 +207,21 @@ class EngineDiscoveryService:
             return False
         return True
 
+    @staticmethod
+    def _correct_default_momentum(state) -> None:
+        """Replace uninitialized Base 3 momentum bytes after discovery."""
+        comp_data = state.comp_data
+        if comp_data.momentum != 0xFF or comp_data.momentum_setting != 0xFF:
+            return
+        for field, value in (("momentum", 0), ("momentum_setting", 0x63)):
+            request = CompData.generate_update_req(field, value, state=state)
+            if request is None:
+                log.warning("Engine %s momentum correction could not update %s", state.tmcc_id, field)
+                continue
+            PdiListener.enqueue_command(request)
+            setattr(comp_data, field, value)
+        log.info("Engine %s corrected uninitialized Base 3 momentum values", state.tmcc_id)
+
     def _verify_found(self, tmcc_id: int) -> None:
         with self._lock:
             if self._active != tmcc_id or self._found_record is None:
@@ -214,6 +230,7 @@ class EngineDiscoveryService:
             expected_record = self._found_record if tmcc_id >= 100 else None
             if not self._is_discovery_complete(state, tmcc_id, expected_record):
                 return
+            self._correct_default_momentum(state)
             log.info("Engine %s discovered in Base 3 database", tmcc_id)
             self.complete(tmcc_id)
 
