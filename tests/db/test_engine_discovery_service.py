@@ -338,3 +338,37 @@ def test_2d_discovery_sends_memory_query(traversal, monkeypatch):
     watcher.action()
     assert service._active is None
     assert watcher.stopped
+
+
+@pytest.mark.parametrize(
+    ("momentum", "setting", "expected"),
+    [
+        (0xFF, 0xFF, [("momentum", 0), ("momentum_setting", 0x63)]),
+        (0, 0xFF, []),
+        (0xFF, 0x63, []),
+        (0, 0x63, []),
+    ],
+)
+def test_correct_default_momentum_only_when_both_bytes_uninitialized(
+    monkeypatch, momentum, setting, expected
+):
+    from src.pytrain.db.comp_data import CompData
+
+    sent = []
+    generated = []
+    data = SimpleNamespace(momentum=momentum, momentum_setting=setting)
+    state = SimpleNamespace(tmcc_id=113, comp_data=data)
+
+    def make_request(field, value, state):
+        generated.append((field, value))
+        return SimpleNamespace(field=field, value=value)
+
+    monkeypatch.setattr(CompData, "generate_update_req", make_request)
+    monkeypatch.setattr(PdiListener, "enqueue_command", sent.append)
+
+    EngineDiscoveryService._correct_default_momentum(state)
+
+    assert generated == expected
+    assert [(request.field, request.value) for request in sent] == expected
+    assert data.momentum == (0 if expected else momentum)
+    assert data.momentum_setting == (0x63 if expected else setting)
