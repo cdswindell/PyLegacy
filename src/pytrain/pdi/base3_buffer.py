@@ -69,6 +69,7 @@ class _MultyByteCommand:
         raise ValueError("Packet not next in sequence")
 
     def on_sent_last_packet(self) -> None:
+        # Preserve the original PDI envelope for observers and state synchronization.
         CommandObserver.offer(self.byte_str)
         self.buffer.sync_state(self.byte_str, tmcc_cmd=self.tmcc_cmd)
 
@@ -135,7 +136,7 @@ class Base3Buffer(Thread):
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
         self._send_cv = Condition()
 
-        # create the a dict to monitor multibyte command packet sending
+        # create a dict to monitor multibyte command packet sending
         self._mbc_registry: dict[bytes, list[_MultyByteCommand]] = {}
 
         # we must send a keepalive packet to the Base 3 every few seconds to keep it
@@ -244,30 +245,6 @@ class Base3Buffer(Thread):
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
 
-    def _packetize_multibyte_cmds_xx(self, data: bytes) -> bytes | None:
-        if data is None or len(data) < 9:
-            return data
-        from ..protocol.multibyte.multibyte_command_req import MultiByteReq
-
-        # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
-        # it down into 3-7 byte packets; this needs to be done here so sync_state
-        # in the calling layer gets a complete command
-        cmd_bytes = data[2:-2]
-        is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
-        if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
-            tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
-            # This is a legacy/tmcc2 multibyte parameter command. We have to send it
-            # as 3 byte packets, using PdiCommand.TMCC_RX
-            for packet in TmccReq.as_packets(tmcc_cmd):
-                self.send(packet)  # recursive call
-                time.sleep(0.001)
-            # do a sync_state on the complete command
-            CommandObserver.offer(data)
-            self.sync_state(data, tmcc_cmd=tmcc_cmd)
-            return None
-        else:
-            return data
-
     def _register_multibyte_command(self, mbc: _MultyByteCommand) -> None:
         """
         Registers a multibyte command by associating it with its packets in an internal
@@ -310,12 +287,12 @@ class Base3Buffer(Thread):
         # it down into 3-7 byte packets; this needs to be done here so sync_state
         # in the calling layer gets a complete command
         cmd_bytes = data[2:-2]
-        is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+        is_mfb, is_mvb, _ = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
         if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
             tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
             mbc = _MultyByteCommand(
                 buffer=self,
-                byte_str=cmd_bytes,
+                byte_str=data,
                 tmcc_cmd=tmcc_cmd,
                 packets=TmccReq.as_packets(tmcc_cmd),
             )
