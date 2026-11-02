@@ -14,6 +14,7 @@ import select
 import socket
 import threading
 import time
+from dataclasses import dataclass
 from threading import Condition, Thread
 
 from .base_req import BaseReq
@@ -31,6 +32,45 @@ from ..protocol.constants import (
 from ..utils.pollable_queue import PollableQueue
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _MultyByteCommand:
+    buffer: Base3Buffer
+    byte_str: bytes
+    tmcc_cmd: CommandReq
+    packets: list[bytes]
+
+    def __len__(self) -> int:
+        return len(self.packets)
+
+    @property
+    def num_packets(self) -> int:
+        return len(self.packets)
+
+    @property
+    def is_dispatched(self) -> bool:
+        return self.num_packets == 0
+
+    def enqueue_packets(self) -> None:
+        # This is a legacy/tmcc2 multibyte parameter command. We have to send it
+        # as 3 byte packets, using PdiCommand.TMCC_RX
+        for packet in self.packets:
+            self.buffer.send(packet)
+            time.sleep(0.001)
+
+    def is_next_packet(self, packet: bytes) -> bool:
+        return len(self.packets) > 0 and packet == self.packets[0]
+
+    def remove_sent_packet(self, packet: bytes) -> bool:
+        if self.is_next_packet(packet):
+            self.packets.pop(0)
+            return self.is_dispatched
+        raise ValueError("Packet not next in sequence")
+
+    def on_sent_last_packet(self) -> None:
+        CommandObserver.offer(self.byte_str)
+        self.buffer.sync_state(self.byte_str, tmcc_cmd=self.tmcc_cmd)
 
 
 class Base3Buffer(Thread):
@@ -94,6 +134,10 @@ class Base3Buffer(Thread):
         # created when this instance is started
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
         self._send_cv = Condition()
+
+        # create the a dict to monitor multibyte command packet sending
+        self._mbc_registry: dict[bytes, list[_MultyByteCommand]] = {}
+
         # we must send a keepalive packet to the Base 3 every few seconds to keep it
         # from closing the connection
         self._keep_alive = KeepAlive(self)
@@ -143,16 +187,25 @@ class Base3Buffer(Thread):
                                     received = None
                                     sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
+                                        # send command to Base 3 via TCP
                                         s.sendall(sending.hex().upper().encode())
-                                        CommandObserver.offer(sending)
-                                        try:
-                                            self.sync_state(sending)
-                                        except ValueError:
-                                            # most likely a multibyte command, which is handled in
-                                            # _packetize_multibyte_cmds
-                                            pass
-                                        except Exception as e:
-                                            log.exception(e)
+
+                                        # dispatch sent bytes to all clients as well
+                                        # as to any registered CommandObservers
+                                        # returns None if packet is part of an expected multi-byte flow
+                                        sending = self._check_for_multibyte_packet(sending)
+                                        if isinstance(sending, _MultyByteCommand):
+                                            sending.on_sent_last_packet()
+                                        elif sending is not None:
+                                            CommandObserver.offer(sending)
+                                            try:
+                                                self.sync_state(sending)
+                                            except ValueError:
+                                                # most likely a multibyte command, which is handled in
+                                                # _packetize_multibyte_cmds
+                                                pass
+                                            except Exception as e:
+                                                log.exception(e)
                                 else:
                                     sending = None
                                     received = bytes.fromhex(s.recv(512).decode(errors="ignore"))
@@ -191,7 +244,7 @@ class Base3Buffer(Thread):
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
 
-    def _packetize_multibyte_cmds(self, data: bytes) -> bytes | None:
+    def _packetize_multibyte_cmds_xx(self, data: bytes) -> bytes | None:
         if data is None or len(data) < 9:
             return data
         from ..protocol.multibyte.multibyte_command_req import MultiByteReq
@@ -211,6 +264,68 @@ class Base3Buffer(Thread):
             # do a sync_state on the complete command
             CommandObserver.offer(data)
             self.sync_state(data, tmcc_cmd=tmcc_cmd)
+            return None
+        else:
+            return data
+
+    def _register_multibyte_command(self, mbc: _MultyByteCommand) -> None:
+        """
+        Registers a multibyte command by associating it with its packets in an internal
+        registry. This stores the relationship between packets and the corresponding
+        multibyte commands they belong to.
+
+        This work does not need to take place under a lock, currently, as all manipulation
+        takes place in a single thread. under the run method.
+
+        Parameters:
+        mbc: _MultyByteCommand
+            The multibyte command to be registered.
+
+        Returns:
+        None
+        """
+        for packet in mbc.packets:
+            if packet not in self._mbc_registry:
+                self._mbc_registry[packet] = []
+            self._mbc_registry[packet].append(mbc)
+
+    def _check_for_multibyte_packet(self, sending: bytes) -> _MultyByteCommand | bytes | None:
+        registered = self._mbc_registry.get(sending)
+        if registered:
+            for index, mbc in enumerate(registered):
+                if mbc.is_next_packet(sending):
+                    is_dispatched = mbc.remove_sent_packet(sending)
+                    registered.pop(index)
+                    if not registered:
+                        del self._mbc_registry[sending]
+                    return mbc if is_dispatched else None
+        return sending
+
+    def _packetize_multibyte_cmds(self, data: bytes) -> bytes | None:
+        if data is None or len(data) < 9:
+            return data
+        from ..protocol.multibyte.multibyte_command_req import MultiByteReq
+
+        # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
+        # it down into 3-7 byte packets; this needs to be done here so sync_state
+        # in the calling layer gets a complete command
+        cmd_bytes = data[2:-2]
+        is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+        if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
+            tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
+            mbc = _MultyByteCommand(
+                buffer=self,
+                byte_str=cmd_bytes,
+                tmcc_cmd=tmcc_cmd,
+                packets=TmccReq.as_packets(tmcc_cmd),
+            )
+            # register new mbc with machinery that verifies all command packets have been
+            # posted to the Base 3; at that point, the original command is dispatched
+            # to the clients via sync_state and any CommandObservers are run
+            self._register_multibyte_command(mbc)
+
+            log.info(f"Enqueuing multibyte command: {mbc}")
+            mbc.enqueue_packets()
             return None
         else:
             return data
