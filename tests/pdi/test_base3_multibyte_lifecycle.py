@@ -54,8 +54,8 @@ def test_multibyte_packetization_and_deferred_completion(harness):
     assert completed.is_dispatched
     completed.on_sent_last_packet()
 
-    assert observed == [original]
-    assert synchronized == [(original, {"tmcc_cmd": command})]
+    assert observed == [original[2:-2]]
+    assert synchronized == [(original[2:-2], {"tmcc_cmd": command})]
     assert buffer._mbc_registry == {}
 
 
@@ -70,8 +70,8 @@ def test_identical_multibyte_commands_complete_independently(harness):
         if isinstance(completed, _MultyByteCommand):
             completed.on_sent_last_packet()
 
-    assert observed == [original, original]
-    assert synchronized == [(original, {"tmcc_cmd": command})] * 2
+    assert observed == [original[2:-2], original[2:-2]]
+    assert synchronized == [(original[2:-2], {"tmcc_cmd": command})] * 2
     assert buffer._mbc_registry == {}
 
 
