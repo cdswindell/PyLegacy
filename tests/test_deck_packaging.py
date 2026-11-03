@@ -31,6 +31,7 @@ RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 def build_deck() -> ModuleType:
     """The build script, imported by path: scripts/ is deliberately not a package."""
     spec = importlib.util.spec_from_file_location("build_deck", BUILD_DECK)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -140,6 +141,7 @@ def _build(build_deck, monkeypatch, *args: str) -> dict:
     seen: dict = {}
 
     def fake_call(command, cwd=None, env=None) -> int:
+        assert cwd == build_deck.PROJECT_ROOT
         seen["command"] = command
         seen["env"] = env
         seen["pyproject"] = build_deck.PYPROJECT.read_bytes()
@@ -172,7 +174,8 @@ def test_the_deck_build_reads_the_version_before_it_rewrites_pyproject(build_dec
     assert sandbox.read_bytes() == PYPROJECT.read_bytes()
 
 
-def test_the_build_is_pinned_to_the_version_of_the_clean_tree(build_deck, monkeypatch, sandbox) -> None:
+@pytest.mark.usefixtures("sandbox")
+def test_the_build_is_pinned_to_the_version_of_the_clean_tree(build_deck, monkeypatch) -> None:
     # Reading the version early only helps if the build is made to use it rather than
     # deriving its own from the tree it finds.
     monkeypatch.setattr(build_deck, "pristine_version", lambda: "2.9.9")
@@ -187,7 +190,7 @@ def test_the_build_is_pinned_to_the_version_of_the_clean_tree(build_deck, monkey
 
 def test_a_local_version_is_refused_before_anything_is_built(build_deck, monkeypatch, sandbox) -> None:
     # A rejected upload burns the version, so a version PyPI cannot accept has to fail the
-    # build job, not the publish job.
+    # build step, before publishing.
     ran: list[bool] = []
     monkeypatch.setattr(build_deck, "pristine_version", lambda: "2.9.9+ga9779ccdd.d20260906")
     monkeypatch.setattr(build_deck.subprocess, "call", lambda *_args, **_kwargs: ran.append(True))
@@ -201,7 +204,8 @@ def test_a_local_version_is_refused_before_anything_is_built(build_deck, monkeyp
     assert sandbox.read_bytes() == PYPROJECT.read_bytes()
 
 
-def test_a_local_version_can_still_be_built_on_request(build_deck, monkeypatch, sandbox) -> None:
+@pytest.mark.usefixtures("sandbox")
+def test_a_local_version_can_still_be_built_on_request(build_deck, monkeypatch) -> None:
     # Building a wheel from a work-in-progress tree to sideload onto a Deck is legitimate;
     # only uploading it is not.
     monkeypatch.setattr(build_deck, "pristine_version", lambda: "2.9.9+d20260906")
@@ -249,6 +253,7 @@ def _installed(monkeypatch, *packages: str) -> None:
             raise PackageNotFoundError(package)
         return "2.9.8"
 
+    monkeypatch.setattr(pytrain_pkg, "source_root", lambda: None)
     monkeypatch.setattr(pytrain_pkg.importlib.metadata, "version", fake_version)
 
 
