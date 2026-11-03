@@ -14,7 +14,7 @@ import select
 import socket
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Condition, Thread
 
 from .base_req import BaseReq
@@ -34,9 +34,9 @@ from ..utils.pollable_queue import PollableQueue
 log = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class _MultyByteCommand:
-    buffer: Base3Buffer
+    buffer: Base3Buffer = field(repr=False)
     byte_str: bytes
     tmcc_cmd: CommandReq
     packets: list[bytes]
