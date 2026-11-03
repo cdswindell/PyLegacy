@@ -57,7 +57,7 @@ class _MultyByteCommand:
         # as 3 byte packets, using PdiCommand.TMCC_RX
         for packet in self.packets:
             self.buffer.send(packet)
-            time.sleep(0.001)
+            # time.sleep(0.001)
 
     def is_next_packet(self, packet: bytes) -> bool:
         return len(self.packets) > 0 and packet == self.packets[0]
