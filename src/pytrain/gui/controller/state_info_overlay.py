@@ -10,9 +10,10 @@
 import logging
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from guizero import Box, ListBox, Text, TitleBox
+from guizero import Box, ListBox, PushButton, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from .engine_add_session import EngineAddSession
 from .overlay_panel import OverlayPanel
 from .popup_manager import footer_spacer, style_footer_button
 from ..components.editable_text import EditableText, EditorType
@@ -37,7 +38,87 @@ class StateInfoOverlay(OverlayPanel):
         super().__init__(gui, gui.version, post_close=self._post_close_action)
         self.hold_threshold = hold_threshold
         self.clear_btn = None
+        self.close_btn = None
+        self.status_text = None
+        self._add_session: EngineAddSession | None = None
+        self._created = False
         self.details = {}
+
+    @property
+    def adding(self) -> bool:
+        return getattr(self, "_add_session", None) is not None
+
+    def awaiting_empty_record(self, state: EngineState) -> bool:
+        return self.adding and self._add_session.awaiting_empty_record(state)
+
+    def begin_add(self, state: EngineState, *, awaiting_discovery: bool | None = None) -> None:
+        self.end_inline_edits(commit=False)
+        self._add_session = EngineAddSession(state, awaiting_discovery=awaiting_discovery)
+        self._created = False
+        for _title, field in self.details.values():
+            if not isinstance(field, ListBox):
+                field.value = ""
+
+    def finish_discovery(self) -> bool:
+        """Use the discovered record directly when there is no manual work to preserve."""
+        if not self.adding or not self._add_session.discovery_complete or not self.visible:
+            return False
+        if any(getattr(field, "is_editing", False) for _title, field in self.details.values()):
+            return False
+        self._created = True
+        self._close()
+        return True
+
+    def _update_add(self, state: EngineState) -> None:
+        session = self._add_session
+        if not session.refresh(state) or self.finish_discovery():
+            return
+        self.clear_btn.text = "Cancel"
+        self.clear_btn.enable()
+        self.clear_btn.on_hold = None
+        self.clear_btn.on_press = self._close
+        self.close_btn.text = "Create"
+        if session.can_create and self.gui.enable_editing:
+            self.close_btn.enable()
+        else:
+            self.close_btn.disable()
+        if session.baseline:
+            self._update_engine_details(state)
+        self.status_text.show()
+        self.status_text.value = (
+            "Waiting for Base 3 record; Cancel and retry SET if needed."
+            if not session.can_create
+            else "Edit engine information, then select Create."
+        )
+        for key, value in session.values.items():
+            field = self.details[key][1]
+            if getattr(field, "is_editing", False):
+                continue
+            choices = {"control": CONTROL_TYPE, "type": LOCO_TYPE, "sound": SOUND_TYPE}.get(key)
+            label = choices.get(value, "NA") if choices else value
+            if key == "sound" and value == 0:
+                label = "No Sound"
+            if key == "control" and state.is_d4:
+                label = f"{label} 4D {state.record_no_label}"
+            self._set_val(key, label, initial_value=value, editable=self.gui.enable_editing)
+
+    def _stage_edit(self, key: str, value) -> bool:
+        if not self.adding:
+            return False
+        self._add_session.edit(key, value)
+        self._update_add(self._add_session.state)
+        return True
+
+    def _on_close_button(self) -> None:
+        if self.adding:
+            self.end_inline_edits(commit=True)
+            try:
+                self._add_session.create()
+            except (ValueError, AssertionError) as exc:
+                self.gui.app.warn("Create Engine", str(exc))
+                return
+            self._created = True
+        self._close()
 
     @staticmethod
     def make_field(
@@ -233,6 +314,15 @@ class StateInfoOverlay(OverlayPanel):
         if not state or not self.details:
             return
         host = self.gui
+        if self.adding:
+            self._update_add(state)
+            return
+        if getattr(self, "close_btn", None) is not None:
+            self.close_btn.text = "Close"
+            self.close_btn.enable()
+            self.clear_btn.text = "Clear"
+            self.clear_btn.on_press = None
+            self.status_text.hide()
 
         # update clear button command
         if state and state.is_deletable:
@@ -263,37 +353,7 @@ class StateInfoOverlay(OverlayPanel):
             )
             self._set_val("sound", state.sound_type_label, initial_value=state.sound_type, editable=True)
             if not new:
-                self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
-                self._set_val("smoke", state.smoke_text)
-                self._set_val("mom", state.momentum_text)
-                self._set_val("brake", state.train_brake_label)
-                self._set_val("labor", state.labor_label)
-                self._set_val("rpm", state.rpm_label)
-                self._set_val("fuel", f"{state.fuel_level_pct:>3d} %")
-                self._set_val("water", f"{state.water_level_pct:>3d} %")
-
-                s, ts, sl, ms = state.speeds
-                self._set_val("speed", f"{s:>3d}")
-                self._set_val("target", f"{ts:>3d}")
-                self._set_val("limit", f"{sl:>3d}" if sl is not None else "")
-                self._set_val("max", f"{ms:>3d}")
-
-                if isinstance(state, TrainState):
-                    self._set_val("engines", f"{state.num_engines}")
-                    self._set_val("lead", f"{state.head_tmcc_id:04d}" if state.head_tmcc_id else "")
-                    self._set_val("cars", f"{state.num_train_linked}")
-                    self._set_val("accessories", f"{state.num_accessories}")
-                else:
-                    train_state = (
-                        host.state_store.get_state(CommandScope.TRAIN, state.train_tmcc_id, create=False)
-                        if state.train_tmcc_id
-                        else None
-                    )
-                    component = train_state.get_consist_component(state.tmcc_id) if train_state else None
-                    self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
-                    self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
-                    self._set_val("train pos", f"{component.position if component else 'NA'}")
-                    self._set_val("train dir", f"{component.direction if component else 'NA'}")
+                self._update_engine_details(state)
         elif isinstance(state, LcsProxyState):
             self._set_val("type", state.accessory_type, editable=False)
             self._set_val("mode", state.mode)
@@ -307,6 +367,40 @@ class StateInfoOverlay(OverlayPanel):
             self._set_val("name", acc.name, editable=False)
             self._set_val("type", acc.accessory_type.clean_title, editable=False)
             self._set_val("operations", acc.configured_operations_legend)
+
+    def _update_engine_details(self, state: EngineState) -> None:
+        host = self.gui
+        self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
+        self._set_val("smoke", state.smoke_text)
+        self._set_val("mom", state.momentum_text)
+        self._set_val("brake", state.train_brake_label)
+        self._set_val("labor", state.labor_label)
+        self._set_val("rpm", state.rpm_label)
+        self._set_val("fuel", f"{state.fuel_level_pct:>3d} %")
+        self._set_val("water", f"{state.water_level_pct:>3d} %")
+
+        s, ts, sl, ms = state.speeds
+        self._set_val("speed", f"{s:>3d}")
+        self._set_val("target", f"{ts:>3d}")
+        self._set_val("limit", f"{sl:>3d}" if sl is not None else "")
+        self._set_val("max", f"{ms:>3d}")
+
+        if isinstance(state, TrainState):
+            self._set_val("engines", f"{state.num_engines}")
+            self._set_val("lead", f"{state.head_tmcc_id:04d}" if state.head_tmcc_id else "")
+            self._set_val("cars", f"{state.num_train_linked}")
+            self._set_val("accessories", f"{state.num_accessories}")
+        else:
+            train_state = (
+                host.state_store.get_state(CommandScope.TRAIN, state.train_tmcc_id, create=False)
+                if state.train_tmcc_id
+                else None
+            )
+            component = train_state.get_consist_component(state.tmcc_id) if train_state else None
+            self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
+            self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
+            self._set_val("train pos", f"{component.position if component else 'NA'}")
+            self._set_val("train dir", f"{component.direction if component else 'NA'}")
 
     def _set_val(self, key, value, initial_value=None, editable: bool = False):
         if key in self.details:
@@ -341,6 +435,8 @@ class StateInfoOverlay(OverlayPanel):
     def _on_road_name_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value)
+            if self._stage_edit("name", new_value):
+                return
             state = self.gui.active_state
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_name_req(new_value)
@@ -351,6 +447,8 @@ class StateInfoOverlay(OverlayPanel):
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value, 4)
+            if self._stage_edit("number", new_value):
+                return
             state = self.gui.active_state
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_number_req(new_value)
@@ -370,13 +468,22 @@ class StateInfoOverlay(OverlayPanel):
     # noinspection PyUnusedLocal,unused-parameter
     def _persist_edit(self, _field: EditableText, new_value: int, old_value: int, field: str) -> None:
         if _field.is_changed:
+            key = {"ENGINE_TYPE": "type", "CONTROL_TYPE": "control", "SOUND_TYPE": "sound"}[field]
+            if self._stage_edit(key, new_value):
+                return
             state = self.gui.active_state
             if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_field(field, new_value, state, True)
 
     def _post_close_action(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=False)
+        was_adding = self.adding
+        self._add_session = None
         self.gui.on_state_info_closed(overlay)
+        if was_adding:
+            self.gui.popup_manager.set_closes_on_request(overlay, False)
+            if not self._created:
+                self.gui._keypad_view.entry_mode(clear_info=False)
 
     def end_inline_edits(self, *, commit: bool = True) -> None:
         for _tb, field in self.details.values():
@@ -413,12 +520,19 @@ class StateInfoOverlay(OverlayPanel):
                     log.debug(f"No 'hide' method for {tb}")
 
     @property
+    def has_close(self) -> bool:
+        return False
+
+    @property
     def has_footer(self) -> bool:
         return True
 
     def build_footer(self, footer: Box) -> None:
         host = self.gui
 
+        self.status_text = Text(footer, text="", size=host.s_10, align="top")
+        self.status_text.tk.config(wraplength=max(160, host.width - 40), justify="center")
+        self.status_text.hide()
         self.clear_btn = btn = HoldButton(
             footer,
             text="Clear",
@@ -437,8 +551,14 @@ class StateInfoOverlay(OverlayPanel):
         style_footer_button(host, btn)
         host.cache(btn)
         footer_spacer(host, footer)
+        self.close_btn = PushButton(footer, text="Close", align="right", width=8, command=self._on_close_button)
+        style_footer_button(host, self.close_btn)
+        host.cache(self.close_btn)
 
     def clear_record(self, state: S = None):
+        if self.adding:
+            self._close()
+            return
         host = self.gui
         if self.clear_btn is not None:
             self.clear_btn.cancel_interaction()

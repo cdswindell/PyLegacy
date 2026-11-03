@@ -1080,7 +1080,7 @@ class GuiZeroBase(Thread, ABC):
 
     def get_prod_info(
         self,
-        bt_id: str,
+        bt_id: str | None,
         callback: Callable,
         tmcc_id: int,
         available_width: int,
@@ -1111,10 +1111,8 @@ class GuiZeroBase(Thread, ABC):
             pass
         else:
             prod_info = "N/A"
-            if bt_id is None:
-                with self._cv:
-                    self._prod_info_cache[tmcc_id] = prod_info
-                    self._pending_prod_infos.discard(tmcc_id)
+            # A missing Bluetooth ID is provisional, not a failed product lookup.
+            # Discovery can supply it later for this same TMCC ID.
         return prod_info
 
     def reset_prod_info_cache(self):

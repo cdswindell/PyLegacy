@@ -47,6 +47,7 @@ class ImagePresenter:
         self._current_img = None
         self._checked_for_custom_images: set[int] = set()
         self._pending_custom_images: set[int] = set()
+        self._fallback_images: dict[int, tuple[str | None, PhotoImage]] = {}
         self._executor = ThreadPoolExecutor(max_workers=1)
 
         # make sure custom image directory exists
@@ -66,6 +67,7 @@ class ImagePresenter:
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
             self._pending_custom_images.clear()
+            self._fallback_images = {}
             # force the file index to clear as well
             reset_path_index()
             log.debug("Image caches cleared")
@@ -238,6 +240,15 @@ class ImagePresenter:
             # is an image cached?
             with host.locked():
                 img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                state = host._state_store.get_state(scope, tmcc_id, False)
+                bt_id = state.bt_id if state else None
+                fallback = self._fallback_images.get(tmcc_id)
+                if fallback is not None and img is fallback[1] and bt_id and bt_id != fallback[0]:
+                    # Only discard our own fallback. Custom and fetched product images win.
+                    host._image_cache.pop((CommandScope.ENGINE, tmcc_id), None)
+                    self._fallback_images.pop(tmcc_id, None)
+                    img = None
+                    log.debug("Bluetooth ID arrived for engine %s; replacing provisional image", tmcc_id)
 
             # is there a custom image?
             if img is None and tmcc_id not in self._checked_for_custom_images:
@@ -302,6 +313,7 @@ class ImagePresenter:
                                     host._image_cache[source] = img
                             with host.locked():
                                 host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                                self._fallback_images[tmcc_id] = (state.bt_id, img)
                                 if train_id:
                                     host._image_cache[(CommandScope.TRAIN, train_id)] = img
                                     tmcc_id = train_id
@@ -432,6 +444,7 @@ class ImagePresenter:
         with host.locked():
             if image is not None:
                 host._image_cache[(CommandScope.ENGINE, tmcc_id)] = image
+                self._fallback_images.pop(tmcc_id, None)
             self._pending_custom_images.discard(tmcc_id)
             self._checked_for_custom_images.add(tmcc_id)
         if train_id is None:

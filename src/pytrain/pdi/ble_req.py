@@ -21,7 +21,11 @@ class BleReq(PdiReq):
         if not isinstance(data, bytes):
             raise TypeError("BLE notifications must be decoded from received PDI bytes")
         self._payload_bytes = self._data[1:]
-        self._is_programming = len(self._data) >= 5 and self._data[2] == 0x12
+        # This exact short response has no engine address. Preserve other forms
+        # without assigning a broader meaning to the observed 0x02 byte.
+        self._is_programming = (
+            len(self._data) >= 5 and self._data[2] == 0x12 and self._payload_bytes != b"\x02\x12\xff\xff"
+        )
         self._tmcc_id = 0
         self._record_no = 0xFFFF
         if self._is_programming:
