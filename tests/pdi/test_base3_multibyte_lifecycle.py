@@ -31,7 +31,11 @@ def harness(monkeypatch):
     monkeypatch.setattr(buffer, "send", lambda data: enqueued.append(data))
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: observed.append(data))
-    monkeypatch.setattr(Base3Buffer, "sync_state", lambda data, **kwargs: synchronized.append((data, kwargs)))
+    monkeypatch.setattr(
+        Base3Buffer,
+        "sync_state",
+        classmethod(lambda cls, data, **kwargs: synchronized.append((data, kwargs))),
+    )
 
     return buffer, original, command, packets, enqueued, observed, synchronized
 
