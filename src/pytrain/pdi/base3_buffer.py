@@ -69,7 +69,6 @@ class _MultyByteCommand:
         raise ValueError("Packet not next in sequence")
 
     def on_sent_last_packet(self) -> None:
-        # Preserve the original PDI envelope for observers and state synchronization.
         CommandObserver.offer(self.byte_str)
         self.buffer.sync_state(self.byte_str, tmcc_cmd=self.tmcc_cmd)
 
@@ -292,7 +291,7 @@ class Base3Buffer(Thread):
             tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
             mbc = _MultyByteCommand(
                 buffer=self,
-                byte_str=data,
+                byte_str=cmd_bytes,
                 tmcc_cmd=tmcc_cmd,
                 packets=TmccReq.as_packets(tmcc_cmd),
             )
