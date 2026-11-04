@@ -1924,7 +1924,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
         overlay = self._catalog_panel.overlay
-        self._catalog_panel.configure(pb.scope)  # only call *after* overlay is created
+        self._catalog_panel.configure(pb.scope, force=True)
         overlay.title.value = self._catalog_panel.title
         self.show_popup(overlay, hide_image_box=True)
 

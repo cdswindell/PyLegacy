@@ -14,6 +14,7 @@ from src.pytrain.db.component_state import ComponentStateDict
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.engine_discovery_service import EngineDiscoveryService
 from src.pytrain.db.engine_state import EngineState
+from src.pytrain.gui.controller.catalog_panel import CatalogPanel
 from src.pytrain.gui.controller.engine_add_session import EngineAddSession
 from src.pytrain.gui.controller.engine_gui import EngineGui
 from src.pytrain.gui.controller.engine_gui_conf import SET_KEY
@@ -650,3 +651,43 @@ def test_existing_complete_record_still_opens_for_explicit_review(states):
     assert panel.adding
     assert panel.details["name"][1].value == "Pennsylvania"
     close.assert_not_called()
+
+
+# Supply headless widget doubles for the real roster opening and configuration methods.
+# noinspection PyProtectedMember
+def test_reopening_engine_roster_lists_new_engine_with_saved_sort_and_filters():
+    scope = CommandScope.ENGINE
+    records = []
+    rows = []
+    gui = EngineGui.__new__(EngineGui)
+    gui._cv = Condition()
+    gui._route_builder_panel = None
+    gui.scope = scope
+    gui._state_store = SimpleNamespace(get_all=lambda _scope: records.copy())
+    gui.on_scope = Mock()
+    gui.show_popup = Mock()
+    panel = CatalogPanel(gui, width=700, height=800)
+    gui._catalog_panel = panel
+    panel._overlay = Mock(title=SimpleNamespace(value=""))
+    panel._catalog = Mock(append=rows.append, clear=rows.clear)
+    panel._sort_btns = SimpleNamespace(value="0")
+    panel._sel_1_btn = SimpleNamespace(value=0)
+    panel._sel_2_btn = SimpleNamespace(value=0)
+    panel._sel_3_btn = SimpleNamespace(value=0)
+    panel._scoped_sort_order[scope] = 2
+    panel._scoped_selection[scope] = (1, 0, 0)
+    button = Mock(scope=scope)
+
+    gui.on_scope_hold(button)
+    assert rows == []
+
+    records.extend(
+        [
+            SimpleNamespace(tmcc_id=10, name="Steam engine", is_name=True, is_diesel=False, is_steam=True),
+            SimpleNamespace(tmcc_id=8, name="John Deere", is_name=True, is_diesel=True, is_steam=False),
+        ]
+    )
+    gui.on_scope_hold(button)
+
+    assert rows == ["8: John Deere"]
+    assert panel._sort_btns.value == "2"
