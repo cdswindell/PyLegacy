@@ -483,6 +483,7 @@ class StateInfoOverlay(OverlayPanel):
         if was_adding:
             self.gui.popup_manager.set_closes_on_request(overlay, False)
             if not self._created:
+                self.gui.popup_manager.skip_content_restore()
                 self.gui._keypad_view.entry_mode(clear_info=False)
 
     def end_inline_edits(self, *, commit: bool = True) -> None:

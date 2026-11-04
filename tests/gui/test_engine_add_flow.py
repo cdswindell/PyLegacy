@@ -1,5 +1,6 @@
 """Engine SET creates an isolated draft and persists only on explicit creation."""
 
+from contextlib import nullcontext
 from queue import Queue
 from threading import Condition, Event
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ from src.pytrain.gui.controller.engine_add_session import EngineAddSession
 from src.pytrain.gui.controller.engine_gui import EngineGui
 from src.pytrain.gui.controller.engine_gui_conf import SET_KEY
 from src.pytrain.gui.controller.keypad_view import KeypadView
+from src.pytrain.gui.controller.popup_manager import PopupManager
 from src.pytrain.gui.controller.state_info_overlay import StateInfoOverlay
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
@@ -299,9 +301,27 @@ def test_cancel_discards_edits_preserves_arriving_metadata_and_returns_to_keypad
     panel._on_control_edited(Field(), 2, 1)
     populate(state)
     panel.update(state)
-    # Simulate the popup manager's post-close callback without allocating its Tk overlay.
+    host.locked = nullcontext
+    host.image_box = None
+    host.acc_overlay = None
+    # The headless host supplies the popup manager's close services.
+    # noinspection PyTypeChecker
+    manager = PopupManager(host)
+    host.popup_manager = manager
+    overlay = Mock(confirm_close=panel.confirm_close)
+    ops_panel = Mock()
+    # Seed the state normally captured when the popup covers Engine Ops.
     # noinspection PyProtectedMember
-    panel._post_close_action(None)
+    panel._overlay = overlay
+    # noinspection PyProtectedMember
+    manager._state.on_close_show = ops_panel
+    # noinspection PyProtectedMember
+    manager._post_close_actions[id(overlay)] = panel._post_close_action
+
+    panel.clear_btn.on_press()
+
+    overlay.hide.assert_called_once()
+    ops_panel.show.assert_not_called()
     dispatch.assert_not_called()
     assert not panel.adding
     assert state.comp_data.road_name == "Pennsylvania"

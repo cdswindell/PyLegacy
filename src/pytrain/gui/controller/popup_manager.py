@@ -837,6 +837,10 @@ class PopupManager:
         """Let a reusable panel protect an active editing session from background refreshes."""
         setattr(overlay, _ON_REQUEST_ATTR, enabled)
 
+    def skip_content_restore(self) -> None:
+        """Let a closing panel choose the next view instead of restoring the previous one."""
+        self._state.on_close_show = None
+
     def close_requested(self, overlay: Box | None = None) -> bool:
         """Close a popup because something asked for it: Close, or the pad's close key.
 
