@@ -68,6 +68,8 @@ from ...db.component_state_store import ComponentStateStore
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
 from ...db.state_watcher import StateWatcher
+from ...pdi.constants import PdiCommand
+from ...pdi.ble_req import BleReq
 from ...pdi.pdi_listener import PdiDispatcher
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
@@ -336,6 +338,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._lcs_config_panel = None
         self._route_builder_panel = None
         self._catalog_panel = None
+        self._engine_roster_dirty = False
         self._lighting_panel = None
         self._rr_speed_panel = None
         self._state_info = None
@@ -383,8 +386,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
 
-    def __call__(self, state: S):
-        if isinstance(state, ComponentState) and not self._shutdown_flag.is_set():
+    def __call__(self, state: S | BleReq) -> None:
+        if self._shutdown_flag.is_set():
+            return
+        if isinstance(state, BleReq):
+            with self._cv:
+                self._engine_roster_dirty = True
+        elif isinstance(state, ComponentState):
             self._message_queue.put((self._rebuild_state_caches, [state]))
 
     @property
@@ -739,13 +747,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.app.tk.after(750, self._start_accessory_overlay_prewarm)
         self._start_accessory_config_watcher()
 
-        # register this class to receive delete events
-        PdiDispatcher.get().subscribe_delete(self)
+        dispatcher = PdiDispatcher.get()
+        dispatcher.subscribe_delete(self)
+        dispatcher.subscribe(self, PdiCommand.BLE_RX)
 
     def destroy_gui(self) -> None:
         self._stop_accessory_config_watcher()
         if PdiDispatcher.is_built():
-            PdiDispatcher.get().unsubscribe_delete(self)
+            dispatcher = PdiDispatcher.get()
+            dispatcher.unsubscribe(self, PdiCommand.BLE_RX)
+            dispatcher.unsubscribe_delete(self)
         self.clear_cache()
         self.engine_ops_cells.clear()
         self.box = None
@@ -1923,8 +1934,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._catalog_panel = CatalogPanel(
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
-        overlay = self._catalog_panel.overlay
-        self._catalog_panel.configure(pb.scope, force=True)
+            overlay = self._catalog_panel.overlay
+            refresh = pb.scope == CommandScope.ENGINE and self._engine_roster_dirty
+            self._catalog_panel.configure(pb.scope, force=refresh)
+            if refresh:
+                self._engine_roster_dirty = False
         overlay.title.value = self._catalog_panel.title
         self.show_popup(overlay, hide_image_box=True)
 

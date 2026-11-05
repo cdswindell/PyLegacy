@@ -39,8 +39,8 @@ def test_set_address_has_no_discovery_subscription(monkeypatch, discovery):
         PdiListener,
         "get",
         lambda: SimpleNamespace(
-            subscribe_any=lambda subscriber: None,
-            unsubscribe_any=lambda subscriber: None,
+            subscribe=lambda *_args, **_kwargs: None,
+            unsubscribe=lambda *_args, **_kwargs: None,
         ),
     )
     service.start()
@@ -53,28 +53,35 @@ def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
     service, _, callback = discovery
     subscribers = set()
 
-    def subscribe(subscriber):
-        subscribers.add(subscriber)
+    def subscribe(subscriber, command, *, action=None):
+        subscribers.add((subscriber, command, action))
 
-    def unsubscribe(subscriber):
-        subscribers.remove(subscriber)
+    def unsubscribe(subscriber, command, *, action=None):
+        subscribers.remove((subscriber, command, action))
+
+    expected = {
+        (service, PdiCommand.BLE_RX, None),
+        (service, PdiCommand.D4_ENGINE, D4Action.FIRST_REC),
+        (service, PdiCommand.D4_ENGINE, D4Action.NEXT_REC),
+    }
 
     monkeypatch.setattr(
         PdiListener,
         "get",
-        lambda: SimpleNamespace(subscribe_any=subscribe, unsubscribe_any=unsubscribe),
+        lambda: SimpleNamespace(subscribe=subscribe, unsubscribe=unsubscribe),
     )
     monkeypatch.setattr(PdiListener, "enqueue_command", lambda request: None)
     monkeypatch.setattr(service, "_arm_timeout", lambda: None)
 
     service.start()
-    assert service in subscribers
+    assert subscribers == expected
     service.start()  # Idempotent registration.
-    assert len(subscribers) == 1
+    assert subscribers == expected
 
     notification = BleReq(bytes.fromhex("d1760012000030373337a7df"), PdiCommand.BLE_RX)
-    for subscriber in tuple(subscribers):
-        subscriber(notification)
+    for registered_subscriber, topic, registered_action in tuple(subscribers):
+        if topic == PdiCommand.BLE_RX and registered_action is None:
+            registered_subscriber(notification)
     callback.assert_called_once_with(notification.tmcc_id)
     assert service._active == notification.tmcc_id
 
@@ -82,7 +89,7 @@ def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
     assert not subscribers
     service.stop()  # Idempotent shutdown.
     service.start()  # Restart must re-register the listener.
-    assert service in subscribers
+    assert subscribers == expected
     service.stop()
     assert not subscribers
 

@@ -22,6 +22,7 @@ from src.pytrain.gui.controller.keypad_view import KeypadView
 from src.pytrain.gui.controller.popup_manager import PopupManager
 from src.pytrain.gui.controller.state_info_overlay import StateInfoOverlay
 from src.pytrain.pdi.base_req import BaseReq
+from src.pytrain.pdi.ble_req import BleReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_listener import PdiDispatcher
@@ -655,12 +656,14 @@ def test_existing_complete_record_still_opens_for_explicit_review(states):
 
 # Supply headless widget doubles for the real roster opening and configuration methods.
 # noinspection PyProtectedMember
-def test_reopening_engine_roster_lists_new_engine_with_saved_sort_and_filters():
+def test_ble_broadcast_refreshes_engine_roster_once_on_next_open():
     scope = CommandScope.ENGINE
     records = []
     rows = []
     gui = EngineGui.__new__(EngineGui)
     gui._cv = Condition()
+    gui._shutdown_flag = Event()
+    gui._engine_roster_dirty = False
     gui._route_builder_panel = None
     gui.scope = scope
     gui._state_store = SimpleNamespace(get_all=lambda _scope: records.copy())
@@ -669,7 +672,8 @@ def test_reopening_engine_roster_lists_new_engine_with_saved_sort_and_filters():
     panel = CatalogPanel(gui, width=700, height=800)
     gui._catalog_panel = panel
     panel._overlay = Mock(title=SimpleNamespace(value=""))
-    panel._catalog = Mock(append=rows.append, clear=rows.clear)
+    clear_rows = Mock(side_effect=rows.clear)
+    panel._catalog = Mock(append=rows.append, clear=clear_rows)
     panel._sort_btns = SimpleNamespace(value="0")
     panel._sel_1_btn = SimpleNamespace(value=0)
     panel._sel_2_btn = SimpleNamespace(value=0)
@@ -688,6 +692,18 @@ def test_reopening_engine_roster_lists_new_engine_with_saved_sort_and_filters():
         ]
     )
     gui.on_scope_hold(button)
+    clear_rows.assert_called_once()
+    assert rows == []
+
+    gui(BleReq(bytes.fromhex("d1760212ffff78df")))
+    gui.on_scope_hold(Mock(scope=CommandScope.TRAIN))
+    assert gui._engine_roster_dirty
+    gui.on_scope_hold(button)
 
     assert rows == ["8: John Deere"]
     assert panel._sort_btns.value == "2"
+
+    assert not gui._engine_roster_dirty
+    assert clear_rows.call_count == 3
+    gui.on_scope_hold(button)
+    assert clear_rows.call_count == 3

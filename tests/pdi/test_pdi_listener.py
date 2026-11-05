@@ -28,8 +28,8 @@ class _Catcher:
         self.messages = []
         self.ev = threading.Event()
 
-    def __call__(self, msg):
-        self.messages.append(msg)
+    def __call__(self, message) -> None:
+        self.messages.append(message)
         self.ev.set()
 
     def wait(self, timeout=1.0):
@@ -183,6 +183,22 @@ def test_dispatcher_offer_accepts_bytes_or_req_and_filters_ack_ping_free_path():
 
     listener.unsubscribe_any(catcher)
     PdiListener.stop()
+
+
+@pytest.mark.parametrize(
+    ("packet", "tmcc_id"),
+    [("d17600121fff5adf", 31), ("d1760212ffff78df", 0)],
+)
+def test_ble_rx_topic_delivers_addressed_and_addressless_packets(packet, tmcc_id):
+    listener = PdiListener.build(base3=None, build_base3_reader=False)
+    catcher = _Catcher()
+    listener.subscribe(catcher, PdiCommand.BLE_RX)
+
+    listener.dispatcher.offer(bytes.fromhex(packet))
+
+    assert catcher.wait()
+    assert [message.tmcc_id for message in catcher.messages] == [tmcc_id]
+    listener.unsubscribe(catcher, PdiCommand.BLE_RX)
 
 
 def test_dispatcher_publishes_delete_for_inactive_base_memory_record(monkeypatch):
