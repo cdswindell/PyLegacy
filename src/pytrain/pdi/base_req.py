@@ -174,7 +174,9 @@ class BaseReq(PdiReq, CompDataMixin):
             # if cmd.address is 99, the broadcast address, just return...
             if address == 99:
                 return []
-            # otherwise, get state
+            # Four-digit programming is confirmed by discovery of a Base 3 roster record.
+            if scope == CommandScope.ENGINE and address > 99 and state == TMCC2EngineCommandEnum.SET_ADDRESS:
+                return []
             cur_state = ComponentStateStore.get_state(scope, address, False)
             if cur_state is None:
                 # we need to initialize a new state record

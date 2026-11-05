@@ -208,6 +208,13 @@ class ComponentStateStore:
                 return
             try:
                 if isinstance(command, CommandReq):
+                    # A four-digit address programming echo carries no engine state.
+                    if (
+                        command.scope == CommandScope.ENGINE
+                        and command.address > 99
+                        and command.command == Engine2.SET_ADDRESS
+                    ):
+                        return
                     if command.is_halt:  # send to all known devices
                         if self._filter_updates and command.is_filtered:
                             if log.isEnabledFor(logging.DEBUG):

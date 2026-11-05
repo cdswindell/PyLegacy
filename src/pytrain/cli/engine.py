@@ -789,6 +789,9 @@ class EngineCli(CliBaseTMCC):
                 state = ComponentStateStore.get_state(scope, tmcc_id, False)
                 if state and state.is_legacy:
                     self._command_format = CommandSyntax.LEGACY
+                elif state is None and 100 <= tmcc_id <= 9999:
+                    # Force 4D commands if tmcc id is in 4D range
+                    self._command_format = CommandSyntax.LEGACY
                 else:
                     self._command_format = CommandSyntax.TMCC
             else:

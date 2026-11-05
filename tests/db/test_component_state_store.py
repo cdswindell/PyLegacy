@@ -7,9 +7,11 @@ import pytest
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener
 from src.pytrain.db.component_state import ComponentState, SwitchState
 from src.pytrain.db.component_state_store import ComponentStateStore
+from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from tests.test_base import TestBase, wait_until
 
 
@@ -30,6 +32,20 @@ def run_before_and_after_tests() -> None:
     if CommandDispatcher.is_built():
         CommandDispatcher().shutdown()
     assert CommandDispatcher.is_built() is False
+
+
+def test_four_digit_set_address_does_not_create_engine_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The singleton has no teardown API. Restore its prior instance after this test.
+    monkeypatch.setattr(ComponentStateStore, "_instance", None)
+    store = ComponentStateStore.build(is_base=True)
+    command = CommandReq.build(TMCC2EngineCommandEnum.SET_ADDRESS, 738)
+
+    assert BaseReq.update_eng(command) == []
+    assert store.query(CommandScope.ENGINE, 738) is None
+
+    echo = CommandReq.from_bytes(command.as_bytes, from_tmcc_rx=True)
+    store(echo)
+    assert store.query(CommandScope.ENGINE, 738) is None
 
 
 class TestComponentStateStore(TestBase):
