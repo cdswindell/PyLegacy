@@ -12,7 +12,7 @@ from src.pytrain.pdi.ble_req import BleReq
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_listener import PdiListener
 from src.pytrain.pdi.constants import D4Action, PdiCommand
-from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.constants import CREATE_TOPIC, CommandScope
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
         subscribers.remove((subscriber, command, action))
 
     expected = {
-        (service, PdiCommand.BLE_RX, None),
+        (service, CREATE_TOPIC, None),
         (service, PdiCommand.D4_ENGINE, D4Action.FIRST_REC),
         (service, PdiCommand.D4_ENGINE, D4Action.NEXT_REC),
     }
@@ -80,7 +80,7 @@ def test_start_subscribes_and_stop_unsubscribes(monkeypatch, discovery):
 
     notification = BleReq(bytes.fromhex("d1760012000030373337a7df"), PdiCommand.BLE_RX)
     for registered_subscriber, topic, registered_action in tuple(subscribers):
-        if topic == PdiCommand.BLE_RX and registered_action is None:
+        if topic == CREATE_TOPIC and registered_action is None:
             registered_subscriber(notification)
     callback.assert_called_once_with(notification.tmcc_id)
     assert service._active == notification.tmcc_id

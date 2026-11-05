@@ -22,7 +22,7 @@ from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import PdiReq
-from ..protocol.constants import CommandScope
+from ..protocol.constants import CREATE_TOPIC, CommandScope
 
 log = logging.getLogger(__name__)
 
@@ -260,22 +260,22 @@ class EngineDiscoveryService:
         if self._started:
             return
         listener = PdiListener.get()
-        listener.subscribe(self, PdiCommand.BLE_RX)
+        listener.subscribe(self, CREATE_TOPIC)
         # Roster replies can arrive without an engine address.
         listener.subscribe(self, PdiCommand.D4_ENGINE, action=D4Action.FIRST_REC)
         listener.subscribe(self, PdiCommand.D4_ENGINE, action=D4Action.NEXT_REC)
         self._started = True
-        log.info("Engine discovery subscribed to Bluetooth broadcasts")
+        log.info("Engine discovery subscribed to creation notifications")
         self._begin_next()
 
     def stop(self) -> None:
         if not self._started:
             return
         listener = PdiListener.get()
-        listener.unsubscribe(self, PdiCommand.BLE_RX)
+        listener.unsubscribe(self, CREATE_TOPIC)
         listener.unsubscribe(self, PdiCommand.D4_ENGINE, action=D4Action.FIRST_REC)
         listener.unsubscribe(self, PdiCommand.D4_ENGINE, action=D4Action.NEXT_REC)
-        log.info("Engine discovery unsubscribed from Bluetooth broadcasts")
+        log.info("Engine discovery unsubscribed from creation notifications")
         with self._lock:
             if self._timeout is not None:
                 self._timeout.cancel()

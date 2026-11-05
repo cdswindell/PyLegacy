@@ -460,6 +460,8 @@ def pending_gui(store, state):
     return gui, panel, host
 
 
+# Initialize only the dispatcher fields needed to run the queue synchronously.
+# noinspection PyProtectedMember
 def dispatch_empty_record(gui, state):
     """Run the actual PDI empty-record deletion and its queued GUI subscriber callback."""
     payload = EngineData(None, state.tmcc_id).as_bytes()
@@ -475,20 +477,24 @@ def dispatch_empty_record(gui, state):
     assert not response.is_active
     queue = Queue()
     queue.put(response)
-    dispatcher = SimpleNamespace(
-        _is_running=True,
-        _cv=Condition(),
-        _queue=queue,
-        is_broadcasts_enabled=False,
-        is_deletes_enabled=True,
-        is_server=False,
-        publish=lambda _topic, cleared: gui(cleared),
-    )
-    # Stop the real dispatch loop after this one packet; no listener thread or socket is needed.
-    queue.task_done = lambda: setattr(dispatcher, "_is_running", False)
-    # The dispatcher loop uses only the queue and subscriber services supplied above.
-    # noinspection PyTypeChecker
-    PdiDispatcher.run(dispatcher)
+    dispatcher = object.__new__(PdiDispatcher)
+    dispatcher._is_running = True
+    dispatcher._cv = Condition()
+    dispatcher._queue = queue
+    dispatcher._broadcasts = False
+    dispatcher._deletes = True
+    dispatcher._is_server = False
+    dispatcher.publish = lambda _topic, cleared: gui(cleared)
+
+    # Stop the real dispatch loop after this one packet.
+    original_task_done = queue.task_done
+
+    def finish_dispatch():
+        original_task_done()
+        dispatcher._is_running = False
+
+    queue.task_done = finish_dispatch
+    dispatcher.run()
     # Drain the same callbacks the GUI event loop drains, including its deletion notification.
     # noinspection PyProtectedMember
     while not gui._message_queue.empty():
@@ -501,6 +507,7 @@ def dispatch_empty_record(gui, state):
 # noinspection PyProtectedMember
 def test_empty_base_response_preserves_creation_selection_draft_and_watcher(real_store):
     original = real_store.get_state(CommandScope.ENGINE, 8)
+    assert isinstance(original, EngineState)
     gui, panel, _host = pending_gui(real_store, original)
     old_watcher = gui._scope_watchers[CommandScope.ENGINE]
     # Exercise the field callback without allocating an EditableText widget.
@@ -508,9 +515,10 @@ def test_empty_base_response_preserves_creation_selection_draft_and_watcher(real
     panel._on_road_name_edited(Field(), "My Engine", "Engine 8")
     try:
         dispatch_empty_record(gui, original)
-        replacement = real_store.get_state(CommandScope.ENGINE, 8, create=False)
+        replacement: EngineState | None = real_store.get_state(CommandScope.ENGINE, 8, create=False)
         assert original.is_deleted
-        assert replacement is not None and replacement is not original
+        assert replacement is not original
+        assert replacement is not None
         assert not replacement.is_deleted
         assert replacement.comp_data is None
         assert not replacement.is_comp_data_record
@@ -535,6 +543,7 @@ def test_empty_base_response_preserves_creation_selection_draft_and_watcher(real
 # noinspection PyProtectedMember
 def test_create_after_empty_response_uses_replacement_state(real_store, monkeypatch):
     state = real_store.get_state(CommandScope.ENGINE, 8)
+    assert isinstance(state, EngineState)
     gui, panel, host = pending_gui(real_store, state)
     dispatch = Mock()
     monkeypatch.setattr(BaseReq, "process_sync_reqs", dispatch)

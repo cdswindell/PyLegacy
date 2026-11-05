@@ -390,7 +390,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = False,
         base3_receiver: bool = False,
-        server_port: int = None,
+        server_port: int | None = None,
     ) -> CommandDispatcher:
         """
         Factory method to create a CommandDispatcher instance
@@ -408,9 +408,9 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         cls,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 

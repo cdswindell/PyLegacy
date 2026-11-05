@@ -68,7 +68,6 @@ from ...db.component_state_store import ComponentStateStore
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
 from ...db.state_watcher import StateWatcher
-from ...pdi.constants import PdiCommand
 from ...pdi.ble_req import BleReq
 from ...pdi.pdi_listener import PdiDispatcher
 from ...protocol.command_def import CommandDefEnum
@@ -749,13 +748,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         dispatcher = PdiDispatcher.get()
         dispatcher.subscribe_delete(self)
-        dispatcher.subscribe(self, PdiCommand.BLE_RX)
+        dispatcher.subscribe_create(self)
 
     def destroy_gui(self) -> None:
         self._stop_accessory_config_watcher()
         if PdiDispatcher.is_built():
             dispatcher = PdiDispatcher.get()
-            dispatcher.unsubscribe(self, PdiCommand.BLE_RX)
+            dispatcher.unsubscribe_create(self)
             dispatcher.unsubscribe_delete(self)
         self.clear_cache()
         self.engine_ops_cells.clear()
