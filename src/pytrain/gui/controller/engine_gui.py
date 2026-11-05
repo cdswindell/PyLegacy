@@ -389,7 +389,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if self._shutdown_flag.is_set():
             return
         if isinstance(state, BleReq):
-            print(f"BLE: {state}")
             with self._cv:
                 self._engine_roster_dirty = True
         elif isinstance(state, ComponentState):
