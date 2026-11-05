@@ -246,12 +246,12 @@ class EngineDiscoveryService:
 
     def __call__(self, notification: PdiReq) -> None:
         if isinstance(notification, BleReq):
-            log.info(
-                "Engine discovery received BLE notification: TMCC ID %s, programming=%s",
-                notification.tmcc_id,
-                notification.is_programming,
-            )
             if notification.is_programming:
+                log.info(
+                    "Engine discovery received BLE notification: TMCC ID %s, programming=%s",
+                    notification.tmcc_id,
+                    notification.is_programming,
+                )
                 self.request_discovery(notification.tmcc_id)
         elif isinstance(notification, D4Req):
             self._on_d4(notification)
@@ -259,18 +259,23 @@ class EngineDiscoveryService:
     def start(self) -> None:
         if self._started:
             return
-        # Like StartupState, subscribe to all PDI responses so FIRST_REC
-        # can be received even though it has no engine TMCC ID.
-        PdiListener.get().subscribe_any(self)
+        listener = PdiListener.get()
+        listener.subscribe(self, PdiCommand.BLE_RX)
+        # Roster replies can arrive without an engine address.
+        listener.subscribe(self, PdiCommand.D4_ENGINE, action=D4Action.FIRST_REC)
+        listener.subscribe(self, PdiCommand.D4_ENGINE, action=D4Action.NEXT_REC)
         self._started = True
-        log.info("Engine discovery subscribed to PDI broadcasts")
+        log.info("Engine discovery subscribed to Bluetooth broadcasts")
         self._begin_next()
 
     def stop(self) -> None:
         if not self._started:
             return
-        PdiListener.get().unsubscribe_any(self)
-        log.info("Engine discovery unsubscribed from PDI broadcasts")
+        listener = PdiListener.get()
+        listener.unsubscribe(self, PdiCommand.BLE_RX)
+        listener.unsubscribe(self, PdiCommand.D4_ENGINE, action=D4Action.FIRST_REC)
+        listener.unsubscribe(self, PdiCommand.D4_ENGINE, action=D4Action.NEXT_REC)
+        log.info("Engine discovery unsubscribed from Bluetooth broadcasts")
         with self._lock:
             if self._timeout is not None:
                 self._timeout.cancel()

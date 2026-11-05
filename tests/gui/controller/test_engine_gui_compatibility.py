@@ -339,13 +339,16 @@ def test_destroy_gui_releases_standalone_subscriptions_and_widget_cache(monkeypa
     gui._image = object()
     calls: list[object] = []
     gui.clear_cache = lambda: calls.append("clear_cache")
-    dispatcher = SimpleNamespace(unsubscribe_delete=lambda target: calls.append(target))
+    dispatcher = SimpleNamespace(
+        unsubscribe=lambda target, command: calls.append((command, target)),
+        unsubscribe_delete=lambda target: calls.append(target),
+    )
     monkeypatch.setattr(mod.PdiDispatcher, "is_built", staticmethod(lambda: True))
     monkeypatch.setattr(mod.PdiDispatcher, "get", staticmethod(lambda: dispatcher))
 
     gui.destroy_gui()
 
-    assert calls == [gui, "clear_cache"]
+    assert calls == [(mod.PdiCommand.BLE_RX, gui), gui, "clear_cache"]
     assert gui.engine_ops_cells == {}
     assert gui.box is None
     assert gui.acc_box is None
@@ -805,7 +808,9 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
     monkeypatch.setattr(
         mod.PdiDispatcher,
         "get",
-        staticmethod(lambda: SimpleNamespace(subscribe_delete=lambda _target: None)),
+        staticmethod(
+            lambda: SimpleNamespace(subscribe_delete=lambda _target: None, subscribe=lambda _target, _command: None)
+        ),
     )
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._app = app
@@ -888,7 +893,9 @@ def test_portrait_build_reserves_the_bottom_edge_before_anything_is_packed(
     monkeypatch.setattr(
         mod.PdiDispatcher,
         "get",
-        staticmethod(lambda: SimpleNamespace(subscribe_delete=lambda _target: None)),
+        staticmethod(
+            lambda: SimpleNamespace(subscribe_delete=lambda _target: None, subscribe=lambda _target, _command: None)
+        ),
     )
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._app = app

@@ -388,6 +388,9 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                             if hasattr(cmd, "action"):
                                 self.publish((cmd.command, cmd.action), cmd)
                                 self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
+
+                            # users can subscribe t a command class, like "Any BLE_RX Packet"
+                            self.publish(cmd.command, cmd)
                             self.publish((cmd.scope, cmd.tmcc_id), cmd)
                             self.publish(cmd.scope, cmd)
 
@@ -396,6 +399,11 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         # has been handled via the call to tmcc_dispatcher.offer above
                         if self.is_server:
                             self.update_client_state(cmd)
+                    else:
+                        if getattr(cmd, "action", None):
+                            self.publish((cmd.command, cmd.action), cmd)
+                        else:
+                            self.publish(cmd.command, cmd)
             except Exception as e:
                 log.error(f"PdiDispatcher: Error publishing {cmd}")
                 log.exception(e)

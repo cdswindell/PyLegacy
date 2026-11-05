@@ -832,6 +832,15 @@ class PopupManager:
             # a popup that failed to appear, which would run the rollback above on a live overlay.
             balance_footer_row(host, overlay)
 
+    @staticmethod
+    def set_closes_on_request(overlay: Box, enabled: bool) -> None:
+        """Let a reusable panel protect an active editing session from background refreshes."""
+        setattr(overlay, _ON_REQUEST_ATTR, enabled)
+
+    def skip_content_restore(self) -> None:
+        """Let a closing panel choose the next view instead of restoring the previous one."""
+        self._state.on_close_show = None
+
     def close_requested(self, overlay: Box | None = None) -> bool:
         """Close a popup because something asked for it: Close, or the pad's close key.
 
