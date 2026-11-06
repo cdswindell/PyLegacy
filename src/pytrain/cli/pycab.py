@@ -344,16 +344,16 @@ class PyCabGuiCmd(CommandBase):
             cache_sync=True,
             debug=self._cli.args.debug,
             echo=self._cli.args.echo,
+            gui_admin_close=self._close_for_admin_action,
         )
         self._command = self._build_command()
-        # CommandBase starts a PyTrain API-style worker to avoid blocking Tk.
-        # PyCab is its own GUI host, not PyTrainApi: close Tk on admin exits.
-        if getattr(self, "_pytrain", None) is not None:
-            self.pytrain._gui_admin_close = self._close_for_admin_action
 
     def _close_for_admin_action(self) -> None:
         if self._gui is not None:
             self._gui.close()
+        else:
+            # A startup update skips roster sync, so wake the main thread directly.
+            self._sc.set()
 
     @property
     def scope(self) -> CommandScope:
@@ -378,6 +378,19 @@ class PyCabGuiCmd(CommandBase):
         # pause until Base 3 sync complete: the panel is built from the component state
         # store, so it has to be loaded before the window is laid out.
         self.wait_for_sync()
+        if self.pytrain is not None and getattr(self.pytrain, "_exit_requested", False):
+            watcher = getattr(self, "_sync_watcher", None)
+            if watcher is not None:
+                try:
+                    watcher.shutdown()
+                except Exception as e:
+                    log.warning("Error closing startup sync watcher: %s", e)
+            # Give the worker a chance to finish its cleanup before changing API mode.
+            worker = self.pytrain._api_thread
+            if worker is not None:
+                worker.join(timeout=1.0)
+            self._perform_server_admin_action()
+            return
 
         log.info(
             f"Opening cab control panel window "

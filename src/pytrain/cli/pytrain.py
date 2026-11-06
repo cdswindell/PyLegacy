@@ -20,6 +20,7 @@ import socket
 import subprocess
 import sys
 from argparse import SUPPRESS, ArgumentError, ArgumentParser
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Empty, Queue
@@ -122,7 +123,7 @@ class PyTrain:
             raise RuntimeError(f"{pn}.current() called before {pn} was created")
         return cls._current
 
-    def __init__(self, cmd_line: List[str] | None = None) -> None:
+    def __init__(self, cmd_line: List[str] | None = None, *, gui_admin_close: Callable[[], None] | None = None) -> None:
         from .. import get_version
         from ..utils.logging_manager import LoggingManager
 
@@ -158,6 +159,7 @@ class PyTrain:
         self._service_info = None
         self._api = False
         self._api_thread = None
+        self._gui_admin_close = gui_admin_close
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = Event()
@@ -370,6 +372,8 @@ class PyTrain:
                 assert isinstance(self._tmcc_listener, ClientStateListener)
                 if self._tmcc_listener.update_client_if_needed() and not self_update_disabled():
                     self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
+                    if getattr(self, "_gui_admin_close", None) is not None and self._shutdown_started:
+                        return
                 else:
                     self._load_client_state()
 

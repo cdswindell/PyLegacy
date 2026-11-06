@@ -11,6 +11,7 @@ import abc
 import logging
 import threading
 from abc import ABC
+from collections.abc import Callable
 from ipaddress import IPv4Address, IPv6Address
 from typing import TYPE_CHECKING, Sequence, TypeVar, cast
 
@@ -18,7 +19,7 @@ from ..comm.comm_buffer import CommBuffer
 from ..db.state_watcher import StateWatcher
 from ..pdi.pdi_req import PdiReq
 from ..utils.validations import Validations
-from .command_def import CommandDef, CommandDefEnum
+from .command_def import CommandDefEnum
 from .command_req import CommandReq
 from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL_MSEC, PROGRAM_NAME, CommandScope
 
@@ -33,21 +34,24 @@ R = TypeVar("R", bound=CommandReq | PdiReq | Sequence[CommandReq | PdiReq])
 class CommandBase(ABC):
     __metaclass__ = abc.ABCMeta
 
+    # noinspection bad-argument-type,unresolved-references
     def __init__(
         self,
         command: CommandDefEnum | None,
         command_req: R | None,
         address: int = 99,
         data: int = 0,
-        scope: CommandScope = None,
+        scope: CommandScope | None = None,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
-        server: str = None,
+        server: str | None = None,
         client: bool = False,
-        base: str = None,
+        base: str | None = None,
         cache_sync: bool = False,
         debug: bool = False,
         echo: bool = False,
+        *,
+        gui_admin_close: Callable[[], None] | None = None,
     ) -> None:
         from ..cli.pytrain import PyTrain
 
@@ -86,22 +90,24 @@ class CommandBase(ABC):
                 pt_args += " -client"
                 log.warning("Assuming client mode...")
 
-            self._pytrain = PyTrain(pt_args.split())
-            if not self._pytrain.is_synchronized():
+            self._pytrain = PyTrain(pt_args.split(), gui_admin_close=gui_admin_close)
+            if not self._sc.is_set() and not self._pytrain.is_synchronized():
                 self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
                 self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
         else:
             self._pytrain = PyTrain.current()
+            if gui_admin_close is not None:
+                self._pytrain._gui_admin_close = gui_admin_close
             self._daemon = True
 
         assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"
 
         # persist command information
-        self._command_def_enum: CommandDefEnum = command
-        self._command_def: CommandDef = cast(CommandDefEnum, command).value if command else None
-        self._command_req: R = command_req
-        self._data: int = data
-        self._scope: CommandScope = scope
+        self._command_def_enum = command
+        self._command_def = cast(CommandDefEnum, command).value if command else None
+        self._command_req = command_req
+        self._data = data
+        self._scope = scope
 
         # build_req the command
         self._command = self._build_command()
@@ -151,14 +157,14 @@ class CommandBase(ABC):
 
     def send(
         self,
-        repeat: int = None,
-        delay: float = None,
-        duration: float = None,
-        interval: int = None,
+        repeat: int | None = None,
+        delay: float | None = None,
+        duration: float | None = None,
+        interval: int | None = None,
         shutdown: bool = False,
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
-        server: str = None,
+        server: str | None = None,
     ):
         """
         Send the command to the LCS SER2 and keep comm buffer alive.
@@ -223,7 +229,7 @@ class CommandBase(ABC):
             self._sc.set()
 
     @property
-    def pytrain(self) -> "PyTrain":
+    def pytrain(self) -> "PyTrain | None":
         return self._pytrain
 
     @staticmethod
