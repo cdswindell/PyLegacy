@@ -42,24 +42,49 @@ Rectangle {
         anchors.margins: root.piLayout ? 10 : (root.shortLayout ? 12 : 18)
         spacing: root.piLayout ? 5 : (root.shortLayout ? 6 : 9)
 
-        ColumnLayout {
+        RowLayout {
             Layout.fillWidth: true
-            spacing: 0
-            Label {
-                Layout.fillWidth: true
-                text: (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
-                color: "#f4f6f8"
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-                font.pixelSize: root.piLayout ? 22 : 27
-                font.bold: true
+            spacing: root.piLayout ? 6 : 10
+
+            CabButton {
+                Layout.preferredWidth: root.piLayout ? 110 : 134
+                Layout.preferredHeight: root.piLayout ? 44 : 50
+                text: "Reset"
+                font.pixelSize: root.piLayout ? 14 : 16
+                onClicked: cab.reset()
             }
-            Label {
+
+            ColumnLayout {
                 Layout.fillWidth: true
-                text: cab.scope + " " + cab.tmccId + "   " + (cab.direction || "—")
-                color: "#aeb5bf"
-                horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: root.piLayout ? 12 : 15
+                Layout.minimumWidth: 0
+                spacing: 0
+                Label {
+                    Layout.fillWidth: true
+                    text: (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
+                    color: "#f4f6f8"
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    font.pixelSize: root.piLayout ? 22 : 27
+                    font.bold: true
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: cab.scope + " " + cab.tmccId + "   " + (cab.direction || "—")
+                    color: "#aeb5bf"
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: root.piLayout ? 12 : 15
+                }
+            }
+
+            CabButton {
+                Layout.preferredWidth: root.piLayout ? 110 : 134
+                Layout.preferredHeight: root.piLayout ? 44 : 50
+                text: "ALL STOP"
+                font.pixelSize: root.piLayout ? 16 : 18
+                font.bold: true
+                normalColor: "#9d2020"
+                pressedColor: "#c62d2d"
+                onClicked: cab.stop()
             }
         }
 
@@ -436,28 +461,6 @@ Rectangle {
 
                 Item {
                     Layout.fillHeight: true
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    CabButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.piLayout ? 50 : 56
-                        text: "HALT"
-                        font.pixelSize: root.piLayout ? 18 : 20
-                        font.bold: true
-                        normalColor: "#9d2020"
-                        pressedColor: "#c62d2d"
-                        onClicked: cab.stop()
-                    }
-                    CabButton {
-                        Layout.preferredWidth: root.piLayout ? 94 : 112
-                        Layout.preferredHeight: root.piLayout ? 50 : 56
-                        text: "Reset"
-                        font.pixelSize: root.piLayout ? 14 : 15
-                        onClicked: cab.reset()
-                    }
                 }
             }
         }

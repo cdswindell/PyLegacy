@@ -263,7 +263,7 @@ Rectangle {
             CabButton {
                 Layout.preferredWidth: 120
                 Layout.preferredHeight: 54
-                text: "HALT"
+                text: "ALL STOP"
                 font.bold: true
                 normalColor: "#9d2020"
                 pressedColor: "#c62d2d"
