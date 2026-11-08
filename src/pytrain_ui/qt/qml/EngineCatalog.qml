@@ -11,17 +11,20 @@ Rectangle {
     signal engineSelected()
     signal closeRequested()
     signal engineRequested(int tmccId)
+    signal stateInfoRequested(string scope, int tmccId)
 
     onEngineRequested: function(tmccId) {
-        if (scope === "TRAIN") {
-            if (!cab.selectAddress("TRAIN", tmccId))
-                return
-        } else
+        if (!cab.selectAddress(scope, tmccId)) {
+            stateInfoRequested(scope, tmccId)
+            return
+        }
+        if (scope === "ENGINE")
             selection.selectEngine(tmccId)
         directTmccId = 0
         searchText = ""
         engineSelected()
     }
+
 
     color: "#15191f"
     radius: 10
@@ -104,6 +107,10 @@ Rectangle {
                 selectByMouse: true
                 text: root.searchText
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
+                onAccepted: {
+                    if (/^[0-9]{1,4}$/.test(text) && Number(text) > 0)
+                        root.engineRequested(Number(text))
+                }
             }
             CabButton {
                 Layout.preferredWidth: 72
@@ -223,15 +230,8 @@ Rectangle {
         title: (root.scope === "TRAIN" ? "Train" : "Engine") + " TMCC ID"
         maximumId: 9999
         onSubmitted: function(tmccId) {
-            if (!root.targets.some(function(target) { return target.tmccId === tmccId })) {
-                errorText = "No " + (root.scope === "TRAIN" ? "train" : "engine") + " with TMCC ID " + tmccId + "."
-                return
-            }
-            root.directTmccId = tmccId
-            root.searchText = String(tmccId)
             close()
-            listView.positionViewAtBeginning()
-            listView.forceActiveFocus()
+            root.engineRequested(tmccId)
         }
     }
 

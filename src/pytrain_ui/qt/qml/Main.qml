@@ -17,6 +17,9 @@ ApplicationWindow {
     property string activeScope: "ENGINE"
     property var activeAccessory: ({})
     property bool accessoryOperatingVisible: false
+    property bool stateInfoVisible: false
+    property string stateInfoScope: "ENGINE"
+    property int stateInfoId: 0
 
     ColumnLayout {
         anchors.fill: parent
@@ -26,7 +29,8 @@ ApplicationWindow {
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: window.activeScope === "SWITCH" ? 2 :
+            currentIndex: window.stateInfoVisible ? 5 :
+                          window.activeScope === "SWITCH" ? 2 :
                           window.activeScope === "ROUTE" ? 3 :
                           window.activeScope === "ACCESSORY" ? 4 :
                           window.engineCatalogVisible ? 1 : 0
@@ -41,7 +45,14 @@ ApplicationWindow {
                 cab: cabController
                 catalog: engineCatalogController
                 selection: selectedEngineController
+                onStateInfoRequested: function(scope, tmccId) {
+                    window.stateInfoScope = scope
+                    window.stateInfoId = tmccId
+                    window.stateInfoVisible = true
+                    window.engineCatalogVisible = true
+                }
                 onEngineSelected: {
+                    window.stateInfoVisible = false
                     window.engineCatalogVisible = false
                 }
                 onCloseRequested: {
@@ -86,12 +97,19 @@ ApplicationWindow {
                     onCloseRequested: window.accessoryOperatingVisible = false
                 }
             }
+
+            StateInfoView {
+                scope: window.stateInfoScope
+                tmccId: window.stateInfoId
+                onCloseRequested: window.stateInfoVisible = false
+                onAllStopRequested: cabController.halt()
+            }
         }
 
         SelectedEngineBar {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 58 : 0
-            visible: window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
+            visible: !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
             selection: selectedEngineController
         }
 
@@ -100,6 +118,7 @@ ApplicationWindow {
             Layout.preferredHeight: 52
             currentScope: window.activeScope
             onScopePressed: function(scope) {
+                window.stateInfoVisible = false
                 switchOpsView.cancelTransientPanels()
                 routeOpsView.cancelTransientPanels()
                 accessoryCatalog.cancelTransientPanels()
@@ -129,7 +148,13 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible
+        enabled: window.stateInfoVisible
+        onActivated: window.stateInfoVisible = false
+    }
+
+    Shortcut {
+        sequence: "Escape"
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible
         onActivated: {
             window.activeScope = cabController.scope
             window.engineCatalogVisible = false
@@ -137,42 +162,42 @@ ApplicationWindow {
     }
     Shortcut {
         sequence: "Up"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(1)
     }
     Shortcut {
         sequence: "Down"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(-1)
     }
     Shortcut {
         sequence: "Shift+Up"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(5)
     }
     Shortcut {
         sequence: "Shift+Down"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(-5)
     }
     Shortcut {
         sequence: "F"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.setDirection("FORWARD")
     }
     Shortcut {
         sequence: "R"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.setDirection("REVERSE")
     }
     Shortcut {
         sequence: "B"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.bell()
     }
     Shortcut {
         sequence: "Space"
-        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.stop()
     }
 }
