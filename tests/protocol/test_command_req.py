@@ -42,14 +42,16 @@ class TestCommandReq(TestBase):
         CommBuffer.stop()
 
     def build_request(
-        self, cmd, address: int = None, data: int | bytes = None, scope: CommandScope = None
+        self, cmd, address: int | None = None, data: int | bytes | None = None, scope: CommandScope | None = None
     ) -> CommandReq:
         if cmd in RAMP_COMMANDS and data in (None, 0):
             # TestBase generates scalar zero for commands without data bits.
             data = RAMP_PAYLOAD
+        # Ramp commands require a byte payload; the shared helper forwards it unchanged.
+        # noinspection PyTypeChecker
         return super().build_request(cmd, address, data, scope)
 
-    def generate_random_address(self, cmd: CommandDefEnum, scope: CommandScope = None) -> int:
+    def generate_random_address(self, cmd: CommandDefEnum, scope: CommandScope | None = None) -> int:
         address = super().generate_random_address(cmd, scope)
         while cmd in RAMP_COMMANDS and address == DEFAULT_ADDRESS:
             address = super().generate_random_address(cmd, scope)
@@ -134,7 +136,9 @@ class TestCommandReq(TestBase):
                 bits |= address << 7
                 bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 bits |= TMCC1_TRAIN_COMMAND_MODIFIER
-                bits |= int.from_bytes(cmd.command_def.first_byte, byteorder="big") << 16
+                first_byte = cmd.command_def.first_byte
+                assert first_byte is not None
+                bits |= int.from_bytes(first_byte, byteorder="big") << 16
                 if cmd.command_def.num_data_bits > 0:
                     bits |= data
                 mk_enqueue_command.assert_called_once_with(
@@ -265,9 +269,15 @@ class TestCommandReq(TestBase):
                     CommandReq._enqueue_command(req, 3, 1, 2, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
             build_buffer.assert_not_called()
 
-    @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
-    @pytest.mark.parametrize("address", [1, 99, 100, 3180, 9999])
-    @pytest.mark.parametrize("data", [0, 7, 199])
+    @pytest.mark.parametrize(
+        "data, address, scope",
+        [
+            pytest.param(d, a, s, marks=pytest.mark.smoke) if (d, a, s) == (7, 1, CommandScope.ENGINE) else (d, a, s)
+            for d in [0, 7, 199]
+            for a in [1, 99, 100, 3180, 9999]
+            for s in [CommandScope.ENGINE, CommandScope.TRAIN]
+        ],
+    )
     def test_variable_target_speed_data(self, address, data, scope):
         command = TMCC2EngineCommandEnumEx.TARGET_SPEED
         assert isinstance(command, TMCC2VariableEnum)
@@ -322,10 +332,14 @@ class TestCommandReq(TestBase):
                 if api == "send":
                     parsed.send(repeat=3, delay=1, duration=2)
                 elif api == "send_request":
+                    # Exercise state-only rejection with the required ramp byte payload.
+                    # noinspection PyTypeChecker
                     CommandReq.send_request(command, address, RAMP_PAYLOAD, scope, repeat=3, delay=1, duration=2)
                 elif api == "as_action":
                     parsed.as_action(repeat=3, delay=1, duration=2)()
                 elif api == "build_action":
+                    # Exercise state-only rejection with the required ramp byte payload.
+                    # noinspection PyTypeChecker
                     CommandReq.build_action(command, address, RAMP_PAYLOAD, scope)()
                 elif api == "enqueue":
                     CommandReq._enqueue_command(parsed, 3, 1, 2, DEFAULT_BAUDRATE, DEFAULT_PORT, None)
@@ -349,7 +363,9 @@ class TestCommandReq(TestBase):
         for cdef in self.all_command_enums:
             for cmd in cdef:
                 assert isinstance(cmd.value, CommandDef)
-                assert cmd.value.first_byte == CommandReq._determine_first_byte(cmd.value, cmd.value.scope)
+                scope = cmd.value.scope
+                assert scope is not None
+                assert cmd.value.first_byte == CommandReq._determine_first_byte(cmd.value, scope)
 
         # retest for Trains
         for cdef in self.all_command_enums:

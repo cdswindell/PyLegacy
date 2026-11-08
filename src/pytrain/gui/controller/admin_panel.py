@@ -20,7 +20,9 @@ from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
+from ...utils.flatpak_updates import check_flatpak_update, installed_flatpak_tag, request_flatpak_update
 from ...utils.host_info import is_steam_deck
+from ...utils.update_policy import self_update_disabled
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
@@ -115,6 +117,16 @@ class AdminPanel(OverlayPanel):
         self._wifi_lock = RLock()
         self._wifi_cache: tuple[str, str | None, str, str | None, str] | None = None
         self._wifi_query_running = False
+        self._flatpak_tag = installed_flatpak_tag()
+        self._flatpak_update_lock = RLock()
+        self._flatpak_update_status: str | None = None
+        self._flatpak_update_available = False
+        self._flatpak_update_running = False
+        self._flatpak_update_button = None
+        self._reboot_btn = None
+        self._shutdown_btn = None
+        self._flatpak_update_after_id = None
+        self._flatpak_update_generation = 0
         self._needs_scope_fix = True
         # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
         # drive the real widget (see begin_hold).
@@ -206,9 +218,18 @@ class AdminPanel(OverlayPanel):
 
     @property
     def popup_title(self) -> str:
+        version = self._gui.version
+        if self._flatpak_tag is not None:
+            # The embedded Flatpak release tag is the single authoritative
+            # display version, including packaging revisions and dev builds.
+            # Keep the GUI's client/server label but discard its version.
+            import re
+
+            version = re.sub(r"\s+v?\d+\.\d+\.\d+.*$", "", version)
+            version = f"{version} {self._flatpak_tag}"
         if not self._compact:
-            return ADMIN_TITLE + "\n" + self._gui.version
-        return self._gui.version
+            return ADMIN_TITLE + "\n" + version
+        return version
 
     @property
     def visible(self) -> bool:
@@ -232,14 +253,12 @@ class AdminPanel(OverlayPanel):
         # duplicating its hold timing and progress feedback.
         button = self._hold_button(parent, **kwargs)
         command = kwargs["on_hold"][1][0]
-        if not enabled:
-            # HoldButton checks `enabled` before starting a hold, so graying it out is
-            # enough to stop a finger. Leaving it out of the registry is what stops a
-            # controller chord: begin_hold() then reports no hold started rather than
-            # claiming one on a widget that will never fire.
-            button.disable()
-            return button
+        # Register even initially disabled buttons: Flatpak Reboot/Shutdown
+        # start disabled under Local scope, but become available under All.
+        # HoldButton itself rejects presses while disabled.
         self._admin_buttons[command.name] = button
+        if not enabled:
+            button.disable()
         return button
 
     def begin_hold(self, command: str) -> bool:
@@ -270,6 +289,7 @@ class AdminPanel(OverlayPanel):
         # refresh, which the base class knows nothing about.
         overlay = super().overlay
         self._start_wifi_query()
+        self._start_flatpak_update_check()
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
         if self._needs_scope_fix:
@@ -279,6 +299,7 @@ class AdminPanel(OverlayPanel):
             # That hide/show is a display_widgets() on the Scope box, which re-grids the
             # group and drops the fill applied during build. Put it back.
             self._apply_compact_grid()
+        self._refresh_flatpak_update_status()
         return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -367,6 +388,7 @@ class AdminPanel(OverlayPanel):
         )
         self._fit_compact_control(pb)
         self._gui.add_hover_action(pb)
+        self._fit_database_height(tb)
 
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
@@ -464,6 +486,7 @@ class AdminPanel(OverlayPanel):
             align="top",
             width=self.control_half_width,
             style="radio",
+            command=self._refresh_flatpak_power_buttons,
         )
         self._mirror_two_up_columns(self._scope_btns)
 
@@ -495,23 +518,27 @@ class AdminPanel(OverlayPanel):
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
-        self._admin_hold_button(
+        self._reboot_btn = self._admin_hold_button(
             tb,
             text="Reboot",
             grid=[right_col, restart_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
+            enabled=self._flatpak_tag is None or self._scope_btns.value == "1",
         )
 
         if not self._compact:
             sp = Text(tb, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
             sp.text_size = self._gui.s_2
 
-        self._admin_hold_button(
+        self._flatpak_update_button = self._admin_hold_button(
             tb,
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
+            enabled=not self_update_disabled(),
         )
+        if self._flatpak_tag is not None:
+            self._flatpak_update_button.disable()
 
         self._admin_hold_button(
             tb,
@@ -532,11 +559,12 @@ class AdminPanel(OverlayPanel):
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
         )
 
-        self._admin_hold_button(
+        self._shutdown_btn = self._admin_hold_button(
             tb,
             text="Shutdown",
             grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
+            enabled=self._flatpak_tag is None or self._scope_btns.value == "1",
         )
 
         # No spacer between the destructive actions and the Controls/Close row: the row is no
@@ -563,6 +591,10 @@ class AdminPanel(OverlayPanel):
         # centered Close button, leaving the portrait panel exactly as it was before this
         # panel grew a footer at all.
         return self.controls_available
+
+    @property
+    def footer_pad_px(self) -> int | None:
+        return getattr(self._gui, "admin_footer_pad_px", None)
 
     def build_footer(self, footer: Box) -> None:
         """Put the Controls button in the footer, to the left of Close.
@@ -814,7 +846,71 @@ class AdminPanel(OverlayPanel):
         self._start_wifi_query()
         self._ensure_wifi_refresh()
 
+    def _start_flatpak_update_check(self) -> None:
+        """Check GitHub on a worker; only the Tk thread updates widgets."""
+        if self._flatpak_tag is None:
+            return
+        with self._flatpak_update_lock:
+            if self._flatpak_update_running or self._flatpak_update_status is not None:
+                return
+            self._flatpak_update_running = True
+            generation = self._flatpak_update_generation
+        Thread(target=lambda: self._query_flatpak_update(generation), daemon=True).start()
+
+    def _query_flatpak_update(self, generation: int | None = None) -> None:
+        try:
+            result = check_flatpak_update(self._flatpak_tag)
+            available = result.available
+            status = f"Update available: {result.available_tag}" if available else "Up to date"
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            log.warning("PyCab Flatpak update check failed: %s", exc)
+            available = False
+            status = "Update check unavailable"
+        with self._flatpak_update_lock:
+            if generation is not None and generation != self._flatpak_update_generation:
+                return  # Ignore results from a previous panel opening.
+            self._flatpak_update_available = available
+            self._flatpak_update_status = status
+            self._flatpak_update_running = False
+
+    def _refresh_flatpak_update_status(self) -> None:
+        """Poll cached status from Tk, without accessing Tk in the worker."""
+        if self._flatpak_tag is None or self._overlay is None:
+            return
+        with self._flatpak_update_lock:
+            status = self._flatpak_update_status
+        if status is not None and self._flatpak_update_button is not None and not self.hold_in_progress:
+            label = f"Update {PROGRAM_NAME}"
+            if status.startswith("Update available:"):
+                label = "Update available!"
+            self._flatpak_update_button.text = label
+            if self._flatpak_update_available or getattr(getattr(self, "_scope_btns", None), "value", None) == "1":
+                self._flatpak_update_button.enable()
+            else:
+                self._flatpak_update_button.disable()
+        if self._flatpak_update_after_id is None and status is None:
+            self._flatpak_update_after_id = self._overlay.tk.after(500, self._poll_flatpak_update_status)
+
+    def _poll_flatpak_update_status(self) -> None:
+        self._flatpak_update_after_id = None
+        self._refresh_flatpak_update_status()
+
     def _on_popup_close(self, _overlay: Box | None = None) -> None:
+        # Invalidate the cached result and any in-flight query on close.
+        with self._flatpak_update_lock:
+            self._flatpak_update_generation += 1
+            self._flatpak_update_status = None
+            self._flatpak_update_available = False
+            self._flatpak_update_running = False
+        if self._flatpak_update_button is not None and self._flatpak_tag is not None:
+            self._flatpak_update_button.disable()
+            self._flatpak_update_button.text = f"Update {PROGRAM_NAME}"
+        if self._flatpak_update_after_id is not None and self._overlay is not None:
+            try:
+                self._overlay.tk.after_cancel(self._flatpak_update_after_id)
+            except (AttributeError, RuntimeError, ValueError):
+                pass
+            self._flatpak_update_after_id = None
         if self._overlay is None or self._wifi_refresh_after_id is None:
             self._wifi_refresh_after_id = None
             return
@@ -889,7 +985,72 @@ class AdminPanel(OverlayPanel):
     def _on_debug(self) -> None:
         self._pytrain.debug = bool(self._debug_btn.value)
 
+    def _refresh_flatpak_power_buttons(self) -> None:
+        """Power commands are remote-only on the Deck and require All scope."""
+        if getattr(self, "_flatpak_tag", None) is None:
+            return
+        enabled = self._scope_btns.value == "1"
+        for button in (self._reboot_btn, self._shutdown_btn):
+            if button is not None:
+                button.enable() if enabled else button.disable()
+        update_button = getattr(self, "_flatpak_update_button", None)
+        if update_button is not None and not self.hold_in_progress:
+            if enabled or getattr(self, "_flatpak_update_available", False):
+                update_button.enable()
+            else:
+                update_button.disable()
+
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
+        if command == TMCC1SyncCommandEnum.QUIT and self._pytrain.is_server:
+            # A server must notify every client even when Local is selected.
+            # Close Tk through its own event loop rather than injecting SIGINT.
+            self._pytrain.request_gui_server_quit()
+            self._gui.close()
+            return
+        # GUI-hosted, non-Flatpak servers must close Tk before performing
+        # deferred actions. Flatpak retains its launcher/exit-code-42 path.
+        if getattr(self, "_flatpak_tag", None) is None and getattr(getattr(self, "_pytrain", None), "is_server", False):
+            if command in (
+                TMCC1SyncCommandEnum.RESTART,
+                TMCC1SyncCommandEnum.UPDATE,
+                TMCC1SyncCommandEnum.UPGRADE,
+                TMCC1SyncCommandEnum.REBOOT,
+                TMCC1SyncCommandEnum.SHUTDOWN,
+            ):
+                self._pytrain.request_gui_server_action(command, broadcast=True)
+                self._gui.close()
+                return
+        if getattr(self, "_flatpak_tag", None) is not None:
+            if command in (TMCC1SyncCommandEnum.REBOOT, TMCC1SyncCommandEnum.SHUTDOWN):
+                if self._scope_btns.value == "1":
+                    self._gui.do_tmcc_request(command)
+                return
+            if command == TMCC1SyncCommandEnum.RESTART:
+                if self._scope_btns.value == "1":
+                    # Dispatch to the server; the propagated command triggers exit 42.
+                    self._gui.do_tmcc_request(command)
+                else:
+                    # Local restart must not affect other nodes.
+                    self._pytrain.request_local_restart()
+                return
+            if command == TMCC1SyncCommandEnum.UPDATE:
+                # Propagate first: shutting down the local Deck must not interrupt
+                # delivery to the server and other clients.
+                if self._scope_btns.value == "1":
+                    self._pytrain.broadcast_update_to_other_nodes()
+                if self._flatpak_update_available:
+                    marker = request_flatpak_update()
+                    try:
+                        self._pytrain.request_local_restart()
+                    except Exception:
+                        marker.unlink(missing_ok=True)
+                        raise
+                elif self._scope_btns.value == "1" and self._pytrain.is_client:
+                    # Refresh client/server handshaking after other nodes update,
+                    # even if this Deck already has the latest Flatpak.
+                    self._pytrain.request_local_restart()
+                # An up-to-date Deck server must stay running.
+                return
         if self._scope_btns.value == "0":
             Thread(
                 target=self._pytrain.do_admin_cmd,
@@ -968,6 +1129,17 @@ class AdminPanel(OverlayPanel):
         else:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
+
+    def _fit_database_height(self, section: TitleBox) -> None:
+        if self._compact:
+            return
+        # PyCab's desktop keys are smaller than the Pi's, but its native controls and
+        # section label can need more than button_size. Measure the completed grid;
+        # retain the Pi's existing height whenever it already has enough room.
+        section.tk.grid_propagate(True)
+        section.tk.update_idletasks()
+        section.height = max(self.compact_database_height, section.tk.winfo_reqheight())
+        section.tk.grid_propagate(False)
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
         text_size = kwargs.pop("text_size", self._gui.s_18)

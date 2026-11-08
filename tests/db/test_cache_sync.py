@@ -1,5 +1,12 @@
+import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
+from unittest.mock import Mock
+
 import pytest
 
+from src.pytrain.db import cache_sync as module
 from src.pytrain.db.cache_sync import (
     DEFAULT_CACHE_SYNC_POLL,
     CacheSyncManager,
@@ -10,6 +17,218 @@ from src.pytrain.db.cache_sync import (
 
 def test_default_cache_sync_poll_interval_is_30_seconds() -> None:
     assert DEFAULT_CACHE_SYNC_POLL == 30.0
+
+
+@pytest.fixture
+def lifecycle(monkeypatch):
+    monkeypatch.setattr(CacheSyncManager, "_instance", None)
+    monkeypatch.setattr(CacheSyncManager, "_lock", threading.Lock())
+    monkeypatch.setattr(CacheSyncManager, "_cache_manifest", lambda self: ())
+    monkeypatch.setattr(CacheSyncManager, "start", Mock())
+    servers = []
+    threads = []
+
+    def server_factory(*args):
+        server = Mock()
+        servers.append(server)
+        return server
+
+    def thread_factory(**kwargs):
+        thread = Mock(ident=None)
+        thread.is_alive.return_value = False
+        thread.start.side_effect = lambda: setattr(thread, "ident", 123)
+        threads.append(thread)
+        return thread
+
+    monkeypatch.setattr(module, "CacheSyncTCPServer", Mock(side_effect=server_factory))
+    monkeypatch.setattr(module, "Thread", Mock(side_effect=thread_factory))
+
+    def build(**kwargs):
+        return CacheSyncManager.build(enabled=True, is_server=True, sync_port=5210, **kwargs)
+
+    yield SimpleNamespace(build=build, servers=servers, threads=threads)
+    if CacheSyncManager._instance is not None:
+        CacheSyncManager._instance._shutdown.set()
+
+
+@pytest.mark.parametrize("operation", ["shutdown", "server_close"])
+@pytest.mark.parametrize("error", [KeyboardInterrupt, OSError])
+def test_interrupted_cache_stop_retains_resources_and_retries(lifecycle, caplog, operation, error):
+    caplog.set_level(logging.DEBUG, logger=module.log.name)
+    manager = lifecycle.build()
+    server, thread = manager._server, manager._server_thread
+    getattr(server, operation).side_effect = [error("interrupted"), None]
+    with pytest.raises(error, match="interrupted"):
+        CacheSyncManager.stop()
+    assert CacheSyncManager._instance is manager
+    assert manager._server is server
+    assert manager._server_thread is thread
+    assert manager._shutdown.is_set()
+    assert not manager.available
+    assert not CacheSyncManager._lock.locked()
+    assert not manager._shutdown_lock.locked()
+    assert not any("stop completed" in message for message in caplog.messages)
+    with pytest.raises(RuntimeError, match="stopping"):
+        lifecycle.build()
+    assert CacheSyncManager.build(enabled=False, is_server=True, sync_port=5210) is None
+    CacheSyncManager.stop()
+    assert CacheSyncManager._instance is None
+    assert manager._server is manager._server_thread is None
+    CacheSyncManager.stop()
+    attempts = [message for message in caplog.messages if "stop attempt" in message]
+    completed = [message for message in caplog.messages if "stop completed" in message]
+    assert len(attempts) == 2
+    assert len(completed) == 1
+    for message in attempts + completed:
+        for value in [
+            f"manager={id(manager):#x}",
+            f"pid={module.os.getpid()}",
+            "thread=MainThread",
+            "role=server",
+            "port=5210",
+        ]:
+            assert value in message
+    assert lifecycle.build() is not manager
+
+
+def test_stop_without_listener_terminates_real_worker(lifecycle, monkeypatch):
+    module.CacheSyncTCPServer.side_effect = OSError("bind failed")
+    monkeypatch.setattr(CacheSyncManager, "start", threading.Thread.start)
+    manager = lifecycle.build()
+    try:
+        assert not manager.sidecar_available
+        CacheSyncManager.stop()
+        assert manager._shutdown.is_set()
+        assert not manager.is_alive()
+        assert CacheSyncManager._instance is None
+    finally:
+        manager._shutdown.set()
+        manager.join(timeout=2)
+        assert not manager.is_alive()
+
+
+def test_serving_thread_start_failure_closes_socket_without_shutdown(lifecycle):
+    thread = Mock(ident=None)
+    thread.start.side_effect = RuntimeError("start failed")
+    thread.is_alive.return_value = False
+    module.Thread.side_effect = None
+    module.Thread.return_value = thread
+    manager = lifecycle.build()
+    server = lifecycle.servers[0]
+    assert not manager.sidecar_available
+    server.server_close.assert_called_once_with()
+    server.shutdown.assert_not_called()
+    assert manager._server is manager._server_thread is None
+    CacheSyncManager.stop()
+    server.shutdown.assert_not_called()
+    assert CacheSyncManager._instance is None
+
+
+@pytest.mark.parametrize("owned_thread", ["worker", "server"])
+def test_join_timeout_retains_ownership_until_thread_terminates(lifecycle, monkeypatch, owned_thread):
+    manager = lifecycle.build()
+    thread = manager if owned_thread == "worker" else manager._server_thread
+    if owned_thread == "worker":
+        monkeypatch.setattr(manager, "_ident", 456)
+    monkeypatch.setattr(thread, "join", Mock())
+    monkeypatch.setattr(thread, "is_alive", Mock(return_value=True))
+    with pytest.raises(RuntimeError, match="did not terminate"):
+        CacheSyncManager.stop()
+    thread.join.assert_called_once_with(timeout=2.0)
+    assert CacheSyncManager._instance is manager
+    if owned_thread == "server":
+        assert manager._server_thread is thread
+    with pytest.raises(RuntimeError, match="stopping"):
+        lifecycle.build()
+    thread.is_alive.return_value = False
+    CacheSyncManager.stop()
+    assert CacheSyncManager._instance is None
+    assert lifecycle.build() is not manager
+
+
+@pytest.mark.parametrize("owned_thread", ["worker", "server"])
+def test_stop_from_owned_thread_rejects_self_join_and_retains_manager(lifecycle, monkeypatch, owned_thread):
+    manager = lifecycle.build()
+    thread = manager if owned_thread == "worker" else manager._server_thread
+    monkeypatch.setattr(module, "current_thread", lambda: thread)
+    with pytest.raises(RuntimeError, match="own thread"):
+        CacheSyncManager.stop()
+    assert CacheSyncManager._instance is manager
+    manager._server.shutdown.assert_not_called()
+    monkeypatch.setattr(module, "current_thread", threading.current_thread)
+    CacheSyncManager.stop()
+    assert CacheSyncManager._instance is None
+
+
+def test_unstarted_threads_are_not_joined(lifecycle):
+    manager = lifecycle.build()
+    thread = manager._server_thread
+    thread.ident = None
+    server = manager._server
+    manager.shutdown()
+    thread.join.assert_not_called()
+    server.shutdown.assert_not_called()
+    server.server_close.assert_called_once_with()
+    assert manager._shutdown.is_set()
+    assert manager._server_thread is None
+    CacheSyncManager.stop()
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_build_serializes_with_stop_and_retains_failed_stop(lifecycle, failure):
+    manager = lifecycle.build()
+    stopping = threading.Event()
+    build_entered = threading.Event()
+    release = threading.Event()
+
+    def shutdown_server():
+        stopping.set()
+        assert release.wait(2)
+        if failure:
+            raise OSError("stop failed")
+
+    def build():
+        build_entered.set()
+        return lifecycle.build()
+
+    manager._server.shutdown.side_effect = shutdown_server
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        stop = pool.submit(CacheSyncManager.stop)
+        try:
+            assert stopping.wait(2)
+            build_result = pool.submit(build)
+            assert build_entered.wait(2)
+            assert CacheSyncManager._lock.locked()
+            assert not build_result.done()
+            assert len(lifecycle.servers) == 1
+        finally:
+            release.set()
+        if failure:
+            with pytest.raises(OSError, match="stop failed"):
+                stop.result(timeout=2)
+            with pytest.raises(RuntimeError, match="stopping"):
+                build_result.result(timeout=2)
+            assert CacheSyncManager._instance is manager
+            manager._server.shutdown.side_effect = None
+            CacheSyncManager.stop()
+        else:
+            stop.result(timeout=2)
+            assert build_result.result(timeout=2) is not manager
+            assert len(lifecycle.servers) == 2
+            CacheSyncManager.stop()
+
+
+def test_manager_creation_and_listener_logs_are_distinct(lifecycle, caplog, capsys):
+    caplog.set_level(logging.DEBUG, logger=module.log.name)
+    manager = lifecycle.build()
+    assert lifecycle.build() is manager
+    assert CacheSyncManager.build(enabled=False, is_server=True, sync_port=5210) is None
+    messages = [message for message in caplog.messages if "manager created" in message]
+    assert len(messages) == 1
+    assert f"manager={id(manager):#x}" in messages[0]
+    assert "cache listening on port 5210" in caplog.text
+    assert "*** Starting cacher ***" not in capsys.readouterr().out
+    CacheSyncManager.stop()
 
 
 def test_sidecar_payload_round_trip_syncs_files_and_deletes_stale_client_cache(tmp_path) -> None:

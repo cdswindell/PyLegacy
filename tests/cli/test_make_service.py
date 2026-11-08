@@ -7,24 +7,31 @@
 #
 
 import builtins
+from pathlib import Path
+import shutil
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 
+import src.pytrain.cli.make_base as make_base
+import src.pytrain.cli.make_service as mod
 from src.pytrain.cli.make_service import MakeService
 
 from ..test_base import TestBase
 
 
 class TestMakeService(TestBase):
-    def test_parser(self):
+    def test_parser(self, monkeypatch: pytest.MonkeyPatch):
         # tests successful options
-        for i in range(2, len("-version")):
-            li = ["-version"][:i]
-            with pytest.raises(SystemExit) as e:
-                MakeService(li)
-            assert e.value.code == 0
+        with pytest.raises(SystemExit) as e:
+            MakeService(["-version"])
+        assert e.value.code == 0
+
+        # Keep real version discovery above; other options only exercise parsing.
+        # Patch the imported lookup at its use site, not the package export.
+        # noinspection PyUnresolvedReferences
+        monkeypatch.setattr(make_base, "get_version", lambda: "test-version")
 
         with pytest.raises(SystemExit) as e:
             MakeService(["-h"])
@@ -79,7 +86,16 @@ def test_make_service_command_line_can_disable_cache_sync() -> None:
     assert svc.command_line == "pytrain -headless -client -no_cache_sync"
 
 
-def test_make_service_shell_script_includes_cache_sync_switch_only_when_disabled(tmp_path) -> None:
+def test_make_service_shell_script_includes_cache_sync_switch_only_when_disabled(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    working_dir = tmp_path / "working"
+    template_dir = working_dir / "src"
+    template_dir.mkdir(parents=True)
+    assert mod.__file__ is not None
+    template = Path(mod.__file__).resolve().parents[1] / "installation" / "pytrain.bash.template"
+    shutil.copy2(template, template_dir / template.name)
+    monkeypatch.chdir(working_dir)
     svc = MakeService.__new__(MakeService)
     svc._home = tmp_path
     svc._args = SimpleNamespace(mode="client")

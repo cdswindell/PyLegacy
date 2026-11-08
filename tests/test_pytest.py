@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+from types import ModuleType
+
 import setuptools_scm
 
 import src.pytrain as pytrain
@@ -10,7 +14,10 @@ class TestPyTrain(TestBase):
         assert pytrain.get_version().startswith("v")
 
     def test_get_version_strips_package_local_metadata(self, monkeypatch):
-        monkeypatch.setattr(pytrain.importlib.metadata, "version", lambda _: "2.3.4+local")
+        monkeypatch.setattr(pytrain, "source_root", lambda: None)
+        bundled = ModuleType(f"{pytrain.__name__}._version")
+        bundled.version = "2.3.4+local"
+        monkeypatch.setitem(sys.modules, bundled.__name__, bundled)
 
         assert pytrain.get_version() == "v2.3.4+"
 
@@ -22,8 +29,7 @@ class TestPyTrain(TestBase):
         )
 
         def fake_git_version(**kwargs):
-            assert kwargs["root"] == "../.."
-            assert kwargs["relative_to"] == pytrain.__file__
+            assert kwargs["root"] == str(Path(pytrain.__file__).resolve().parents[2])
             assert kwargs["version_scheme"] == "only-version"
             return "2.3.4+gabc123.d20260505"
 

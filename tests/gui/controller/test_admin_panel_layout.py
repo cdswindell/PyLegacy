@@ -2,6 +2,8 @@ import threading
 from threading import Event, RLock
 from types import SimpleNamespace
 
+import pytest
+
 import src.pytrain.gui.controller.admin_panel as mod
 import src.pytrain.gui.controller.popup_manager as popup_manager
 
@@ -37,6 +39,12 @@ class _Tk:
     def pack_propagate(self, value) -> None:
         self.pack_propagates.append(value)
 
+    def update_idletasks(self) -> None:
+        pass
+
+    def winfo_reqheight(self) -> int:
+        return 1
+
 
 class _TitleBox:
     instances = []
@@ -64,6 +72,7 @@ def _panel(compact: bool) -> mod.AdminPanel:
     panel._pytrain = SimpleNamespace(is_client=True)
     panel._width = 632
     panel._compact = compact
+    panel._flatpak_tag = None
     panel._admin_buttons = {}  # normally set in __init__, which this factory bypasses
     panel._compact_controls = []
     return panel
@@ -232,10 +241,69 @@ def test_popup_title_includes_runtime_version() -> None:
     assert _panel(compact=False).popup_title == "Manage PyTrain\nPyTrain Client v2.9.3+"
 
 
+@pytest.mark.parametrize(
+    "tag, expected",
+    [
+        ("v2.12.11", "PyTrain Client v2.12.11"),
+        ("v2.12.11-1", "PyTrain Client v2.12.11-1"),
+        ("v2.12.10-2-dev.1", "PyTrain Client v2.12.10-2-dev.1"),
+    ],
+)
+@pytest.mark.parametrize("compact", [True, False])
+def test_flatpak_title_displays_one_release_version(tag, expected, compact) -> None:
+    panel = _panel(compact=compact)
+    panel._flatpak_tag = tag
+    title = panel.popup_title
+    assert title == (expected if compact else "Manage PyTrain\n" + expected)
+    assert "v2.9.3" not in title
+
+
+def test_flatpak_server_title_preserves_role() -> None:
+    panel = _panel(compact=True)
+    panel._gui.version = "PyTrain Server v2.12.10+"
+    panel._flatpak_tag = "v2.12.11"
+    assert panel.popup_title == "PyTrain Server v2.12.11"
+
+
 def test_portrait_database_height_retains_button_size() -> None:
     panel = _panel(compact=False)
 
     assert panel.compact_database_height == 79
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_admin_footer_keeps_default_spacing_unless_the_host_requests_less(compact) -> None:
+    panel = _panel(compact=compact)
+
+    assert panel.footer_pad_px is None
+    panel._gui.admin_footer_pad_px = 8
+    assert panel.footer_pad_px == 8
+
+
+@pytest.mark.parametrize(
+    "compact, button_size, required_height, expected_height",
+    [(False, 68, 81, 81), (False, 79, 88, 88), (False, 133, 103, 133), (True, 79, 88, 72)],
+    ids=["small-mac-window", "desktop-window", "pi-design-size", "compact-unchanged"],
+)
+def test_database_section_fits_its_controls_without_shrinking_the_pi_layout(
+    compact, button_size, required_height, expected_height
+) -> None:
+    panel = _panel(compact=compact)
+    panel._gui.button_size = button_size
+    calls = []
+    section = SimpleNamespace(
+        height=panel.compact_database_height,
+        tk=SimpleNamespace(
+            grid_propagate=lambda value: calls.append(("propagate", value)),
+            update_idletasks=lambda: calls.append("measure"),
+            winfo_reqheight=lambda: required_height,
+        ),
+    )
+
+    panel._fit_database_height(section)
+
+    assert section.height == expected_height
+    assert calls == ([] if compact else [("propagate", True), "measure", ("propagate", False)])
 
 
 def test_portrait_titlebox_retains_natural_height_and_existing_grid(monkeypatch) -> None:
@@ -316,8 +384,8 @@ def test_steam_deck_disables_the_os_upgrade_button(monkeypatch) -> None:
 
     assert panel.os_upgrade_supported is False
     assert button.disabled is True
-    # Absent from the registry, so a controller chord cannot fire what a finger cannot.
-    assert "UPGRADE" not in panel._admin_buttons
+    # Registered for uniform dispatch, but remains disabled and cannot activate.
+    assert panel._admin_buttons["UPGRADE"] is button
 
 
 def test_other_platforms_keep_the_os_upgrade_button(monkeypatch) -> None:
@@ -848,3 +916,28 @@ def test_the_compact_admin_box_carries_no_chrome_of_its_own(monkeypatch) -> None
         )
         assert admin_box.kwargs["border"] == border, f"compact={compact}"
         assert admin_box.tk.pack_configs[-1]["padx"] == padx, f"compact={compact}"
+        database = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Base 3 Database")
+        if not compact:
+            assert database.height == panel._gui.button_size
+            assert database.tk.grid_propagates == [True, False]
+
+
+@pytest.mark.parametrize("managed", [False, True])
+def test_managed_update_button_cannot_be_held_or_triggered_by_controller(monkeypatch, managed) -> None:
+    monkeypatch.setenv("PYTRAIN_DISABLE_SELF_UPDATE", "1" if managed else "0")
+    panel = _panel(compact=True)
+    button = _FakeHoldButton()
+    monkeypatch.setattr(panel, "_hold_button", lambda _parent, **_kwargs: button)
+
+    from src.pytrain.utils.update_policy import self_update_disabled
+
+    panel._admin_hold_button(
+        object(),
+        text="Update PyTrain",
+        on_hold=(panel.do_admin_command, [mod.TMCC1SyncCommandEnum.UPDATE]),
+        enabled=not self_update_disabled(),
+    )
+
+    assert button.disabled is managed
+    # Registration is independent of initial enabled state; HoldButton enforces it.
+    assert panel._admin_buttons["UPDATE"] is button

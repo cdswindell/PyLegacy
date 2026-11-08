@@ -30,6 +30,7 @@ from src.pytrain.gui.controller.lcs_config_panel import LcsConfigPanel
 from src.pytrain.gui.controller.lcs_gui import DEFAULT_HEIGHT, DEFAULT_WIDTH, LcsGui
 from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from src.pytrain.utils.host_info import is_linux
+from src.pytrain.utils.logging_manager import LoggingManager
 
 
 #
@@ -77,6 +78,8 @@ def test_main_returns_zero_and_passes_its_arguments_through(monkeypatch) -> None
         def __init__(self, cmd_line=None) -> None:
             seen["cmd_line"] = cmd_line
 
+    # Logging startup is covered separately; keep these tests off the shared log file.
+    monkeypatch.setattr(LoggingManager, "initialize", lambda **kwargs: True)
     monkeypatch.setattr(mod, "LcsCli", FakeCli, raising=True)
 
     assert main(["-client"]) == 0
@@ -90,6 +93,8 @@ def test_main_reads_sys_argv_when_given_nothing(monkeypatch) -> None:
         def __init__(self, cmd_line=None) -> None:
             seen["cmd_line"] = cmd_line
 
+    # Logging startup is covered separately; keep these tests off the shared log file.
+    monkeypatch.setattr(LoggingManager, "initialize", lambda **kwargs: True)
     monkeypatch.setattr(mod, "LcsCli", FakeCli, raising=True)
     monkeypatch.setattr(mod.sys, "argv", ["pylcs", "-base", "10.0.0.9"], raising=False)
 
@@ -106,6 +111,8 @@ def test_main_exits_rather_than_raising_when_the_cli_fails(monkeypatch) -> None:
         def __init__(self, cmd_line=None) -> None:
             raise RuntimeError("no base")
 
+    # Logging startup is covered separately; keep these tests off the shared log file.
+    monkeypatch.setattr(LoggingManager, "initialize", lambda **kwargs: True)
     monkeypatch.setattr(mod, "LcsCli", FakeCli, raising=True)
 
     with pytest.raises(SystemExit):

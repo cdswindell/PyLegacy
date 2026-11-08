@@ -20,6 +20,7 @@ from inspect import signature
 from queue import Queue
 from threading import Event, Thread
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -70,6 +71,8 @@ def test_parser_leaves_the_window_unsized_so_it_can_be_fitted_to_the_display() -
         (["-client"], "client", True),
         (["-server", "10.0.0.5"], "server", "10.0.0.5"),
         (["-base", "10.0.0.9"], "base", "10.0.0.9"),
+        (["-base"], "base", ""),
+        (["-base", "-width", "600"], "base", ""),
         (["-width", "600"], "width", 600),
         (["-height", "900"], "height", 900),
         (["-scale_by", "1.5"], "scale_by", 1.5),
@@ -302,6 +305,48 @@ def test_main_exits_rather_than_raising_when_the_cli_fails(monkeypatch) -> None:
 #
 # The command: window construction, no requests
 #
+@pytest.mark.parametrize(
+    "cmd_line, expected_base, discovers",
+    [
+        (["-base"], "10.0.0.9", True),
+        (["-base", "-width", "600"], "10.0.0.9", True),
+        (["-base", "10.0.0.8"], "10.0.0.8", False),
+        ([], None, False),
+        (["-client"], None, False),
+        (["-server", "10.0.0.5"], None, False),
+        (["-client", "-base"], "", False),
+        (["-server", "10.0.0.5", "-base"], "", False),
+    ],
+)
+def test_command_discovers_only_when_base_has_no_address(monkeypatch, cmd_line, expected_base, discovers) -> None:
+    discover = Mock(return_value="10.0.0.9")
+    initialize = Mock(return_value=None)
+    monkeypatch.setattr(mod, "find_base_address", discover)
+    monkeypatch.setattr(mod.CommandBase, "__init__", initialize)
+    args = PyCabCli.command_parser().parse_args(cmd_line)
+
+    PyCabGuiCmd(SimpleNamespace(args=args, scope=CommandScope.ENGINE))
+
+    assert discover.call_count == int(discovers)
+    assert initialize.call_args.kwargs["base"] == expected_base
+    assert initialize.call_args.kwargs["client"] == args.client
+    assert initialize.call_args.kwargs["server"] == args.server
+
+
+def test_command_does_not_fall_back_to_client_when_no_base_is_found(monkeypatch) -> None:
+    discover = Mock(return_value=None)
+    initialize = Mock(return_value=None)
+    monkeypatch.setattr(mod, "find_base_address", discover)
+    monkeypatch.setattr(mod.CommandBase, "__init__", initialize)
+    monkeypatch.setattr(mod, "window_geometry", lambda *args: (600, 960, 1.0))
+
+    with pytest.raises(SystemExit, match="could not find a Lionel Base"):
+        main(["-base"])
+
+    discover.assert_called_once_with()
+    initialize.assert_not_called()
+
+
 class FakeGui:
     """Stands in for PyCabPanelGui: records how it was constructed and returns from its loop at once."""
 
@@ -532,6 +577,10 @@ def test_the_desktop_window_lets_a_panel_that_will_not_fit_cover_the_id_row() ->
     # it lost was its Close button. The row names what the pane has selected, which is nothing
     # an admin panel is about. Only where it does not fit: PopupManager._make_room_for measures.
     assert _host().popup_may_cover_info_box is True
+
+
+def test_the_desktop_admin_footer_leaves_room_for_native_controls() -> None:
+    assert _host().admin_footer_pad_px == 8
 
 
 def test_the_desktop_window_grows_a_title_row_to_the_title_in_it() -> None:

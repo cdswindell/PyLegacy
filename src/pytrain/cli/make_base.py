@@ -22,7 +22,7 @@ from typing import Dict
 
 import psutil
 
-from .. import find_dir, find_file, is_package, get_version
+from .. import find_file, is_package, get_version
 from ..protocol.constants import PROGRAM_NAME
 from ..utils.argument_parser import PyTrainArgumentParser
 
@@ -71,13 +71,16 @@ class _MakeBase(ABC):
             return
 
         # verify the template directory exists
-        self._template_dir = find_dir("installation", (".", "../", "src"))
+        # self._template_dir = find_dir("installation", (".", "../", "src"))
+        self._template_dir = Path(__file__).resolve().parents[1] / "installation"
+        # print(f"{self._template_dir} {find_dir('installation', ('.', '../', 'src'))}")
         if self._template_dir is None:
             print("\nUnable to locate directory with installation templates. Exiting")
             return
 
         # verify we can activate the virtual environment
-        self._activate_cmd = find_file("activate", (".", "../"))
+        # self._activate_cmd = find_file("activate", (".", "../"))
+        self._activate_cmd = find_file(Path(sys.prefix) / "bin" / "activate")
         if self._activate_cmd is None:
             print("\nUnable to locate virtual environment 'activate' command. Exiting")
             return
@@ -175,6 +178,13 @@ class _MakeBase(ABC):
         if self._buttons_file:
             cmd_line += f" -buttons {self._buttons_file}"
         return cmd_line
+
+    @property
+    def template_dir(self) -> Path:
+        return self._template_dir
+
+    def find_installation_file(self, file_name: str) -> str | None:
+        return find_file(file_name, (str(self.template_dir), ".", "../"))
 
     def confirm_environment(self) -> bool:
         for line in self.config_header():

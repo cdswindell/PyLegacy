@@ -1,11 +1,13 @@
 build>=1.6.0
-iniconfig>=2.3.0
+iniconfig>=2.3.1
 packaging>=26.3.0
 pluggy>=1.6.0
-pypi-cleanup>=0.1.10
-pytest>=9.1.1
-ruff>=0.16.5
-tox>=4.61.4
+pypi-cleanup>=0.1.11
+pytest>=9.2.0
+pytest-cov>=7.0.0
+coverage>=7.17.2
+ruff>=0.17.3
+tox>=4.67.11
 twine>=6.2.0
-ipython>=9.17.0; python_version>="3.12"
+ipython>=9.18.0; python_version>="3.12"
 ipython>=9.10.0; python_version=="3.11"

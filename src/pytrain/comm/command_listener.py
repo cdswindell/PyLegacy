@@ -88,7 +88,7 @@ class CommandListener(Thread):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = True,
         base3_receiver: bool = False,
-        server_port: int = None,
+        server_port: int | None = None,
     ) -> CommandListener:
         """
         Factory method to create a CommandListener instance
@@ -309,9 +309,9 @@ class CommandListener(Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ) -> None:
         self._dispatcher.subscribe(listener, channel, address, command, data)
 
@@ -319,9 +319,9 @@ class CommandListener(Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ) -> None:
         self._dispatcher.unsubscribe(listener, channel, address, command, data)
 
@@ -390,7 +390,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         queue_size: int = DEFAULT_QUEUE_SIZE,
         ser2_receiver: bool = False,
         base3_receiver: bool = False,
-        server_port: int = None,
+        server_port: int | None = None,
     ) -> CommandDispatcher:
         """
         Factory method to create a CommandDispatcher instance
@@ -408,9 +408,9 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         cls,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 
@@ -587,15 +587,15 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def signal_clients(
         self,
         option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT,
-        client: str = None,
-        port: int = None,
+        client: str | None = None,
+        port: int | None = None,
     ) -> None:
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
         self.update_client_state(option, client=client, port=port)
 
     def signal_clients_on(
-        self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str = None
+        self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str | None = None
     ) -> None:
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
@@ -771,6 +771,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def update_base_state(self, cmd: CommandReq, update_clients: bool = False):
         if isinstance(cmd, CommandReq):
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
+            # Synchronizes base state updates across connected clients
             if isinstance(action, tuple) and len(action) >= 1:
                 sync_reqs = action[0](cmd)
                 if sync_reqs and update_clients:
@@ -965,7 +966,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 # On receipt of select commands, we must update the Base 3 state to reflect the new state
 #
 REQUIRE_BASE_UPDATE = {
-    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.do_update_eng,),
-    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.do_update_eng,),
+    TMCC2R4LCEnum.TRAIN_ADDRESS: (BaseReq.update_eng,),
+    TMCC2R4LCEnum.TRAIN_UNIT: (BaseReq.update_eng,),
     TMCC2EngineCommandEnum.CLEAR_CONSIST: (CommandDispatcher.on_clear_consist,),
 }

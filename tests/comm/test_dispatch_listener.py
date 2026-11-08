@@ -38,14 +38,16 @@ def publishing_done(dispatcher: CommandDispatcher) -> bool:
     an unfinished count of zero is exactly the event these tests want - including the
     ones that assert *no* callback fired, where there is no state change to wait for.
     """
+    # Queue completion is the synchronization contract under test.
+    # noinspection PyProtectedMember
     return dispatcher._queue.unfinished_tasks == 0
 
 
 # noinspection PyTypeChecker
 @pytest.fixture(autouse=True)
-def run_before_and_after_tests(tmpdir) -> None:
+def run_before_and_after_tests() -> None:
     """
-    Fixture to execute asserts before and after a tests is run
+    Clean up listener singletons and callbacks after each test.
     """
     # Setup: fill with any logic you want
 
@@ -393,6 +395,8 @@ class TestCommandDispatcher(TestBase):
         if payload[0] == PDI_SOP:
             packet = PdiReq.from_bytes(payload)
             assert packet.pdi_command is (PdiCommand.TMCC4_RX if address > 99 else PdiCommand.TMCC_RX)
+            # The command discriminator above identifies a TMCC packet subclass.
+            # noinspection PyUnresolvedReferences
             received = packet.tmcc_command
         else:
             received = CommandReq.from_bytes(payload)

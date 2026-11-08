@@ -17,9 +17,9 @@ class SequenceDef(TMCC2CommandDef):
         is_addressable: bool = True,
         d_min: int = 0,
         d_max: int = 0,
-        d_map: Dict[int, int] = None,
-        interval: int = None,
-        cmd_class: S = None,
+        d_map: Dict[int, int] | None = None,
+        interval: int | None = None,
+        cmd_class: S | None = None,
     ) -> None:
         super().__init__(
             command_bits,
@@ -32,6 +32,7 @@ class SequenceDef(TMCC2CommandDef):
         )
         self._cmd_class = cmd_class
 
+    # noinspection bad-return
     @property
     def cmd_class(self) -> S:
         return self._cmd_class
@@ -53,11 +54,11 @@ class SequenceDef(TMCC2CommandDef):
         return self.syntax == CommandSyntax.LEGACY
 
     @property
-    def first_byte(self) -> bytes | None:
+    def first_byte(self) -> bytes:
         raise NotImplementedError
 
     @property
-    def address_mask(self) -> bytes | None:
+    def address_mask(self) -> int:
         raise NotImplementedError
 
 

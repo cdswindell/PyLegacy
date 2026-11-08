@@ -12,7 +12,8 @@ import subprocess
 
 import pytest
 
-from src.pytrain.utils.ip_tools import find_base_address, get_ip_address, is_base_address, get_ip_from_command
+from src.pytrain.utils import ip_tools
+from src.pytrain.utils.ip_tools import get_ip_address, is_base_address, get_ip_from_command
 
 
 class DummyCompleted:
@@ -27,9 +28,60 @@ def mock_network_wait(monkeypatch):
     monkeypatch.setattr("src.pytrain.utils.ip_tools.wait_for_network", lambda timeout_s=60.0: True)
 
 
+def test_find_hostname_script_prefers_path(monkeypatch, tmp_path):
+    path_script = tmp_path / "bin" / "hostname.sh"
+    path_script.parent.mkdir()
+    path_script.touch()
+    scripts_dir = tmp_path / "python-scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "hostname.sh").touch()
+
+    monkeypatch.setattr(ip_tools.shutil, "which", lambda name: str(path_script))
+    monkeypatch.setattr(ip_tools.sysconfig, "get_path", lambda name: str(scripts_dir))
+
+    assert ip_tools._find_hostname_script() == path_script
+
+
+def test_find_hostname_script_uses_python_scripts_directory(monkeypatch, tmp_path):
+    scripts_dir = tmp_path / "python-scripts"
+    scripts_dir.mkdir()
+    scripts_script = scripts_dir / "hostname.sh"
+    scripts_script.touch()
+
+    monkeypatch.setattr(ip_tools.shutil, "which", lambda name: None)
+    monkeypatch.setattr(ip_tools.sysconfig, "get_path", lambda name: str(scripts_dir))
+
+    assert ip_tools._find_hostname_script() == scripts_script
+
+
+def test_find_hostname_script_uses_source_tree_path(monkeypatch, tmp_path):
+    source_root = tmp_path / "source tree with spaces"
+    source_file = source_root / "src" / "pytrain" / "utils" / "ip_tools.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.touch()
+    source_script = source_root / "src" / "pytrain" / "installation" / "hostname.sh"
+    source_script.parent.mkdir()
+    source_script.touch()
+
+    monkeypatch.setattr(ip_tools, "__file__", str(source_file))
+    monkeypatch.setattr(ip_tools.shutil, "which", lambda name: None)
+    monkeypatch.setattr(ip_tools.sysconfig, "get_path", lambda name: str(tmp_path / "missing-scripts"))
+
+    assert ip_tools._find_hostname_script() == source_script
+
+
+def test_find_hostname_script_returns_none_when_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(ip_tools.shutil, "which", lambda name: None)
+    monkeypatch.setattr(ip_tools.sysconfig, "get_path", lambda name: str(tmp_path / "missing-scripts"))
+    monkeypatch.setattr(ip_tools, "__file__", str(tmp_path / "missing" / "ip_tools.py"))
+
+    assert ip_tools._find_hostname_script() is None
+
+
 def test_get_ip_address_linux_hostname_success(monkeypatch):
     # Force is_linux() to return True
     monkeypatch.setattr("src.pytrain.is_linux", lambda: True, raising=False)
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: pytest.fail("Native hostname is preferred"))
 
     # Mock subprocess.run to simulate `hostname -I` output
     # noinspection PyUnusedLocal
@@ -43,9 +95,183 @@ def test_get_ip_address_linux_hostname_success(monkeypatch):
     assert ips == ["192.168.1.10"]
 
 
+@pytest.mark.parametrize("location", ["path", "python-scripts", "source"])
+def test_get_ip_address_missing_hostname_uses_script(monkeypatch, tmp_path, location):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    source_file = tmp_path / "source tree with spaces" / "pytrain" / "utils" / "ip_tools.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.touch()
+    scripts_dir = tmp_path / "python scripts"
+    script = {
+        "path": tmp_path / "path bin" / "hostname.sh",
+        "python-scripts": scripts_dir / "hostname.sh",
+        "source": source_file.parents[1] / "installation" / "hostname.sh",
+    }[location]
+    script.parent.mkdir(parents=True)
+    script.touch()
+    script.chmod(0o644)
+    unrelated = tmp_path / "unrelated"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+    monkeypatch.setattr(ip_tools, "__file__", str(source_file))
+    monkeypatch.setattr(ip_tools.shutil, "which", lambda name: str(script) if location == "path" else None)
+    monkeypatch.setattr(ip_tools.sysconfig, "get_path", lambda name: str(scripts_dir))
+    calls = []
+    monkeypatch.setattr(ip_tools, "wait_for_network", lambda: calls.append("wait"))
+
+    def fake_run(cmd, *, capture_output, text):
+        assert capture_output is True
+        assert text is True
+        calls.append(cmd)
+        if cmd == ["hostname", "-I"]:
+            raise FileNotFoundError("hostname")
+        assert cmd == ["/bin/bash", str(script), "-I"]
+        return DummyCompleted(stdout=" 192.168.1.10 10.0.0.5\n")
+
+    monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
+    assert get_ip_address() == ["192.168.1.10"]
+    assert calls == ["wait", ["hostname", "-I"], ["/bin/bash", str(script), "-I"]]
+
+
+@pytest.mark.parametrize("failure", ["missing", "oserror", "nonzero", "blank"])
+def test_get_ip_address_script_failure_uses_local_ipv4(monkeypatch, tmp_path, failure):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    script = tmp_path / "hostname.sh"
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: None if failure == "missing" else script)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: "192.168.0.42")
+    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: pytest.fail("Must not resolve hostname"))
+    calls = []
+
+    def fake_run(cmd, *, capture_output, text):
+        calls.append(cmd)
+        if cmd == ["hostname", "-I"]:
+            raise FileNotFoundError("hostname")
+        assert cmd == ["/bin/bash", str(script), "-I"]
+        if failure == "oserror":
+            raise OSError("Cannot launch script")
+        if failure == "nonzero":
+            return DummyCompleted(returncode=1, stdout="192.168.1.10")
+        return DummyCompleted(stdout=" \n\t")
+
+    monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
+    assert get_ip_address() == ["192.168.0.42"]
+    assert len(calls) == (1 if failure == "missing" else 2)
+
+
+@pytest.mark.parametrize("returncode, stdout", [(1, "192.168.1.10"), (0, " \n\t")])
+def test_get_ip_address_native_failure_uses_script(monkeypatch, tmp_path, returncode, stdout):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    script = tmp_path / "hostname.sh"
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: script)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: pytest.fail("Script should succeed"))
+    calls = []
+
+    def fake_run(cmd, *, capture_output, text):
+        calls.append(cmd)
+        if cmd == ["hostname", "-I"]:
+            return DummyCompleted(returncode, stdout)
+        assert cmd == ["/bin/bash", str(script), "-I"]
+        return DummyCompleted(stdout="192.168.0.42\n")
+
+    monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
+    assert get_ip_address() == ["192.168.0.42"]
+    assert calls == [["hostname", "-I"], ["/bin/bash", str(script), "-I"]]
+
+
+@pytest.mark.parametrize("native_failure", ["nonzero", "missing"])
+def test_get_ip_address_busybox_and_broken_script_use_socket(monkeypatch, tmp_path, native_failure):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: tmp_path / "hostname.sh")
+    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: pytest.fail("Should not use DNS"))
+    calls = []
+
+    def fake_run(cmd, *, capture_output, text):
+        calls.append(cmd)
+        if cmd == ["hostname", "-I"]:
+            if native_failure == "missing":
+                raise FileNotFoundError("hostname")
+            return DummyCompleted(returncode=1, stdout="")
+        return DummyCompleted(returncode=127, stdout="")
+
+    monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: "192.168.1.199")
+    assert get_ip_address() == ["192.168.1.199"]
+    assert len(calls) == 2
+
+
+def test_get_ip_address_all_linux_fallbacks_fail_uses_hostname_resolution(monkeypatch):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: None)
+    monkeypatch.setattr(ip_tools, "get_local_ipv4", lambda: None)
+    monkeypatch.setattr(ip_tools.subprocess, "run", lambda *a, **kw: DummyCompleted(returncode=1))
+    monkeypatch.setattr(ip_tools.socket, "gethostname", lambda: "myhost.local")
+    monkeypatch.setattr(ip_tools.socket, "gethostbyname_ex", lambda name: (name, [], ["192.168.0.42"]))
+    assert get_ip_address() == ["192.168.0.42"]
+
+
+@pytest.mark.parametrize(
+    "address, expected",
+    [
+        ("192.168.1.199", "192.168.1.199"),
+        ("127.0.0.1", None),
+        ("169.254.2.3", None),
+        ("0.0.0.0", None),
+    ],
+)
+def test_get_local_ipv4_filters_unusable_addresses(monkeypatch, address, expected):
+    class FakeSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def connect(self, target):
+            assert target == ip_tools.TEST_NET_IP
+
+        def getsockname(self):
+            return (address, 4567)
+
+    monkeypatch.setattr(ip_tools.socket, "socket", lambda *args: FakeSocket())
+    assert ip_tools.get_local_ipv4() == expected
+
+
+def test_get_local_ipv4_socket_failure(monkeypatch):
+    class FakeSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def connect(self, target):
+            raise OSError("No route")
+
+    monkeypatch.setattr(ip_tools.socket, "socket", lambda *args: FakeSocket())
+    assert ip_tools.get_local_ipv4() is None
+
+
+@pytest.mark.parametrize("exception", [KeyboardInterrupt, SystemExit])
+@pytest.mark.parametrize("missing_native", [False, True])
+def test_get_ip_address_command_cancellation_propagates(monkeypatch, tmp_path, exception, missing_native):
+    monkeypatch.setattr("src.pytrain.is_linux", lambda: True)
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: tmp_path / "hostname.sh")
+
+    def fake_run(cmd, *, capture_output, text):
+        if missing_native and cmd == ["hostname", "-I"]:
+            raise FileNotFoundError("hostname")
+        raise exception()
+
+    monkeypatch.setattr(ip_tools.subprocess, "run", fake_run)
+    with pytest.raises(exception):
+        get_ip_address()
+
+
 def test_get_ip_address_non_linux_socket_success_filters_localhost(monkeypatch):
     # Force is_linux() to return False so socket path is used
     monkeypatch.setattr("src.pytrain.is_linux", lambda: False, raising=False)
+    monkeypatch.setattr(ip_tools.subprocess, "run", lambda *args, **kwargs: pytest.fail("Linux command on non-Linux"))
+    monkeypatch.setattr(ip_tools, "_find_hostname_script", lambda: pytest.fail("Script discovery on non-Linux"))
 
     # Mock networking calls
     monkeypatch.setattr("socket.gethostname", lambda: "myhost", raising=True)
@@ -165,5 +391,5 @@ def test_find_base_address_returns_first_found(monkeypatch):
     monkeypatch.setattr("src.pytrain.utils.ip_tools.Pool", lambda n: DummyPool(n), raising=True)
 
     # Run and verify we got the discovered address
-    found = find_base_address()
+    found = ip_tools.find_base_address_multiprocessing()
     assert found == "192.168.1.99"

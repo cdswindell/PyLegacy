@@ -1,5 +1,3 @@
-import time
-
 import pytest
 
 import src.pytrain.db.startup_state as startup_state_module
@@ -11,6 +9,24 @@ from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import AllReq, PdiReq
 from src.pytrain.protocol.constants import CommandScope
+from tests.test_base import wait_until
+
+
+def initial_memory_scopes(listener):
+    return {
+        req.scope
+        for req in tuple(listener.enqueued)
+        if isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY and req.tmcc_id == 1
+    }
+
+
+INITIAL_MEMORY_SCOPES = {
+    CommandScope.ENGINE,
+    CommandScope.TRAIN,
+    CommandScope.SWITCH,
+    CommandScope.ACC,
+    CommandScope.ROUTE,
+}
 
 
 class MockDispatcher:
@@ -300,26 +316,13 @@ def test_run_enqueues_base_memory_requests_for_all_scopes():
     # noinspection PyTypeChecker
     ss = StartupState(listener, dispatcher, pdi_state_store)
 
-    # Give the background thread a brief moment to enqueue initial requests
-    time.sleep(0.05)
-
-    # Collect BASE_MEMORY requests created by StartupState.run() for tmcc_id 1
-    scopes_found = set()
-    for req in listener.enqueued:
-        if isinstance(req, BaseReq) and req.pdi_command == PdiCommand.BASE_MEMORY and req.tmcc_id == 1:
-            scopes_found.add(req.scope)
-
-    assert scopes_found == {
-        CommandScope.ENGINE,
-        CommandScope.TRAIN,
-        CommandScope.SWITCH,
-        CommandScope.ACC,
-        CommandScope.ROUTE,
-    }
-
-    # Unblock the thread's wait loop and allow it to finish
-    ss._ev.set()
-    ss.join(timeout=1)
+    try:
+        assert wait_until(lambda: initial_memory_scopes(listener) == INITIAL_MEMORY_SCOPES, timeout=1)
+        assert initial_memory_scopes(listener) == INITIAL_MEMORY_SCOPES
+    finally:
+        ss._ev.set()
+        ss.join(timeout=1)
+        assert not ss.is_alive()
 
 
 @pytest.mark.allow_thread
@@ -339,9 +342,12 @@ def test_run_skips_amc2_sync_when_listener_has_no_dispatcher(monkeypatch):
     # noinspection PyTypeChecker
     ss = StartupState(listener, dispatcher, pdi_state_store)
 
-    time.sleep(0.05)
-    ss._ev.set()
-    ss.join(timeout=1)
+    try:
+        assert wait_until(lambda: initial_memory_scopes(listener) == INITIAL_MEMORY_SCOPES, timeout=1)
+    finally:
+        ss._ev.set()
+        ss.join(timeout=1)
+        assert not ss.is_alive()
 
     assert amc2_sync_calls == []
 
@@ -370,3 +376,43 @@ def test_base_memory_id1_responses_trigger_id2_requests_per_scope():
             and req.tmcc_id == 2
             for req in listener.enqueued
         ), f"Expected BASE_MEMORY tmcc_id=2 for scope {scope}"
+
+
+@pytest.mark.parametrize(
+    "command,scope",
+    [(PdiCommand.D4_ENGINE, CommandScope.ENGINE), (PdiCommand.D4_TRAIN, CommandScope.TRAIN)],
+)
+@pytest.mark.parametrize("action", [D4Action.FIRST_REC, D4Action.NEXT_REC])
+def test_d4_roster_walk_uses_next_rec_without_query(command, scope, action):
+    listener = MockPdiListener()
+    ss = StartupState(listener, MockDispatcher(), MockPdiStateStore())
+    response = make_dummy_d4req(action, pdi_command=command, next_record_no=7)
+    response._scope = scope
+
+    ss(response)
+
+    assert len(listener.enqueued) == 1
+    next_req = listener.enqueued[0]
+    assert next_req.action == D4Action.NEXT_REC
+    assert next_req.pdi_command == command
+    assert next_req.scope == scope
+    assert next_req.record_no == 7
+    assert next_req.data_length == 0xC0
+    assert next_req.start == 0
+    assert next_req.as_key in ss._waiting_for
+    assert not any(req.action == D4Action.QUERY for req in listener.enqueued)
+
+
+def test_d4_engine_roster_completion_starts_deferred_train_harvest():
+    listener = MockPdiListener()
+    ss = StartupState(listener, MockDispatcher(), MockPdiStateStore())
+    ss._defer_d4_train_harvest = True
+    response = make_dummy_d4req(D4Action.NEXT_REC, next_record_no=0xFFFF)
+
+    ss(response)
+
+    assert len(listener.enqueued) == 1
+    assert listener.enqueued[0].action == D4Action.FIRST_REC
+    assert listener.enqueued[0].pdi_command == PdiCommand.D4_TRAIN
+    assert not ss._defer_d4_train_harvest
+    assert not any(req.action == D4Action.QUERY for req in listener.enqueued)

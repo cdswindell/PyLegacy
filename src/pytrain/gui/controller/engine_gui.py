@@ -63,11 +63,12 @@ from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector, event_screen_y, event_targets
 from ..guizero_base import GuiZeroBase, resolve_font_family
 from ...db.accessory_state import AccessoryState
-from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
+from ...db.component_state import ComponentState, RouteState, SwitchState
 from ...db.component_state_store import ComponentStateStore
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
 from ...db.state_watcher import StateWatcher
+from ...pdi.ble_req import BleReq
 from ...pdi.pdi_listener import PdiDispatcher
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
@@ -141,6 +142,7 @@ def preload_engine_button_image_paths() -> None:
     _common_button_image_paths()
 
 
+# noinspection bad-return
 class EngineGui(GuiZeroBase, Generic[S]):
     @classmethod
     def name(cls) -> str:
@@ -148,8 +150,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def __init__(
         self,
-        width: int = None,
-        height: int = None,
+        width: int | None = None,
+        height: int | None = None,
         enabled_bg: str = "green",
         disabled_bg: str = "white",
         enabled_text: str = "black",
@@ -159,8 +161,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scale_by: float = 1.5,
         repeat: int = 2,
         num_recents: int = 5,
-        sensor_track_id: int = None,
-        tmcc_id: int = None,
+        sensor_track_id: int | None = None,
+        tmcc_id: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
         enable_editing: bool = True,
@@ -316,7 +318,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._separator = None
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
-        self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
+        self.throttle_box = self.throttle_title_box = self.throttle = None
+        self.speed = self._rr_speed_btn = self._rr_speed_box = None
         self._bell_btn = self._horn_btn = None
         self._freight_sounds_bell_horn_box = None
         # The extra function column beside the sliders, on the layouts wide enough to hold one;
@@ -334,9 +337,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._lcs_config_panel = None
         self._route_builder_panel = None
         self._catalog_panel = None
+        self._engine_roster_dirty = False
         self._lighting_panel = None
         self._rr_speed_panel = None
         self._state_info = None
+        self._image_bt_ids: dict[int, str | None] = {}
         self._bell_horn_panel = None
         self._amc2_ops_panel: Amc2OpsPanel | None = None
         self._accessory_view: dict[int, Box | None] = {}
@@ -380,8 +385,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
 
-    def __call__(self, state: S):
-        if isinstance(state, ComponentState) and not self._shutdown_flag.is_set():
+    def __call__(self, state: S | BleReq) -> None:
+        if self._shutdown_flag.is_set():
+            return
+        if isinstance(state, BleReq):
+            with self._cv:
+                self._engine_roster_dirty = True
+        elif isinstance(state, ComponentState):
             self._message_queue.put((self._rebuild_state_caches, [state]))
 
     @property
@@ -405,7 +415,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return compact_height if compact_height is not None else required_height
 
     def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
-        return max(actual_width, required_width) if self._compact else actual_width
+        width = max(actual_width, required_width) if self._compact else actual_width
+        parent_gui = getattr(self, "_parent_gui", None)
+        if parent_gui is not None and parent_gui.name() == "SteamDeckGui":
+            # Allow the full scope title (e.g. "Accessory ID") to fit in the
+            # Steam Deck pane, including the TitleBox border.
+            width += 16
+        return width
 
     def fit_popup_title_height(self, measured_height: int, required_height: int) -> int:
         """The height of a popup's title row, given what it was measured at and what it needs.
@@ -475,12 +491,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # The image box above the keypad is sized once, from the keypad's height, and
         # ImagePresenter.calc_box_size caches that in avail_image_height. When the taller
         # Sequence box replaces the keypad, the image keeps its keypad-sized allocation,
-        # so the extra height the 10 radio rows need has nowhere to come from and the last
+        # so the extra height the 10 radio rows need has nowhere to come from, and the last
         # row spills off the bottom of the compact (Steam Deck) pane. Trimming the per-row
         # padding reclaims ~60px there, which clears the shortfall with room to spare.
         # The taller portrait pane has no such problem, so it keeps the standard padding.
         return 5 if self._compact else 6
 
+    # noinspection unsupported-operator
     def fit_image_box_size(self, available_height: int, available_width: int) -> tuple[int, int]:
         if not self._compact:
             return available_height, available_width
@@ -637,7 +654,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def build_gui(self) -> None:
         app = self.app
         root = self.root
-        self.digital_font = resolve_font_family(app.tk, "DigitalDream", fallback="DigitalDream")
+        self.digital_font = resolve_font_family(app.tk, "DigitalDream", fallback="TkDefaultFont", load_bundled=True)
 
         # customize label
         self.header = cb = Combo(
@@ -729,13 +746,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.app.tk.after(750, self._start_accessory_overlay_prewarm)
         self._start_accessory_config_watcher()
 
-        # register this class to receive delete events
-        PdiDispatcher.get().subscribe_delete(self)
+        dispatcher = PdiDispatcher.get()
+        dispatcher.subscribe_delete(self)
+        dispatcher.subscribe_create(self)
 
     def destroy_gui(self) -> None:
         self._stop_accessory_config_watcher()
         if PdiDispatcher.is_built():
-            PdiDispatcher.get().unsubscribe_delete(self)
+            dispatcher = PdiDispatcher.get()
+            dispatcher.unsubscribe_create(self)
+            dispatcher.unsubscribe_delete(self)
         self.clear_cache()
         self.engine_ops_cells.clear()
         self.box = None
@@ -781,7 +801,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_state_info_closed(self, _overlay: Box | None = None) -> None:
         self._bind_image_long_press()
 
-    def on_info(self, state: S = None) -> None:
+    def on_info(self, state: S = None, *, adding: bool = False, awaiting_discovery: bool | None = None) -> None:
         """Shows state information in popup overlay"""
         is_new = state is not None and state.is_comp_data_empty
         state = state or self.active_state
@@ -791,16 +811,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
         with self._cv:
             if self._state_info is None:
                 self._state_info = StateInfoOverlay(self)
+        if adding:
+            self._state_info.begin_add(state, awaiting_discovery=awaiting_discovery)
         overlay = self._state_info.overlay
-
-        scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
-        is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
+        if adding:
+            PopupManager.set_closes_on_request(overlay, True)
 
         # show/hide fields in the overlay
-        self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs, accessory=self.active_accessory)
+        self._state_info.reset_visibility(state, accessory=self.active_accessory)
         self._state_info.update(state, new=is_new)
         self._unbind_image_long_press()
         self.show_popup(overlay)
+        if adding:
+            self._state_info.finish_discovery()
 
     def on_rr_speed(self) -> None:
         with self._cv:
@@ -1296,6 +1319,28 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _rebuild_state_caches(self, state: S):
         if state:
+            info = getattr(self, "_state_info", None)
+            if (
+                info is not None
+                and info.awaiting_empty_record(state)
+                and self.scope == state.scope
+                and self.scope_tmcc_id() == state.tmcc_id
+            ):
+                # The dispatcher treats an empty 2D response as a deletion. During
+                # creation it confirms the record is available, so retain the draft
+                # and replace only its deleted, nonauthoritative state placeholder.
+                with self._cv:
+                    watcher = self._scope_watchers.get(state.scope)
+                    if isinstance(watcher, StateWatcher):
+                        watcher.shutdown()
+                    self._scope_watchers[state.scope] = None
+                    replacement = self.state_store.get_state(state.scope, state.tmcc_id, create=True)
+                    self.state_store.set_state(state.scope, state.tmcc_id, replacement)
+                    self._active_engine_state = replacement
+                    self._provisional.add((state.scope, state.tmcc_id))
+                    info.update(replacement)
+                    self.monitor_state()
+                return
             with self._cv:
                 self._provisional.discard((state.scope, state.tmcc_id))
                 reselect_current = False
@@ -1364,11 +1409,23 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return upd
 
     # noinspection PyUnusedLocal
-    def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
+    def on_new_engine(
+        self,
+        state: EngineState | None = None,
+        ops_mode_setup: bool = False,
+        is_engine: bool = True,
+    ) -> None:
         if state and state.is_deleted:
+            return
+        if (
+            self._state_info
+            and getattr(self._state_info, "adding", False)
+            and (state is None or state.scope != self.scope or state.tmcc_id != self._scope_tmcc_ids[self.scope])
+        ):
             return
         self._active_engine_state = state
         if isinstance(state, EngineState):
+            self._promote_if_populated(state)
             if self.name_text.value != state.name:
                 self.name_text.value = state.name
             if self._active_train_state and state in self._active_train_state:
@@ -1398,13 +1455,23 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # UI painting lives in ControllerView now
             self._controller_view.update(state=state, throttle_state=throttle_state)
 
-        # update info detail popup, if its visible
+            # A state update need not change the selection to make a product image available.
+            bt_id = getattr(state, "bt_id", None)
+            image_bt_ids = getattr(self, "_image_bt_ids", {})
+            previous_bt_id = image_bt_ids.get(state.tmcc_id)
+            image_bt_ids[state.tmcc_id] = bt_id
+            self._image_bt_ids = image_bt_ids
+            if bt_id and bt_id != previous_bt_id and self.scope == CommandScope.ENGINE:
+                if self.scope_tmcc_id() == state.tmcc_id:
+                    self._image_presenter.update(tmcc_id=state.tmcc_id)
+
+        # update info detail popup if it's visible
         if ops_mode_setup:
             pass
         elif self._state_info and self._state_info.visible:
             self._state_info.update(state)
 
-    def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
+    def on_new_train(self, state: TrainState | None = None, ops_mode_setup: bool = False) -> None:
         if state and state.is_deleted:
             return
         if state and state != self._active_train_state:
@@ -1866,13 +1933,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._catalog_panel = CatalogPanel(
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
-        overlay = self._catalog_panel.overlay
-        self._catalog_panel.configure(pb.scope)  # only call *after* overlay is created
+            overlay = self._catalog_panel.overlay
+            refresh = pb.scope == CommandScope.ENGINE and self._engine_roster_dirty
+            self._catalog_panel.configure(pb.scope, force=refresh)
+            if refresh:
+                self._engine_roster_dirty = False
         overlay.title.value = self._catalog_panel.title
         self.show_popup(overlay, hide_image_box=True)
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
+        info = getattr(self, "_state_info", None)
+        if info is not None and info.adding:
+            self._popup.close_requested()
         panel = getattr(self, "_route_builder_panel", None)
         if panel is not None and panel.visible and self._popup.close_requested() is False:
             return
@@ -2307,6 +2380,30 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_keypress(self, key):
         """Convenience wrapper; heavy lifting done in KeypadView"""
         self._keypad_view.on_keypress(key)
+
+    def on_add_engine(self, tmcc_id: int) -> None:
+        """Program the exact keypad ID and open an uncommitted metadata draft."""
+        from ...pdi.base_req import BaseReq
+
+        if self.scope != CommandScope.ENGINE or not 1 <= tmcc_id <= 9999 or tmcc_id == 99:
+            return
+        if self._state_info and self._state_info.adding:
+            return
+        state = self.state_store.get_state(CommandScope.ENGINE, tmcc_id, create=False)
+        if state is None:
+            # Leave comp_data absent so the placeholder cannot suppress BLE discovery.
+            state = self.state_store.get_state(CommandScope.ENGINE, tmcc_id, create=True)
+        awaiting_discovery = not state.is_user_defined
+        if awaiting_discovery:
+            self._provisional.add((CommandScope.ENGINE, tmcc_id))
+        self._scope_tmcc_ids[CommandScope.ENGINE] = tmcc_id
+        self.clear_throttle()
+        self.on_set_key(CommandScope.ENGINE, tmcc_id)
+        self.ops_mode(state=state)
+        self.on_info(state=state, adding=True, awaiting_discovery=awaiting_discovery)
+        # Older engines need a read even when no programming BLE event arrives.
+        if tmcc_id < 100 or state.record_no is not None and 0 <= state.record_no < 0xFFFF:
+            self.submit_request(BaseReq.create_base_query_request(state))
 
     def on_set_key(self, scope: CommandScope, tmcc_id: int) -> None:
         # Fire the set address command; only valid for switches, accessories, and engines

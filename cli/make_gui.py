@@ -10,4 +10,8 @@
 from src.pytrain.cli.make_gui import MakeGui
 
 if __name__ == "__main__":
+    from src.pytrain.utils.logging_manager import LoggingManager
+
+    if not LoggingManager.initialize():
+        raise RuntimeError("Failed to initialize PyTrain logging")
     MakeGui()

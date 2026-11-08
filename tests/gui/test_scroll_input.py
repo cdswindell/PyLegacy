@@ -23,16 +23,21 @@ def test_missing_or_invalid_delta_is_ignored(event):
 @pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
 @pytest.mark.parametrize("delta", [-240, -120, 120, 240])
 def test_wheel_notches_remain_proportional(platform, delta, monkeypatch):
+    # Patch the imported platform value, with the default existence guard.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(mod, "platform", platform)
     assert mod.wheel_scroll_pixels(SimpleNamespace(delta=delta)) == -delta * 48 / 120
 
 
 def test_small_mac_wheel_deltas_are_not_lost(monkeypatch):
+    # Patch the imported platform value, with the default existence guard.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(mod, "platform", "darwin")
     assert mod.wheel_scroll_pixels(SimpleNamespace(delta=-1)) == 8
     assert mod.wheel_scroll_pixels(SimpleNamespace(delta=2)) == -16
 
 
+@pytest.mark.smoke
 def test_sub_row_motion_accumulates_and_resets_on_reversal_or_idle(monkeypatch):
     now = [10.0]
     monkeypatch.setattr(mod.time, "monotonic", lambda: now[0])

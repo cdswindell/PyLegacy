@@ -37,7 +37,7 @@ class PyTrainArgumentParser(ArgumentParser):
             return cast(PyTrainArgumentParser, self.parent).is_exit_on_error
         return self._exit_on_error
 
-    def error(self, message: str) -> None:
+    def error(self, message: str):
         self._error_message = message
         if self.is_exit_on_error:
             try:
@@ -47,12 +47,12 @@ class PyTrainArgumentParser(ArgumentParser):
         else:
             raise ArgumentError(None, message)
 
-    def exit(self, status: int = 0, message: str = None) -> None:
+    def exit(self, status: int = 0, message: str | None = None):
         self._error_message = message
         if self.is_exit_on_error:
             super().exit(status, message)
         else:
-            raise ArgumentError(None, message)
+            raise ArgumentError(None, str(message))
 
     @property
     def error_message(self) -> str | None:
@@ -85,7 +85,7 @@ class PyTrainArgumentParser(ArgumentParser):
         with self._lock:
             self._exit_on_error = True
 
-    # noinspection PyProtectedMember
+    # noinspection PyProtectedMember,unresolved-references
     def remove_args(self, args: List[str]) -> None:
         for arg in args:
             # Accept either "-foo" or "foo"
@@ -116,7 +116,7 @@ class PyTrainArgumentParser(ArgumentParser):
                 # Remove from action groups' lists
                 for group in getattr(self, "_action_groups", ()):
                     ga = getattr(group, "_group_actions", None)
-                    if ga and target_action in ga:
+                    if ga is not None and target_action in ga:
                         ga.remove(target_action)
 
                 # Remove from mutually exclusive groups' lists
@@ -154,7 +154,7 @@ class StripPrefixesHelpFormatter(HelpFormatter):
 
 # Custom argparse type representing a bounded int
 class IntRange:
-    def __init__(self, imin: int = None, imax: int = None):
+    def __init__(self, imin: int | None = None, imax: int | None = None):
         self.imin = imin
         self.imax = imax
 

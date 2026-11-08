@@ -8,6 +8,7 @@
 
 # tests/cli/test_pytrain_debug_toggle.py
 import logging
+from unittest.mock import Mock
 
 import pytest
 
@@ -63,3 +64,48 @@ def test_debug_property_toggles_through_the_same_path(root_at_info):
 
     obj.debug = False
     assert other.isEnabledFor(logging.DEBUG) is False
+
+
+@pytest.mark.parametrize("feature", ["debug", "echo"])
+@pytest.mark.parametrize("initial", [False, True])
+@pytest.mark.parametrize(
+    "parts,enabled",
+    [(None, True), (["toggle"], True), (["toggle", "ON"], True), (["toggle", "off"], False), ([], False)],
+)
+def test_toggle_handlers(bare_pytrain, monkeypatch, feature, initial, parts, enabled):
+    setattr(bare_pytrain, f"_{feature}", initial)
+    enable, disable = Mock(), Mock()
+    monkeypatch.setattr(bare_pytrain, f"_enable_{feature}", enable)
+    monkeypatch.setattr(bare_pytrain, f"_disable_{feature}", disable)
+    getattr(bare_pytrain, f"_handle_{feature}")(parts)
+    assert enable.call_count == int(enabled and not initial)
+    assert disable.call_count == int(not enabled and initial)
+
+
+@pytest.mark.parametrize("feature", ["debug", "echo"])
+@pytest.mark.parametrize("initial", [False, True])
+@pytest.mark.parametrize("value", [0, 1])
+def test_toggle_properties_noop_and_transition(bare_pytrain, monkeypatch, feature, initial, value):
+    setattr(bare_pytrain, f"_{feature}", initial)
+    enable, disable = Mock(), Mock()
+    monkeypatch.setattr(bare_pytrain, f"_enable_{feature}", enable)
+    monkeypatch.setattr(bare_pytrain, f"_disable_{feature}", disable)
+    assert getattr(bare_pytrain, feature) is initial
+    setattr(bare_pytrain, feature, value)
+    assert enable.call_count == int(bool(value) and not initial)
+    assert disable.call_count == int(not value and initial)
+
+
+@pytest.mark.parametrize("pdi", [False, True])
+def test_echo_subscriptions(bare_pytrain, pdi):
+    from src.pytrain.cli.pytrain import BROADCAST_TOPIC
+
+    bare_pytrain._tmcc_listener = Mock()
+    bare_pytrain._pdi_buffer = Mock() if pdi else None
+    bare_pytrain._enable_echo()
+    assert bare_pytrain.echo is True
+    bare_pytrain._disable_echo()
+    assert bare_pytrain.echo is False
+    for listener in [bare_pytrain._tmcc_listener] + ([bare_pytrain._pdi_buffer] if pdi else []):
+        listener.listen_for.assert_called_once_with(bare_pytrain, BROADCAST_TOPIC)
+        listener.unsubscribe.assert_called_once_with(bare_pytrain, BROADCAST_TOPIC)

@@ -33,6 +33,7 @@ from ..pdi.constants import (
 )
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
+from ..utils.update_policy import self_update_disabled
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +48,12 @@ class ClientStateListener(threading.Thread):
 
     @classmethod
     def listen_for(
-        cls, listener: Subscriber, channel: Topic, address: int = None, command: CommandDefEnum = None, data: int = None
+        cls,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ):
         cls.build().subscribe(listener, channel, address, command, data)
 
@@ -79,7 +85,7 @@ class ClientStateListener(threading.Thread):
 
         # See if this client needs an upgrade. If it does, the actual upgrade
         # will be done by the PyTrain main program
-        if self.update_client_if_needed(False):
+        if self.update_client_if_needed(False) and not self_update_disabled():
             return
 
         self._tmcc_buffer.sync_state()  # request initial state from server
@@ -131,7 +137,11 @@ class ClientStateListener(threading.Thread):
             if do_upgrade:
                 cv = f"{get_version()}"
                 sv = f" --> v{server_version[0]}.{server_version[1]}.{server_version[2]}" if server_version else ""
-                log.info(f"Client needs update: {cv}{sv}")
+                log.warning(
+                    f"Client needs update: {cv}{sv}. Update the Flatpak via your distributor."
+                    if self_update_disabled()
+                    else f"Client needs update: {cv}{sv}"
+                )
             return True
         return False
 
@@ -156,9 +166,9 @@ class ClientStateListener(threading.Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ) -> None:
         self._tmcc_listener.subscribe(listener, channel, address, command, data)
         self._pdi_listener.subscribe(listener, channel, address)
@@ -167,9 +177,9 @@ class ClientStateListener(threading.Thread):
         self,
         listener: Subscriber,
         channel: Topic,
-        address: int = None,
-        command: CommandDefEnum = None,
-        data: int = None,
+        address: int | None = None,
+        command: CommandDefEnum | None = None,
+        data: int | None = None,
     ):
         self._tmcc_listener.unsubscribe(listener, channel, address, command, data)
         self._pdi_listener.unsubscribe(listener, channel, address)
@@ -192,7 +202,7 @@ class ClientStateListener(threading.Thread):
             (PdiCommand.STM2_RX, Stm2Action.CONFIG),
             (PdiCommand.WIFI_RX, WiFiAction.CONFIG),
         ):
-            self._pdi_listener.subscribe(self, channel=dev[0], action=dev[1])
+            self._pdi_listener.subscribe(cast(Subscriber, cast(object, self)), channel=dev[0], action=dev[1])
 
 
 class ClientStateHandler(socketserver.BaseRequestHandler):

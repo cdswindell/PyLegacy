@@ -19,12 +19,13 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
-from threading import Event, Lock, Thread
+from threading import Event, Lock, Thread, current_thread
 from time import monotonic
 from typing import Callable
 
 from . import prod_info
 from ..protocol.constants import DEFAULT_SERVER_PORT, PROGRAM_NAME
+from ..utils.path_utils import cache_directory
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ DEFAULT_CACHE_SYNC_POLL = float(os.environ.get("PYTRAIN_CACHE_SYNC_POLL", "30.0"
 DEFAULT_CACHE_SYNC_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_TIMEOUT", "30.0"))
 DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_CONNECT_TIMEOUT", "2.0"))
 DEFAULT_CACHE_SYNC_MAX_PAYLOAD = int(os.environ.get("PYTRAIN_CACHE_SYNC_MAX_PAYLOAD", str(64 * 1024 * 1024)))
-CONFIG_CACHE_DIR = os.environ.get("CONFIG_CACHE_DIR", "cache/config")
+CONFIG_CACHE_DIR = str(cache_directory("config", "CONFIG_CACHE_DIR"))
 
 
 class CacheSyncEvent(Enum):
@@ -390,6 +391,8 @@ class CacheSyncManager(Thread):
                     clients_provider=clients_provider,
                     transport=transport,
                 )
+            elif cls._instance._shutdown.is_set():
+                raise RuntimeError("Cache sync manager is stopping; retry stop before building a replacement")
             return cls._instance
 
     @classmethod
@@ -397,8 +400,9 @@ class CacheSyncManager(Thread):
         from ..cli.pytrain import PyTrain
 
         if cls._instance is None:
-            if PyTrain.current(raise_exception=False):
-                if PyTrain.current().is_client:
+            pytrain = PyTrain.current(raise_exception=False)
+            if pytrain:
+                if pytrain.is_client:
                     log.warning(
                         "Cache sync skipped: the connected server does not advertise cache sync support. "
                         "Upgrade the server or restart it with cache sync enabled to accept client cache files."
@@ -455,9 +459,22 @@ class CacheSyncManager(Thread):
         self._server_thread: Thread | None = None
         self._delete_tombstones: dict[str, int] = {}
         self._delete_tombstone_lock = Lock()
+        self._shutdown_lock = Lock()
         self._manifest = self._cache_manifest()
         self._sidecar_available = self._start_sidecar()
         self.start()
+        self._log_lifecycle("Cache sync manager created")
+
+    def _log_lifecycle(self, event: str) -> None:
+        log.debug(
+            "%s pid=%s manager=%#x thread=%s role=%s port=%s",
+            event,
+            os.getpid(),
+            id(self),
+            current_thread().name,
+            "server" if self._is_server else "client",
+            self._sync_port,
+        )
 
     @property
     def sidecar_available(self) -> bool:
@@ -512,14 +529,32 @@ class CacheSyncManager(Thread):
         return deleted
 
     def shutdown(self) -> None:
-        self._shutdown.set()
-        if self._server is not None:
-            self._server.shutdown()
-            self._server.server_close()
-        if self.is_alive():
-            self.join(timeout=2.0)
+        with self._shutdown_lock:
+            self._shutdown.set()
+            self._sidecar_available = False
+            self._log_lifecycle("Cache sync stop attempt")
+            if current_thread() is self or current_thread() is self._server_thread:
+                raise RuntimeError("Cache sync cannot stop from its own thread")
+            if self._server is not None:
+                if self._server_thread is not None and self._server_thread.ident is not None:
+                    self._server.shutdown()
+                self._server.server_close()
+                self._server = None
+            if self._server_thread is not None:
+                self._join_owned_thread(self._server_thread)
+                self._server_thread = None
+            self._join_owned_thread(self)
+            self._log_lifecycle("Cache sync stop completed")
+
+    @staticmethod
+    def _join_owned_thread(thread: Thread) -> None:
+        if thread.ident is not None:
+            thread.join(timeout=2.0)
+        if thread.is_alive():
+            raise RuntimeError(f"Cache sync thread did not terminate: {thread.name}")
 
     def _start_sidecar(self) -> bool:
+        started = False
         try:
             self._server = CacheSyncTCPServer(("", self._sync_port), CacheSyncHandler, self)
             self._server_thread = Thread(
@@ -528,11 +563,18 @@ class CacheSyncManager(Thread):
                 name=f"{PROGRAM_NAME} Cache",
             )
             self._server_thread.start()
-            log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
-            return True
-        except OSError as e:
+            started = True
+        except (OSError, RuntimeError) as e:
             log.warning("Cache sync disabled: unable to listen on port %s: %s", self._sync_port, e)
             return False
+        finally:
+            if not started and self._server is not None:
+                if self._server_thread is None or self._server_thread.ident is None:
+                    self._server.server_close()
+                    self._server = None
+                    self._server_thread = None
+        log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
+        return True
 
     def run(self) -> None:
         if not self._is_server and self._server_ip and self._server_advertised_sync is not False:
@@ -718,5 +760,6 @@ class CacheSyncManager(Thread):
         return tuple(sorted(entries))
 
 
-def default_cache_sync_port(server_port: int = DEFAULT_SERVER_PORT) -> int:
+def default_cache_sync_port(server_port: int | None = DEFAULT_SERVER_PORT) -> int:
+    server_port = server_port or DEFAULT_SERVER_PORT
     return int(server_port) + 100

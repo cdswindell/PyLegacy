@@ -46,7 +46,7 @@ E = TypeVar("E", bound=CommandDefEnum)
 
 
 class ComponentStateStore:
-    _instance: ComponentStateStore = None
+    _instance: ComponentStateStore | None = None
     _lock = threading.RLock()
 
     @classmethod
@@ -86,13 +86,13 @@ class ComponentStateStore:
         if cls._instance is None:
             raise AttributeError("ComponentStateStore not built")
         cls._instance._state[scope][address] = state
+        cls._instance._deleted_addresses.discard((scope, address))
 
     @classmethod
     def delete_state(cls, state: T) -> None:
         if cls._instance is None:
             raise AttributeError("ComponentStateStore not built")
         if state:
-            # noinspection PyTypeChecker
             cls._instance._delete_state(state.scope, state.address)
 
     @classmethod
@@ -100,6 +100,8 @@ class ComponentStateStore:
         with cls._lock:
             if cls._instance:
                 cls._instance._state.clear()
+                cls._instance._bt_index.clear()
+                cls._instance._deleted_addresses.clear()
 
     @classmethod
     def is_state_synchronized(cls) -> bool:
@@ -129,11 +131,11 @@ class ComponentStateStore:
         return sd[max(sd.keys())] if sd else None
 
     @classmethod
-    def by_record_no(cls, record_no: int) -> T | None:
-        if CommandScope.ENGINE in cls._instance._state:
-            for address in cls._instance._state[CommandScope.ENGINE]:
-                if cls._instance._state[CommandScope.ENGINE][address].record_no == record_no:
-                    return cls._instance._state[CommandScope.ENGINE][address]
+    def by_record_no(cls, record_no: int, scope: CommandScope = CommandScope.ENGINE) -> T | None:
+        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and scope in cls._instance._state:
+            for address in cls._instance._state[scope]:
+                if cls._instance._state[scope][address].record_no == record_no:
+                    return cls._instance._state[scope][address]
         return None
 
     def __new__(cls, *args, **kwargs):
@@ -143,7 +145,7 @@ class ComponentStateStore:
         """
         with cls._lock:
             if ComponentStateStore._instance is None:
-                ComponentStateStore._instance = super(ComponentStateStore, cls).__new__(cls)
+                ComponentStateStore._instance = super().__new__(cls)
                 ComponentStateStore._instance._initialized = False
             return ComponentStateStore._instance
 
@@ -155,6 +157,11 @@ class ComponentStateStore:
         is_ser2: bool = False,
     ) -> None:
         if self._initialized:
+            # The singleton may have been created by an early state lookup before
+            # PyTrain has constructed its command listeners. Bind them when the
+            # owning PyTrain instance supplies them during startup.
+            if listeners is not None:
+                self._listeners = listeners
             return
         else:
             self._initialized = True
@@ -163,10 +170,12 @@ class ComponentStateStore:
         from .engine_state import EngineState
 
         self._dependencies = DependencyCache.build()
-        self._listeners = listeners
+        self._listeners = listeners if listeners is not None else ()
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
         self._bt_index: dict[int, SortedDict[int, EngineState]] = {}
+        # Prevent queued updates from recreating recently deleted states.
+        self._deleted_addresses: set[tuple[CommandScope, int]] = set()
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
@@ -188,12 +197,24 @@ class ComponentStateStore:
 
     # noinspection PyProtectedMember
     def __call__(self, command: Message) -> None:
+        from ..pdi.ble_req import BleReq
+
         """
         Callback, per the Subscriber protocol in CommandListener
         """
         if command:
+            if isinstance(command, BleReq):
+                log.debug(f"ComponentStateStore.__call__ ignoring: {command}")
+                return
             try:
                 if isinstance(command, CommandReq):
+                    # A four-digit address programming echo carries no engine state.
+                    if (
+                        command.scope == CommandScope.ENGINE
+                        and command.address > 99
+                        and command.command == Engine2.SET_ADDRESS
+                    ):
+                        return
                     if command.is_halt:  # send to all known devices
                         if self._filter_updates and command.is_filtered:
                             if log.isEnabledFor(logging.DEBUG):
@@ -223,10 +244,16 @@ class ComponentStateStore:
                             # make sure we haven't filled a slot based on a previous engine's road number
                             address = command.address
                             scope = command.scope
+                            if (scope, address) in self._deleted_addresses:
+                                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                                    self._deleted_addresses.discard((scope, address))
+                                else:
+                                    return
                             if address > 99:
                                 state = self.query(scope, address)
                                 if state and state.address != address:
                                     del self._state[scope][address]
+
                             self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
                                 self._lcs_config_reqs[(command.command, address)] = command
@@ -354,8 +381,21 @@ class ComponentStateStore:
         return set(self._state[scope].keys())
 
     def _delete_state(self, scope: CommandScope, address: int) -> None:
-        if scope in self._state and address in self._state[scope]:
-            del self._state[scope][address]
+        with self._lock:
+            if scope not in self._state or address not in self._state[scope]:
+                return
+            state = self._state[scope][address]
+            # A road number can be another key for the same state object.
+            for key, value in list(self._state[scope].items()):
+                if value is state:
+                    self._deleted_addresses.add((scope, key))
+                    del self._state[scope][key]
+            for bt_id, entries in list(self._bt_index.items()):
+                for key, value in list(entries.items()):
+                    if value is state:
+                        del entries[key]
+                if not entries:
+                    del self._bt_index[bt_id]
 
 
 # noinspection DuplicatedCode
@@ -374,7 +414,7 @@ class DependencyCache(Generic[T, C, E]):
     sending the reset command would turn that light off.
     """
 
-    _instance: DependencyCache = None
+    _instance: DependencyCache | None = None
     _lock = threading.RLock()
 
     @classmethod
@@ -444,7 +484,7 @@ class DependencyCache(Generic[T, C, E]):
         """
         with cls._lock:
             if DependencyCache._instance is None:
-                DependencyCache._instance = super(DependencyCache, cls).__new__(cls)
+                DependencyCache._instance = super().__new__(cls)
                 DependencyCache._instance._initialized = False
             return DependencyCache._instance
 
@@ -539,10 +579,10 @@ class DependencyCache(Generic[T, C, E]):
             Engine2.STOP_IMMEDIATE,
             Engine2.ABSOLUTE_SPEED,
             Engine2.FORWARD_DIRECTION,
-            Engine2.NUMERIC,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
             Engine2.BELL_OFF,
+            Engine2.NUMERIC,
         )
         self.causes(
             Engine2.STOP_IMMEDIATE,

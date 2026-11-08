@@ -60,10 +60,10 @@ class SyncState(ComponentState):
         return UpdateResult.UPDATED
 
     def is_synchronized(self) -> bool:
-        return self._state_synchronized
+        return bool(self._state_synchronized)
 
     def is_synchronizing(self) -> bool:
-        return self._state_synchronizing
+        return bool(self._state_synchronizing)
 
     @property
     def is_known(self) -> bool:

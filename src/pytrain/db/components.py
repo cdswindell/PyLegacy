@@ -77,7 +77,7 @@ class ConsistComponent:
         byte_str += b"\xff" * (64 - len(byte_str))
         return byte_str
 
-    def __init__(self, tmcc_id: int, flags: int, rec_no: int = None, extra: int = 0xFF) -> None:
+    def __init__(self, tmcc_id: int, flags: int, rec_no: int | None = None, extra: int = 0xFF) -> None:
         self.tmcc_id = tmcc_id
         self.flags = flags
         self.extra = extra
@@ -164,6 +164,7 @@ class ConsistComponent:
     @property
     def as_bytes(self) -> bytes:
         if self.is_d4:
+            assert self.rec_no is not None
             byte_str = b"\xff"
             byte_str += self.flags.to_bytes(1, byteorder="little")
             byte_str += self.rec_no.to_bytes(2, byteorder="little")

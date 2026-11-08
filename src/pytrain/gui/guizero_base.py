@@ -47,6 +47,7 @@ from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
+from .bundled_fonts import DIGITAL_DREAM_FAMILY, register_digital_font
 from .components.hold_button import HoldButton
 from .controller.engine_gui_conf import FONT_SIZE_EXCEPTIONS
 from .pycab_app import PyCabApp
@@ -64,9 +65,29 @@ PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueE
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
 DEFAULT_LAYOUT_TITLE = "My Layout"
+HANDHELD_FONT_FAMILY = "Noto Sans"
+HANDHELD_NAMED_FONTS = ("TkDefaultFont", "TkTextFont", "TkHeadingFont", "TkMenuFont")
 
 
-def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -> str:
+def configure_handheld_fonts(root, preferred: str = HANDHELD_FONT_FAMILY) -> bool:
+    """Set this Tk application's default fonts, leaving the host OS untouched.
+
+    A missing preferred font leaves the platform's defaults in place. Call immediately
+    after creating the Tk root, before constructing GUI widgets.
+    """
+    family = resolve_font_family(root, preferred, fallback="")
+    if not family:
+        log.info("Handheld font %s unavailable; retaining Tk defaults", preferred)
+        return False
+    for name in HANDHELD_NAMED_FONTS:
+        tkfont.nametofont(name, root=root).configure(family=family)
+    log.info("Handheld GUI default font: %s", family)
+    return True
+
+
+def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont", *, load_bundled: bool = False) -> str:
+    """Prefer installed fonts; optionally register Digital Dream before building its widgets."""
+
     def normalize(value: str) -> str:
         return "".join(character for character in value.casefold() if character.isalnum())
 
@@ -75,7 +96,21 @@ def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -
     except (AttributeError, RuntimeError, TclError):
         return fallback
     available = {normalize(family): family for family in families}
-    return available.get(normalize(preferred), fallback)
+    family = available.get(normalize(preferred))
+    if family is not None:
+        return family
+    if load_bundled and normalize(preferred) == normalize(DIGITAL_DREAM_FAMILY) and register_digital_font():
+        try:
+            # Aqua caches font families before registration. Ask for the font's real
+            # embedded family and check what Tk selected instead of trusting that list.
+            font = tkfont.Font(root=root, family=DIGITAL_DREAM_FAMILY)
+            family = font.actual("family")
+            if normalize(family) == normalize(preferred):
+                return family
+        except (AttributeError, RuntimeError, TclError) as exc:
+            log.warning("Unable to use bundled Digital Dream font: %s", exc)
+        log.warning("Digital Dream is not available to Tk; using %s", fallback)
+    return fallback
 
 
 # noinspection PyUnresolvedReferences
@@ -381,6 +416,8 @@ class GuiZeroBase(Thread, ABC):
     def state_store(self) -> ComponentStateStore:
         return self._state_store
 
+    handheld_font_family: str | None = None
+
     @property
     def app(self) -> App:
         return self._app
@@ -512,6 +549,12 @@ class GuiZeroBase(Thread, ABC):
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self._app = app = PyCabApp(title=self.title, width=self.width, height=self.height)
+        # A handheld opts in via its GUI class; ordinary Pi and desktop GUIs retain
+        # their system fonts. Steam Deck installations also opt in through platform config.
+        from ..utils.host_info import is_steam_deck
+
+        if self.handheld_font_family or is_steam_deck():
+            configure_handheld_fonts(app.tk, self.handheld_font_family or HANDHELD_FONT_FAMILY)
         tk_scaling = os.getenv("PYTRAIN_TK_SCALING")
         if tk_scaling:
             app.tk.call("tk", "scaling", float(tk_scaling))
@@ -1037,7 +1080,7 @@ class GuiZeroBase(Thread, ABC):
 
     def get_prod_info(
         self,
-        bt_id: str,
+        bt_id: str | None,
         callback: Callable,
         tmcc_id: int,
         available_width: int,
@@ -1068,10 +1111,8 @@ class GuiZeroBase(Thread, ABC):
             pass
         else:
             prod_info = "N/A"
-            if bt_id is None:
-                with self._cv:
-                    self._prod_info_cache[tmcc_id] = prod_info
-                    self._pending_prod_infos.discard(tmcc_id)
+            # A missing Bluetooth ID is provisional, not a failed product lookup.
+            # Discovery can supply it later for this same TMCC ID.
         return prod_info
 
     def reset_prod_info_cache(self):

@@ -133,9 +133,12 @@ def test_miss_is_cached_and_reset_hook(tmp_path: Path, monkeypatch):
 def test_non_default_places_are_fresh(tmp_path: Path):
     """The freshness escape hatch: non-default places re-walk every call."""
     reset_path_index()
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    _make_tree(project_dir)
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
-    places = (Path.cwd(), cache_dir)  # prod_info-style, non-default
+    places = (project_dir, cache_dir)  # prod_info-style, non-default
 
     assert find_file("engine.json", places) is None
     (cache_dir / "engine.json").write_text("{}")
@@ -163,7 +166,7 @@ def test_venv_style_dirs_are_pruned(tmp_path: Path, monkeypatch):
     """A site-packages tree under a recognized prefix is not searched."""
     reset_path_index()
     env_root = tmp_path / "env"
-    site = env_root / "lib" / "site-packages"
+    site = env_root / "bin" / "site-packages"
     site.mkdir(parents=True)
     (site / "pkgfile.txt").write_text("pkg")
 
@@ -178,3 +181,33 @@ def test_venv_style_dirs_are_pruned(tmp_path: Path, monkeypatch):
     assert find_file("pkgfile.txt", (str(tmp_path),)) is None
     # Legitimate project asset still resolves.
     assert norm(find_file("asset.txt", (str(tmp_path),))) == norm(str(proj / "asset.txt"))
+
+
+def test_find_packaged_asset_outside_working_directory(tmp_path: Path, monkeypatch):
+    """Bundled PyTrain resources resolve even when launched outside the source tree."""
+    reset_path_index()
+    monkeypatch.chdir(tmp_path)
+
+    path = find_file("RR-Speeds.jpg")
+
+    assert path is not None
+    assert Path(path).name == "RR-Speeds.jpg"
+    assert Path(path).is_file()
+
+
+def test_explicit_cache_root_under_hidden_parent(tmp_path: Path):
+    """Explicit Flatpak-style cache roots are searchable despite hidden ancestors."""
+    reset_path_index()
+    cache_dir = tmp_path / ".var" / "app" / "pycab" / "data" / "cache" / "engine_images"
+    cache_dir.mkdir(parents=True)
+    image = cache_dir / "60.jpg"
+    image.write_bytes(b"test image")
+
+    # A string target exercises the directory index, not the concrete-Path shortcut.
+    assert norm(find_file("60.jpg", (cache_dir,))) == norm(str(image))
+
+    # Hidden subdirectories *inside* the root must still be excluded.
+    hidden = cache_dir / ".private"
+    hidden.mkdir()
+    (hidden / "hidden.jpg").write_bytes(b"hidden")
+    assert find_file("hidden.jpg", (cache_dir,)) is None

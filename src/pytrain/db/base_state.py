@@ -55,11 +55,12 @@ class BaseState(ComponentState):
         if isinstance(command, BaseReq):
             with self._cv:
                 # Note: super().update is explicitly not called
+                # noinspection unresolved-references
                 self._base_name = command.name.title() if command.name else self._base_name
                 self._firmware = command.firmware if command.firmware else self._firmware
                 self._is_known = True
-                if self.firmware:
-                    version_info = self.firmware.split(".")
+                if self.firmware_str:
+                    version_info = self.firmware_str.split(".")
                     self._firmware_high = int(version_info[0])
                     self._firmware_low = int(version_info[1])
                 self._route_throw_rate = command.route_throw_rate
@@ -88,8 +89,12 @@ class BaseState(ComponentState):
         return self._base_name
 
     @property
-    def firmware(self) -> str:
+    def firmware_str(self) -> str:
         return self._firmware
+
+    @property
+    def firmware(self) -> tuple[int, int]:
+        return self.firmware_high, self.firmware_low
 
     @property
     def firmware_high(self) -> int:
@@ -101,18 +106,18 @@ class BaseState(ComponentState):
 
     @property
     def d4_engines(self) -> int:
-        return self._d4_engines
+        return self._d4_engines if self._d4_engines is not None else 0
 
     @property
-    def first_d4_engine_record_no(self) -> int:
+    def first_d4_engine_record_no(self) -> int | None:
         return self._first_d4_engine_rec_no
 
     @property
     def d4_trains(self) -> int:
-        return self._d4_trains
+        return self._d4_trains if self._d4_trains is not None else 0
 
     @property
-    def first_d4_train_record_no(self) -> int:
+    def first_d4_train_record_no(self) -> int | None:
         return self._first_d4_train_rec_no
 
     @property
@@ -131,6 +136,7 @@ class BaseState(ComponentState):
     def is_lcs(self) -> bool:
         return True
 
+    # noinspection bad-argument-type
     def as_bytes(self) -> bytes:
         if self.is_known:
             from ..pdi.base_req import BaseReq
@@ -160,4 +166,5 @@ class BaseState(ComponentState):
         return d
 
 
+# noinspection bad-argument-type
 SCOPE_TO_STATE_MAP.update({CommandScope.BASE: BaseState})

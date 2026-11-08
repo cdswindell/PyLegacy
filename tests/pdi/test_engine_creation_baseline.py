@@ -1,0 +1,327 @@
+"""Baseline contracts for Base 3 transmission and BLE programming discovery.
+
+These tests intentionally do not introduce CommandObserver or discovery behavior.
+"""
+
+import threading
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
+import src.pytrain.pdi.base3_buffer as base3_module
+from src.pytrain.pdi.base3_buffer import Base3Buffer
+from src.pytrain.pdi.base_req import BaseReq
+from src.pytrain.pdi.constants import PdiCommand
+from src.pytrain.pdi.pdi_listener import PdiDispatcher, PdiListener
+from src.pytrain.pdi.pdi_req import TmccReq
+from src.pytrain.protocol.command_req import CommandReq
+from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+
+
+@pytest.fixture(autouse=True)
+def clean_singletons():
+    Base3Buffer.stop()
+    if PdiListener.is_built():
+        PdiListener.stop()
+    if PdiDispatcher.is_built():
+        PdiDispatcher.get().shutdown()
+    yield
+    Base3Buffer.stop()
+    if PdiListener.is_built():
+        PdiListener.stop()
+    if PdiDispatcher.is_built():
+        PdiDispatcher.get().shutdown()
+
+
+def test_base3_send_syncs_after_successful_transmission(monkeypatch):
+    """sync_state must not run before socket.sendall has completed."""
+    events = []
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: events.append(("observe", data)))
+    packet = bytes.fromhex("d129d7df")
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
+    fake_socket.connect.return_value = None
+    fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
+
+    buffer = object.__new__(Base3Buffer)
+    buffer._is_running = True
+    buffer._base3_addr = "127.0.0.1"
+    buffer._base3_port = 1234
+    buffer._send_queue = Mock()
+    buffer._send_queue.get.return_value = packet
+    buffer._listener = None
+    buffer._mbc_registry = {}
+    monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
+    monkeypatch.setattr(base3_module.select, "select", lambda *args: ([buffer._send_queue], [], []))
+    monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
+
+    def sync(data):
+        events.append(("sync", data))
+        buffer._is_running = False
+
+    monkeypatch.setattr(buffer, "sync_state", sync)
+    buffer.run()
+    assert events == [("send", packet.hex().upper().encode()), ("observe", packet), ("sync", packet)]
+
+
+def test_multibyte_command_syncs_complete_request_once(monkeypatch):
+    """Fragments are sent before synchronization sees the logical request once."""
+    from src.pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
+
+    cmd = CommandReq.build(
+        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+        address=1234,
+        data=42,
+        scope=CommandScope.ENGINE,
+    )
+    packet = TmccReq(cmd, pdi_command=PdiCommand.TMCC4_TX).as_bytes
+    fragments = [b"fragment-one", b"fragment-two"]
+    pending = [packet]
+    events = []
+    selections = []
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
+    fake_socket.connect.return_value = None
+    fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
+
+    buffer = object.__new__(Base3Buffer)
+    buffer._is_running = True
+    buffer._base3_addr = "127.0.0.1"
+    buffer._base3_port = 1234
+    buffer._listener = None
+    base3_module.Thread.__init__(buffer)
+    buffer._mbc_registry = {}
+    buffer._send_queue = Mock()
+    buffer._send_queue.get.side_effect = lambda: pending.pop(0)
+    buffer.send = Mock(side_effect=pending.append)
+
+    def sync_state(data, *, tmcc_cmd=None):
+        events.append(("sync", data, tmcc_cmd))
+        buffer._is_running = False
+
+    buffer.sync_state = Mock(side_effect=sync_state)
+    observed = []
+    monkeypatch.setattr(
+        base3_module.CommandObserver,
+        "offer",
+        lambda data: (observed.append(data), events.append(("observe", data))),
+    )
+    monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
+    monkeypatch.setattr(TmccReq, "as_packets", lambda request: fragments.copy())
+    monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
+
+    def select_ready(*_args):
+        selections.append([event[0] for event in events])
+        return [buffer._send_queue], [], []
+
+    monkeypatch.setattr(base3_module.select, "select", select_ready)
+
+    buffer.run()
+
+    assert [call.args[0] for call in buffer.send.call_args_list] == fragments
+    assert events[:3] == [
+        ("send", fragments[0].hex().upper().encode()),
+        ("send", fragments[1].hex().upper().encode()),
+        ("observe", cmd.as_bytes),
+    ]
+    assert events[3][:2] == ("sync", cmd.as_bytes)
+    assert events[3][2].command == cmd.command
+    assert selections == [[], [], ["send"]]
+    assert observed == [cmd.as_bytes]
+    buffer.sync_state.assert_called_once()
+    assert buffer.sync_state.call_args.args[0] == cmd.as_bytes
+    assert buffer.sync_state.call_args.kwargs["tmcc_cmd"].command == cmd.command
+    assert buffer._mbc_registry == {}
+
+
+def test_multibyte_registry_removes_sent_shared_fragments_only():
+    """Sending one shared fragment keeps registrations for other commands."""
+    from src.pytrain.pdi.base3_buffer import _MultyByteCommand
+
+    buffer = object.__new__(Base3Buffer)
+    base3_module.Thread.__init__(buffer)
+    buffer._mbc_registry = {}
+    cmd = CommandReq.build(
+        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+        address=1234,
+        data=42,
+        scope=CommandScope.ENGINE,
+    )
+    shared = b"shared-fragment"
+    first_tail = b"first-tail"
+    second_tail = b"second-tail"
+    first = _MultyByteCommand(buffer, b"first", cmd, [shared, first_tail])
+    second = _MultyByteCommand(buffer, b"second", cmd, [shared, second_tail])
+    buffer._register_multibyte_command(first)
+    buffer._register_multibyte_command(second)
+
+    assert buffer._check_for_multibyte_packet(shared) is None
+    assert buffer._mbc_registry[shared] == [second]
+    assert buffer._mbc_registry[first_tail] == [first]
+    assert buffer._check_for_multibyte_packet(first_tail) is first
+    assert buffer._mbc_registry == {shared: [second], second_tail: [second]}
+
+
+def test_multibyte_registry_tracks_repeated_fragment_bytes():
+    """Repeated bytes remain registered once for each expected occurrence."""
+    from src.pytrain.pdi.base3_buffer import _MultyByteCommand
+
+    buffer = object.__new__(Base3Buffer)
+    base3_module.Thread.__init__(buffer)
+    buffer._mbc_registry = {}
+    cmd = CommandReq.build(
+        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+        address=1234,
+        data=42,
+        scope=CommandScope.ENGINE,
+    )
+    repeated = b"repeated-fragment"
+    mbc = _MultyByteCommand(buffer, b"logical-command", cmd, [repeated, repeated])
+    buffer._register_multibyte_command(mbc)
+
+    assert buffer._mbc_registry[repeated] == [mbc, mbc]
+    assert buffer._check_for_multibyte_packet(repeated) is None
+    assert buffer._mbc_registry[repeated] == [mbc]
+    assert buffer._check_for_multibyte_packet(repeated) is mbc
+    assert buffer._mbc_registry == {}
+
+
+@pytest.mark.parametrize(
+    "enum,address,data",
+    [
+        (TMCC1EngineCommandEnum.FORWARD_DIRECTION, 7, 0),
+        (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 7, 15),
+        (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 737, 15),
+    ],
+)
+def test_sync_state_decodes_tmcc_commands(monkeypatch, enum, address, data):
+    """Existing sync_state sends decoded logical commands to BaseReq.update_eng."""
+    buffer = object.__new__(Base3Buffer)
+    buffer.send = Mock()
+    monkeypatch.setattr(Base3Buffer, "_instance", buffer)
+    seen = []
+    monkeypatch.setattr(BaseReq, "update_eng", lambda req: seen.append(req) or None)
+    cmd = CommandReq.build(enum, address=address, data=data, scope=CommandScope.ENGINE)
+    Base3Buffer.sync_state(cmd.as_bytes)
+    assert len(seen) == 1
+    assert seen[0].command == cmd.command
+    assert seen[0].address == address
+
+
+@pytest.mark.parametrize(
+    "packet_hex,tmcc_id",
+    [
+        ("d1760012000030373337a7df", 737),
+        ("d176001225ff54df", 37),
+    ],
+)
+def test_ble_programming_notification_published_on_engine_scope(packet_hex, tmcc_id):
+    """A valid BLE programming message reaches existing scoped subscribers."""
+    listener = PdiListener.build(base3=None, build_base3_reader=False)
+    received = []
+    done = threading.Event()
+
+    def capture(req):
+        received.append(req)
+        done.set()
+
+    listener.subscribe(capture, CommandScope.ENGINE)
+    listener.offer(bytes.fromhex(packet_hex))
+    assert done.wait(2), "BLE programming message was not published"
+    assert received[0].pdi_command == PdiCommand.BLE_RX
+    assert received[0].tmcc_id == tmcc_id
+    assert received[0].is_programming
+
+
+def test_ble_notification_does_not_create_engine_state(monkeypatch):
+    """BLE is a trigger, not an authoritative engine database record."""
+    from src.pytrain.db.component_state_store import ComponentStateStore
+
+    calls = []
+    monkeypatch.setattr(
+        ComponentStateStore,
+        "get_state",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or None,
+    )
+    listener = PdiListener.build(base3=None, build_base3_reader=False)
+    done = threading.Event()
+    listener.subscribe(lambda req: done.set(), CommandScope.ENGINE)
+    listener.offer(bytes.fromhex("d176001225ff54df"))
+    assert done.wait(2)
+    assert not calls
+
+
+def test_base3_receives_while_outbound_command_is_waiting(monkeypatch):
+    """Baseline: select handles an incoming Base 3 packet before queued outbound work."""
+    events = []
+    inbound = bytes.fromhex("d129d7df")
+    outbound = bytes.fromhex("d12729df")
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
+    fake_socket.recv.return_value = inbound.hex().upper().encode()
+    fake_socket.sendall.side_effect = lambda data: events.append(("send", data))
+
+    buffer = object.__new__(Base3Buffer)
+    buffer._is_running = True
+    buffer._base3_addr = "127.0.0.1"
+    buffer._base3_port = 1234
+    buffer._send_queue = Mock()
+    buffer._send_queue.get.return_value = outbound
+    buffer._mbc_registry = {}
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: None)
+    buffer._listener = Mock()
+    buffer._listener.offer.side_effect = lambda data: events.append(("receive", data))
+    monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
+    selected = iter([([fake_socket], [], []), ([buffer._send_queue], [], [])])
+    monkeypatch.setattr(base3_module.select, "select", lambda *args: next(selected))
+    monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
+
+    def sync(data):
+        events.append(("sync", data))
+        buffer._is_running = False
+
+    monkeypatch.setattr(buffer, "sync_state", sync)
+    buffer.run()
+
+    assert events == [
+        ("receive", inbound),
+        ("send", outbound.hex().upper().encode()),
+        ("sync", outbound),
+    ]
+
+
+def test_base3_transmits_queued_packets_in_fifo_order(monkeypatch):
+    """Baseline: the normal send queue determines outbound packet order."""
+    packets = [bytes.fromhex("d12729df"), bytes.fromhex("d129d7df")]
+    sent = []
+    fake_socket = MagicMock()
+    fake_socket.__enter__.return_value = fake_socket
+    fake_socket.sendall.side_effect = sent.append
+
+    buffer = object.__new__(Base3Buffer)
+    buffer._is_running = True
+    buffer._base3_addr = "127.0.0.1"
+    buffer._base3_port = 1234
+    buffer._send_queue = Mock()
+    buffer._send_queue.get.side_effect = packets
+    buffer._listener = None
+    buffer._mbc_registry = {}
+    monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: None)
+    monkeypatch.setattr(base3_module.socket, "socket", lambda *args, **kwargs: fake_socket)
+    monkeypatch.setattr(base3_module.select, "select", lambda *args: ([buffer._send_queue], [], []))
+    monkeypatch.setattr(buffer, "_packetize_multibyte_cmds", lambda data: data)
+    synced = []
+
+    def sync(data):
+        synced.append(data)
+        if len(synced) == len(packets):
+            buffer._is_running = False
+
+    monkeypatch.setattr(buffer, "sync_state", sync)
+    buffer.run()
+
+    assert sent == [packet.hex().upper().encode() for packet in packets]
+    assert synced == packets

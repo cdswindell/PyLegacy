@@ -93,6 +93,15 @@ def set_up_logging(
     # first stage a no-op, so every log.debug() in the program would build a record (and walk
     # the stack for its caller) only for both handlers to throw it away.
 
+    # Validate all options before opening or rotating the logfile.
+    if console_log_output.lower() not in ("stdout", "stderr"):
+        print(f"Failed to set console output: invalid output: '{console_log_output}'")
+        return False
+    for label, level in (("console", console_log_level), ("log file", logfile_log_level)):
+        if not isinstance(level, str) or level.upper() not in logging._nameToLevel:
+            print(f"Failed to set {label} log level: invalid level: '{level}'")
+            return False
+
     # Create console handler
     console_log_output = console_log_output.lower()
     if console_log_output == "stdout":
@@ -124,6 +133,8 @@ def set_up_logging(
         if should_roll_over:  # log already exists, roll over!
             logfile_handler.doRollover()
     except Exception as exception:
+        if "logfile_handler" in locals():
+            logfile_handler.close()
         print(f"Failed to set up log file: {str(exception)}")
         return False
 
@@ -131,6 +142,7 @@ def set_up_logging(
     try:
         logfile_handler.setLevel(logfile_log_level.upper())  # only accepts uppercase level names
     except Exception as e:
+        logfile_handler.close()
         print(f"Failed to set log file log level: invalid level: '{logfile_log_level}': {e}")
         return False
 

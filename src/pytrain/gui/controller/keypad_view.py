@@ -848,6 +848,10 @@ class KeypadView(Generic[S]):
             self._reset_on_keystroke = False
             tmcc_id = int(host.tmcc_id_text.value)
             end_range = 9999 if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 98
+            if host.scope == CommandScope.ENGINE:
+                if 1 <= tmcc_id <= 9999 and tmcc_id != 99:
+                    host.on_add_engine(tmcc_id)
+                return
             if tmcc_id and 2 <= tmcc_id <= end_range and tmcc_id != 99:
                 host.on_set_key(host.scope, tmcc_id)
                 state = ComponentStateStore.get_state(host.scope, tmcc_id, create=False)

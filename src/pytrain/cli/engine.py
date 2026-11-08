@@ -50,7 +50,6 @@ class ClearStateCmd(CommandBase):
 
         # this argument is a safety to make sure user action is confirmed
         if self.tmcc_id != self._cli.data:
-            print(f"TMCC ID: {self.tmcc_id} confirm: {self._cli.data}")
             raise ArgumentError(None, f"Must specify matching {self.scope.title} TMCC ID for -clear; use -h for help")
 
         CommandBase.__init__(
@@ -719,11 +718,17 @@ class EngineCli(CliBaseTMCC):
             ],
         )
 
-    def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+    def __init__(
+        self,
+        arg_parser: ArgumentParser,
+        cmd_line: List[str] | None = None,
+        do_fire: bool = True,
+    ) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
-        self._engine = engine = self._args.engine
         try:
+            self._engine = engine = self._args.engine
             self._scope = scope = self._determine_scope()
+
             self._determine_command_format(scope, engine)
             option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:
@@ -783,6 +788,9 @@ class EngineCli(CliBaseTMCC):
             if ComponentStateStore.is_built():
                 state = ComponentStateStore.get_state(scope, tmcc_id, False)
                 if state and state.is_legacy:
+                    self._command_format = CommandSyntax.LEGACY
+                elif state is None and 100 <= tmcc_id <= 9999:
+                    # Force 4D commands if tmcc id is in 4D range
                     self._command_format = CommandSyntax.LEGACY
                 else:
                     self._command_format = CommandSyntax.TMCC

@@ -16,15 +16,18 @@ import threading
 from collections import defaultdict, deque
 from queue import Queue
 from threading import Thread
-from typing import Generic, Tuple
+from typing import TYPE_CHECKING, Generic, Tuple
 
 from .base_req import BaseReq
-from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
+from .ble_req import BleReq
+from .d4_req import D4Req
+from .constants import D4Action, PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Channel, CommandDispatcher, Message, SYNC_COMPLETE, Subscriber, Topic
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.constants import (
     BROADCAST_TOPIC,
+    CREATE_TOPIC,
     CommandScope,
     DEFAULT_BASE_PORT,
     DEFAULT_QUEUE_SIZE,
@@ -32,6 +35,9 @@ from ..protocol.constants import (
     PROGRAM_NAME,
 )
 from ..utils.ip_tools import get_ip_address
+
+if TYPE_CHECKING:
+    from ..db.component_state import ComponentState
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +49,7 @@ class PdiListener(Thread):
     @classmethod
     def build(
         cls,
-        base3: str = None,
+        base3: str | None = None,
         base3_port: int = DEFAULT_BASE_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         build_base3_reader: bool = True,
@@ -55,38 +61,50 @@ class PdiListener(Thread):
             build_base3_reader = False
         return PdiListener(base3, base3_port, queue_size, build_base3_reader)
 
+    # noinspection unreachable-code
     @classmethod
     def get(cls) -> PdiListener:
-        if cls._instance is None:
-            raise AttributeError("PdiListener has not been initialized")
-        return cls._instance
+        with cls._lock:
+            if isinstance(cls._instance, PdiListener):
+                return cls._instance
+        raise AttributeError("PdiListener has not been initialized")
 
     @classmethod
     def is_built(cls) -> bool:
         return cls._instance is not None
 
+    # noinspection PyProtectedMember,unresolved-references
     @classmethod
     def is_running(cls) -> bool:
-        # noinspection PyProtectedMember
-        return cls._instance is not None and cls._instance._is_running is True
+        with cls._lock:
+            return isinstance(cls._instance, PdiListener) and cls._instance._is_running is True
 
+    # noinspection unreachable-code
     @classmethod
     def stop(cls) -> None:
         with cls._lock:
-            if cls._instance:
+            if isinstance(cls._instance, PdiListener):
                 cls._instance.shutdown()
 
+    # noinspection unreachable-code
     @classmethod
     def enqueue_command(cls, data: bytes | PdiReq) -> None:
-        if cls._instance is not None and data:
+        if isinstance(cls._instance, PdiListener) and data:
             if isinstance(data, PdiReq):
                 data = data.as_bytes
             # noinspection PyProtectedMember
             cls._instance._base3.send(data)
 
     @classmethod
-    def listen_for(cls, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None):
+    def listen_for(
+        cls,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ):
         if cls._instance is not None:
+            # noinspection unresolved-references
             cls._instance.dispatcher.subscribe(listener, channel, address, action)
         else:
             raise AttributeError("Pdi Listener not initialized")
@@ -100,12 +118,13 @@ class PdiListener(Thread):
             if PdiListener._instance is None:
                 # noinspection PyTypeChecker
                 PdiListener._instance = super(PdiListener, cls).__new__(cls)
+                # noinspection unresolved-references
                 PdiListener._instance._initialized = False
             return PdiListener._instance
 
     def __init__(
         self,
-        base3_addr: str,
+        base3_addr: str | None,
         base3_port: int = DEFAULT_BASE_PORT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         build_base3_reader: bool = True,
@@ -119,7 +138,7 @@ class PdiListener(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} PDI Listener {base3_addr}:{base3_port}")
 
         # open a connection to our Base 3
-        if build_base3_reader:
+        if build_base3_reader and base3_addr:
             from .base3_buffer import Base3Buffer
 
             self._base3 = Base3Buffer(base3_addr, base3_port, queue_size, self)
@@ -212,10 +231,22 @@ class PdiListener(Thread):
                 self._base3.shutdown()
         PdiListener._instance = None
 
-    def subscribe(self, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
+    def subscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ) -> None:
         self._dispatcher.subscribe(listener, channel, address, action)
 
-    def unsubscribe(self, listener: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
+    def unsubscribe(
+        self,
+        listener: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ) -> None:
         self._dispatcher.unsubscribe(listener, channel, address, action)
 
     def subscribe_any(self, subscriber: Subscriber) -> None:
@@ -278,6 +309,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         self._cv = threading.Condition()
         self._is_running = True
         self._broadcasts = False
+        self._creates = False
         self._deletes = False
         self._queue = Queue[PdiReq](queue_size)
         self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
@@ -289,6 +321,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
     @property
     def is_broadcasts_enabled(self) -> bool:
         return self._broadcasts
+
+    @property
+    def is_creates_enabled(self) -> bool:
+        return self._creates
 
     @property
     def is_deletes_enabled(self) -> bool:
@@ -309,61 +345,74 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                     self._cv.wait()
             if self._queue.empty():  # we need to do a second check in the event we're being shutdown
                 continue
-            cmd: PdiReq = self._queue.get()
+            cmd = self._queue.get()
             try:
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(f"PDI Dispatcher processing: {cmd}")
-                # update broadcast channels, mostly used for command echoing
-                if self.is_broadcasts_enabled:
-                    self.publish(BROADCAST_TOPIC, cmd)
-
-                # publish dispatched pdi commands to listeners
-                if isinstance(cmd, PdiReq):
-                    if isinstance(cmd, BaseReq):
-                        # on the PyTrain server, we need to know when the initial
-                        # roster sync is complete; we do this by looking for the
-                        # response to the request for info on Train 98...
-                        if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
-                            CommandDispatcher.get().offer(SYNC_COMPLETE)
-                        if cmd.is_ack:
-                            continue
-                        elif not cmd.is_active:
-                            # inactive records should be deleted from state store
-                            from ..db.component_state_store import ComponentStateStore
-
-                            state = ComponentStateStore.get_state(cmd.scope, cmd.tmcc_id, create=False)
-                            if state and not state.is_deleted and state.is_deletable:
-                                state.clear()
-                                # alert subscribers of newly cleared state
-                                if self.is_deletes_enabled:
-                                    self.publish(DELETE_TOPIC, state)
-                            if self.is_server:
-                                # propagate message to clients, so they delete the record
-                                self.update_client_state(cmd)
-                            continue
-                    # for TMCC requests, forward to TMCC Command Dispatcher
-                    if isinstance(cmd, TmccReq):
-                        self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
-                    elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
-                        if cmd.tmcc_id == 100 and isinstance(cmd, BaseReq):
-                            pass
-                        else:
-                            if hasattr(cmd, "action"):
-                                self.publish((cmd.command, cmd.action), cmd)
-                                self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)
-                            self.publish((cmd.scope, cmd.tmcc_id), cmd)
-                            self.publish(cmd.scope, cmd)
-
-                        # Update clients of state change. Note that we DO NOT do this
-                        # if the command is TMCC command received from the Base, as it
-                        # has been handled via the call to tmcc_dispatcher.offer above
-                        if self.is_server:
-                            self.update_client_state(cmd)
+                self._dispatch_request(cmd)
             except Exception as e:
                 log.error(f"PdiDispatcher: Error publishing {cmd}")
                 log.exception(e)
             finally:
                 self._queue.task_done()
+
+    def _dispatch_request(self, cmd: PdiReq) -> None:
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"PDI Dispatcher processing: {cmd}")
+        if self.is_broadcasts_enabled:
+            self.publish(BROADCAST_TOPIC, cmd)
+
+        if isinstance(cmd, TmccReq):
+            # The TMCC dispatcher handles client forwarding for these packets.
+            self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
+            return
+        if isinstance(cmd, D4Req) and cmd.action == D4Action.CLEAR:
+            from ..db.component_state_store import ComponentStateStore
+
+            self._dispatch_delete(cmd, ComponentStateStore.by_record_no(cmd.record_no, cmd.scope))
+            return
+        if isinstance(cmd, BaseReq):
+            # The Train 98 reply marks completion of the initial roster sync.
+            if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
+                CommandDispatcher.get().offer(SYNC_COMPLETE)
+            if cmd.is_ack:
+                return
+            if not cmd.is_active:
+                from ..db.component_state_store import ComponentStateStore
+
+                self._dispatch_delete(cmd, ComponentStateStore.get_state(cmd.scope, cmd.tmcc_id, create=False))
+                return
+
+        # Both addressed and addressless BLE packets trigger creation handling.
+        is_ble_rx = isinstance(cmd, BleReq) and cmd.command == PdiCommand.BLE_RX
+        if is_ble_rx and self.is_creates_enabled:
+            self.publish(CREATE_TOPIC, cmd)
+
+        has_address = 1 <= cmd.tmcc_id <= 9999 or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0)
+        self._publish_request_topics(cmd, has_address)
+        if self.is_server and (has_address or is_ble_rx):
+            self.update_client_state(cmd)
+
+    def _dispatch_delete(self, cmd: PdiReq, state: ComponentState | None) -> None:
+        if state and not state.is_deleted and state.is_deletable:
+            state.clear()
+            if self.is_deletes_enabled:
+                self.publish(DELETE_TOPIC, state)
+        if self.is_server:
+            self.update_client_state(cmd)
+
+    def _publish_request_topics(self, cmd: PdiReq, has_address: bool) -> None:
+        if not has_address:
+            action = cmd.action
+            self.publish((cmd.command, action) if action else cmd.command, cmd)
+            return
+        if isinstance(cmd, BaseReq) and cmd.tmcc_id == 100:
+            return
+
+        action = cmd.action
+        self.publish((cmd.command, action), cmd)
+        self.publish((cmd.scope, cmd.tmcc_id, action), cmd)
+        self.publish(cmd.command, cmd)
+        self.publish((cmd.scope, cmd.tmcc_id), cmd)
+        self.publish(cmd.scope, cmd)
 
     # noinspection DuplicatedCode
     def update_client_state(self, command: PdiReq):
@@ -410,7 +459,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
 
     # noinspection PyUnreachableCode
     @staticmethod
-    def _make_channel(channel: Topic, address: int = None, action: PdiAction = None) -> Topic | Tuple:
+    def _make_channel(channel: Topic, address: int | None = None, action: PdiAction | None = None) -> Topic | Tuple:
         if channel is None:
             raise ValueError("Channel required")
         elif address is None:
@@ -427,20 +476,34 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         if channel in self._channels:  # otherwise, we would create a channel simply by referencing i
             self._channels[channel].publish(message)
 
-    def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
+    def subscribe(
+        self,
+        subscriber: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        action: PdiAction | None = None,
+    ) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
+        elif channel == CREATE_TOPIC:
+            self.subscribe_create(subscriber)
         elif channel == DELETE_TOPIC:
             self.subscribe_delete(subscriber)
         else:
             self._channels[self._make_channel(channel, address, action)].subscribe(subscriber)
 
     def unsubscribe(
-        self, subscriber: Subscriber, channel: Topic, address: int = None, command: PdiAction = None
+        self,
+        subscriber: Subscriber,
+        channel: Topic,
+        address: int | None = None,
+        command: PdiAction | None = None,
     ) -> None:
         # Unsubscribes from channel; deletes channel if empty
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
+        elif channel == CREATE_TOPIC:
+            self.unsubscribe_create(subscriber)
         elif channel == DELETE_TOPIC:
             self.unsubscribe_delete(subscriber)
         else:
@@ -459,6 +522,17 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
         if not self._channels[BROADCAST_TOPIC].subscribers:
             self._broadcasts = False
+
+    def subscribe_create(self, subscriber: Subscriber) -> None:
+        # receive creates
+        self._channels[CREATE_TOPIC].subscribe(subscriber)
+        self._creates = True
+
+    def unsubscribe_create(self, subscriber: Subscriber) -> None:
+        # receive creates
+        self._channels[CREATE_TOPIC].unsubscribe(subscriber)
+        if not self._channels[CREATE_TOPIC].subscribers:
+            self._creates = False
 
     def subscribe_delete(self, subscriber: Subscriber) -> None:
         # receive deletes

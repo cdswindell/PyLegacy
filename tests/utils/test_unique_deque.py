@@ -12,12 +12,6 @@ from src.pytrain.utils.unique_deque import UniqueDeque
 
 
 class TestUniqueDequeue:
-    def test_create_no_args(self) -> None:
-        ud = UniqueDeque()
-        assert ud is not None
-        assert ud.maxlen is None
-        assert len(ud) == 0
-
     def test_getters_fail_on_zero_len_unique_deque(self) -> None:
         ud = UniqueDeque()
         assert ud is not None

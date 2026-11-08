@@ -50,6 +50,8 @@ class RoutesGuiCmd(CommandBase):
             server=self._cli.args.server if "server" in self._cli.args else None,
             client=self._cli.args.client if "client" in self._cli.args else False,
             base=self._cli.args.base if "base" in self._cli.args else None,
+            debug=self._cli.args.debug,
+            echo=self._cli.args.echo,
         )
         self._command = self._build_command()
 
@@ -135,6 +137,9 @@ class RoutesCli(CliBase):
             help="Open the window full screen",
         )
 
+        parser.add_argument("-debug", action="store_true", help="Enable debug logging")
+        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+
         return PyTrainArgumentParser("Routes window options", parents=[parser, cls.cli_parser()])
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
@@ -173,6 +178,10 @@ class RoutesCli(CliBase):
 def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
+    from ..utils.logging_manager import LoggingManager
+
+    if not LoggingManager.initialize():
+        raise RuntimeError("Failed to initialize PyTrain logging")
     try:
         RoutesCli(cmd_line=args)
         return 0

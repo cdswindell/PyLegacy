@@ -29,7 +29,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 if sys.version_info >= (3, 11):
-    from typing import Any, Dict, Self, Set
+    from typing import Any, Dict, Set
 
 import serial
 from serial.serialutil import SerialException
@@ -71,8 +71,8 @@ class CommBuffer(abc.ABC):
 
     @staticmethod
     def parse_server(
-        server: str | IPv4Address | IPv6Address, port: str | int, server_port: int = 0
-    ) -> tuple[IPv4Address | IPv6Address | None, str]:
+        server: str | IPv4Address | IPv6Address | None, port: str | int, server_port: int = 0
+    ) -> tuple[IPv4Address | IPv6Address | None, str | int]:
         if server is not None:
             try:
                 if isinstance(server, str):
@@ -92,10 +92,10 @@ class CommBuffer(abc.ABC):
         cls,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         baudrate: int = DEFAULT_BAUDRATE,
-        port: str = DEFAULT_PORT,
-        server: str = None,
+        port: str | int = DEFAULT_PORT,
+        server: IPv4Address | IPv6Address | str | None = None,
         ser2=False,
-    ) -> Self:
+    ) -> CommBufferSingleton | CommBufferProxy:
         if cls._instance:
             return cls._instance
         """
@@ -103,7 +103,7 @@ class CommBuffer(abc.ABC):
         """
         server, port = cls.parse_server(server, port)
         if server is None:
-            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=port, ser2=ser2)
+            return CommBufferSingleton(queue_size=queue_size, baudrate=baudrate, port=str(port), ser2=ser2)
         else:
             return CommBufferProxy(server, int(port))
 
@@ -128,8 +128,8 @@ class CommBuffer(abc.ABC):
     def cancel_delayed_requests(
         cls,
         motive: Any = DEFAULT_ADDRESS,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None:
         if cls.is_built():
             from ..db.engine_state import EngineState
@@ -183,8 +183,8 @@ class CommBuffer(abc.ABC):
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None: ...
 
     @abc.abstractmethod
@@ -264,10 +264,9 @@ class CommBufferSingleton(CommBuffer, Thread):
         self._port = port
         self._queue_size = queue_size
         self._ser2 = ser2
-        if queue_size:
-            self._queue = Queue(queue_size)
-        else:
-            self._queue = None
+        queue_size = queue_size or DEFAULT_QUEUE_SIZE
+        assert queue_size > 0
+        self._queue = Queue(queue_size)
         self._base3_address = None
         self._shutdown_signalled = False
         self._last_output_at = 0  # used to throttle writes to LCS SER2
@@ -290,8 +289,8 @@ class CommBufferSingleton(CommBuffer, Thread):
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None:
         self._scheduler.cancel_delayed_requests(tmcc_id, scope, requests)
 
@@ -328,7 +327,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         elif isinstance(state, PdiReq):
             state_cmds.append(state)
         else:
-            raise AttributeError(f"Invalid state: {state}")
+            raise AttributeError(f"Invalid state: {state!r}")
         for state_cmd in state_cmds:
             if isinstance(state_cmd, CommandReq):
                 CommandDispatcher.get().offer(state_cmd)
@@ -444,7 +443,7 @@ class CommBufferSingleton(CommBuffer, Thread):
 
     def run(self) -> None:
         # if the queue is not empty AND _shutdown_signaled is False, then exit
-        while not self._queue.empty() or not self._shutdown_signalled:
+        while self._queue is not None and not self._queue.empty() or not self._shutdown_signalled:
             data = None
             try:
                 data = self._queue.get(block=True, timeout=0.25)
@@ -455,7 +454,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             except Empty:
                 pass
             except Exception as e:
-                log.error(f"Error sending {data.hex()}")
+                log.error(f"Error sending {data.hex() if isinstance(data, bytes) else data}")
                 log.exception(e)
             finally:
                 if data is not None:
@@ -494,7 +493,10 @@ class CommBufferSingleton(CommBuffer, Thread):
                 pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC4_TX)
             else:
                 pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
-            self._base3.send(pdi_cmd.as_bytes)
+            if self._base3 is not None:
+                self._base3.send(pdi_cmd.as_bytes)
+            else:
+                raise ValueError("Base3 buffer is not initialized")
             # also inform CommandDispatcher to update system state
             if self.is_ser2 is False or tmcc_cmd.is_force_state_update:
                 self._tmcc_dispatcher.offer(tmcc_cmd)
@@ -519,7 +521,7 @@ class CommBufferProxy(CommBuffer):
     from ..db.component_state import ComponentState
 
     @classmethod
-    def server_port(cls) -> int | None:
+    def server_port(cls) -> int:
         # noinspection PyProtectedMember
         if cls.is_built() is True and cls.is_client() is True:
             # noinspection PyProtectedMember
@@ -533,7 +535,7 @@ class CommBufferProxy(CommBuffer):
             return cls._instance._ephemeral_port[0]
         raise AttributeError("CommBufferProxy must be built first")
 
-    def __init__(self, server: IPv4Address | IPv6Address = None, port: int = DEFAULT_SERVER_PORT) -> None:
+    def __init__(self, server: IPv4Address | IPv6Address | None = None, port: int = DEFAULT_SERVER_PORT) -> None:
         if self._initialized:
             return
         else:
@@ -558,8 +560,8 @@ class CommBufferProxy(CommBuffer):
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
-        scope: CommandScope = None,
-        requests: set[CommandDefEnum] = None,
+        scope: CommandScope | None = None,
+        requests: set[CommandDefEnum] | None = None,
     ) -> None:
         self._scheduler.cancel_delayed_requests(tmcc_id, scope, requests)
 
@@ -597,14 +599,16 @@ class CommBufferProxy(CommBuffer):
         command: bytes | CommandReq | PdiReq,
         delay: float = 0,
         was_delayed: bool = False,
+        max_retries: int = 90,
     ) -> None:
         if delay > 0:
             self._scheduler.schedule(delay, command)
         else:
             if log.isEnabledFor(logging.DEBUG):
                 if isinstance(command, bytes):
-                    if command != self._heartbeat_bytes:
-                        log.debug(f"Enqueue command 0x{command.hex()} (client, delayed: {was_delayed})")
+                    command_bytes = command
+                    if command_bytes != self._heartbeat_bytes:
+                        log.debug(f"Enqueue command 0x{command_bytes.hex()} (client, delayed: {was_delayed})")
                 else:
                     log.debug(f"Enqueue command {command} (client, delayed: {was_delayed})")
             retries = 0
@@ -631,10 +635,15 @@ class CommBufferProxy(CommBuffer):
                             self._ephemeral_port = s.getsockname()
                     return
                 except OSError as oe:
-                    if retries < 90:
+                    if retries < max_retries:
                         retries += 1
                         if retries % 5 == 0:
-                            e_msg = COMM_ERROR_CODES.get(oe.errno, f"UNKNOWN ({oe.errno if oe.errno else oe})")
+                            errno = oe.errno
+                            e_msg = (
+                                COMM_ERROR_CODES.get(errno, f"UNKNOWN ({errno})")
+                                if errno is not None
+                                else f"UNKNOWN ({oe})"
+                            )
                             log.info(f"Looking for {PROGRAM_NAME} server at {self._server}... [{e_msg}]")
                         if not isinstance(oe, TimeoutError):
                             time.sleep(1)
@@ -650,6 +659,7 @@ class CommBufferProxy(CommBuffer):
         """
         from .enqueue_proxy_requests import SENDING_STATE_REQUEST
 
+        # Normalizes state input and enqueues serialized update packets
         if state:
             if isinstance(state, ComponentState) or isinstance(state, CommandReq) or isinstance(state, PdiReq):
                 state_bytes = state.as_bytes
@@ -659,8 +669,6 @@ class CommBufferProxy(CommBuffer):
                 raise ValueError(f"Invalid state: {state}")
             if isinstance(state_bytes, bytes):
                 state_bytes = [state_bytes]
-            elif isinstance(state_bytes, list):
-                pass
             else:
                 raise ValueError(f"Invalid state bytes format: {state}: {type(state_bytes)}")
             for packet in state_bytes:
@@ -682,21 +690,23 @@ class CommBufferProxy(CommBuffer):
             )
             return
 
-    def disconnect(self, port: int = None) -> None:
+    def disconnect(self, port: int | None = None) -> None:
         port = self._client_port if port is None else port
         try:
             from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 
             if self._heart_beat_thread:
                 self._heart_beat_thread.shutdown()
-            self.enqueue_command(EnqueueProxyRequests.disconnect_request(port, self.session_id))
-            return
-        except ConnectionError as ce:
-            raise ce
+            self.enqueue_command(
+                EnqueueProxyRequests.disconnect_request(port, self.session_id),
+                max_retries=0,
+            )
+        except OSError as exc:
+            log.debug(f"Server unavailable during client disconnect: {exc}")
 
-    def sync_state(self, port: int = None) -> None:
+    def sync_state(self, port: int | None = None) -> None:
         """
-        Called at client start-up to retrieve current state from server
+        Called at client start-up to retrieve the current state from the server
         """
         port = self._client_port if port is None else port
         try:
@@ -820,18 +830,21 @@ class DelayHandler(Thread):
         ce.add(event)
 
     def cancel_delayed_requests(
-        self, tmcc_id: int, scope: CommandScope = None, requests: set[CommandDefEnum] = None
+        self, tmcc_id: int, scope: CommandScope | None = None, requests: set[CommandDefEnum] | None = None
     ) -> None:
         with self._cv:
             deleted = 0
+            # Retrieves cached events based on scope and identifier
             if tmcc_id == 99 and scope is None:
                 ce = set().union(*self._event_cache.values())
             elif tmcc_id == 99 and scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 ce = set()
                 for k in [k for k, v in self._event_cache.items() if k[1] in {CommandScope.ENGINE, CommandScope.TRAIN}]:
                     ce |= self._event_cache[k]
-            else:
+            elif scope is not None:
                 ce = self._event_cache.get((tmcc_id, scope), None)
+            else:
+                raise ValueError(f"Invalid scope: {scope!r}")
             if ce:
                 to_delete = set()
                 for event in ce:
@@ -878,6 +891,7 @@ class TrackedEvent:
         self.action = action
         self.arguments = arguments
         self.kwargs = kwargs or {}
+        self.request = None
 
         self._ran = False
         self._canceled = False
@@ -935,7 +949,7 @@ class TrackedEvent:
 
 
 class ClientHeartBeat(Thread):
-    def __init__(self, tmcc_buffer: CommBufferProxy, heartbeat: bytes = None) -> None:
+    def __init__(self, tmcc_buffer: CommBufferProxy, heartbeat: bytes | None = None) -> None:
         from ..protocol.command_req import CommandReq
 
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Client Heart Beat")

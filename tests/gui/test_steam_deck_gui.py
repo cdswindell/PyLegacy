@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from threading import Event
+from tkinter import Canvas
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -104,6 +105,9 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
 
     monkeypatch.setattr(mod, "Box", make_widget)
     monkeypatch.setattr(mod, "Text", make_widget)
+    canvas = Mock(spec=Canvas)
+    canvas.cget.return_value = mod.FOCUS_ARROW_SIZE
+    monkeypatch.setattr(mod, "Canvas", Mock(return_value=canvas))
     monkeypatch.setattr(mod, "EngineGui", make_child)
     gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui.width = 1280
@@ -177,14 +181,120 @@ def test_toggle_focus_alternates_between_panels() -> None:
 def test_focus_arrow_points_toward_active_pane() -> None:
     gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._focused_panel = "left"
-    gui.left_pane = gui.right_pane = None
-    gui.focus_arrow = _Widget()
+    gui.left_pane = _Widget()
+    gui.right_pane = _Widget()
+    gui.focus_arrow = Mock(spec=Canvas)
+    gui.focus_arrow.cget.return_value = 26
 
     gui.focus_panel("left")
-    assert gui.focus_arrow.value == mod.FOCUS_ARROW_LEFT
+    left = gui.focus_arrow.coords.call_args.args[1:]
+    assert len(left) == 14
+    assert left[6] == min(left[::2]), "the arrow tip must point left"
+    assert gui.left_pane.tk.config["highlightbackground"] == mod.FOCUS_COLOR
+    assert gui.right_pane.tk.config["highlightbackground"] == mod.UNFOCUSED_COLOR
 
     gui.focus_panel("right")
-    assert gui.focus_arrow.value == mod.FOCUS_ARROW_RIGHT
+    right = gui.focus_arrow.coords.call_args.args[1:]
+    assert len(right) == 14
+    assert right[6] == max(right[::2]), "the arrow tip must point right"
+    assert left[1::2] == right[1::2]
+    assert all(x_left + x_right == mod.FOCUS_ARROW_WIDTH for x_left, x_right in zip(left[::2], right[::2]))
+    assert gui.left_pane.tk.config["highlightbackground"] == mod.UNFOCUSED_COLOR
+    assert gui.right_pane.tk.config["highlightbackground"] == mod.FOCUS_COLOR
+
+
+@pytest.mark.parametrize("header_height", [1, 12, 25, 40, 100])
+def test_focus_arrow_is_a_pixel_sized_canvas_bounded_by_header(monkeypatch, header_height) -> None:
+    canvas = Mock(spec=Canvas)
+    canvas.cget.return_value = min(26, header_height)
+    make_canvas = Mock(return_value=canvas)
+    monkeypatch.setattr(mod, "Canvas", make_canvas, raising=False)
+    monkeypatch.setattr(mod, "Text", _Widget)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
+    gui._focused_panel = "right"
+    gui.body = SimpleNamespace(tk=Mock(), bg="white")
+    gui.divider = SimpleNamespace(tk=Mock())
+    gui.divider.tk.winfo_rooty.return_value = 100
+    header = Mock()
+    header.winfo_height.return_value = header_height
+    header.winfo_reqheight.return_value = header_height
+    header.winfo_rooty.return_value = 107
+    gui.left_gui = SimpleNamespace(header=SimpleNamespace(tk=header))
+
+    gui._build_focus_arrow()
+
+    make_canvas.assert_called_once()
+    assert make_canvas.call_args.args == (gui.body.tk,)
+    options = make_canvas.call_args.kwargs
+    assert options["highlightthickness"] == options["borderwidth"] == 0
+    assert options["background"] == gui.body.bg
+    assert "font" not in options and "text" not in options
+    polygon = canvas.create_polygon.call_args.kwargs
+    assert polygon["fill"] == mod.FOCUS_COLOR
+    assert polygon["outline"] == ""
+    placement = canvas.place.call_args.kwargs
+    assert placement["in_"] is gui.divider.tk
+    assert placement["relx"] == 0.5
+    assert placement["anchor"] == "n"
+    assert placement["bordermode"] == "outside"
+    assert placement["width"] == mod.FOCUS_ARROW_WIDTH
+    assert placement["height"] == min(26, header_height)
+    assert 7 <= placement["y"]
+    assert placement["y"] + placement["height"] <= 7 + header_height
+    points = canvas.coords.call_args.args[1:]
+    assert len(points) == 14
+    assert all(0 <= x < placement["width"] for x in points[::2])
+    assert all(0 <= y < placement["height"] for y in points[1::2])
+    canvas.create_text.assert_not_called()
+    canvas.grid.assert_not_called()
+    canvas.pack.assert_not_called()
+
+
+@pytest.mark.parametrize("header_available", [False, True])
+def test_focus_arrow_has_bounded_fallback_without_header_geometry(header_available) -> None:
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
+    gui._focused_panel = "right"
+    gui.body = SimpleNamespace(tk=Mock())
+    gui.divider = SimpleNamespace(tk=Mock())
+    gui.focus_arrow = Mock(spec=Canvas)
+    gui.focus_arrow.cget.return_value = mod.FOCUS_ARROW_SIZE
+    header = Mock()
+    header.winfo_rooty.side_effect = mod.TclError("geometry unavailable")
+    gui.left_gui = SimpleNamespace(header=SimpleNamespace(tk=header)) if header_available else None
+
+    gui._position_focus_arrow()
+
+    placement = gui.focus_arrow.place.call_args.kwargs
+    assert placement["y"] == mod.FOCUS_BORDER
+    assert placement["width"] == mod.FOCUS_ARROW_WIDTH
+    assert placement["height"] == mod.FOCUS_ARROW_SIZE
+    gui.focus_arrow.configure.assert_called_once_with(height=mod.FOCUS_ARROW_SIZE)
+    assert len(gui.focus_arrow.coords.call_args.args[1:]) == 14
+
+
+def test_focus_arrow_remeasures_header_when_repositioned() -> None:
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
+    gui._focused_panel = "right"
+    gui.body = SimpleNamespace(tk=Mock())
+    gui.divider = SimpleNamespace(tk=Mock())
+    gui.divider.tk.winfo_rooty.return_value = 100
+    gui.focus_arrow = Mock(spec=Canvas)
+    gui.focus_arrow.cget.side_effect = lambda _key: gui.focus_arrow.configure.call_args.kwargs["height"]
+    header = Mock()
+    header.winfo_rooty.return_value = 106
+    header.winfo_height.return_value = 50
+    gui.left_gui = SimpleNamespace(header=SimpleNamespace(tk=header))
+
+    gui._position_focus_arrow()
+    assert gui.focus_arrow.place.call_args.kwargs["height"] == mod.FOCUS_ARROW_SIZE
+
+    header.winfo_height.return_value = 10
+    gui._position_focus_arrow()
+    placement = gui.focus_arrow.place.call_args.kwargs
+    assert placement["height"] == 10
+    assert placement["y"] == 6
+    points = gui.focus_arrow.coords.call_args.args[1:]
+    assert all(0 <= y < 10 for y in points[1::2])
 
 
 def test_global_halt_sends_immediately_once(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -434,8 +544,8 @@ class _ShowableWidget(_Widget):
         self.visible = False
 
 
-# Records _position_focus_arrow calls; the overlay has to re-tuck the arrow whenever it
-# shows or hides, because body.display_widgets() cancels the arrow's place().
+# Records _position_focus_arrow calls; the overlay rechecks the header geometry
+# whenever it shows or hides.
 positioned: list[bool] = []
 # The budgets handed to ControlsPanel.build, which is stubbed out here: the room the
 # columns are laid out to is this module's half of that arrangement.
@@ -677,9 +787,8 @@ def test_a_prewarm_that_fails_leaves_the_screen_to_the_press(monkeypatch: pytest
 
 
 def test_showing_and_hiding_re_tucks_the_focus_arrow(monkeypatch: pytest.MonkeyPatch) -> None:
-    # body.display_widgets() re-grids every child of body when the overlay shows or
-    # hides, canceling the place() that pins the arrow to the top of the divider. Left
-    # unrepaired, the arrow floats at mid-screen down the full height of its cell.
+    # Showing and hiding the overlay can change the body's layout; placement must
+    # follow the header rather than leaving the arrow at stale coordinates.
     gui, _made = _deck_with_body(monkeypatch)
 
     gui.on_show_controls()

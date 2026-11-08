@@ -9,6 +9,7 @@ import importlib
 import importlib.metadata
 import sys
 from importlib.metadata import PackageNotFoundError
+from pathlib import Path
 
 from .atc.block import Block  # noqa: F401
 from .cli.pytrain import (
@@ -156,7 +157,22 @@ def main(args: list[str] | None = None) -> int:
         sys.exit(f"{PROGRAM_NAME}: error: {e}\n")
 
 
+def source_root() -> Path | None:
+    """Locate the source tree containing the imported package, regardless of cwd."""
+    package_dir = Path(__file__).resolve().parent
+    root = package_dir.parent.parent
+    if package_dir == root / "src" / "pytrain" and (root / "pyproject.toml").is_file():
+        return root
+    return None
+
+
 def installed_package() -> str | None:
+    #
+    # which of the PyTrain distributions are we running from, if any? this is what
+    # tells a Steam Deck install to update itself rather than the Pi package...
+    #
+    if source_root() is not None:
+        return None
     for package in PROGRAM_PACKAGES:
         try:
             importlib.metadata.version(package)
@@ -171,15 +187,16 @@ def is_package() -> bool:
 
 
 def get_version() -> str:
-    version = None
-    package = installed_package()
-    if package is not None:
-        version = importlib.metadata.version(package)
-
-    if version is None:
+    root = source_root()
+    if root is not None and (root / ".git").exists():
+        # A checkout's live version takes priority over stale build files or metadata.
+        # Git worktrees use a .git file rather than a directory.
         from setuptools_scm import get_version as get_git_version
 
-        version = get_git_version(root="../..", relative_to=__file__, version_scheme="only-version")
+        version = get_git_version(root=str(root), version_scheme="only-version")
+    else:
+        # Builds and source exports carry the version of the code actually imported.
+        from ._version import version
 
     v_parts = version.split("+", 1)
     version = v_parts[0] + ("" if len(v_parts) == 1 else "+")
@@ -193,7 +210,12 @@ def get_version_tuple() -> tuple[int, int, int]:
     if "+" in version:
         version = version[: version.find("+")]
     version = version.split(".")
-    return int(version[0]), int(version[1]), int(version[2])
+    if len(version) < 3:
+        raise ValueError(f"Invalid PyTrain version: expected major.minor.patch, got {get_version()!r}")
+    try:
+        return int(version[0]), int(version[1]), int(version[2])
+    except ValueError as exc:
+        raise ValueError(f"Invalid PyTrain version components: {get_version()!r}") from exc
 
 
 def get_version_bytes() -> bytes:

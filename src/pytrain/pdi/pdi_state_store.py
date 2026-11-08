@@ -20,7 +20,7 @@ T = TypeVar("T", bound=PdiReq)
 
 
 class PdiStateStore:
-    _instance: PdiStateStore = None
+    _instance: PdiStateStore | None = None
     _lock = threading.RLock()
 
     def __new__(cls, *args, **kwargs):

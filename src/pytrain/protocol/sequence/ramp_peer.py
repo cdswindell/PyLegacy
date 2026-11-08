@@ -105,6 +105,7 @@ class RampPeer:
     _instance: RampPeer | None = None
     _instance_lock = RLock()
 
+    # noinspection bad-return,unresolved-references
     @classmethod
     def build(cls) -> RampPeer:
         with cls._instance_lock:

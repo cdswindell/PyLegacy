@@ -72,6 +72,7 @@ FREIGHT_HORN_RELIEF = "ridge"
 EXTRA_COLUMN_SLACK = 10
 
 
+# noinspection bad-argument-type
 def fit_freight_pair(host) -> None:
     """Shrink the freight pair to the cell Tk actually gave it.
 
@@ -734,7 +735,7 @@ class ControllerView:
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
 
-    # noinspection PyProtectedMember
+    # noinspection PyProtectedMember,unresolved-references,string-format
     def update(self, state: EngineState | None, throttle_state: EngineState | None):
         """
         Paint throttle/brake/momentum + direction buttons from the given state.
@@ -1635,7 +1636,7 @@ class ControllerView:
         self._throttle_committed = None
         self._throttle_committed_at = None
 
-    def _commit_latch_holds(self, throttle_state) -> bool:
+    def _commit_latch_holds(self, throttle_state: EngineState) -> bool:
         """Protect a pending command, not a database target acknowledgment."""
         if self._throttle_committed is None:
             return False
@@ -1778,7 +1779,6 @@ class ControllerView:
     # type alias for tk config dict
     TkCfg = dict[str, Any]
 
-    # noinspection PyUnusedLocal
     def make_slider(
         self,
         parent: Box,
@@ -1818,6 +1818,14 @@ class ControllerView:
         level_font = level_font if level_font is not None else getattr(host, "digital_font", "TkDefaultFont")
         level_size = level_size if level_size is not None else host.s_18
         slider_width = slider_width if slider_width is not None else int(host.button_size / 3)
+        # Deck-only widths: match Brake/Momentum/Horn to the former throttle
+        # width and make the throttle slightly wider. Preserve Pi dimensions.
+        is_deck = type(getattr(host, "_parent_gui", None)).__name__ == "SteamDeckGui"
+        if is_deck:
+            if title in {"Brake", "Moment", "Horn"}:
+                slider_width = int(host.button_size / 2)
+            elif title == "Speed":
+                slider_width = int(host.button_size * 0.55)
         slider_height = slider_height if slider_height is not None else host.slider_height
 
         box = Box(

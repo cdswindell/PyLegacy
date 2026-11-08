@@ -7,6 +7,11 @@ import pytest
 import src.pytrain.gui.controller.controller_view as mod
 
 
+# Source checks only read these nodes; widget state remains local to each test.
+_SOURCE = pathlib.Path(mod.__file__).read_text(encoding="utf-8")
+_SOURCE_NODES = tuple(ast.walk(ast.parse(_SOURCE)))
+
+
 class _DummyTk:
     def config(self, **_kwargs) -> None:
         pass
@@ -207,15 +212,13 @@ def test_no_bell_codepoint_is_used_as_a_button_label() -> None:
     this by rendering -- it depends on the fonts installed on the device -- so the guard is on the
     source.
     """
-    source = pathlib.Path(mod.__file__).read_text(encoding="utf-8")
+    source = _SOURCE
     # Every string literal in the module, *decoded*. Scanning the raw text would miss "\\N{BELL}"
     # and "\\U0001f514", which look nothing like the character but are the character once Python
     # has read them -- a mutation writing the escape form slipped past exactly that. Comments are
     # not literals, so prose about the codepoint stays legal.
     literals = "".join(
-        node.value
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        node.value for node in _SOURCE_NODES if isinstance(node, ast.Constant) and isinstance(node.value, str)
     )
 
     assert "\U0001f514" not in literals, "U+1F514 BELL: emoji on the Deck, missing on the Pi"
@@ -224,8 +227,7 @@ def test_no_bell_codepoint_is_used_as_a_button_label() -> None:
 
 
 def _calls_to(name: str) -> list:
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
-    return [node for node in ast.walk(tree) if isinstance(node, ast.Call) and getattr(node.func, "id", None) == name]
+    return [node for node in _SOURCE_NODES if isinstance(node, ast.Call) and getattr(node.func, "id", None) == name]
 
 
 def test_the_provisional_size_and_the_correction_are_both_wired_up() -> None:
@@ -261,10 +263,9 @@ def _pack_calls_on(name: str) -> list[ast.Call]:
     _calls_to only matches plain function calls (ast.Name targets); this is a method call on an
     attribute chain, so it needs its own AST walk.
     """
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
     return [
         node
-        for node in ast.walk(tree)
+        for node in _SOURCE_NODES
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "pack"
@@ -277,8 +278,7 @@ def _pack_calls_on(name: str) -> list[ast.Call]:
 
 def _box_call_for(name: str) -> ast.Call | None:
     """The Box(...) call assigned (possibly via a chained assignment) to name."""
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
-    for node in ast.walk(tree):
+    for node in _SOURCE_NODES:
         if (
             isinstance(node, ast.Assign)
             and isinstance(node.value, ast.Call)
@@ -291,10 +291,9 @@ def _box_call_for(name: str) -> ast.Call | None:
 
 def _grid_configure_calls_on(name: str) -> list[ast.Call]:
     """Every <name>.tk.grid_configure(...) call in the module, mirroring _pack_calls_on."""
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
     return [
         node
-        for node in ast.walk(tree)
+        for node in _SOURCE_NODES
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "grid_configure"
@@ -355,8 +354,7 @@ def _call_assigned_to(func_name: str, target_name: str) -> ast.Call | None:
     confirm both what a widget is (a TitleBox) and what it was built with (its title, its
     parent), without a running Tk display.
     """
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
-    for node in ast.walk(tree):
+    for node in _SOURCE_NODES:
         if (
             isinstance(node, ast.Assign)
             and isinstance(node.value, ast.Call)
@@ -643,16 +641,14 @@ def test_the_horn_config_and_the_title_size_are_both_wired_up() -> None:
     Both live inside build(), which is too large to stub, and both are invisible to every geometry
     test -- so all three of these changes survived a mutation pass before this existed.
     """
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
-
     assert len(_calls_to("freight_title_size")) == 1, "the title size is asked for exactly once"
     # Inlining max(MIN, horn - trim) at the call site is the same code minus the bell floor, so it
     # reads as harmless and silently allows the lopsided pair back.
     assert len(_calls_to("freight_horn_after_trim")) == 1, "the trim goes through the balance guard"
 
     relief_uses = [
-        node for node in ast.walk(tree) if isinstance(node, ast.Attribute) and node.attr == "FREIGHT_HORN_RELIEF"
-    ] + [node for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "FREIGHT_HORN_RELIEF"]
+        node for node in _SOURCE_NODES if isinstance(node, ast.Attribute) and node.attr == "FREIGHT_HORN_RELIEF"
+    ] + [node for node in _SOURCE_NODES if isinstance(node, ast.Name) and node.id == "FREIGHT_HORN_RELIEF"]
     assert len(relief_uses) >= 2, "declared and applied; only declared means the horn has no edge"
 
 
@@ -830,10 +826,9 @@ def test_the_extra_column_is_created_before_the_sliders() -> None:
 
 def _tk_calls_on(name: str, method: str) -> list[ast.Call]:
     """Every <name>.tk.<method>(...) call in the module, generalizing _pack_calls_on."""
-    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
     return [
         node
-        for node in ast.walk(tree)
+        for node in _SOURCE_NODES
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == method
@@ -867,7 +862,7 @@ def test_a_row_with_no_room_loses_the_box_without_repacking_its_neighbors() -> N
 
     hides = [
         node
-        for node in ast.walk(ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8")))
+        for node in _SOURCE_NODES
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in {"hide", "show"}

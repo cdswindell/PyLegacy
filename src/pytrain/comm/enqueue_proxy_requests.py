@@ -42,7 +42,15 @@ UPGRADE_REQUEST: bytes = CommandReq(TMCC1SyncCommandEnum.UPGRADE).as_bytes
 
 
 class ProxyServer(socketserver.ThreadingTCPServer):
-    __slots__ = "base3_addr", "ack", "dispatcher", "enqueue_proxy", "base3_dispatcher", "pdi_dispatcher"
+    __slots__ = (
+        "base3_addr",
+        "ack",
+        "dispatcher",
+        "enqueue_proxy",
+        "base3_dispatcher",
+        "pdi_dispatcher",
+        "session_id",
+    )
 
 
 class EnqueueProxyRequests(Thread):
@@ -81,7 +89,7 @@ class EnqueueProxyRequests(Thread):
         return cls._build_request(DISCONNECT_REQUEST, port, client_id)
 
     @classmethod
-    def sync_state_request(cls, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bytes:
+    def sync_state_request(cls, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID | None = None) -> bytes:
         return cls._build_request(SYNC_STATE_REQUEST, port, client_id)
 
     @classmethod
@@ -115,8 +123,8 @@ class EnqueueProxyRequests(Thread):
         cls,
         request: bytes,
         port: int,
-        client_id: uuid.UUID = None,
-        version: tuple[int, int, int] = None,
+        client_id: uuid.UUID | None = None,
+        version: tuple[int, int, int] | None = None,
     ) -> bytes:
         port = port if port else DEFAULT_SERVER_PORT
         client_id_bytes = client_id.bytes if client_id else bytes()
@@ -152,7 +160,9 @@ class EnqueueProxyRequests(Thread):
                 EnqueueProxyRequests._instance._initialized = False
             return EnqueueProxyRequests._instance
 
-    def client_connect(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
+    def client_connect(
+        self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID | None = None
+    ) -> None:
         # check if (client_ip, port) is unique, it should be unless
         # the previous client on this port unexpectedly disconnected
         with self._lock:
@@ -168,11 +178,13 @@ class EnqueueProxyRequests(Thread):
             # record new client
             self._clients[(client_ip, port, client_id)] = time()
 
-    def client_disconnect(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> None:
+    def client_disconnect(
+        self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID | None = None
+    ) -> None:
         with self._lock:
             self._clients.pop((client_ip, port, client_id), None)
 
-    def is_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID = None) -> bool:
+    def is_client(self, client_ip: str, port: int = DEFAULT_SERVER_PORT, client_id: uuid.UUID | None = None) -> bool:
         with self._lock:
             return (client_ip, port, client_id) in self._clients
 
@@ -224,6 +236,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     def __init__(self, request: socket.socket, client_address: Tuple[str, int], server: ProxyServer) -> None:
         super().__init__(request, client_address, server)
 
+    # noinspection unreachable-code
     def handle(self):
         from ..pdi.base3_buffer import Base3Buffer
         from ..pdi.constants import PDI_SOP, PdiCommand
@@ -286,18 +299,18 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             cmd = CommandReq.from_bytes(byte_stream)
 
             if byte_stream == DISCONNECT_REQUEST:
-                enqueue_proxy.client_disconnect(client_ip, client_port, client_id)
+                enqueue_proxy.client_disconnect(client_ip, cast(int, client_port), client_id)
                 log.info(f"Client at {client_ip}:{client_port} disconnecting...")
             elif byte_stream == REGISTER_REQUEST:
-                if not enqueue_proxy.is_client(client_ip, client_port, client_id):
+                if not enqueue_proxy.is_client(client_ip, cast(int, client_port), client_id):
                     ver = f" v{client_version[0]}.{client_version[1]}.{client_version[2]}" if client_version else "?"
                     log.info(f"Client at {client_ip}:{client_port}{ver} connecting...")
-                enqueue_proxy.client_connect(client_ip, client_port, client_id)
+                enqueue_proxy.client_connect(client_ip, cast(int, client_port), cast(uuid.UUID, client_id))
             elif byte_stream == SYNC_STATE_REQUEST:
                 log.info(f"Client at {client_ip}:{client_port} syncing...")
                 dispatcher.send_current_state(client_ip, client_port)
             elif byte_stream == KEEP_ALIVE_REQUEST:
-                enqueue_proxy.client_alive(client_ip, client_port, client_id)
+                enqueue_proxy.client_alive(client_ip, cast(int, client_port), cast(uuid.UUID, client_id))
             elif byte_stream in {
                 QUIT_REQUEST,
                 REBOOT_REQUEST,
@@ -328,7 +341,7 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
     ) -> Tuple[str | None, int | None, uuid.UUID | None, tuple[int, int, int] | None]:
         client_uuid: uuid.UUID | None = None
         client_ip: str | None = None
-        client_port: int = DEFAULT_SERVER_PORT
+        client_port: int | None = DEFAULT_SERVER_PORT
         client_version: tuple[int, int, int] | None = None
         try:
             if len(byte_stream) > 23:  # port and UUID as bytes

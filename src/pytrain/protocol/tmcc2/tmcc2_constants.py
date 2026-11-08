@@ -101,12 +101,12 @@ class TMCC2CommandDef(CommandDef):
         is_addressable: bool = True,
         d_min: int = 0,
         d_max: int = 0,
-        d_map: Dict[int, int] = None,
-        alias: str = None,
-        data: int = None,
+        d_map: Dict[int, int] | None = None,
+        alias: str | None = None,
+        data: int | None = None,
         filtered=False,
         aux1: bool = False,
-        interval: int = None,
+        interval: int | None = None,
         d4_broadcast: bool = False,  # if True, command is broadcast from Base 3 for D4 engines
         noop: bool = False,
     ) -> None:

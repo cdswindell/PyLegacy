@@ -1,10 +1,12 @@
-*.bak
-*.csv
-*.pyc
 !.idea/
 !.idea/dictionaries/
 !.idea/dictionaries/project.xml
+*.bak
+*.csv
+*.pyc
 .DS_Store
+.coverage
+.coverage.*
 .env
 .idea/
 .idea/*
@@ -14,8 +16,11 @@ __pycache__
 accessory_config.json
 buttons.py
 cache/
+coverage.json
+coverage.xml
 dist-deck/
 dist/
+htmlcov/
 pytrain.history
 pytrain.log*
 raspinfo.txt

@@ -20,10 +20,11 @@ import socket
 import subprocess
 import sys
 from argparse import SUPPRESS, ArgumentError, ArgumentParser
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Thread, get_native_id
+from threading import Event, Lock, Thread, current_thread, get_native_id
 from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
@@ -33,12 +34,13 @@ from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange,
 from .cache import CacheCli
 from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
-from ..comm.command_listener import CommandDispatcher, CommandListener
+from ..comm.command_observer import CommandObserver
+from ..comm.command_listener import CommandDispatcher, CommandListener, Subscriber, Message
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..db.cache_sync import CacheSyncManager, default_cache_sync_port
 from ..db.client_state_listener import ClientStateListener
-from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
+from ..db.engine_discovery_service import EngineDiscoveryService
 from ..db.engine_state import EngineState
 from ..db.prod_info import ProdInfo
 from ..db.startup_state import StartupState
@@ -69,8 +71,9 @@ from ..protocol.constants import (
     Mixins,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from ..utils.update_policy import self_update_disabled
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
-from ..utils.dual_logging import set_log_level, set_up_logging
+from ..utils.dual_logging import set_log_level
 from ..utils.host_info import is_steam_deck
 from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_network
 from ..utils.singleton import singleton
@@ -97,7 +100,7 @@ DEFAULT_HISTORY_FILE: str = f".{PROGRAM_NAME.lower()}.history"
 REQUIREMENTS: str = "requirements.txt"
 REQUIREMENTS_NO_GPIO: str = "requirements-nogpio.txt"
 
-ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
+ADMIN_COMMAND_TO_ACTION_MAP: dict[str, CommandDefEnum] = {
     "quit": TMCC1SyncCommandEnum.QUIT,
     "reboot": TMCC1SyncCommandEnum.REBOOT,
     "restart": TMCC1SyncCommandEnum.RESTART,
@@ -114,14 +117,18 @@ class PyTrain:
     _current: "PyTrain | None" = None
 
     @classmethod
-    def current(cls, raise_exception: bool = True) -> "PyTrain":
+    def current(cls, raise_exception: bool = True) -> "PyTrain | None":
         if cls._current is None and raise_exception is True:
             pn = PROGRAM_NAME
             raise RuntimeError(f"{pn}.current() called before {pn} was created")
         return cls._current
 
-    def __init__(self, cmd_line: List[str] = None) -> None:
+    def __init__(self, cmd_line: List[str] | None = None, *, gui_admin_close: Callable[[], None] | None = None) -> None:
         from .. import get_version
+        from ..utils.logging_manager import LoggingManager
+
+        if not LoggingManager.initialize():
+            raise RuntimeError("Failed to initialize PyTrain logging")
 
         if cmd_line:
             args = self.command_line_parser_ex().parse_args(cmd_line)
@@ -137,7 +144,7 @@ class PyTrain:
         self._no_d4 = args.no_d4
         self._listener: CommandListener | ClientStateListener
         self._receiver = None
-        self._state_store = None
+        # self._state_store = None
         self._debug = args.debug
         self._echo = args.echo
         self._headless = args.headless
@@ -152,7 +159,7 @@ class PyTrain:
         self._service_info = None
         self._api = False
         self._api_thread = None
-        self._command_queue = None
+        self._gui_admin_close = gui_admin_close
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = Event()
@@ -160,6 +167,11 @@ class PyTrain:
         self._server, self._port = CommBuffer.parse_server(args.server, args.port, args.server_port)
         self._client = args.client
         self._received_admin_cmds = set()
+        self._admin_state_lock = Lock()
+        self._exit_requested = False
+        self._shutdown_started = False
+        self._api_exit_notified = False
+        self._lifecycle_phase = "running"
         self._buttons_loader: ButtonsFileLoader | None = None
         self._client_ip = None
         self._server_ips = None
@@ -168,11 +180,14 @@ class PyTrain:
         self._dispatcher = None
         self._started_at = timer()
         self._exit_status = None
+        self._flatpak_local_restart = False
         self._version = get_version()
+        self._shutdown_lock = Lock()
 
         #
         # PyTrain servers need to communicate with either a Base 3 or an LCS Ser 2 (or both).
         # Unless we are running as a client, make sure one of those 2 devices is specified
+        # noinspection unreachable-code
         if args.base is not None:
             if isinstance(args.base, list) and len(args.base):
                 base = args.base[0]
@@ -215,7 +230,7 @@ class PyTrain:
             self._tmcc_buffer.base3_address = self._base_addr
             self._tmcc_listener = CommandListener.build(
                 baudrate=self._baudrate,
-                port=self._port,
+                port=str(self._port),
                 ser2_receiver=self._ser2,
                 base3_receiver=self._base_addr is not None,
                 server_port=self._args.server_port,
@@ -226,14 +241,11 @@ class PyTrain:
             log.info(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
 
-            if self._base_addr is not None:
+            if self._base_addr is not None and self._base_port is not None:
                 log.info(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
-                self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
+                self._pdi_buffer = PdiListener.build(self._base_addr, int(self._base_port))
                 listeners.append(self._pdi_buffer)
-                self.tmcc_buffer.is_use_base3 = True
-
-                if self._receiver:
-                    self._receiver.base3_dispatcher = self._pdi_buffer
+                self._tmcc_buffer.is_use_base3 = True
 
             if self._ser2 is True:
                 log.info("Listening for Lionel LCS Ser2 broadcasts...")
@@ -248,6 +260,7 @@ class PyTrain:
             listeners.append(self._tmcc_listener)
             log.info(f"Listening for state updates on port {self._tmcc_listener.port}...")
             self._client_ip: str = self._tmcc_buffer.server_ip()
+
         # register listeners
         self._is_ser2 = args.ser2 is True
         self._is_base = self._base_addr is not None
@@ -256,6 +269,7 @@ class PyTrain:
             is_base=self._is_base,
             is_ser2=self._is_ser2,
         )
+        assert self._state_store is not None
         if self._args.debug:
             self._enable_debug()
         if self._args.echo:
@@ -274,7 +288,7 @@ class PyTrain:
 
         # Subscribe this instance of PyTrain to sync updates so we can receive
         # Update and Reboot command directives from clients
-        self._tmcc_listener.subscribe(self, CommandScope.SYNC)
+        self._tmcc_listener.subscribe(cast(Subscriber, cast(object, self)), CommandScope.SYNC)
 
         # Command dispatcher should be built by now, the "get" call will
         # throw an exception if it is not
@@ -284,6 +298,8 @@ class PyTrain:
         self._pdi_state_store = PdiStateStore()
         if self._pdi_buffer is not None:
             self._get_system_state(is_startup=True)
+            self._engine_discovery = EngineDiscoveryService(self._on_engine_discovery)
+            self._engine_discovery.start()
 
         # a bit of a hack, but remember on the class this instance of PyTrain is the current one
         PyTrain._current = self
@@ -297,6 +313,7 @@ class PyTrain:
             self._api_thread: Thread | None = Thread(target=self.run, daemon=True)
             self._api_thread.start()
         else:
+            self._command_queue = None
             self.run()
 
     def _load_client_state(self):
@@ -328,38 +345,42 @@ class PyTrain:
             log.info(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
     def run(self) -> None:
-        self._start_cache_sync()
-
-        # register server so clients can connect without IP addr
-        if self.is_server:
-            self._zeroconf = Zeroconf()
-            self._service_info = self.register_service(
-                self._ser2 is True,
-                self._base_addr is not None,
-                self._args.server_port,
-                self._cache_sync_enabled
-                and self._cache_sync_manager is not None
-                and self._cache_sync_manager.available,
-                self._cache_sync_port,
-            )
-
         processed_replay = False
-        if self._headless:
-            log.info("Not accepting keyboard input; background mode")
         try:
+            self._start_cache_sync()
+
+            # register server so clients can connect without IP addr
+            if self.is_server:
+                self._zeroconf = Zeroconf()
+                self._service_info = self.register_service(
+                    self._ser2 is True,
+                    self._base_addr is not None,
+                    self._args.server_port,
+                    self._cache_sync_enabled
+                    and self._cache_sync_manager is not None
+                    and self._cache_sync_manager.available,
+                    self._cache_sync_port,
+                )
+
+            if self._headless:
+                log.info("Not accepting keyboard input; background mode")
             # signal that we can now accept commands and process admin requests
             self._command_processor_available.set()
 
             # Load client state. Must be done before button file is processed
             if self.is_client:
-                if self._tmcc_listener.update_client_if_needed():
+                assert isinstance(self._tmcc_listener, ClientStateListener)
+                if self._tmcc_listener.update_client_if_needed() and not self_update_disabled():
                     self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
+                    if getattr(self, "_gui_admin_close", None) is not None and self._shutdown_started:
+                        return
                 else:
                     self._load_client_state()
 
             # process startup script; need state loaded before doing this
             if self._buttons_file:
                 self._buttons_loader = ButtonsFileLoader(self._buttons_file, self)
+                assert self._buttons_loader is not None
                 self._buttons_loader.join()
 
             # print opening line
@@ -387,8 +408,11 @@ class PyTrain:
                     elif self._api:
                         cmd = None
                         try:
-                            cmd = self._command_queue.get(block=True)
-                            self._handle_command(cmd)
+                            if self._command_queue is not None:
+                                cmd = self._command_queue.get(block=True)
+                                self._handle_command(cmd)
+                            else:
+                                raise RuntimeError("Command queue not created")
                         except Empty:
                             pass
                         finally:
@@ -403,30 +427,68 @@ class PyTrain:
                     pass
                 except ArgumentError:
                     pass
-                except KeyboardInterrupt:
-                    self.shutdown()
-                    break
+        except KeyboardInterrupt:
+            self.shutdown()
         finally:
+            with self._admin_state_lock:
+                self._shutdown_started = True
+                self._lifecycle_phase = "final-cleanup"
             if self._headless is False and self._api is False:
                 readline.write_history_file(DEFAULT_HISTORY_FILE)
-            self.shutdown_service()
+            # Teardown is best effort; retained ownership allows retry, not an exit veto.
+            try:
+                self.shutdown_service()
+            except Exception as e:
+                log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
+            try:
+                self.shutdown_cache()
+            except Exception as e:
+                log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
+            if self._cache_sync_manager is not None:
+                log.warning("Cache sync cleanup is incomplete")
+
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
-            if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
-                if self._admin_action == TMCC1SyncCommandEnum.UPGRADE:
-                    self.upgrade()
-                elif self._admin_action == TMCC1SyncCommandEnum.UPDATE:
-                    self.update()
-                elif self._admin_action == TMCC1SyncCommandEnum.RESTART:
-                    self.restart()
-                elif self._admin_action == TMCC1SyncCommandEnum.REBOOT:
-                    self.reboot()
-                elif self._admin_action == TMCC1SyncCommandEnum.SHUTDOWN:
-                    self.reboot(reboot=False)
+
+        self.perform_deferred_admin_action()
+
+    def perform_deferred_admin_action(self) -> None:
+        """Execute the action recorded during shutdown (also used by GUI hosts)."""
+        api_status: PyTrainExitStatus | None = None
+        if self._admin_action in ACTION_TO_ADMIN_COMMAND_MAP:
+            aa = cast(TMCC1SyncCommandEnum, self._admin_action)
+            if aa != TMCC1SyncCommandEnum.RESYNC:
+                with self._admin_state_lock:
+                    self._lifecycle_phase = "deferred-action"
+                self._log_admin_exit("Entering deferred action", aa, source="run")
+                try:
+                    if aa == TMCC1SyncCommandEnum.UPGRADE:
+                        self.upgrade()
+                    elif aa == TMCC1SyncCommandEnum.UPDATE:
+                        self.update()
+                    elif aa == TMCC1SyncCommandEnum.RESTART:
+                        if self._flatpak_local_restart:
+                            # run() has completed normal teardown; ask the host
+                            # Steam launcher to start a new Flatpak instance.
+                            raise SystemExit(42)
+                        self.restart()
+                    elif aa == TMCC1SyncCommandEnum.REBOOT:
+                        self.reboot()
+                    elif aa == TMCC1SyncCommandEnum.SHUTDOWN:
+                        self.reboot(reboot=False)
+                    elif aa == TMCC1SyncCommandEnum.QUIT:
+                        api_status = PyTrainExitStatus.QUIT
+                except PyTrainExitException as exc:
+                    if not self.is_api:
+                        raise
+                    api_status = exc.reason
+
+        if self.is_api and api_status is not None:
+            self._notify_api_exit(api_status)
 
     def queue_command(self, cmd: str) -> None:
         if cmd:
-            if self._api:
+            if self._api and self._command_queue:
                 self._command_queue.put(cmd)
             else:
                 self._handle_command(cmd)
@@ -440,11 +502,11 @@ class PyTrain:
         return get_native_id()
 
     @property
-    def store(self) -> ComponentStateStore:
+    def store(self) -> ComponentStateStore | None:
         return self._state_store
 
     @property
-    def pdi_listener(self) -> PdiListener | ClientStateListener | None:
+    def pdi_listener(self) -> PdiListener | ClientStateListener | CommandListener | None:
         if self.is_server and self._pdi_buffer is not None:
             return self._pdi_buffer
         else:
@@ -458,7 +520,7 @@ class PyTrain:
             return self._tmcc_buffer
 
     @property
-    def command_dispatcher(self) -> CommandDispatcher:
+    def command_dispatcher(self) -> CommandDispatcher | None:
         return self._dispatcher
 
     @property
@@ -608,13 +670,13 @@ class PyTrain:
         ver = f"{self.__class__.__qualname__} {get_version()}"
         return ver
 
-    def __call__(self, cmd: CommandReq | PdiReq) -> None:
+    def __call__(self, message: Message) -> None:
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
         try:
             if self._echo:
-                log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {cmd}")
+                log.info(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {message}")
         except Exception as e:
             log.exception(f"Failed to echo command to console: {e}")
 
@@ -624,25 +686,169 @@ class PyTrain:
         if self.is_client:
             self._command_processor_available.wait()
 
-        if cmd.command in ACTION_TO_ADMIN_COMMAND_MAP:
-            if cmd.command == TMCC1SyncCommandEnum.RESYNC:
+        if message.command in ACTION_TO_ADMIN_COMMAND_MAP:
+            if message.command == TMCC1SyncCommandEnum.RESYNC:
                 if self.is_server:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
-            # Handles authorized admin commands; interrupts main loop; sets exit status
-            if cmd.command not in self._received_admin_cmds:
-                self._received_admin_cmds.add(cmd.command)
-                if self.is_client and cmd.command == TMCC1SyncCommandEnum.QUIT:
-                    log.info("Client exiting...")
-                # record the admin command and send the interrupt signal
-                # this will interrupt the comment prompt loop and call
-                # the appropriate handler
-                self._admin_action = cmd.command
-                if self._api_thread:
-                    self.shutdown()
-                if self.is_api:
-                    self._exit_status = PyTrainExitStatus.by_name(self._admin_action.name, raise_exception=False)
-                os.kill(os.getpid(), signal.SIGINT)
+            if message.command in (TMCC1SyncCommandEnum.UPDATE, TMCC1SyncCommandEnum.RESTART):
+                from ..utils.flatpak_updates import (
+                    check_flatpak_update,
+                    installed_flatpak_tag,
+                    request_flatpak_update,
+                )
+
+                installed_tag = installed_flatpak_tag()
+                if installed_tag is not None:
+                    if message.command == TMCC1SyncCommandEnum.UPDATE:
+                        # Only the host launcher can replace a Flatpak. Check the
+                        # published release before asking it to restart.
+                        try:
+                            update = check_flatpak_update(installed_tag)
+                        except Exception as exc:
+                            log.warning("Cannot check for a PyCab Flatpak update; restarting unchanged: %s", exc)
+                        else:
+                            if update.available:
+                                log.info(
+                                    "PyCab Flatpak update available: %s -> %s", installed_tag, update.available_tag
+                                )
+                                try:
+                                    request_flatpak_update()
+                                except OSError as exc:
+                                    log.error("Unable to request PyCab Flatpak update; restarting unchanged: %s", exc)
+                            else:
+                                log.info("PyCab Flatpak %s is current; restarting", installed_tag)
+                    else:
+                        log.info("Restarting PyCab Flatpak after propagated RESTART")
+                    self.request_local_restart()
+                    return
+            if message.command == TMCC1SyncCommandEnum.UPDATE and self_update_disabled():
+                # Other distributor-managed installations must never run pip/git.
+                log.info("Ignoring propagated UPDATE in distributor-managed installation")
+                return
+            self._request_admin_exit(message.command, source="callback")
+
+    def _request_admin_exit(self, command: CommandDefEnum, *, source: str, local_flatpak_restart: bool = False) -> None:
+        """Claim an admin exit once, then use the existing API/SIGINT shutdown path."""
+        if not self._claim_admin_exit(command, source=source):
+            return
+        if local_flatpak_restart and command == TMCC1SyncCommandEnum.RESTART:
+            with self._admin_state_lock:
+                self._flatpak_local_restart = True
+        if self.is_client and command == TMCC1SyncCommandEnum.QUIT:
+            log.info("Client exiting...")
+        gui_close = getattr(self, "_gui_admin_close", None)
+        if gui_close is not None:
+            # A GUI-hosted PyTrain uses the API worker for its command queue,
+            # but Tk owns the process: do not signal an external API host.
+            self.shutdown()
+            gui_close()
+            return
+        if self._api_thread:
+            self.shutdown()
+        if self.is_api:
+            if self._cache_sync_manager is not None:
+                log.warning("Cache sync cleanup is incomplete")
+            status = PyTrainExitStatus.by_name(command.name, raise_exception=False)
+            if status is not None:
+                self._notify_api_exit(status)
+                return
+        self._log_admin_exit("Sending internal SIGINT", command, source=source)
+        os.kill(os.getpid(), signal.SIGINT)
+
+    def _notify_api_exit(self, status: PyTrainExitStatus) -> None:
+        """Publish exit status once and notify the API host process.
+
+        Accepting an exit request is separate from host notification. Notification follows
+        attempted teardown and any applicable deferred action, even when cache ownership
+        remains for an explicit retry. Only one notification is delivered per PyTrain lifecycle.
+        """
+        with self._admin_state_lock:
+            if self._api_exit_notified:
+                self._log_admin_exit("Suppressed API exit notification", self._admin_action, source="api")
+                return
+            self._api_exit_notified = True
+            self._exit_status = status
+        self._log_admin_exit(
+            f"Sending API exit notification status={status.name}",
+            self._admin_action,
+            source="api",
+        )
+        os.kill(os.getpid(), signal.SIGINT)
+
+    # noinspection unresolved-references
+    def _log_admin_exit(self, event: str, command: CommandDefEnum | None, *, source: str) -> None:
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "%s action=%s source=%s selected=%s phase=%s pid=%s pytrain=%#x thread=%s",
+                event,
+                command.name if command else None,
+                source,
+                self._admin_action.name if self._admin_action else None,
+                self._lifecycle_phase,
+                os.getpid(),
+                id(self),
+                current_thread().name,
+            )
+
+    def broadcast_update_to_other_nodes(self) -> None:
+        """Propagate UPDATE without claiming a local exit or running pip/git."""
+        cmd = CommandReq(TMCC1SyncCommandEnum.UPDATE)
+        if self.is_server:
+            if self._dispatcher is None:
+                raise RuntimeError("No dispatcher available to broadcast UPDATE")
+            self._dispatcher.signal_clients(cmd)
+        else:
+            self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+
+    def request_gui_server_quit(self) -> None:
+        """Broadcast GUI server QUIT (compatibility entry point)."""
+        self.request_gui_server_action(TMCC1SyncCommandEnum.QUIT)
+
+    def request_gui_server_action(self, command: TMCC1SyncCommandEnum, *, broadcast: bool = True) -> None:
+        """Record a GUI-hosted server action; the Tk owner closes the window afterward."""
+        if not self.is_server:
+            raise RuntimeError("GUI server admin action requires server mode")
+        if not self._claim_admin_exit(command, source="local"):
+            return
+        try:
+            if broadcast:
+                assert self._dispatcher is not None
+                self._dispatcher.signal_clients(CommandReq(command))
+        except BaseException:
+            with self._admin_state_lock:
+                if not self._shutdown_started:
+                    previous_action, previously_received = self._admin_exit_previous
+                    self._exit_requested = False
+                    self._admin_action = previous_action
+                    if not previously_received:
+                        self._received_admin_cmds.discard(command)
+            raise
+
+    def request_local_restart(self) -> None:
+        """Request a local restart through the normal shutdown lifecycle.
+
+        This intentionally bypasses command dispatch: the connected server and
+        other clients must not receive a RESTART command.
+        """
+        from ..utils.flatpak_updates import installed_flatpak_tag
+
+        if installed_flatpak_tag() is None:
+            raise RuntimeError("Local Flatpak restart requires a PyCab Flatpak installation")
+        self._request_admin_exit(TMCC1SyncCommandEnum.RESTART, source="flatpak-local", local_flatpak_restart=True)
+
+    def _claim_admin_exit(self, command: CommandDefEnum, *, source: str) -> bool:
+        with self._admin_state_lock:
+            if self._exit_requested or self._shutdown_started:
+                self._log_admin_exit("Suppressed admin exit", command, source=source)
+                return False
+            if source == "local":
+                self._admin_exit_previous = (self._admin_action, command in self._received_admin_cmds)
+            self._exit_requested = True
+            self._admin_action = command
+            self._received_admin_cmds.add(command)
+            self._log_admin_exit("Accepted admin exit", command, source=source)
+            return True
 
     def __repr__(self) -> str:
         sc = "Server" if self.is_server else "Client"
@@ -668,11 +874,32 @@ class PyTrain:
         state = self._state_store.get_state(CommandScope.SYNC, 99, False)
         return state.is_synchronized() if state else False
 
+    def _on_engine_discovery(self, tmcc_id: int) -> None:
+        """Record an unknown engine trigger until Base 3 retrieval is implemented."""
+        log.info("Engine %s requires Base 3 discovery", tmcc_id)
+
     def shutdown(self):
+        """Attempt every subsystem's teardown despite ordinary failures; let cancellation propagate."""
+        with self._admin_state_lock:
+            self._shutdown_started = True
+            self._lifecycle_phase = "shutdown"
+        self._log_admin_exit("Full teardown entered", self._admin_action, source="shutdown")
+        try:
+            discovery = getattr(self, "_engine_discovery", None)
+            if discovery is not None:
+                discovery.stop()
+                self._engine_discovery = None
+            CommandObserver.stop()
+        except Exception as e:
+            log.warning(f"Error closing engine discovery, continuing shutdown: {e}")
         try:
             self.shutdown_service()
         except Exception as e:
             log.warning(f"Error closing zeroconf, continuing shutdown: {e}")
+        try:
+            self.shutdown_cache()
+        except Exception as e:
+            log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
         try:
             if self._api is True and self._command_queue is not None:
                 with self._command_queue.mutex:
@@ -707,9 +934,11 @@ class PyTrain:
             GpioHandler.reset_all()
         except Exception as e:
             log.warning(f"Error closing GPIO, continuing shutdown: {e}")
+        if self._cache_sync_manager is None:
+            self._log_admin_exit("Full teardown completed", self._admin_action, source="shutdown")
 
     # noinspection PyUnreachableCode
-    def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
+    def do_admin_cmd(self, command: CommandDefEnum, args: List[str] | None = None):
         cmd = CommandReq(command)
         # special case to see if we want to operate on a different client node
         if self._server_ips and args and args[0] not in self._server_ips and args[0] != "me":
@@ -718,39 +947,63 @@ class PyTrain:
             addr = arg_parts[0] if len(arg_parts) > 0 else None
             port = int(arg_parts[1]) if len(arg_parts) > 1 else self._port
             log.info(f"Sending {command.name} request to {addr}:{port}...")
-            self._dispatcher.signal_clients(cmd, client=addr, port=port)
+            if self._dispatcher:
+                self._dispatcher.signal_clients(cmd, client=addr, port=int(port))
             return
-
-        # exit pytrain, signaling the exit behavior by setting
-        # self._admin_action to the requested operation
-        self._admin_action = command
 
         # if we're a client, send command to all instances on the client host
         if args and args[0] == "me" and self.is_client:
             # If the client is on the server node, send command to the server
+            assert self._client_ip is not None
+            assert self._server_ips is not None
             if self._client_ip in self._server_ips:
+                with self._admin_state_lock:
+                    if not self._exit_requested and not self._shutdown_started:
+                        self._admin_action = command
                 log.info(f"Sending {command.name} to {PROGRAM_NAME} server...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes)
             else:
                 log.info(f"Sending {command.name} to all clients on this system ({self._client_ip})...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes + self._client_ip.encode())
-                self._admin_action = None
             return
-        elif self.is_server:
-            if command == TMCC1SyncCommandEnum.RESYNC:
-                self._admin_action = None
+        if command == TMCC1SyncCommandEnum.RESYNC:
+            if self.is_server:
                 self._get_system_state()
-                return
             else:
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            return
+
+        if not self._claim_admin_exit(command, source="local"):
+            return
+        dispatched = False
+        try:
+            if self.is_server:
                 # if server, signal all clients as well as the server
+                assert self._dispatcher is not None
                 self._dispatcher.signal_clients(cmd)
-        else:
-            # send command to server, it will send it to all clients
-            # then will execute it on the server itself
-            self._tmcc_buffer.enqueue_command(cmd.as_bytes)
-            if command == TMCC1SyncCommandEnum.RESYNC:
-                self._admin_action = None
-                return  # don't exit
+            else:
+                # send command to server, it will send it to all clients
+                # then will execute it on the server itself
+                self._tmcc_buffer.enqueue_command(cmd.as_bytes)
+            dispatched = True
+        finally:
+            if not dispatched:
+                with self._admin_state_lock:
+                    if not self._shutdown_started:
+                        previous_action, previously_received = self._admin_exit_previous
+                        self._exit_requested = False
+                        self._admin_action = previous_action
+                        if not previously_received:
+                            self._received_admin_cmds.discard(command)
+                        self._log_admin_exit("Rolled back admin exit", command, source="local")
+        if self.is_server and command == TMCC1SyncCommandEnum.QUIT:
+            # A GUI callback may run outside the main thread. Raising
+            # KeyboardInterrupt there does not terminate the server process.
+            # Clients have already been notified; request local shutdown via
+            # the same process-level signal used by propagated admin exits.
+            self._log_admin_exit("Sending internal SIGINT", command, source="local")
+            os.kill(os.getpid(), signal.SIGINT)
+            return
         raise KeyboardInterrupt()
 
     @staticmethod
@@ -835,23 +1088,30 @@ class PyTrain:
         method's relaunch would preempt it -- upgrade() does exactly that, because the
         reboot it issues afterward *is* the relaunch.
         """
+        if self_update_disabled():
+            log.warning("PyTrain self-update is disabled; install a newer application package instead.")
+            return
+
         from .. import PROGRAM_PACKAGE, installed_package, is_package
 
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
-        # always update pip
-        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
+        # API hosts own the update lifecycle; do not modify their environment.
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+        # always update pip
+        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
 
         if is_package():
             # update from Pypi; the Steam Deck runs a distribution of its own
             # (pytrain-ogr-deck), so update whichever one is actually installed
             package = installed_package() or PROGRAM_PACKAGE
-            subprocess.run([sys.executable, "-m", "pip", "install", "-U", package], cwd=os.getcwd(), check=False)
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-U", "--no-cache-dir", package], cwd=os.getcwd(), check=False
+            )
         else:
-            # update from github
+            # update from GitHub
             subprocess.run(["git", "pull"], cwd=os.getcwd(), check=False)
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "-r", self.requirements_file], cwd=os.getcwd(), check=False
@@ -873,7 +1133,10 @@ class PyTrain:
         return REQUIREMENTS
 
     def upgrade(self) -> None:
-        # The Steam Deck keeps SteamOS updated itself and its root filesystem is
+        if self_update_disabled():
+            log.warning("PyTrain self-update/upgrade is disabled in this installation.")
+            return
+        # The Steam Deck keeps SteamOS updated itself, and its root filesystem is
         # immutable, so apt and rpi-eeprom-update are both meaningless and unavailable
         # there. Skipping the OS half degrades upgrade() to a PyTrain update, the same
         # way it already behaves off Linux.
@@ -884,11 +1147,11 @@ class PyTrain:
         # status and hands control back to the host, the same as reboot(), update() and
         # relaunch() do. Checked before anything runs, not after.
         if self.is_api:
-            self._exit_status = PyTrainExitStatus.UPDATE
-            raise PyTrainExitException(PyTrainExitStatus.UPDATE)
+            self._exit_status = PyTrainExitStatus.UPGRADE
+            raise PyTrainExitException(PyTrainExitStatus.UPGRADE)
         # PyTrain updates first, while the machine is still up. `sudo reboot` returns as
         # soon as systemd accepts the shutdown job rather than blocking until the machine
-        # goes down, so anything sequenced after it races the teardown -- and a pip
+        # goes down. Anything sequenced after it races the teardown -- and a pip
         # install killed partway leaves a half-written package behind with nothing in the
         # log to say why. When the reboot follows, it is this path's relaunch, so update()
         # must not relaunch as well.
@@ -906,7 +1169,7 @@ class PyTrain:
             subprocess.run(["sudo", "reboot"], check=False)
 
     def relaunch(self, exit_status: PyTrainExitStatus, delay: bool = True) -> None:
-        # if we're a client, we need to give the server time to respond, otherwise, we
+        # if we're a client, we need to give the server time to respond; otherwise, we
         # will connect to it as it is shutting down
         if self.is_client is True and delay is True:
             sleep(random.randint(8, 12))
@@ -968,7 +1231,7 @@ class PyTrain:
         base3,
         server_port,
         cache_sync: bool = False,
-        cache_sync_port: int = None,
+        cache_sync_port: int | None = None,
     ) -> ServiceInfo:
         port = server_port
         properties = {
@@ -1108,6 +1371,7 @@ class PyTrain:
 
         if an_info:
             self._server_cache_sync_capable, self._server_cache_sync_port = self.cache_sync_properties(an_info)
+            assert an_info.port  # Port can't be None
             return an_info.parsed_addresses()[0], an_info.port
         else:
             return None
@@ -1134,17 +1398,18 @@ class PyTrain:
                 self._server_discovered.set()
 
     def shutdown_service(self):
-        try:
-            CacheSyncManager.stop()
-            self._cache_sync_manager = None
-        except Exception as e:
-            log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
         if self._service_info and self._zeroconf:
             self._zeroconf.unregister_service(self._service_info)
             self._zeroconf.close()
             self._service_info = self._zeroconf = None
 
-    def parse_cli(self, command_line: str) -> str | None:
+    def shutdown_cache(self):
+        with self._shutdown_lock:
+            if self._cache_sync_manager is not None:
+                CacheSyncManager.stop()
+                self._cache_sync_manager = None
+
+    def parse_cli(self, command_line: str) -> CommandReq | str | None:
         """
         Parse a command line to determine ig it's a valid command, if so,
         return the command. If not, return an informative error message
@@ -1168,6 +1433,13 @@ class PyTrain:
         except ValueError:
             return False
 
+    @staticmethod
+    def _admin_enum(admin_cmd: str) -> CommandDefEnum:
+        if admin_cmd and admin_cmd.lower() in ADMIN_COMMAND_TO_ACTION_MAP:
+            return cast(CommandDefEnum, ADMIN_COMMAND_TO_ACTION_MAP.get(admin_cmd.lower()))
+        raise ValueError(f"Unrecognized admin command: {admin_cmd}")
+
+    # noinspection unreachable-code
     def _handle_command(self, ui: str, parse_only: bool = False) -> str | CommandReq | None:
         """
         Parse the user's input, reusing the individual CLI command parsers.
@@ -1189,24 +1461,29 @@ class PyTrain:
                 try:
                     # if the keyboard input starts with a valid command, args.command
                     # is set to the corresponding CLI command class or the verb 'quit'
-                    args = self._command_parser().parse_args(["-" + ui_parts[0]])
+                    command_parser = self._command_parser()
+                    if parse_only and isinstance(command_parser, PyTrainArgumentParser):
+                        command_parser.clear_exit_on_error()
+                    args = command_parser.parse_args(["-" + ui_parts[0]])
                     if parse_only is False and args.command == "quit":
                         # if server, signal clients to disconnect
-                        if self.is_server:
+                        if self.is_server and self._dispatcher:
                             self._dispatcher.signal_clients()
                         elif self.is_client and len(ui_parts) > 1 and ui_parts[1] == "server":
                             # signal server to quit
                             log.info(f"Sending Quit request to {PROGRAM_NAME} server...")
-                            cmd = CommandReq(ADMIN_COMMAND_TO_ACTION_MAP.get("quit"))
+                            cmd = CommandReq(self._admin_enum("quit"))
                             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
                             return None
-                        # if client quits, remaining nodes continue to run
+                        # Local quit: claim so teardown guards and the API host handoff
+                        # see a committed QUIT. Remaining nodes keep running for clients.
+                        self._claim_admin_exit(self._admin_enum("quit"), source="local")
                         raise KeyboardInterrupt()
                     elif parse_only is False and args.command == "resync" and self.is_server:
                         self._get_system_state()
                         return None
                     elif parse_only is False and args.command in ADMIN_COMMAND_TO_ACTION_MAP:
-                        self.do_admin_cmd(ADMIN_COMMAND_TO_ACTION_MAP.get(args.command), ui_parts[1:])
+                        self.do_admin_cmd(self._admin_enum(args.command), ui_parts[1:])
                         return None
                     elif parse_only is False and args.command == "help":
                         self._command_parser().parse_args(["-help"])
@@ -1277,20 +1554,23 @@ class PyTrain:
 
                     # if this is a train or engine command, check for tmcc mode
                     if (is_train_cmd or is_engine_cmd) and self._is_int(ui_parts[1]):
+                        assert self._state_store is not None
                         tmcc_id = int(ui_parts[1])
-                        state = self._state_store.get_state(
-                            CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
-                        )
+                        cmd_scope = CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN
+                        state = self._state_store.get_state(cmd_scope, tmcc_id, False)
+                        if state is None and 100 <= tmcc_id <= 9999:
+                            log.info(ValueError(f"{cmd_scope.label} TMCC ID {tmcc_id} not found"))
                         if state.is_tmcc if isinstance(state, EngineState) else True:
-                            has_tmcc_arg = False
+                            has_tmcc_arg = has_legacy_arg = False
                             for token in ui_parts[2:]:
                                 if token.startswith("-"):
                                     if "-tmcc".startswith(token.lower()):
                                         has_tmcc_arg = True
-                                        break
+                                    elif "-legacy".startswith(token.lower()):
+                                        has_legacy_arg = True
                                 else:
                                     break  # we're into a subparser
-                            if not has_tmcc_arg:
+                            if not has_tmcc_arg and not has_legacy_arg and tmcc_id <= 99:
                                 ui_parts.insert(2, "-tmcc")
 
                     # parse command line with the appropriate parser
@@ -1302,7 +1582,7 @@ class PyTrain:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"Sending {cli_cmd.command.command_req}")
                     cli_cmd.send()
-                except (ArgumentError, NotImplementedError) as e:
+                except (ArgumentError, NotImplementedError, ValueError) as e:
                     if parse_only:
                         return e.message
                     log.warning(e)
@@ -1316,6 +1596,9 @@ class PyTrain:
         Send PDI requests to get data on all engines, trains, switches, routes, and accessories
         from the Lionel Base 3
         """
+        assert self._state_store is not None
+        assert self._pdi_buffer is not None
+        assert self._dispatcher is not None
         sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         self._startup_state = StartupState(
             self._pdi_buffer,
@@ -1355,7 +1638,9 @@ class PyTrain:
         except Exception as e:
             log.exception(e)
 
+    # noinspection unsupported-operator
     def _do_db(self, param) -> None:
+        assert self._state_store is not None
         try:
             if len(param) >= 1:
                 param0 = param[0].strip().lower()
@@ -1365,7 +1650,8 @@ class PyTrain:
                     if len(param) > 1:
                         if param[1].isdigit():
                             address = int(param[1])
-                            state: ComponentState = self._state_store.query(scope, address)
+
+                            state = self._state_store.query(scope, address)
                             if state:
                                 print(state)
                                 return
@@ -1377,6 +1663,7 @@ class PyTrain:
                     if scope in self._state_store:
                         no_data = True
                         for state in self._state_store.get_all(scope):
+                            # Filters and displays component states matching search query
                             if (
                                 query is None
                                 or query in state.name.lower()
@@ -1420,7 +1707,7 @@ class PyTrain:
         except Exception as e:
             log.exception(e)
 
-    def _handle_debug(self, ui_parts: List[str] = None):
+    def _handle_debug(self, ui_parts: List[str] | None = None):
         if ui_parts is None:
             ui_parts = ["debug"]
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
@@ -1457,7 +1744,7 @@ class PyTrain:
             if self._debug:
                 self._disable_debug()
 
-    def _handle_echo(self, ui_parts: List[str] = None):
+    def _handle_echo(self, ui_parts: List[str] | None = None):
         if ui_parts is None:
             ui_parts = ["echo"]
         if len(ui_parts) == 1 or (len(ui_parts) > 1 and ui_parts[1].lower() == "on"):
@@ -1506,6 +1793,7 @@ class PyTrain:
         elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
             action = D4Action.by_prefix(param[1], raise_exception=True)
+            assert pdi is not None
             if action in {D4Action.COUNT, D4Action.FIRST_REC}:
                 agr = D4Req(0, pdi, action=action)
             # Builds D4 request with MAP, NEXT_REC, or QUERY/UPDATE parameters and validation
@@ -1516,9 +1804,12 @@ class PyTrain:
                         agr = D4Req(0, pdi, action=action, tmcc_id=tmcc_id)
                     else:
                         raise AttributeError(f"PDI {action.label} only supported for 4-digit TMCC IDs")
-                elif action == D4Action.NEXT_REC:
+                elif action in {D4Action.NEXT_REC, D4Action.CLEAR}:
                     rec_no = int(param[2])
-                    agr = D4Req(rec_no, pdi, action=D4Action.NEXT_REC)
+                    if action == D4Action.CLEAR:
+                        agr = D4Req(rec_no, pdi, action=action)
+                    else:
+                        agr = D4Req(rec_no, pdi, action=action, start=0, data_length=0xC0)
                 elif action in {D4Action.QUERY, D4Action.UPDATE}:
                     rec_no = int(param[2], 16) if "0x" in param[2] else int(param[2])
                     start = (int(param[3], 16) if "0x" in param[3] else int(param[3])) if param_len > 3 else 0
@@ -1531,6 +1822,8 @@ class PyTrain:
                         db = None
                         action = D4Action.QUERY
                     agr = D4Req(rec_no, pdi, action=action, start=start, data_length=length, data_bytes=db)
+                else:
+                    log.info(f"Unsupported D4 command: {action.label} --> {param}")
         elif param_len >= 2 and param[0].lower().startswith("m"):  # Base Memory commands
             pdi = PdiCommand.BASE_MEMORY
             rec_no = int(param[1], 16) if "0x" in param[1] else int(param[1])
@@ -1832,5 +2125,4 @@ class PyTrainExitException(Exception):
         self.reason = reason
 
 
-set_up_logging()
 log = logging.getLogger(__name__)

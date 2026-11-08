@@ -16,8 +16,18 @@ class TestValidateInt:
     def test_returns_int_when_already_int(self):
         assert Validations.validate_int(5) == 5
 
-    def test_converts_string_digits_to_int(self):
-        assert Validations.validate_int("42") == 42
+    @pytest.mark.parametrize("value, expected", [("42", 42), ("5", 5)])
+    def test_converts_string_digits_to_int(self, value, expected):
+        assert Validations.validate_int(value) == expected
+
+    @pytest.mark.parametrize("value", [5.4, 5.99])
+    def test_truncates_float_to_int(self, value):
+        assert Validations.validate_int(value) == 5
+
+    def test_rejects_none_by_default(self):
+        with pytest.raises(TypeError) as ei:
+            Validations.validate_int(None)
+        assert str(ei.value) == "'None' is not an integer"
 
     def test_allows_none_when_flag_true(self):
         assert Validations.validate_int(None, allow_none=True) is None
@@ -25,43 +35,44 @@ class TestValidateInt:
     def test_raises_type_error_for_non_castable_type(self):
         class Obj: ...
 
+        value = Obj()
         with pytest.raises(TypeError) as ei:
-            Validations.validate_int(Obj())  # int(Obj()) raises TypeError
-        assert (
-            str(ei.value)
-            == "'<__main__.TestValidateInt.test_raises_type_error_for_non_castable_type.<locals>.Obj object at "[:1]
-            or " is not an integer"
-        )  # only validate prefix
+            Validations.validate_int(value)  # int(Obj()) raises TypeError
+        assert str(ei.value) == f"'{value}' is not an integer"
 
-    def test_raises_value_error_for_non_numeric_string_default_label(self):
+    @pytest.mark.parametrize("value", ["abc", "text"])
+    def test_raises_value_error_for_non_numeric_string_default_label(self, value):
         with pytest.raises(ValueError) as ei:
-            Validations.validate_int("abc")
-        assert str(ei.value) == "'abc' is not an integer"
+            Validations.validate_int(value)
+        assert str(ei.value) == f"'{value}' is not an integer"
 
     def test_raises_value_error_for_non_numeric_string_custom_label(self):
         with pytest.raises(ValueError) as ei:
             Validations.validate_int("abc", label="Speed")
         assert str(ei.value) == "Speed is not an integer"
 
-    def test_min_value_enforced_no_label(self):
+    @pytest.mark.parametrize("value, minimum", [(-1, 0), (5, 10)])
+    def test_min_value_enforced_no_label(self, value, minimum):
         with pytest.raises(ValueError) as ei:
-            Validations.validate_int(-1, min_value=0)
-        assert str(ei.value) == "'-1' must be equal to or greater than 0"
+            Validations.validate_int(value, min_value=minimum)
+        assert str(ei.value) == f"'{value}' must be equal to or greater than {minimum}"
 
     def test_min_value_enforced_with_label_and_suffix(self):
         with pytest.raises(ValueError) as ei:
             Validations.validate_int(-1, min_value=0, label="Speed")
         assert str(ei.value) == "Speed must be equal to or greater than 0 (-1)"
 
-    def test_max_value_enforced_no_label(self):
+    @pytest.mark.parametrize("value", [11, 15])
+    def test_max_value_enforced_no_label(self, value):
         with pytest.raises(ValueError) as ei:
-            Validations.validate_int(11, max_value=10)
-        assert str(ei.value) == "'11' must be less than or equal to 10"
+            Validations.validate_int(value, max_value=10)
+        assert str(ei.value) == f"'{value}' must be less than or equal to 10"
 
-    def test_max_value_enforced_with_label_and_suffix(self):
+    @pytest.mark.parametrize("value, label", [(11, "Speed"), (15, "Value")])
+    def test_max_value_enforced_with_label_and_suffix(self, value, label):
         with pytest.raises(ValueError) as ei:
-            Validations.validate_int(11, max_value=10, label="Speed")
-        assert str(ei.value) == "Speed must be less than or equal to 10 (11)"
+            Validations.validate_int(value, max_value=10, label=label)
+        assert str(ei.value) == f"{label} must be less than or equal to 10 ({value})"
 
     def test_boundary_values_ok(self):
         assert Validations.validate_int(0, min_value=0) == 0

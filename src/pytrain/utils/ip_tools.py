@@ -8,10 +8,15 @@
 #
 import ipaddress
 import logging
+import os
+import shutil
 import socket
 import subprocess
+import sysconfig
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
 from typing import List
 
 from ..protocol.constants import DEFAULT_BASE_PORT
@@ -20,6 +25,25 @@ log = logging.getLogger(__name__)
 
 
 TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the public Internet)
+
+
+def _find_hostname_script() -> Path | None:
+    script_path = shutil.which("hostname.sh")
+    if script_path:
+        script = Path(script_path)
+        if script.is_file():
+            return script
+
+    scripts_dir = sysconfig.get_path("scripts")
+    if scripts_dir:
+        script = Path(scripts_dir) / "hostname.sh"
+        if script.is_file():
+            return script
+
+    script = Path(__file__).resolve().parents[1] / "installation" / "hostname.sh"
+    if script.is_file():
+        return script
+    return None
 
 
 def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
@@ -71,18 +95,51 @@ def get_ip_from_command():
         raise e
 
 
+def get_local_ipv4() -> str | None:
+    """Find the IPv4 source address selected by the routing table."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(TEST_NET_IP)
+            address = sock.getsockname()[0]
+        ip = ipaddress.ip_address(address)
+        if isinstance(ip, ipaddress.IPv4Address) and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified):
+            return address
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def get_ip_address(max_attempts: int = 32) -> List[str]:
     from .. import is_linux
 
     wait_for_network()
 
-    # if on linux, use hostname to get IP addr
+    # Prefer the native Linux command, then the Steam Deck helper script,
+    # then a command-free socket fallback (e.g. BusyBox/Buildroot).
     if is_linux():
-        result = subprocess.run("hostname -I".split(), capture_output=True, text=True)
-        if result.returncode == 0:
-            output = result.stdout.strip().split()
-            if output and output[0]:
+        try:
+            result = subprocess.run(["hostname", "-I"], capture_output=True, text=True)
+        except OSError:
+            result = None
+        if result is not None and result.returncode == 0:
+            output = result.stdout.split()
+            if output:
                 return [output[0]]
+
+        script_path = _find_hostname_script()
+        if script_path is not None:
+            try:
+                result = subprocess.run(["/bin/bash", str(script_path), "-I"], capture_output=True, text=True)
+            except OSError:
+                result = None
+            if result is not None and result.returncode == 0:
+                output = result.stdout.split()
+                if output:
+                    return [output[0]]
+
+        local_ip = get_local_ipv4()
+        if local_ip is not None:
+            return [local_ip]
 
     # Otherwise, use socket technique
     hostname = socket.gethostname()
@@ -123,8 +180,8 @@ def is_base_address(address, base3_port: int = DEFAULT_BASE_PORT) -> str | None:
         return None
 
 
-def find_base_address() -> str | None:
-    """Discovers Base 3 address by parallel port scanning local network"""
+def find_base_address_multiprocessing() -> str | None:
+    """Original process-based Base discovery, retained for comparison."""
     num_cpus = cpu_count() - 1
     possible_ips = list()
     local_ips = get_ip_address()
@@ -132,7 +189,7 @@ def find_base_address() -> str | None:
         parts = ip.split(".")
         me = int(parts[-1])
         network = ".".join(parts[:-1]) + "."
-        for i in range(2, 255):
+        for i in range(1, 255):
             if i == me:
                 continue
             possible_ips.append(network + str(i))
@@ -142,3 +199,44 @@ def find_base_address() -> str | None:
                 p.terminate()
                 return result
     return None
+
+
+def find_base_address(max_workers: int | None = None) -> str | None:
+    """Discover a Lionel Base using bounded concurrent TCP probes.
+
+    Threading avoids multiprocessing semaphore resources. On an early match,
+    outstanding probes are cancelled where possible; in-flight socket probes
+    finish within their existing 150 ms timeout.
+    """
+    if max_workers is None:
+        configured_workers = os.getenv("PYTRAIN_DISCOVERY_WORKERS", "32")
+        try:
+            max_workers = int(configured_workers)
+        except ValueError as exc:
+            raise ValueError("PYTRAIN_DISCOVERY_WORKERS must be a positive integer") from exc
+    if isinstance(max_workers, bool) or not isinstance(max_workers, int) or max_workers < 1:
+        raise ValueError("Discovery max_workers must be a positive integer")
+
+    possible_ips = []
+    for ip in get_ip_address():
+        parts = ip.split(".")
+        me = int(parts[-1])
+        network = ".".join(parts[:-1]) + "."
+        possible_ips.extend(network + str(i) for i in range(1, 255) if i != me)
+
+    if not possible_ips:
+        return None
+
+    executor = ThreadPoolExecutor(max_workers=min(max_workers, len(possible_ips)))
+    futures = []
+    try:
+        futures = [executor.submit(is_base_address, ip) for ip in possible_ips]
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                return result
+        return None
+    finally:
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)

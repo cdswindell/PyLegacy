@@ -3,6 +3,22 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+
+def cache_directory(subdir: str, legacy_env: str | None = None) -> Path:
+    """Resolve a PyTrain cache subdirectory.
+
+    PYTRAIN_CACHE_DIR is the shared root when configured. Without it, retain
+    the existing per-component environment variables and relative defaults.
+    Explicit per-component environment settings take precedence.
+    """
+    if legacy_env and os.environ.get(legacy_env):
+        return Path(os.environ[legacy_env]).expanduser()
+    root = os.environ.get("PYTRAIN_CACHE_DIR")
+    if root:
+        return Path(root).expanduser() / subdir
+    return Path("cache") / subdir
+
+
 EXCLUDE = {
     "__pycache__",
     ".tox",
@@ -16,7 +32,9 @@ EXCLUDE = {
 # use exactly these roots are served from the process-lifetime index; any other
 # places (e.g. cache directories that may be written to at runtime) are walked
 # fresh on every call so newly-written files are always found.
-DEFAULT_PLACES: Tuple[str, ...] = (".", "../")
+PYTRAIN_ROOT = Path(__file__).resolve().parents[1]
+
+DEFAULT_PLACES: Tuple[str | Path, ...] = (".", "../", PYTRAIN_ROOT)
 
 # Directory names that make up a Python virtual environment / installation prefix.
 # When one of these lives directly under an interpreter prefix (sys.prefix,
@@ -24,7 +42,7 @@ DEFAULT_PLACES: Tuple[str, ...] = (".", "../")
 # into site-packages and the thousands of files it contains.
 _ENV_SUBDIRS = {
     "bin",
-    "lib",
+    # "lib",
     "lib64",
     "include",
     "share",
@@ -117,7 +135,10 @@ def _build_index(places: Tuple, want_dirs: bool) -> dict[str, list[str]]:
                 continue
 
             root_path = Path(root).resolve()
-            parts = root_path.parts
+            # Prune hidden/excluded directories *within* the search root, not
+            # its ancestors. Explicit roots may live under hidden directories
+            # (e.g. Flatpak's ~/.var/app/.../cache).
+            parts = root_path.relative_to(Path(d).resolve()).parts
             if any(p.startswith(".") or p in EXCLUDE for p in parts):
                 continue
 

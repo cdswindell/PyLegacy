@@ -6,10 +6,12 @@
 #  SPDX-License-Identifier: LPGL
 #
 
+import pytest
+
 from src.pytrain.db.accessory_state import AccessoryState
-from src.pytrain.db.component_state import SwitchState
+from src.pytrain.db.component_state import ComponentState, LcsProxyState, LcsState, SwitchState
 from src.pytrain.db.component_state_store import ComponentStateStore
-from src.pytrain.db.engine_state import TrainState
+from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.pdi.asc2_req import Asc2Req
 from src.pytrain.pdi.bpc2_req import Bpc2Req
 from src.pytrain.pdi.constants import (
@@ -22,7 +24,9 @@ from src.pytrain.pdi.constants import (
 )
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.pdi.stm2_req import Stm2Req
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 
 
 def _received_lcs_packet(pdi_command: PdiCommand, address: int, action, payload: bytes = bytes()) -> bytes:
@@ -78,6 +82,7 @@ def test_accessory_state_as_bytes_includes_received_lcs_config_firmware_and_info
     payload = state.as_bytes()
 
     assert state.is_lcs_component is True
+    assert isinstance(payload, bytes)
     assert config.as_bytes in payload
     assert firmware.as_bytes in payload
     assert info.as_bytes in payload
@@ -107,6 +112,16 @@ def test_switch_state_as_bytes_includes_received_lcs_config_firmware_and_info_pa
     payload = state.as_bytes()
 
     assert state.is_lcs_component is True
+    assert isinstance(payload, bytes)
+    position = state.state
+    assert position is not None
+    assert payload == (
+        ComponentState.as_bytes(state)
+        + config.as_bytes
+        + firmware.as_bytes
+        + info.as_bytes
+        + CommandReq.build(position, address).as_bytes
+    )
     assert config.as_bytes in payload
     assert firmware.as_bytes in payload
     assert info.as_bytes in payload
@@ -138,4 +153,51 @@ def test_train_state_as_bytes_includes_received_lcs_config_firmware_and_info_pac
     packets = state.as_bytes()
 
     assert state.is_lcs is True
+    assert isinstance(packets, list)
+    assert all(isinstance(packet, bytes) for packet in packets)
     assert packets[0].endswith(config.as_bytes + firmware.as_bytes + info.as_bytes)
+
+
+@pytest.mark.parametrize("inherited", [b"firstsecond", [b"first", b"second"], b"", []])
+@pytest.mark.parametrize("include_lcs", [False, True])
+def test_lcs_as_bytes_normalizes_inherited_packets(monkeypatch, inherited, include_lcs) -> None:
+    state = _new_switch(42)
+    monkeypatch.setattr(ComponentState, "as_bytes", lambda self: inherited)
+    suffix = b""
+    if include_lcs:
+        state._config_req = Stm2Req(42, PdiCommand.STM2_GET, Stm2Action.CONFIG)
+        state._firmware_req = Stm2Req(42, PdiCommand.STM2_GET, Stm2Action.FIRMWARE)
+        state._info_req = Stm2Req(42, PdiCommand.STM2_GET, Stm2Action.INFO)
+        suffix = state._config_req.as_bytes + state._firmware_req.as_bytes + state._info_req.as_bytes
+
+    payload = LcsState.as_bytes(state)
+
+    assert isinstance(payload, bytes)
+    assert payload == (b"firstsecond" if inherited else b"") + suffix
+
+
+@pytest.mark.parametrize("inherited", [b"firstsecond", [b"first", b"second"], b"", []])
+@pytest.mark.parametrize("position", [None, Switch.THRU, Switch.OUT])
+def test_switch_as_bytes_normalizes_inherited_packets(monkeypatch, inherited, position) -> None:
+    state = _new_switch(42)
+    state._state = position
+    monkeypatch.setattr(LcsProxyState, "as_bytes", lambda self: inherited)
+
+    payload = state.as_bytes()
+
+    assert isinstance(payload, bytes)
+    suffix = CommandReq.build(position, 42).as_bytes if position is not None else b""
+    assert payload == (b"firstsecond" if inherited else b"") + suffix
+
+
+@pytest.mark.parametrize("state_class, scope", [(EngineState, CommandScope.ENGINE), (TrainState, CommandScope.TRAIN)])
+def test_engine_and_train_serialization_retains_packet_lists(state_class, scope) -> None:
+    state = state_class(scope)
+    state.initialize(scope, 43)
+    state._address = 43
+
+    packets = state.as_bytes()
+
+    assert isinstance(packets, list)
+    assert packets
+    assert all(isinstance(packet, bytes) for packet in packets)

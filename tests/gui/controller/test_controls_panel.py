@@ -647,7 +647,7 @@ def test_a_measured_ruler_reports_the_font_tk_will_draw_in() -> None:
         pytest.skip(f"no display to measure against: {exception}")
     try:
         ruler = mod.TextRuler.measured(SimpleNamespace(tk=root))
-        family = tkfont.nametofont(mod.DEFAULT_FONT_NAME, root=root).actual("family")
+        family = mod.CONTROLS_FONT_FAMILY
         font = tkfont.Font(root=root, family=family, size=mod.ENTRY_SIZE)
 
         assert ruler.exact is True
@@ -1509,9 +1509,8 @@ def test_the_rows_are_drawn_in_the_font_the_ruler_measured(monkeypatch) -> None:
     keycap, action = _FakeLabel.instances
     assert keycap.kwargs["font"] == ("Helvetica", mod.ENTRY_SIZE, "bold")
     assert action.kwargs["font"] == ("Helvetica", mod.ENTRY_SIZE)
-    # With nothing to measure with, the named font stands in as a family and Tk substitutes
-    # its own default -- which is what an unmeasured screen was drawn in before.
-    assert mod.ESTIMATED_RULER.family == mod.DEFAULT_FONT_NAME
+    # The headless estimate uses the same explicit Controls-only font family.
+    assert mod.ESTIMATED_RULER.family == mod.CONTROLS_FONT_FAMILY
 
 
 @pytest.mark.parametrize(

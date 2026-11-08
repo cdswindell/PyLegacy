@@ -33,6 +33,8 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 from ...test_base import TestBase
 
+pytestmark = pytest.mark.usefixtures("ramp_target_update")
+
 ENGINE_ID = 7
 
 
@@ -56,7 +58,7 @@ class Layout:
     on the stream to stage a second controller's move mid-ramp.
     """
 
-    def __init__(self, hook: Callable[["Layout"], None] = None) -> None:
+    def __init__(self, hook: Callable[["Layout"], None] | None = None) -> None:
         self.controllers: list["Controller"] = []
         self.sent: list[tuple] = []
         self.hook = hook
@@ -135,6 +137,8 @@ class TestTwoControllerRamp(TestBase):
         def unexpected_config_request(_command):
             pytest.fail("A populated test engine must not request configuration")
 
+        # PyCharm cannot resolve this inherited hook, which rejects unexpected configuration requests.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(state, "request_config", unexpected_config_request)
         for received_speed in (20, 20, 40, 40):
             state.update(CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ENGINE_ID, received_speed))
@@ -163,6 +167,7 @@ class TestTwoControllerRamp(TestBase):
                 return
             taken_over = True
             second_ramp = second.ramp_to(second_target)
+            assert second_ramp is not None
             assert first_ramp.is_active is True
             second_ramp._send_step(RampStep(second.state.speed + 3, None, None, 0.2))
 
@@ -186,7 +191,9 @@ class TestTwoControllerRamp(TestBase):
         assert second_ramp.requested_speed == 60
         assert first.layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == []
 
-    def test_other_nodes_observe_speed_without_owning_the_ramp(self):
+    def test_other_nodes_observe_speed_without_owning_the_ramp(
+        self, pdi_send, ramp_target_update, ramp_refresh_scheduling
+    ):
         layout = Layout()
         owner = Controller(layout, "deck")
         observers = [Controller(layout, "pi"), Controller(layout, "base-server")]
@@ -208,12 +215,19 @@ class TestTwoControllerRamp(TestBase):
         assert owner.speeds[-1] == 70
         assert ramp.is_active is False
         assert layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == []
+        ramp_target_update.assert_called_once_with("RAMP_TARGET_SPEED", 70, owner.state, do_async=False, refresh=False)
+        ramp_refresh_scheduling["flush"].assert_called_once_with(owner.state)
+        ramp_refresh_scheduling["request_refresh"].assert_called_once_with(owner.state)
+        pdi_send.assert_not_called()
 
     @pytest.mark.parametrize("takeover_speed", [30, 37])
     def test_delayed_echoes_keep_ramping_until_a_backward_or_unsent_speed(self, monkeypatch, takeover_speed):
         clock = [100.0]
+        # PyCharm cannot resolve the imported clock patched here for deterministic echo timing.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         state = legacy_engine()
+        state.comp_data.target_speed = 7
         sent = []
         ramp = SpeedRamp(state, 120, sender=lambda *args: sent.append(args))
         state._ramp = ramp
@@ -226,14 +240,17 @@ class TestTwoControllerRamp(TestBase):
             state.update(CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ENGINE_ID, speed))
             assert state.ramp is ramp
             assert ramp.is_active is True
+            assert state.is_ramp_active is True
             assert ramp.commanded_speed == 50
-            assert state.target_speed == state.speed == speed
+            assert state.speed == speed
+            assert state.target_speed == 7
             assert ramp.requested_speed == 120
         assert [args[2] for args in sent] == [10, 20, 30, 40, 50]
 
         state.update(CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ENGINE_ID, takeover_speed))
         assert state.ramp is None
         assert ramp.is_active is False
+        assert state.is_ramp_active is False
         assert ramp.abort_reason == "foreign ABSOLUTE_SPEED"
         assert state.speed == takeover_speed
         assert state.target_speed == takeover_speed
@@ -241,14 +258,20 @@ class TestTwoControllerRamp(TestBase):
 
     def test_server_ramp_survives_a_base_echo_overtaken_by_local_feedback(self, monkeypatch):
         clock = [100.0]
+        # PyCharm cannot resolve the imported clock patched here for deterministic echo timing.
+        # noinspection PyUnresolvedReferences
         monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
         state = legacy_engine(tmcc_id=60)
+        state.comp_data.target_speed = 7
         sent = []
 
         def send(command, address, data, scope):
             request = CommandReq.build(command, address, data, scope)
             sent.append(request)
             state.update(request)
+            assert state.speed == data
+            assert state.target_speed == 7
+            assert state.is_ramp_active is True
 
         ramp = SpeedRamp(state, 41, sender=send)
         state._ramp = ramp
@@ -257,6 +280,9 @@ class TestTwoControllerRamp(TestBase):
             ramp._send_step(RampStep(speed, None, None, 0.2))
             clock[0] += ECHO_TTL / 20
             state.update(CommandReq.from_bytes(sent[-1].as_bytes, from_tmcc_rx=True))
+            assert state.speed == speed
+            assert state.target_speed == 7
+            assert state.is_ramp_active is True
 
         ramp._send_step(RampStep(15, None, None, 0.2))
         delayed = sent[-1]
@@ -267,20 +293,31 @@ class TestTwoControllerRamp(TestBase):
         state.update(CommandReq.from_bytes(delayed.as_bytes, from_tmcc_rx=True))
         assert state.ramp is ramp
         assert ramp.is_active is True
+        assert state.is_ramp_active is True
         assert ramp.abort_reason is None
         assert ramp.requested_speed == 41
         assert ramp.commanded_speed == 18
-        assert state.speed == state.target_speed == 15
+        assert state.speed == 15
+        assert state.target_speed == 7
 
         state.update(CommandReq.from_bytes(latest.as_bytes, from_tmcc_rx=True))
+        assert state.speed == 18
+        assert state.target_speed == 7
+        assert state.is_ramp_active is True
         for speed in (21, 24, 27, 30, 33, 36, 39, 41):
             clock[0] += ECHO_TTL / 20
             ramp._send_step(RampStep(speed, None, None, 0.2))
             state.update(CommandReq.from_bytes(sent[-1].as_bytes, from_tmcc_rx=True))
             assert state.ramp is ramp
+            assert state.is_ramp_active is True
+            assert state.speed == speed
+            assert state.target_speed == 7
             assert ramp.requested_speed == 41
             assert ramp.abort_reason is None
-        assert ramp.commanded_speed == state.speed == state.target_speed == 41
+        # Manually reaching the destination does not end ramp activity.
+        assert ramp.is_active is True
+        assert ramp.commanded_speed == state.speed == 41
+        assert state.target_speed == 7
         assert [request.data for request in sent] == [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 41]
 
     @pytest.mark.parametrize("is_rx", [False, True])
@@ -327,6 +364,9 @@ class TestTwoControllerRamp(TestBase):
 
     def test_the_first_controller_is_left_clean(self):
         first, second, _first_ramp, second_ramp = self._handed_off()
+        assert second.state.target_speed == first.speeds[-1] == 9
+        assert second.state.is_ramp_active is True
+        assert second_ramp.requested_speed == 60
 
         # the winner finishes its ramp; every step reaches both controllers
         second_ramp.run()
@@ -336,15 +376,25 @@ class TestTwoControllerRamp(TestBase):
         # when it was canceled, and the winner's thread has run its course
         assert first.state.ramp is None
         assert second_ramp.is_active is False
+        assert second_ramp.abort_reason is None
         for controller in (first, second):
             state = controller.state
             # nothing left showing a ramp in flight on either controller
             assert state.is_ramping is False, controller.name
+            assert state.is_ramp_active is False, controller.name
             assert state.speed == 60, controller.name
-            assert state.target_speed == 60, controller.name
-        # and the two controllers agree on everything the throttle pane draws
+        # The observer follows each step; the owner's final echo still arrived during its ramp.
+        assert first.state.target_speed == 60
+        assert second.state.target_speed == 9
+        # Both controllers still agree on reported effort and RPM.
         assert first.state.labor == second.state.labor
         assert first.state.rpm == second.state.rpm
+
+        # A distinct speed command after completion updates both database targets again.
+        second.layout.publish(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, ENGINE_ID, 57, CommandScope.ENGINE)
+        for controller in (first, second):
+            assert controller.state.speed == controller.state.target_speed == 57, controller.name
+            assert controller.state.is_ramp_active is False, controller.name
 
     def test_the_loser_observes_steps_not_the_winners_local_destination(self):
         first, second, _first_ramp, second_ramp = self._handed_off()
@@ -369,7 +419,7 @@ class TestTwoControllerRamp(TestBase):
         second_ramp._last_labor = 20
 
         # the engine is thrown into reverse while the winner is still ramping it
-        second.layout.publish(TMCC2EngineCommandEnum.REVERSE_DIRECTION, ENGINE_ID, None, CommandScope.ENGINE)
+        second.layout.publish(TMCC2EngineCommandEnum.REVERSE_DIRECTION, ENGINE_ID, 0, CommandScope.ENGINE)
 
         # the ramp that owns the engine is the one that hands effort back
         assert second_ramp.abort_reason == "REVERSE_DIRECTION"
@@ -411,7 +461,9 @@ class TestTwoControllerRamp(TestBase):
             contender._peer = peer
             attempts.append(contender)
             contender.run()
-            assert "already owned" in contender.abort_reason
+            reason = contender.abort_reason
+            assert reason is not None
+            assert "already owned" in reason
             assert contender.is_active is False
             assert second.sent == []
             assert peer.owner is owner

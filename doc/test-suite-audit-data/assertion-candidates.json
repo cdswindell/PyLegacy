@@ -1,0 +1,194 @@
+{
+  "method": "Identical sorted AST assert expressions, at least two; mocks and raises require manual review.",
+  "groups": [
+    [
+      "tests/cli/test_cache_sync_service.py::test_disabled_cache_sync_does_not_construct_manager",
+      "tests/cli/test_cache_sync_service.py::test_failed_cache_sync_start_is_not_retried"
+    ],
+    [
+      "tests/cli/test_lcs.py::test_parser_defaults_to_a_client_with_no_window_overrides",
+      "tests/cli/test_routes.py::test_parser_defaults_to_a_client_with_no_window_overrides"
+    ],
+    [
+      "tests/cli/test_lcs.py::test_main_returns_zero_and_passes_its_arguments_through",
+      "tests/cli/test_pycab.py::test_main_returns_zero_and_passes_its_arguments_through"
+    ],
+    [
+      "tests/cli/test_lcs.py::test_main_reads_sys_argv_when_given_nothing",
+      "tests/cli/test_pycab.py::test_main_reads_sys_argv_when_given_nothing"
+    ],
+    [
+      "tests/cli/test_lcs.py::test_send_builds_no_requests",
+      "tests/cli/test_pycab.py::test_send_builds_no_requests"
+    ],
+    [
+      "tests/cli/test_pytrain_runtime.py::test_queued_api_exit_skips_notification_when_cleanup_escapes",
+      "tests/cli/test_pytrain_runtime.py::test_queued_api_exit_skips_notification_when_deferred_action_fails"
+    ],
+    [
+      "tests/cli/test_pytrain_update.py::test_upgrade_off_linux_updates_and_relaunches",
+      "tests/cli/test_pytrain_update.py::test_upgrade_skips_the_os_on_the_steam_deck"
+    ],
+    [
+      "tests/db/test_component_state.py::test_lcs_accessory_states_are_not_deletable",
+      "tests/db/test_component_state.py::test_lcs_switch_state_is_not_deletable"
+    ],
+    [
+      "tests/db/test_components.py::test_to_bytes_serializes_reversed_and_pads",
+      "tests/db/test_components.py::test_to_bytes_linear_and_padded"
+    ],
+    [
+      "tests/db/test_engine_state.py::test_self_echo_does_not_cancel",
+      "tests/db/test_engine_state.py::test_our_own_echo_arriving_twice_does_not_cancel",
+      "tests/db/test_engine_state.py::test_pdi_speed_limit_record_never_cancels"
+    ],
+    [
+      "tests/db/test_irda_state.py::test_unknown_direction_does_not_send_speed_but_propagates",
+      "tests/db/test_irda_state.py::test_propagation_exception_restores_request_identity"
+    ],
+    [
+      "tests/db/test_lcs_state_serialization.py::test_lcs_as_bytes_normalizes_inherited_packets",
+      "tests/db/test_lcs_state_serialization.py::test_switch_as_bytes_normalizes_inherited_packets"
+    ],
+    [
+      "tests/gui/controller/test_accessory_bindings.py::test_an_axis_variant_is_resolved_before_the_plain_action",
+      "tests/gui/controller/test_accessory_bindings.py::test_the_power_district_stick_pair_is_reached_from_both_panels"
+    ],
+    [
+      "tests/gui/controller/test_accessory_bindings.py::test_an_unbound_generic_action_is_claimed_by_the_base",
+      "tests/gui/controller/test_accessory_bindings.py::test_the_generic_aux_bindings_do_not_reach_the_power_district_panels",
+      "tests/gui/controller/test_accessory_bindings.py::test_the_vertical_stick_stays_unbound_on_a_bare_power_district",
+      "tests/gui/controller/test_accessory_bindings.py::test_the_sensor_track_panel_claims_its_other_controls_and_sends_none_of_them"
+    ],
+    [
+      "tests/gui/controller/test_controller_view_throttle.py::test_a_cab_1_engine_has_no_lever_to_move",
+      "tests/gui/controller/test_controller_view_throttle.py::test_no_engine_selected_leaves_the_lever_unseeded"
+    ],
+    [
+      "tests/gui/controller/test_engine_gui_compatibility.py::test_on_admin_command_release_cancels_the_hold",
+      "tests/gui/controller/test_engine_gui_compatibility.py::test_on_admin_command_still_cancels_when_the_panel_is_hidden"
+    ],
+    [
+      "tests/gui/controller/test_popup_manager_compatibility.py::test_a_popup_that_failed_to_appear_is_left_collapsed",
+      "tests/gui/controller/test_popup_manager_compatibility.py::test_an_overlay_marked_no_expand_is_left_alone"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_dpad_release_stops_catalog_scroll_repeat",
+      "tests/gui/controller/test_steam_deck_input.py::test_dpad_scroll_repeat_stops_when_catalog_closes"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_remote_claim_drops_held_or_pending_settle_before_tick",
+      "tests/gui/controller/test_steam_deck_input.py::test_claim_and_release_between_ticks_still_discards_the_old_stick_gesture"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_provider_button_hold_fires_at_the_profiles_threshold",
+      "tests/gui/controller/test_steam_deck_input.py::test_provider_trigger_hold_fires_at_the_profiles_threshold"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_the_lcs_config_panel_closing_under_a_held_stick_drops_the_scroll",
+      "tests/gui/controller/test_steam_deck_input.py::test_a_disconnect_forgets_a_held_scroll_and_a_stroke_in_progress"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_triggers_throw_the_switch_rather_than_starting_an_engine",
+      "tests/gui/controller/test_steam_deck_input.py::test_the_face_buttons_throw_the_switch_rather_than_working_an_engine"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_triggers_fire_the_route_rather_than_starting_an_engine",
+      "tests/gui/controller/test_steam_deck_input.py::test_the_a_button_fires_the_route_rather_than_working_an_engine"
+    ],
+    [
+      "tests/gui/controller/test_steam_deck_input.py::test_the_asc2_output_stays_on_until_the_last_holder_lets_go",
+      "tests/gui/controller/test_steam_deck_input.py::test_the_asc2_output_survives_the_stick_letting_go_first"
+    ],
+    [
+      "tests/gui/test_controller_view.py::test_the_fit_gives_the_horn_the_labels_height_and_the_bell_its_own",
+      "tests/gui/test_controller_view.py::test_no_backstop_when_the_row_already_fits"
+    ],
+    [
+      "tests/gui/test_editable_text.py::test_release_before_hold_cancels_inline_edit",
+      "tests/gui/test_editable_text.py::test_leave_can_cancel_hold_when_configured"
+    ],
+    [
+      "tests/gui/test_engine_gui_create.py::test_creating_a_component_initializes_it_and_selects_it",
+      "tests/gui/test_gui_deck_parity.py::test_creation_works_the_same_hosted_in_a_pane"
+    ],
+    [
+      "tests/gui/test_gui_checkpoint.py::test_no_panel_is_reported_off_an_accessory_screen",
+      "tests/gui/test_keypad_view.py::test_accessory_panel_kind_is_none_off_an_accessory_panel"
+    ],
+    [
+      "tests/gui/test_gui_checkpoint.py::test_the_switch_screen_carries_its_own_set_and_info_keys",
+      "tests/gui/test_keypad_view.py::test_the_switch_screen_carries_both_a_set_and_an_info_key"
+    ],
+    [
+      "tests/gui/test_hold_button.py::test_a_crossing_still_inside_the_button_is_discarded_outright",
+      "tests/gui/test_hold_button.py::test_a_crossing_just_outside_the_widget_is_still_treated_as_inside"
+    ],
+    [
+      "tests/gui/test_hold_button.py::test_no_return_inside_the_window_is_a_real_release",
+      "tests/gui/test_hold_button.py::test_recovery_is_off_by_default"
+    ],
+    [
+      "tests/gui/test_lcs_config_panel.py::test_what_the_operator_sets_is_not_read_over_while_the_panel_stays_on_the_address",
+      "tests/gui/test_lcs_config_panel.py::test_the_module_is_read_again_once_the_base_has_reported"
+    ],
+    [
+      "tests/gui/test_lcs_config_panel.py::test_the_a_key_chooses_the_highlighted_row_and_turns_the_page",
+      "tests/gui/test_lcs_config_panel.py::test_the_a_key_turns_the_page_where_nothing_was_highlighted"
+    ],
+    [
+      "tests/gui/test_motors_gui.py::test_external_lamp_zero_change_updates_slider_and_sets_off_color",
+      "tests/gui/test_motors_gui.py::test_lamp_trough_follows_actual_level_even_when_button_forced_on"
+    ],
+    [
+      "tests/gui/test_route_draft.py::test_invalid_index_does_not_modify_draft",
+      "tests/gui/test_route_draft.py::test_invalid_component_does_not_modify_draft"
+    ],
+    [
+      "tests/gui/test_route_draft.py::test_self_reference_is_rejected_without_lookup",
+      "tests/gui/test_route_draft.py::test_indirect_and_existing_nested_cycles_are_rejected"
+    ],
+    [
+      "tests/gui/test_scroll_box.py::test_a_page_is_shown_that_it_moves_once_and_not_again",
+      "tests/gui/test_scroll_box.py::test_a_page_that_cannot_be_animated_is_not_left_where_the_hint_put_it"
+    ],
+    [
+      "tests/gui/test_scrolling_text.py::test_auto_manage_retries_when_width_is_not_ready",
+      "tests/gui/test_scrolling_text.py::test_auto_manage_retries_when_widget_is_not_mapped_yet"
+    ],
+    [
+      "tests/gui/test_steam_deck_gui.py::test_controls_overlay_is_built_once_and_reshown",
+      "tests/gui/test_steam_deck_gui.py::test_a_press_before_the_prewarm_runs_still_builds_one_screen"
+    ],
+    [
+      "tests/protocol/sequence/test_ramp_peer.py::test_target_send_failure_releases_claim_without_component_commands",
+      "tests/protocol/sequence/test_ramp_peer.py::test_database_update_failure_releases_claim_without_component_commands"
+    ],
+    [
+      "tests/utils/test_unique_deque.py::test_create_no_args",
+      "tests/utils/test_unique_deque.py::test_getters_fail_on_zero_len_unique_deque"
+    ]
+  ],
+  "unused_fixture_arguments": [
+    "tests/cli/test_make_gui.py:368:test_gui_is_present_with_only_a_launcher (monkeypatch)",
+    "tests/comm/test_command_listener.py:18:run_before_and_after_tests (tmpdir)",
+    "tests/comm/test_dispatch_listener.py:46:run_before_and_after_tests (tmpdir)",
+    "tests/db/test_cache_sync.py:478:test_force_sync_skips_when_client_server_does_not_advertise_support (monkeypatch)",
+    "tests/db/test_client_state_listener.py:104:test_offer_routes_to_pdi_when_sop (monkeypatch)",
+    "tests/db/test_component_state.py:51:run_before_and_after_tests (tmpdir)",
+    "tests/db/test_component_state_store.py:18:run_before_and_after_tests (tmpdir)",
+    "tests/db/test_startup_state.py:186:test_base_memory_triggers_next_query (monkeypatch)",
+    "tests/db/test_startup_state.py:214:test_base_memory_triggers_sync_complete_and_next_query (monkeypatch)",
+    "tests/gui/controller/test_admin_panel_layout.py:483:test_show_controls_closes_the_admin_panel_first (monkeypatch)",
+    "tests/gui/controller/test_popup_manager_compatibility.py:974:test_a_roomy_band_keeps_the_fixed_lead_and_changes_nothing (monkeypatch)",
+    "tests/gui/controller/test_popup_manager_compatibility.py:995:test_a_band_tighter_than_the_lead_centres_the_row (monkeypatch)",
+    "tests/gui/controller/test_popup_manager_compatibility.py:1007:test_the_correction_settles_instead_of_creeping (monkeypatch)",
+    "tests/gui/controller/test_popup_manager_compatibility.py:1046:test_an_unmapped_overlay_is_not_measured (monkeypatch)",
+    "tests/gui/controller/test_popup_manager_compatibility.py:1082:test_show_runs_the_correction_pass (monkeypatch)",
+    "tests/gui/test_dummy_gui_components.py:282:test_run_builds_min_ui_and_sync_state (monkeypatch)",
+    "tests/gui/test_swipe_detector.py:277:test_surface_input_cancels_press_without_long_press_or_release_navigation (monkeypatch)",
+    "tests/pdi/test_base3_buffer.py:163:test_multibyte_tmcc_command_is_packetized_and_sync_state_called (monkeypatch)",
+    "tests/pdi/test_base3_buffer.py:206:test_sync_state_parses_tmcc_stream_and_may_emit_update_requests (monkeypatch)",
+    "tests/pdi/test_pdi_state_store.py:70:test_register_pdi_device_delegates_and_returns (monkeypatch)"
+  ]
+}

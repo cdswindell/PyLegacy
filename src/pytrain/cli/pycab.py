@@ -22,6 +22,7 @@ see window_geometry, and DESIGN_WIDTH for why a fixed 800x1280 does not travel.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import tkinter as tk
 from argparse import ArgumentParser
@@ -33,6 +34,7 @@ from ..gui.controller.engine_gui import EngineGui
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from ..utils.argument_parser import PyTrainArgumentParser
+from ..utils.ip_tools import find_base_address
 from . import CliBase
 
 log = logging.getLogger(__name__)
@@ -246,6 +248,12 @@ class PyCabPanelGui(EngineGui):
         return max(measured_height, required_height)
 
     @property
+    def admin_footer_pad_px(self) -> int:
+        # Leave room for native controls in a shorter desktop window. The touchscreen
+        # keeps its larger footer spacing; this only changes the stand-alone cab.
+        return 8
+
+    @property
     def popup_may_cover_info_box(self) -> bool:
         """True: a panel that will not fit may have the ID/road-name row's height.
 
@@ -313,6 +321,15 @@ class PyCabGuiCmd(CommandBase):
         self._scope: CommandScope = cli.scope
         self._gui = None
 
+        server = getattr(cli.args, "server", None)
+        client = getattr(cli.args, "client", False)
+        base = getattr(cli.args, "base", None)
+        if base == "" and not client and not server:
+            log.info("Looking for Lionel Base on local network...")
+            base = find_base_address()
+            if base is None:
+                raise RuntimeError("pycab could not find a Lionel Base on the local network")
+
         # with PyTrain initialization sorted out, initialize CommandBase.
         # If we are stand-alone, set daemon to False, as we need the process to continue running.
         CommandBase.__init__(
@@ -321,12 +338,22 @@ class PyCabGuiCmd(CommandBase):
             None,
             1,
             scope=self._scope,
-            server=self._cli.args.server if "server" in self._cli.args else None,
-            client=self._cli.args.client if "client" in self._cli.args else False,
-            base=self._cli.args.base if "base" in self._cli.args else None,
+            server=server,
+            client=client,
+            base=base,
             cache_sync=True,
+            debug=self._cli.args.debug,
+            echo=self._cli.args.echo,
+            gui_admin_close=self._close_for_admin_action,
         )
         self._command = self._build_command()
+
+    def _close_for_admin_action(self) -> None:
+        if self._gui is not None:
+            self._gui.close()
+        else:
+            # A startup update skips roster sync, so wake the main thread directly.
+            self._sc.set()
 
     @property
     def scope(self) -> CommandScope:
@@ -351,6 +378,19 @@ class PyCabGuiCmd(CommandBase):
         # pause until Base 3 sync complete: the panel is built from the component state
         # store, so it has to be loaded before the window is laid out.
         self.wait_for_sync()
+        if self.pytrain is not None and getattr(self.pytrain, "_exit_requested", False):
+            watcher = getattr(self, "_sync_watcher", None)
+            if watcher is not None:
+                try:
+                    watcher.shutdown()
+                except Exception as e:
+                    log.warning("Error closing startup sync watcher: %s", e)
+            # Give the worker a chance to finish its cleanup before changing API mode.
+            worker = self.pytrain._api_thread
+            if worker is not None:
+                worker.join(timeout=1.0)
+            self._perform_server_admin_action()
+            return
 
         log.info(
             f"Opening cab control panel window "
@@ -368,6 +408,24 @@ class PyCabGuiCmd(CommandBase):
         self._gui.run_window()
         if self.pytrain is not None:
             self.pytrain.shutdown()
+            # GUI-hosted servers do not run PyTrain.run(), so execute their
+            # recorded action only after Tk and communication have shut down.
+            if getattr(self.pytrain, "_exit_requested", False):
+                self._perform_server_admin_action()
+
+    def _perform_server_admin_action(self) -> None:
+        """Execute a GUI-hosted action after Tk exits, without API SIGINT."""
+        from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+
+        action = self.pytrain._admin_action
+        if action == TMCC1SyncCommandEnum.RESTART:
+            log.info("PyCab server restarting...")
+            os.execv(sys.executable, [sys.executable, *sys.argv])
+        else:
+            # This standalone GUI owns the process; API exit notification would
+            # SIGINT the host instead of executing the administrative operation.
+            self.pytrain._api = False
+            self.pytrain.perform_deferred_admin_action()
 
     def _build_command(self) -> bytes | None:
         return None
@@ -415,9 +473,20 @@ class PyCabCli(CliBase):
             action="store_true",
             help="Open the window full screen",
         )
+        parser.add_argument("-debug", action="store_true", help="Enable debug logging")
+        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
 
-        # Return parser
-        return PyTrainArgumentParser("Cab control panel options", parents=[parser, cls.cli_parser()])
+        parser = PyTrainArgumentParser(
+            "Cab control panel options", parents=[parser, cls.cli_parser()], conflict_handler="resolve"
+        )
+        parser.add_argument(
+            "-base",
+            nargs="?",
+            const="",
+            default=None,
+            help="IP Address of the Lionel Base 3 (discovered on the local network if omitted)",
+        )
+        return parser
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
@@ -464,6 +533,10 @@ class PyCabCli(CliBase):
 def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
+    from ..utils.logging_manager import LoggingManager
+
+    if not LoggingManager.initialize():
+        raise RuntimeError("Failed to initialize PyTrain logging")
     try:
         PyCabCli(cmd_line=args)
         return 0

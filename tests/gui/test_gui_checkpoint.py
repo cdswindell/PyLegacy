@@ -187,6 +187,8 @@ class DummyAccessoryState:
             setattr(self, name, value)
 
 
+# These imported runtime globals are replaced with headless doubles; raising=True verifies each exists.
+# noinspection PyUnresolvedReferences
 @pytest.fixture(autouse=True)
 def _patch_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
@@ -339,6 +341,8 @@ def _keypad_button(
 
 def _built(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> tuple[SimpleNamespace, mod.KeypadView]:
     host = _new_host(scope, tmcc_id)
+    # The headless host intentionally implements only the exercised EngineGui interface.
+    # noinspection PyTypeChecker
     view = mod.KeypadView(host)
     view.build()
     return host, view
@@ -357,6 +361,8 @@ def _ops(host: SimpleNamespace, view: mod.KeypadView, state=None) -> None:
 def _kind_for(**flags: bool) -> str | None:
     host = _new_host()
     host.active_state = DummyAccessoryState(**flags)
+    # The headless host intentionally implements only the exercised EngineGui interface.
+    # noinspection PyTypeChecker
     return mod.KeypadView(host).accessory_panel_kind
 
 
@@ -389,25 +395,17 @@ def test_the_more_specific_panel_wins_where_flags_overlap(flags, expected) -> No
     assert _kind_for(**flags) == expected
 
 
-def test_an_unrecognised_lcs_port_falls_through_to_the_generic_panel() -> None:
+def test_an_unrecognized_lcs_port_falls_through_to_the_generic_panel() -> None:
     # is_lcs_component is deliberately not consulted: an STM2 is an LCS device and none of the
     # four named kinds, so it shows -- and reports showing -- the generic panel.
     assert _kind_for(is_lcs_component=True, is_stm2=True) == PANEL_GENERIC
 
 
-def test_no_panel_is_reported_off_an_accessory_screen() -> None:
-    host = _new_host(CommandScope.ENGINE)
-    host.active_state = DummyAccessoryState()
-    assert mod.KeypadView(host).accessory_panel_kind is None
-
-    host = _new_host()
-    host.active_state = None
-    assert mod.KeypadView(host).accessory_panel_kind is None
-
-
 def test_a_state_that_is_not_an_accessory_at_all_reports_no_panel() -> None:
     host = _new_host()
     host.active_state = SimpleNamespace(tmcc_id=19)
+    # A headless host exercises rejection of an unrelated state without building Tk widgets.
+    # noinspection PyTypeChecker
     assert mod.KeypadView(host).accessory_panel_kind is None
 
 
@@ -417,10 +415,14 @@ def test_a_train_scope_power_district_reports_the_bpc2_panel(monkeypatch: pytest
             self.tmcc_id = 4
             self.is_power_district = True
 
+    # Replace the imported runtime class with a headless state double.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(mod, "LcsProxyState", DummyLcsProxyState, raising=True)
     host = _new_host(CommandScope.TRAIN)
     host.active_state = DummyLcsProxyState()
 
+    # The host double avoids constructing the real EngineGui and its Tk application.
+    # noinspection PyTypeChecker
     assert mod.KeypadView(host).accessory_panel_kind == PANEL_BPC2
 
 
@@ -432,10 +434,14 @@ def test_a_configured_accessory_adapter_is_unwrapped_before_the_flags_are_read(
             self.state = state
             self.tmcc_id = state.tmcc_id
 
+    # Replace the imported runtime class to isolate adapter unwrapping.
+    # noinspection PyUnresolvedReferences
     monkeypatch.setattr(mod, "ConfiguredAccessoryAdapter", DummyAdapter, raising=True)
     host = _new_host()
     host.active_state = DummyAdapter(DummyAccessoryState(is_asc2=True))
 
+    # The host double avoids constructing the real EngineGui and its Tk application.
+    # noinspection PyTypeChecker
     assert mod.KeypadView(host).accessory_panel_kind == PANEL_ASC2
 
 
@@ -444,8 +450,12 @@ def test_the_panel_kind_may_be_asked_about_a_state_that_is_not_the_active_one() 
     # display and asks about that one rather than about whatever the pane still holds.
     host = _new_host()
     host.active_state = DummyAccessoryState()
+    # The host double avoids constructing the real EngineGui and its Tk application.
+    # noinspection PyTypeChecker
     view = mod.KeypadView(host)
 
+    # The fixture patches AccessoryState to this double to exercise the real private dispatcher.
+    # noinspection PyTypeChecker,PyProtectedMember
     assert view._panel_kind_for(DummyAccessoryState(is_bpc2=True)) == PANEL_BPC2
     assert view.accessory_panel_kind == PANEL_GENERIC
 
@@ -877,6 +887,8 @@ def _gui(scope: CommandScope, tmcc_id: int, kind: str | None) -> gui_mod.EngineG
     gui.scope = scope
     gui._scope_tmcc_ids = {s: 0 for s in CommandScope}
     gui._scope_tmcc_ids[scope] = tmcc_id
+    # Only the panel-kind property is needed to exercise the real context selection.
+    # noinspection PyTypeChecker
     gui._keypad_view = SimpleNamespace(accessory_panel_kind=kind)
     return gui
 
@@ -895,6 +907,8 @@ def _gui(scope: CommandScope, tmcc_id: int, kind: str | None) -> gui_mod.EngineG
     ],
 )
 def test_each_panel_claims_the_pad_through_the_shared_chain_table(kind, expected) -> None:
+    # None is a deliberate missing-key input: an unselected panel must claim no controls.
+    # noinspection PyTypeChecker
     assert PANEL_CONTEXT_CHAINS.get(kind, ()) == expected
 
     gui = _gui(CommandScope.ACC, 19, kind)

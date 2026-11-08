@@ -68,7 +68,7 @@ class PdiReq(ABC):
         return SCOPE_TO_RECORD_LENGTH.get(scope, LIONEL_ENGINE_RECORD_LENGTH)
 
     @abstractmethod
-    def __init__(self, data: bytes | None, pdi_command: PdiCommand = None) -> None:
+    def __init__(self, data: bytes | int | None, pdi_command: PdiCommand | None = None) -> None:
         super().__init__()
         # default scope is system; override as needed in child classes
         # also change as needed when sending command updates to state handler
@@ -95,7 +95,7 @@ class PdiReq(ABC):
         # TODO: block setter
         from .pdi_device import PdiDevice
 
-        self.pdi_device: PdiDevice = PdiDevice.from_pdi_command(self.pdi_command)
+        self.pdi_device: PdiDevice | None = PdiDevice.from_pdi_command(self.pdi_command)
 
     def __repr__(self) -> str:
         return f"[PDI {self._pdi_command.friendly} {self.payload}]"
@@ -211,6 +211,7 @@ class PdiReq(ABC):
     @property
     def checksum(self) -> bytes:
         check_sum = 0
+        assert self._data is not None
         for b in self._data:
             if b in {PDI_SOP, PDI_EOP}:
                 continue
@@ -279,7 +280,7 @@ class PdiReq(ABC):
             return 0
 
     @staticmethod
-    def encode_text(text: str, field_len: int) -> bytes | None:
+    def encode_text(text: str | None, field_len: int) -> bytes:
         if text is None or len(text.strip()) == 0:
             return b"\xff" * field_len
         else:

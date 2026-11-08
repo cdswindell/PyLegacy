@@ -25,6 +25,7 @@ DEFAULT_PORT: str = "/dev/ttyUSB0"
 DEFAULT_ADDRESS: int = 99
 BROADCAST_ADDRESS: int = 99
 BROADCAST_TOPIC = "BROADCAST"
+CREATE_TOPIC = "CREATE"
 DELETE_TOPIC = "DELETE"
 PROGRAM_NAME = "PyTrain"
 PROGRAM_BASE = "pytrain"
@@ -134,7 +135,7 @@ class Mixins(Enum):
             return None
 
     @classmethod
-    def _missing_(cls, value) -> Self:
+    def _missing_(cls, value) -> Self | None:
         if type(value) is str:
             value = str(value).upper()
             if value in dir(cls):
@@ -209,6 +210,7 @@ class CommandScope(Mixins):
     BLOCK = 14
     CONFIGURED = 15  # Configured Accessories
 
+    # noinspection bad-return
     @classmethod
     def by_prefix(cls, name: str, raise_exception: bool = False) -> Self | None:
         value = super().by_prefix(name, False)
