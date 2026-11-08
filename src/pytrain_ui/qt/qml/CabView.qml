@@ -16,12 +16,6 @@ Rectangle {
     readonly property int controlFooterHeight: 20
     readonly property int piControlHeight: 520
 
-    function isQuickAction(key) {
-        return key === "rear_coupler" || key === "front_coupler" ||
-               key === "engineer_chatter" || key === "tower_chatter" ||
-               key === "conductor" || key === "station" || key === "steward"
-    }
-
     function handleModelHold(modelData) {
         if (modelData.holdKind === "panel") {
             commandPanel.openFor(modelData.holdTarget)
@@ -334,12 +328,11 @@ Rectangle {
                     columnSpacing: 6
                     rowSpacing: 6
                     Repeater {
-                        model: cab.actionModel
+                        model: cab.quickActionModel
                         FunctionButton {
                             required property var modelData
-                            visible: root.isQuickAction(modelData.key)
-                            Layout.fillWidth: visible
-                            Layout.preferredHeight: visible ? (root.piLayout ? 54 : 50) : 0
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: root.piLayout ? 54 : 50
                             compact: true
                             text: modelData.label
                             iconSource: modelData.iconSource
@@ -429,13 +422,14 @@ Rectangle {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: root.piLayout ? 44 : 42
-                    text: root.moreControlsVisible ? "Less Controls  ▲" : "More Controls  ▼"
+                    visible: cab.moreActionModel.length > 0
+                    text: root.moreControlsVisible ? "Fewer Controls  ▲" : "More Controls  ▼"
                     font.pixelSize: root.piLayout ? 13 : 14
                     onClicked: root.moreControlsVisible = !root.moreControlsVisible
                 }
 
                 GridLayout {
-                    visible: root.moreControlsVisible
+                    visible: root.moreControlsVisible && cab.moreActionModel.length > 0
                     Layout.fillWidth: true
                     columns: 4
                     columnSpacing: 5
@@ -448,6 +442,7 @@ Rectangle {
                             Layout.preferredHeight: root.piLayout ? 38 : 36
                             compact: true
                             text: modelData.label
+                            iconSource: modelData.iconSource
                             font.pixelSize: 10
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold

@@ -18,6 +18,10 @@ from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.contracts import EngineViewState
 from pytrain_ui.panels import panel_actions, panel_title
 
+_QUICK_ACTION_KEYS = frozenset(
+    {"rear_coupler", "front_coupler", "engineer_chatter", "tower_chatter", "conductor", "station", "steward"}
+)
+
 _ENGINE_ARTWORK = {
     "ACELA": "acela.jpg",
     "CRANE": "generic_crane_car.jpg",
@@ -226,6 +230,15 @@ class CabController(QObject):
     @Property(list, notify=stateChanged)
     def actionModel(self) -> list[dict]:
         return self._action_model("operations")
+
+    @Property(list, notify=stateChanged)
+    def quickActionModel(self) -> list[dict]:
+        return [action for action in self.actionModel if action["key"] in _QUICK_ACTION_KEYS]
+
+    @Property(list, notify=stateChanged)
+    def moreActionModel(self) -> list[dict]:
+        operations = [action for action in self.actionModel if action["key"] not in _QUICK_ACTION_KEYS]
+        return operations + self.tuningActionModel
 
     @Property(list, notify=stateChanged)
     def secondaryActionModel(self) -> list[dict]:

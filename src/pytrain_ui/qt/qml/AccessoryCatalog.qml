@@ -8,6 +8,7 @@ Rectangle {
     property var controller
     property var lcsController: null
     property string searchText: ""
+    property int directTmccId: 0
     property string sortMode: "NAME"
     property string typeFilter: "ALL"
 
@@ -21,6 +22,7 @@ Rectangle {
     }
 
     function cancelTransientPanels() {
+        tmccKeypad.close()
         lcsConfig.close()
     }
 
@@ -58,6 +60,8 @@ Rectangle {
             }
         })
         var rows = sourceRows.filter(function(row) {
+            if (root.directTmccId > 0)
+                return row.primaryTmccId === root.directTmccId || row.tmccIds.indexOf(root.directTmccId) >= 0
             if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
                 return false
             if (!needle)
@@ -143,18 +147,24 @@ Rectangle {
                 font.pixelSize: 17
                 selectByMouse: true
                 text: root.searchText
-                onTextEdited: root.searchText = text
+                onTextEdited: { root.directTmccId = 0; root.searchText = text }
             }
             CabButton {
                 Layout.preferredWidth: 72
                 Layout.preferredHeight: 54
                 text: "Clear"
                 font.pixelSize: 14
-                enabled: searchField.text.length > 0
+                enabled: searchField.text.length > 0 || root.directTmccId > 0
                 onClicked: {
+                    root.directTmccId = 0
                     root.searchText = ""
                     searchField.forceActiveFocus()
                 }
+            }
+            KeypadButton {
+                Layout.preferredWidth: 52
+                Layout.preferredHeight: 54
+                onClicked: tmccKeypad.openFor(root.searchText)
             }
         }
 
@@ -379,4 +389,23 @@ Rectangle {
         id: lcsConfig
         controller: root.lcsController
     }
+
+    TmccKeypad {
+        id: tmccKeypad
+        title: "Accessory TMCC ID"
+        onSubmitted: function(tmccId) {
+            const exists = root.controller && root.controller.rows.some(function(row) {
+                return row.primaryTmccId === tmccId || row.tmccIds.indexOf(tmccId) >= 0
+            })
+            if (!exists) {
+                errorText = "No accessory with TMCC ID " + tmccId + "."
+                return
+            }
+            root.typeFilter = "ALL"
+            root.directTmccId = tmccId
+            root.searchText = String(tmccId)
+            close()
+        }
+    }
+
 }
