@@ -53,6 +53,37 @@ Rectangle {
         return result
     }
 
+    readonly property var rosterRows: visibleRows()
+    onRosterRowsChanged: {
+        if (rosterModel)
+            syncRoster()
+    }
+    Component.onCompleted: syncRoster()
+
+    ListModel {
+        id: rosterModel
+        dynamicRoles: true
+    }
+
+    function syncRoster() {
+        // Update existing rows in place so feedback preserves delegates, focus, and scrolling.
+        for (let index = 0; index < rosterRows.length; ++index) {
+            const nextRow = rosterRows[index]
+            let existing = index
+            while (existing < rosterModel.count && rosterModel.get(existing).tmccId !== nextRow.tmccId)
+                ++existing
+            if (existing === rosterModel.count)
+                rosterModel.insert(index, { tmccId: nextRow.tmccId, rowData: nextRow })
+            else {
+                if (existing !== index)
+                    rosterModel.move(existing, index, 1)
+                rosterModel.setProperty(index, "rowData", nextRow)
+            }
+        }
+        if (rosterModel.count > rosterRows.length)
+            rosterModel.remove(rosterRows.length, rosterModel.count - rosterRows.length)
+    }
+
     function editSwitch(tmccId) {
         editingSwitchId = tmccId
         roadNameField.text = controller.switchRoadName(tmccId)
@@ -324,11 +355,11 @@ Rectangle {
             Layout.fillHeight: true
             clip: true
             spacing: 5
-            model: root.visibleRows()
+            model: rosterModel
 
             delegate: Rectangle {
                 id: row
-                required property var modelData
+                required property var rowData
                 width: roster.width
                 height: 68
                 radius: 8
@@ -340,9 +371,9 @@ Rectangle {
                     acceptedButtons: Qt.LeftButton
                     onDoubleTapped: {
                         if (root.controller.scope === "ROUTE")
-                            root.controller.fireRoute(row.modelData.tmccId)
+                            root.controller.fireRoute(row.rowData.tmccId)
                         else
-                            root.controller.toggleSwitch(row.modelData.tmccId)
+                            root.controller.toggleSwitch(row.rowData.tmccId)
                     }
                 }
 
@@ -352,7 +383,7 @@ Rectangle {
                     spacing: 6
                     Label {
                         Layout.preferredWidth: 50
-                        text: modelData.tmccId
+                        text: rowData.tmccId
                         color: "#f4f6f8"
                         font.pixelSize: 20
                         font.bold: true
@@ -363,7 +394,7 @@ Rectangle {
                         spacing: 1
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.roadName || (controller && controller.scope === "SWITCH" ? "Switch" : "Route")
+                            text: rowData.roadName || (controller && controller.scope === "SWITCH" ? "Switch" : "Route")
                             color: "#f4f6f8"
                             font.pixelSize: 16
                             font.bold: true
@@ -372,10 +403,10 @@ Rectangle {
                         Label {
                             Layout.fillWidth: true
                             text: {
-                                let detail = modelData.roadNumber ? "Road # " + modelData.roadNumber :
-                                                                  "TMCC ID " + modelData.tmccId
-                                if (modelData.lcsAssociations)
-                                    detail += " · " + modelData.lcsAssociations
+                                let detail = rowData.roadNumber ? "Road # " + rowData.roadNumber :
+                                                                  "TMCC ID " + rowData.tmccId
+                                if (rowData.lcsAssociations)
+                                    detail += " · " + rowData.lcsAssociations
                                 return detail
                             }
                             color: "#aeb5bf"
@@ -385,9 +416,9 @@ Rectangle {
                     }
                     Label {
                         Layout.preferredWidth: controller && controller.scope === "ROUTE" ? 108 : 58
-                        text: modelData.stateText
-                        color: modelData.stateText === "ALIGNED" || modelData.stateText === "THRU" ? "#73d38a" :
-                               modelData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
+                        text: rowData.stateText
+                        color: rowData.stateText === "ALIGNED" || rowData.stateText === "THRU" ? "#73d38a" :
+                               rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
                         font.pixelSize: 12
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
@@ -397,16 +428,16 @@ Rectangle {
                         Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "THRU"
-                        selected: row.modelData.stateText === "THRU"
-                        onClicked: controller.operateSwitch(row.modelData.tmccId, "THRU")
+                        selected: row.rowData.stateText === "THRU"
+                        onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
                     }
                     CabButton {
                         visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "OUT"
-                        selected: row.modelData.stateText === "OUT"
-                        onClicked: controller.operateSwitch(row.modelData.tmccId, "OUT")
+                        selected: row.rowData.stateText === "OUT"
+                        onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
                     }
                     CabButton {
                         visible: controller && controller.scope === "ROUTE"
@@ -415,21 +446,21 @@ Rectangle {
                         text: "FIRE"
                         normalColor: "#a84418"
                         pressedColor: "#d65a20"
-                        onClicked: controller.fireRoute(row.modelData.tmccId)
+                        onClicked: controller.fireRoute(row.rowData.tmccId)
                     }
                     CabButton {
                         visible: controller && controller.scope === "ROUTE"
                         Layout.preferredWidth: 68
                         Layout.preferredHeight: 46
                         text: "EDIT…"
-                        onClicked: root.editRoute(row.modelData.tmccId)
+                        onClicked: root.editRoute(row.rowData.tmccId)
                     }
                     CabButton {
                         visible: controller && controller.scope === "SWITCH"
                         Layout.preferredWidth: 58
                         Layout.preferredHeight: 46
                         text: "EDIT…"
-                        onClicked: root.editSwitch(row.modelData.tmccId)
+                        onClicked: root.editSwitch(row.rowData.tmccId)
                     }
                 }
             }
