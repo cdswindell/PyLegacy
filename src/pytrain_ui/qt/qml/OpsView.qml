@@ -26,6 +26,14 @@ Rectangle {
     radius: 14
 
     function compareRows(a, b) {
+        if (sortKey === "aligned" || sortKey === "unaligned") {
+            const first = sortKey === "aligned" ? "ALIGNED" : "NOT ALIGNED"
+            const second = sortKey === "aligned" ? "NOT ALIGNED" : "ALIGNED"
+            const aRank = a.stateText === first ? 0 : a.stateText === second ? 1 : 2
+            const bRank = b.stateText === first ? 0 : b.stateText === second ? 1 : 2
+            if (aRank !== bRank)
+                return aRank - bRank
+        }
         if (sortKey === "tmccId")
             return a.tmccId - b.tmccId
 
@@ -374,10 +382,14 @@ Rectangle {
                     { key: "roadName", label: "Name" },
                     { key: "roadNumber", label: "Road #" },
                     { key: "tmccId", label: "TMCC ID" }
-                ]
+                ].concat(controller && controller.scope === "ROUTE" ? [
+                    { key: "aligned", label: "Aligned" },
+                    { key: "unaligned", label: "Unaligned" }
+                ] : [])
                 CabButton {
                     required property var modelData
-                    Layout.preferredWidth: 145
+                    Layout.fillWidth: controller && controller.scope === "ROUTE"
+                    Layout.preferredWidth: controller && controller.scope === "ROUTE" ? 0 : 145
                     Layout.preferredHeight: 38
                     text: modelData.label
                     selected: root.sortKey === modelData.key

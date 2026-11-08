@@ -36,9 +36,12 @@ _ENGINE_ARTWORK = {
 class CabController(QObject):
     stateChanged = Signal()
     rosterChanged = Signal()
+    stateUpdateReceived = Signal(int, object)
 
     def __init__(self, scope: CommandScope, tmcc_id: int, parent: QObject | None = None) -> None:
         super().__init__(parent)
+        self._target_generation = 0
+        self.stateUpdateReceived.connect(self._on_state)
         self._state_port = None
         self._command_port = None
         self._unsubscribe = None
@@ -53,6 +56,7 @@ class CabController(QObject):
         self._release_target()
 
     def _release_target(self) -> None:
+        self._target_generation += 1
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
@@ -83,7 +87,10 @@ class CabController(QObject):
         self._state_port = PyTrainCabStateAdapter(scope, tmcc_id)
         self._command_port = PyTrainCabCommandAdapter(self._state_port)
         self._snapshot = self._state_port.current()
-        self._unsubscribe = self._state_port.subscribe(self._on_state)
+        generation = self._target_generation
+        self._unsubscribe = self._state_port.subscribe(
+            lambda snapshot: self.stateUpdateReceived.emit(generation, snapshot)
+        )
         self._target_index = next(
             (i for i, item in enumerate(self._targets) if item[0] == scope and item[1] == tmcc_id),
             -1,
@@ -91,7 +98,15 @@ class CabController(QObject):
         self.stateChanged.emit()
         self.rosterChanged.emit()
 
-    def _on_state(self, snapshot: EngineViewState) -> None:
+    @Slot(int, object)
+    def _on_state(self, generation: int, snapshot: EngineViewState) -> None:
+        # Unsubscription cannot recall feedback already copied by a notifier thread.
+        # Apply only the active subscription's snapshots, on the Qt owner thread.
+        if generation != self._target_generation or self._state_port is None:
+            return
+        state = self._state_port.state
+        if (snapshot.scope, snapshot.tmcc_id) != (state.scope.name, state.tmcc_id):
+            return
         self._snapshot = snapshot
         self.stateChanged.emit()
 
