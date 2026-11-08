@@ -200,7 +200,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
                                 text: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "HOLD" : "PULSE"
-                                onPressed: root.controller.holdQuickAction(operationRow.modelData.tmccId, true)
+                                onClicked: root.controller.holdQuickAction(operationRow.modelData.tmccId, true)
                                 onReleased: root.controller.holdQuickAction(operationRow.modelData.tmccId, false)
                             }
                         }

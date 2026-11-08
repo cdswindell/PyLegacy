@@ -270,13 +270,9 @@ class AccessoryCatalogController(QObject):
                     },
                 ]
             elif operation.behavior == PortBehavior.MOMENTARY_HOLD:
-                actions = [
-                    {"key": "HOLD", "label": "HOLD", "selected": False, "enabled": enabled}
-                ]
+                actions = [{"key": "HOLD", "label": "HOLD", "selected": False, "enabled": enabled}]
             else:
-                actions = [
-                    {"key": "PULSE", "label": "PULSE", "selected": False, "enabled": enabled}
-                ]
+                actions = [{"key": "PULSE", "label": "PULSE", "selected": False, "enabled": enabled}]
             behavior_label = {
                 PortBehavior.LATCH: "ON/OFF",
                 PortBehavior.MOMENTARY_HOLD: "HOLD",
@@ -555,6 +551,3 @@ class AccessoryCatalogController(QObject):
     @Property(list, notify=changed)
     def rows(self) -> list[dict]:
         return self._rows
-
-
-

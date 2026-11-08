@@ -88,8 +88,10 @@ class QtGamepadInput(QObject):
             import pygame
 
             self._pygame = pygame
+            # SDL events require the video subsystem even though Qt owns the window.
+            pygame.display.init()
             pygame.joystick.init()
-            pygame.event.set_allowed(None)
+            pygame.event.set_blocked(None)
             pygame.event.set_allowed(
                 [
                     pygame.JOYDEVICEADDED,
