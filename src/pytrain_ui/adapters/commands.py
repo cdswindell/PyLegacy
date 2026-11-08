@@ -8,7 +8,7 @@ from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum
 
 from pytrain_ui.actions import CabAction, action_applies_to_type, cab_action
@@ -143,6 +143,10 @@ class PyTrainCabCommandAdapter:
 
     def stop(self) -> None:
         self.send_named("STOP_IMMEDIATE")
+
+    def halt(self) -> None:
+        """Stop the entire layout, independently of the selected engine or train."""
+        CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
 
     def reset(self) -> None:
         self.send_named("RESET")

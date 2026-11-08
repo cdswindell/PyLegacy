@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 from PySide6.QtCore import QObject, QTimer
@@ -84,6 +85,13 @@ class QtGamepadInput(QObject):
             self._joystick = None
 
     def _initialize(self) -> None:
+        sdl_environment = {
+            key: os.environ.get(key) for key in ("SDL_VIDEODRIVER", "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS")
+        }
+        # Qt owns native window events. SDL only supplies background gamepad input,
+        # just as in the legacy cab; its Cocoa event pump must not compete with Qt.
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+        os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
         try:
             import pygame
 
@@ -106,6 +114,12 @@ class QtGamepadInput(QObject):
         except Exception as exc:
             log.info("Gamepad input unavailable: %s", exc)
             self._pygame = None
+        finally:
+            for key, previous in sdl_environment.items():
+                if previous is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = previous
 
     def _attach_first_controller(self) -> None:
         pygame = self._pygame

@@ -40,8 +40,8 @@ class QtCabCommand(CommandBase):
         port: str = DEFAULT_PORT,
         server: str = None,
     ):
-        self.wait_for_sync()
         try:
+            self.wait_for_sync()
             return run_cab(self._cli.scope, self._cli.tmcc_id, [])
         finally:
             if self.pytrain is not None:
@@ -99,5 +99,7 @@ def main(args: list[str] | None = None) -> int:
     try:
         QtCabCli(cmd_line=args)
         return 0
+    except KeyboardInterrupt:
+        return 130
     except Exception as exc:
         sys.exit(f"{__file__}: error: {exc}\n")

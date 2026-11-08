@@ -11,6 +11,7 @@ ApplicationWindow {
     minimumHeight: 720
     color: "#0f1115"
     title: "PyTrain — " + activeScope
+    onClosing: Qt.quit()
 
     property bool engineCatalogVisible: showCatalogAtStartup
     property string activeScope: "ENGINE"

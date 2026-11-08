@@ -84,7 +84,7 @@ Rectangle {
                 font.bold: true
                 normalColor: "#9d2020"
                 pressedColor: "#c62d2d"
-                onClicked: cab.stop()
+                onClicked: cab.halt()
             }
         }
 

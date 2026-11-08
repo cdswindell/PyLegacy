@@ -454,6 +454,10 @@ class CabController(QObject):
         self._command_port.stop()
 
     @Slot()
+    def halt(self) -> None:
+        self._command_port.halt()
+
+    @Slot()
     def reset(self) -> None:
         self._command_port.reset()
 

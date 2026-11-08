@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import logging
+import signal
 import sys
 from importlib.resources import as_file, files
+
+
+log = logging.getLogger(__name__)
 
 
 def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     """Run the Qt cab for an already-initialized PyTrain runtime."""
     try:
-        from PySide6.QtCore import QUrl
+        from PySide6.QtCore import QTimer, QUrl
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtQml import QQmlApplicationEngine
         from PySide6.QtQuickControls2 import QQuickStyle
@@ -71,26 +76,40 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     with as_file(qml) as qml_path:
         engine.load(QUrl.fromLocalFile(str(qml_path)))
 
-    if not engine.rootObjects():
-        gamepad.close()
-        accessories.close()
-        routes.close()
-        switches.close()
-        selection.close()
-        catalog.close()
-        cab.close()
-        return 1
+    def process_python_signals() -> None:
+        # Returning to Python lets pending SIGINT handlers run while Qt is idle.
+        pass
+
+    def interrupt(_signum, _frame) -> None:
+        app.quit()
+
+    signal_timer = QTimer(app)
+    signal_timer.timeout.connect(process_python_signals)
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, interrupt)
     try:
+        if not engine.rootObjects():
+            return 1
+        signal_timer.start(100)
         return app.exec()
     finally:
-        remember_current_engine()
-        gamepad.close()
-        accessories.close()
-        routes.close()
-        switches.close()
-        selection.close()
-        catalog.close()
-        cab.close()
+        signal_timer.stop()
+        signal.signal(signal.SIGINT, previous_sigint)
+        cleanup = [
+            ("session preferences", remember_current_engine),
+            ("gamepad", gamepad.close),
+            ("accessories", accessories.close),
+            ("routes", routes.close),
+            ("switches", switches.close),
+            ("selection", selection.close),
+            ("catalog", catalog.close),
+            ("cab", cab.close),
+        ]
+        for name, close in cleanup:
+            try:
+                close()
+            except Exception as exc:
+                log.warning("Error closing Qt %s, continuing shutdown: %s", name, exc)
 
 
 def main(args: list[str] | None = None) -> int:

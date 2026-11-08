@@ -59,7 +59,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: width / Math.max(1, Number(root.accessory.artworkAspectRatio || 3))
-            visible: root.accessory.artworkSource && root.accessory.artworkSource.length > 0
+            visible: (root.accessory.artworkSource || "").length > 0
             color: "#0f1216"
             radius: 8
             clip: true
