@@ -8,6 +8,7 @@ Rectangle {
     required property var controller
     property var lcsController: null
     property string sortKey: "roadName"
+    property int directTmccId: 0
     property int editingSwitchId: 0
     property string editingSwitchOriginalName: ""
     property string editingSwitchOriginalNumber: ""
@@ -41,6 +42,8 @@ Rectangle {
             return []
         const query = searchField.text.trim().toLowerCase()
         const result = controller.rows.filter(function(row) {
+            if (root.directTmccId > 0)
+                return row.tmccId === root.directTmccId
             if (controller.scope === "SWITCH" && row.inactive && !root.showInactiveSwitches)
                 return false
             return !query ||
@@ -82,6 +85,46 @@ Rectangle {
         }
         if (rosterModel.count > rosterRows.length)
             rosterModel.remove(rosterRows.length, rosterModel.count - rosterRows.length)
+    }
+
+    function openTmccKeypad() {
+        tmccIdEntry.text = /^[0-9]{1,2}$/.test(searchField.text) ? searchField.text : ""
+        tmccKeypadError.text = ""
+        tmccKeypad.open()
+        tmccIdEntry.forceActiveFocus()
+        tmccIdEntry.selectAll()
+    }
+
+    function enterTmccDigit(digit) {
+        if (tmccIdEntry.selectedText.length > 0)
+            tmccIdEntry.remove(tmccIdEntry.selectionStart, tmccIdEntry.selectionEnd)
+        tmccIdEntry.insert(tmccIdEntry.cursorPosition, digit)
+        tmccKeypadError.text = ""
+    }
+
+    function deleteTmccDigit() {
+        if (tmccIdEntry.selectedText.length > 0)
+            tmccIdEntry.remove(tmccIdEntry.selectionStart, tmccIdEntry.selectionEnd)
+        else if (tmccIdEntry.cursorPosition > 0)
+            tmccIdEntry.remove(tmccIdEntry.cursorPosition - 1, tmccIdEntry.cursorPosition)
+        tmccKeypadError.text = ""
+    }
+
+    function submitTmccId() {
+        if (!tmccIdEntry.acceptableInput)
+            return
+        const tmccId = Number(tmccIdEntry.text)
+        if (!controller.rows.some(function(row) { return row.tmccId === tmccId })) {
+            tmccKeypadError.text = "No " + (controller.scope === "SWITCH" ? "switch" : "route") +
+                                  " with TMCC ID " + tmccId + "."
+            return
+        }
+        root.directTmccId = tmccId
+        searchField.text = String(tmccId)
+        controller.select(tmccId)
+        tmccKeypad.close()
+        roster.positionViewAtBeginning()
+        roster.forceActiveFocus()
     }
 
     function editSwitch(tmccId) {
@@ -218,6 +261,7 @@ Rectangle {
     }
 
     function cancelTransientPanels() {
+        tmccKeypad.close()
         routePicker.close()
         routeBuilder.close()
         addSwitchPopup.close()
@@ -302,12 +346,45 @@ Rectangle {
             }
         }
 
-        TextField {
-            id: searchField
+        RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 46
-            placeholderText: "Search road name, road number, or TMCC ID"
-            font.pixelSize: 15
+            spacing: 6
+
+            TextField {
+                id: searchField
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredHeight: 46
+                placeholderText: "Search road name, road number, or TMCC ID"
+                font.pixelSize: 15
+                onTextEdited: root.directTmccId = 0
+            }
+            CabButton {
+                Layout.preferredWidth: 52
+                Layout.preferredHeight: 46
+                Accessible.name: "Enter TMCC ID"
+                hoverEnabled: true
+                ToolTip.visible: hovered
+                ToolTip.text: "Enter TMCC ID"
+                onClicked: root.openTmccKeypad()
+
+                contentItem: Item {
+                    Grid {
+                        anchors.centerIn: parent
+                        columns: 3
+                        spacing: 2
+                        Repeater {
+                            model: 12
+                            Rectangle {
+                                width: 7
+                                height: 7
+                                radius: 1
+                                color: "#f4f6f8"
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         RowLayout {
@@ -463,6 +540,84 @@ Rectangle {
                         onClicked: root.editSwitch(row.rowData.tmccId)
                     }
                 }
+            }
+        }
+    }
+
+    Popup {
+        id: tmccKeypad
+        parent: Overlay.overlay
+        width: Math.min(root.width - 24, 340)
+        x: Math.max(0, (parent.width - width) / 2)
+        y: Math.max(0, (parent.height - height) / 2)
+        modal: true
+        focus: true
+        padding: 16
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: "#171a1f"
+            radius: 14
+            border.width: 1
+            border.color: "#59616c"
+        }
+        contentItem: ColumnLayout {
+            spacing: 10
+            Label {
+                Layout.fillWidth: true
+                text: (controller && controller.scope === "SWITCH" ? "Switch" : "Route") + " TMCC ID"
+                color: "#f4f6f8"
+                font.pixelSize: 22
+                font.bold: true
+            }
+            TextField {
+                id: tmccIdEntry
+                Layout.fillWidth: true
+                Layout.preferredHeight: 54
+                placeholderText: "1–98"
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 28
+                maximumLength: 2
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: IntValidator { bottom: 1; top: 98 }
+                onAccepted: root.submitTmccId()
+                onTextEdited: tmccKeypadError.text = ""
+            }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                rowSpacing: 8
+                columnSpacing: 8
+                Repeater {
+                    model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Del", "0", "↵"]
+                    CabButton {
+                        required property string modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 0
+                        Layout.preferredHeight: 58
+                        text: modelData
+                        font.pixelSize: 24
+                        Accessible.name: modelData === "↵" ? "Enter" : modelData
+                        selected: modelData === "↵"
+                        enabled: modelData !== "↵" || tmccIdEntry.acceptableInput
+                        onClicked: {
+                            if (modelData === "Del")
+                                root.deleteTmccDigit()
+                            else if (modelData === "↵")
+                                root.submitTmccId()
+                            else
+                                root.enterTmccDigit(modelData)
+                        }
+                    }
+                }
+            }
+            Label {
+                id: tmccKeypadError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#f0a35a"
+                wrapMode: Text.WordWrap
+                font.pixelSize: 14
             }
         }
     }
