@@ -13,7 +13,12 @@ Rectangle {
     signal engineRequested(int tmccId)
 
     onEngineRequested: function(tmccId) {
-        selection.selectEngine(tmccId)
+        if (scope === "TRAIN") {
+            if (!cab.selectAddress("TRAIN", tmccId))
+                return
+        } else
+            selection.selectEngine(tmccId)
+        directTmccId = 0
         searchText = ""
         engineSelected()
     }
@@ -23,6 +28,10 @@ Rectangle {
 
     property string sortMode: "name"
     property string searchText: ""
+    property int directTmccId: 0
+    property string scope: "ENGINE"
+    readonly property var targets: catalog ? (scope === "TRAIN" ? catalog.trains : catalog.engines) : []
+    onScopeChanged: { searchText = ""; directTmccId = 0; typeFilter = "ALL"; tmccKeypad.close() }
     property string typeFilter: "ALL"
 
     function compareRoadNumbers(a, b) {
@@ -40,13 +49,15 @@ Rectangle {
         if (!catalog)
             return rows
         var needle = searchText.trim().toLowerCase()
-        for (var i = 0; i < catalog.engines.length; ++i) {
-            var engine = catalog.engines[i]
-            if (typeFilter !== "ALL" && engine.engineType !== typeFilter)
+        for (var i = 0; i < root.targets.length; ++i) {
+            var engine = root.targets[i]
+            if (directTmccId > 0 && engine.tmccId !== directTmccId)
+                continue
+            if (directTmccId === 0 && typeFilter !== "ALL" && engine.engineType !== typeFilter)
                 continue
             var searchable = (engine.roadName + " " + engine.roadNumber + " " + engine.tmccId + " " +
                               engine.engineType + " " + engine.engineTypeLabel).toLowerCase()
-            if (needle.length && searchable.indexOf(needle) < 0)
+            if (directTmccId === 0 && needle.length && searchable.indexOf(needle) < 0)
                 continue
             rows.push(engine)
         }
@@ -76,7 +87,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: "ENGINES"; color: "#f4f6f8"; font.pixelSize: 24; font.bold: true }
+            Label { Layout.fillWidth: true; text: root.scope === "TRAIN" ? "TRAINS" : "ENGINES"; color: "#f4f6f8"; font.pixelSize: 24; font.bold: true }
             CabButton { Layout.preferredWidth: 130; Layout.preferredHeight: 46; text: "ALL STOP"; font.pixelSize: 17; font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.halt() }
             CabButton { Layout.preferredWidth: 100; Layout.preferredHeight: 46; text: "Cab"; font.pixelSize: 15; onClicked: root.closeRequested() }
         }
@@ -92,15 +103,20 @@ Rectangle {
                 font.pixelSize: 17
                 selectByMouse: true
                 text: root.searchText
-                onTextEdited: root.searchText = text
+                onTextEdited: { root.directTmccId = 0; root.searchText = text }
             }
             CabButton {
                 Layout.preferredWidth: 72
                 Layout.preferredHeight: 54
                 text: "Clear"
                 font.pixelSize: 14
-                enabled: searchField.text.length > 0
-                onClicked: { root.searchText = ""; searchField.forceActiveFocus() }
+                enabled: searchField.text.length > 0 || root.directTmccId > 0
+                onClicked: { root.directTmccId = 0; root.searchText = ""; searchField.forceActiveFocus() }
+            }
+            KeypadButton {
+                Layout.preferredWidth: 52
+                Layout.preferredHeight: 54
+                onClicked: tmccKeypad.openFor(root.searchText)
             }
         }
 
@@ -112,7 +128,7 @@ Rectangle {
             ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "Road #"; selected: root.sortMode === "road"; onClicked: root.sortMode = "road" }
             ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "TMCC ID"; selected: root.sortMode === "tmcc"; onClicked: root.sortMode = "tmcc" }
             Item { Layout.fillWidth: true }
-            Label { text: root.filteredTargets().length + " engines"; color: "#9ea6b0"; font.pixelSize: 12 }
+            Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#9ea6b0"; font.pixelSize: 12 }
         }
 
         RowLayout {
@@ -173,7 +189,7 @@ Rectangle {
                         border.color: "#596574"
                         Column {
                             anchors.centerIn: parent
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: "ENG"; color: "#9ea6b0"; font.pixelSize: 9; font.bold: true }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: root.scope === "TRAIN" ? "TRN" : "ENG"; color: "#9ea6b0"; font.pixelSize: 9; font.bold: true }
                             Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 18; font.bold: true }
                         }
                     }
@@ -182,7 +198,7 @@ Rectangle {
                         spacing: 2
                         Label {
                             Layout.fillWidth: true
-                            text: (row.modelData.roadName || "Engine") + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
+                            text: (row.modelData.roadName || (root.scope === "TRAIN" ? "Train" : "Engine")) + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
                             font.pixelSize: 16
                             font.bold: true
@@ -201,4 +217,22 @@ Rectangle {
             }
         }
     }
+
+    TmccKeypad {
+        id: tmccKeypad
+        title: (root.scope === "TRAIN" ? "Train" : "Engine") + " TMCC ID"
+        maximumId: 9999
+        onSubmitted: function(tmccId) {
+            if (!root.targets.some(function(target) { return target.tmccId === tmccId })) {
+                errorText = "No " + (root.scope === "TRAIN" ? "train" : "engine") + " with TMCC ID " + tmccId + "."
+                return
+            }
+            root.directTmccId = tmccId
+            root.searchText = String(tmccId)
+            close()
+            listView.positionViewAtBeginning()
+            listView.forceActiveFocus()
+        }
+    }
+
 }

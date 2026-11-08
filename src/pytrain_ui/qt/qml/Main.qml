@@ -37,14 +37,17 @@ ApplicationWindow {
             }
 
             EngineCatalog {
+                scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
                 cab: cabController
                 catalog: engineCatalogController
                 selection: selectedEngineController
                 onEngineSelected: {
-                    window.activeScope = "ENGINE"
                     window.engineCatalogVisible = false
                 }
-                onCloseRequested: window.engineCatalogVisible = false
+                onCloseRequested: {
+                    window.activeScope = cabController.scope
+                    window.engineCatalogVisible = false
+                }
             }
 
             OpsView {
@@ -113,13 +116,12 @@ ApplicationWindow {
                     window.activeScope = "ACCESSORY"
                     window.accessoryOperatingVisible = false
                     window.engineCatalogVisible = false
-                } else if (scope === "ENGINE") {
-                    if (window.activeScope === "ENGINE")
+                } else if (scope === "ENGINE" || scope === "TRAIN") {
+                    if (window.activeScope === scope && cabController.scope === scope)
                         window.engineCatalogVisible = !window.engineCatalogVisible
-                    else {
-                        window.activeScope = "ENGINE"
-                        window.engineCatalogVisible = false
-                    }
+                    else
+                        window.engineCatalogVisible = cabController.scope !== scope
+                    window.activeScope = scope
                 }
             }
         }
@@ -127,47 +129,50 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: window.activeScope === "ENGINE" && window.engineCatalogVisible
-        onActivated: window.engineCatalogVisible = false
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible
+        onActivated: {
+            window.activeScope = cabController.scope
+            window.engineCatalogVisible = false
+        }
     }
     Shortcut {
         sequence: "Up"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(1)
     }
     Shortcut {
         sequence: "Down"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(-1)
     }
     Shortcut {
         sequence: "Shift+Up"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(5)
     }
     Shortcut {
         sequence: "Shift+Down"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.changeSpeed(-5)
     }
     Shortcut {
         sequence: "F"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.setDirection("FORWARD")
     }
     Shortcut {
         sequence: "R"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.setDirection("REVERSE")
     }
     Shortcut {
         sequence: "B"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.bell()
     }
     Shortcut {
         sequence: "Space"
-        enabled: window.activeScope === "ENGINE" && !window.engineCatalogVisible
+        enabled: (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible
         onActivated: cabController.stop()
     }
 }

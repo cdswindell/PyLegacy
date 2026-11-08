@@ -182,6 +182,16 @@ class CabController(QObject):
             scope, tmcc_id, _ = self._targets[index]
             self._switch_target(scope, tmcc_id)
 
+    @Slot(str, int, result=bool)
+    def selectAddress(self, scope_name: str, tmcc_id: int) -> bool:
+        if scope_name not in {CommandScope.ENGINE.name, CommandScope.TRAIN.name}:
+            return False
+        scope = CommandScope[scope_name]
+        if ComponentStateStore.get_state(scope, tmcc_id, create=False) is None:
+            return False
+        self._switch_target(scope, tmcc_id)
+        return True
+
     @Slot()
     def refreshRoster(self) -> None:
         current_scope = CommandScope[self.scope]

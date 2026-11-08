@@ -35,15 +35,18 @@ class EngineCatalogController(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._engines: list[dict] = []
+        self._trains: list[dict] = []
         self._type_filters: list[dict] = []
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
+            self._dispatcher.subscribe(self._engine_command, CommandScope.TRAIN)
         self.reload()
 
     def close(self) -> None:
         if self._dispatcher is not None:
             self._dispatcher.unsubscribe(self._engine_command, CommandScope.ENGINE)
+            self._dispatcher.unsubscribe(self._engine_command, CommandScope.TRAIN)
             self._dispatcher = None
 
     @staticmethod
@@ -71,7 +74,10 @@ class EngineCatalogController(QObject):
     def reload(self) -> None:
         rows: list[dict] = []
         type_labels: dict[str, str] = {}
-        states = sorted(ComponentStateStore.get().get_all(CommandScope.ENGINE), key=lambda state: state.tmcc_id)
+        store = ComponentStateStore.get()
+        states = sorted(
+            [*store.get_all(CommandScope.ENGINE), *store.get_all(CommandScope.TRAIN)], key=lambda state: state.tmcc_id
+        )
         for state in states:
             road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
             road_number = str(getattr(state, "road_number", "") or "").strip()
@@ -80,13 +86,15 @@ class EngineCatalogController(QObject):
             rows.append(
                 {
                     "tmccId": int(state.tmcc_id),
+                    "scope": state.scope.name,
                     "roadName": road_name,
                     "roadNumber": road_number,
                     "engineType": type_key,
                     "engineTypeLabel": type_label,
                 }
             )
-        self._engines = rows
+        self._engines = [row for row in rows if row["scope"] == CommandScope.ENGINE.name]
+        self._trains = [row for row in rows if row["scope"] == CommandScope.TRAIN.name]
         self._type_filters = [
             {"key": key, "label": label} for key, label in sorted(type_labels.items(), key=self._type_sort_key)
         ]
@@ -95,6 +103,10 @@ class EngineCatalogController(QObject):
     @Property(list, notify=catalogChanged)
     def engines(self) -> list[dict]:
         return self._engines
+
+    @Property(list, notify=catalogChanged)
+    def trains(self) -> list[dict]:
+        return self._trains
 
     @Property(list, notify=catalogChanged)
     def typeFilters(self) -> list[dict]:
