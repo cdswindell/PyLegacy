@@ -360,6 +360,19 @@ Rectangle {
                 onTextEdited: root.directTmccId = 0
             }
             CabButton {
+                Layout.preferredWidth: 76
+                Layout.preferredHeight: 46
+                text: "Clear"
+                font.pixelSize: 16
+                enabled: searchField.text.length > 0 || root.directTmccId > 0
+                onClicked: {
+                    root.directTmccId = 0
+                    searchField.clear()
+                    roster.positionViewAtBeginning()
+                    searchField.forceActiveFocus()
+                }
+            }
+            CabButton {
                 Layout.preferredWidth: 52
                 Layout.preferredHeight: 46
                 Accessible.name: "Enter TMCC ID"
@@ -595,9 +608,10 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredWidth: 0
                         Layout.preferredHeight: 58
-                        text: modelData
+                        text: modelData === "Del" ? "⌫" : modelData
                         font.pixelSize: 24
-                        Accessible.name: modelData === "↵" ? "Enter" : modelData
+                        Accessible.name: modelData === "↵" ? "Enter" :
+                                         modelData === "Del" ? "Backspace" : modelData
                         selected: modelData === "↵"
                         enabled: modelData !== "↵" || tmccIdEntry.acceptableInput
                         onClicked: {
