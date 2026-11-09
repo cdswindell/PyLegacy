@@ -7,6 +7,28 @@ Rectangle {
     required property var cab
     required property var selection
     property bool effectsVisible: false
+    property string requestedDirection: ""
+    readonly property string reportedDirection: cab.direction
+    readonly property string targetKey: cab.scope + ":" + cab.tmccId
+    readonly property string displayedDirection: requestedDirection || reportedDirection
+
+    // A button reflects the operator's request immediately. Delayed snapshots
+    // with the old direction must not undo it; fresh direction feedback wins.
+    onReportedDirectionChanged: requestedDirection = ""
+    onTargetKeyChanged: requestedDirection = ""
+
+    function requestDirection(direction) {
+        cab.setDirection(direction)
+        requestedDirection = reportedDirection.indexOf(direction) >= 0 ? "" : direction
+    }
+
+    Connections {
+        target: root.cab
+        function onStateChanged() {
+            if (root.requestedDirection && root.reportedDirection.indexOf(root.requestedDirection) >= 0)
+                root.requestedDirection = ""
+        }
+    }
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 10
     readonly property int tileHeight: compact ? 74 : Math.max(112, Math.min(166, (height - 320) / 4))
@@ -301,18 +323,22 @@ Rectangle {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
-                            text: "◀ REV"
+                            id: reverseButton
+                            objectName: "reverseDirectionButton"
+                            text: "◀ REV" + (root.requestedDirection === "REVERSE" ? " …" : "")
                             font.pixelSize: 12
-                            selected: cab.direction.indexOf("REVERSE") >= 0
-                            onClicked: cab.setDirection("REVERSE")
+                            selected: root.displayedDirection.indexOf("REVERSE") >= 0
+                            onClicked: root.requestDirection("REVERSE")
                         }
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
-                            text: "FWD ▶"
+                            id: forwardButton
+                            objectName: "forwardDirectionButton"
+                            text: "FWD ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
                             font.pixelSize: 12
-                            selected: cab.direction.indexOf("FORWARD") >= 0
-                            onClicked: cab.setDirection("FORWARD")
+                            selected: root.displayedDirection.indexOf("FORWARD") >= 0
+                            onClicked: root.requestDirection("FORWARD")
                         }
                     }
                     RowLayout {
