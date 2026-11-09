@@ -31,7 +31,7 @@ Rectangle {
     }
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 10
-    readonly property int tileHeight: compact ? 74 : Math.max(112, Math.min(166, (height - 320) / 4))
+    readonly property int tileHeight: compact ? 74 : Math.max(112, Math.min(160, (height - 320) / 4))
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
@@ -256,16 +256,20 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 5
+                    Item { Layout.fillWidth: true }
                     Repeater {
                         model: cab.secondaryActionModel
                         FunctionButton {
                             required property var modelData
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            Layout.preferredWidth: 0
-                            Layout.preferredHeight: 40
+                            readonly property int side: root.compact ? 80 : 96
+                            Layout.minimumWidth: side
+                            Layout.maximumWidth: side
+                            Layout.preferredWidth: side
+                            Layout.minimumHeight: side
+                            Layout.maximumHeight: side
+                            Layout.preferredHeight: side
                             compact: true
-                            text: modelData.label
+                            text: modelData.label.replace(" · ", "\n")
                             holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
                                       modelData.holdTarget === "more" ? "More controls" :
                                       modelData.key === "sequence" ? "Repeat sequence" : ""
@@ -278,6 +282,7 @@ Rectangle {
                             onHeld: root.handleModelHold(modelData)
                         }
                     }
+                    Item { Layout.fillWidth: true }
                 }
             }
 
