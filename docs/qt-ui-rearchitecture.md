@@ -33,6 +33,13 @@ The `pycab` launcher now prefers the Qt cab when PySide6 is installed. Compatibi
 The legacy cab should remain available until the Qt implementation has been exercised on macOS, Raspberry Pi touch hardware, and Steam Deck controller hardware. Retirement of GuiZero is a separate decision after parity testing, not a prerequisite for making Qt the preferred cab presentation.
 
 
+## Fullscreen startup
+
+The Qt cab opens fullscreen on Raspberry Pi hardware and Steam Deck installs.
+Steam Deck launchers identify the platform with `PYTRAIN_PLATFORM=steamdeck`;
+use that environment variable when launching directly from a terminal as well.
+Mac and other desktop installs open in a normal window.
+
 ## Device previews on macOS
 
 The engine/train pages include Raspberry Pi (720 × 1280), PyCab (800 × 1280), and

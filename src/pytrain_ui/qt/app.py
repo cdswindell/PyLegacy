@@ -22,6 +22,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         raise SystemExit("The Qt UI is not installed. Install PyTrain with the 'qt-gui' extra.") from exc
 
     from pytrain.protocol.constants import CommandScope
+    from pytrain.utils.host_info import HostInfo, is_linux, is_steam_deck
 
     from .accessory_controller import AccessoryCatalogController
     from .cab_controller import CabController
@@ -77,6 +78,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     engine.rootContext().setContextProperty("routeOpsController", routes)
     engine.rootContext().setContextProperty("lcsConfigController", lcs)
     engine.rootContext().setContextProperty("showCatalogAtStartup", show_catalog)
+    engine.rootContext().setContextProperty("startFullscreen", is_linux() and (is_steam_deck() or HostInfo().is_pi))
 
     def remember_current_engine() -> None:
         if cab.scope == CommandScope.ENGINE.name:

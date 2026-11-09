@@ -4,7 +4,7 @@ import QtQuick.Layouts
 
 ApplicationWindow {
     id: window
-    visible: true
+    visibility: startFullscreen ? Window.FullScreen : Window.Windowed
     width: 720
     height: 1280
     minimumWidth: 480
