@@ -8,7 +8,7 @@ ApplicationWindow {
     width: 720
     height: 1280
     minimumWidth: 480
-    minimumHeight: 720
+    minimumHeight: devicePreviewActive ? 400 : 720
     color: "#0f1115"
     title: "PyTrain — " + activeScope
     onClosing: Qt.quit()
@@ -21,128 +21,200 @@ ApplicationWindow {
     property string stateInfoScope: "ENGINE"
     property int stateInfoId: 0
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 8
-        spacing: 6
+    property string previewProfile: ""
+    property int previewWidth: 720
+    property int previewHeight: 1280
+    property int normalWindowWidth: 720
+    property int normalWindowHeight: 1280
+    readonly property bool engineScope: activeScope === "ENGINE" || activeScope === "TRAIN"
+    readonly property bool previewControlsAvailable: Qt.platform.os === "osx"
+    readonly property bool devicePreviewActive: previewControlsAvailable && engineScope && previewProfile.length > 0
+    readonly property int previewFooterHeight: previewControlsAvailable && engineScope ? 44 : 0
+    readonly property real previewScale: devicePreviewActive ?
+        Math.min(1, width / previewWidth, Math.max(1, height - previewFooterHeight) / previewHeight) : 1
 
-        StackLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            currentIndex: window.stateInfoVisible ? 5 :
-                          window.activeScope === "SWITCH" ? 2 :
-                          window.activeScope === "ROUTE" ? 3 :
-                          window.activeScope === "ACCESSORY" ? 4 :
-                          window.engineCatalogVisible ? 1 : 0
+    function resizePreviewWindow() {
+        const availableWidth = Math.max(480, Screen.desktopAvailableWidth - 32)
+        const availableHeight = Math.max(400, Screen.desktopAvailableHeight - 64)
+        const fit = Math.min(1, availableWidth / previewWidth,
+                             (availableHeight - previewFooterHeight) / previewHeight)
+        window.width = Math.max(window.minimumWidth, Math.ceil(previewWidth * fit))
+        window.height = Math.max(window.minimumHeight, Math.ceil(previewHeight * fit) + previewFooterHeight)
+    }
 
-            CabView {
-                cab: cabController
-                selection: selectedEngineController
-            }
+    function selectDevicePreview(key, displayWidth, displayHeight) {
+        if (previewProfile.length === 0) {
+            normalWindowWidth = window.width
+            normalWindowHeight = window.height
+        }
+        previewWidth = displayWidth
+        previewHeight = displayHeight
+        previewProfile = key
+        resizePreviewWindow()
+    }
 
-            EngineCatalog {
-                scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
-                cab: cabController
-                catalog: engineCatalogController
-                selection: selectedEngineController
-                onStateInfoRequested: function(scope, tmccId) {
-                    window.stateInfoScope = scope
-                    window.stateInfoId = tmccId
-                    window.stateInfoVisible = true
-                    window.engineCatalogVisible = true
+    onEngineScopeChanged: {
+        if (previewProfile.length === 0)
+            return
+        if (engineScope)
+            resizePreviewWindow()
+        else {
+            window.width = normalWindowWidth
+            window.height = normalWindowHeight
+        }
+    }
+
+    Item {
+        id: previewViewport
+        anchors.top: parent.top
+        x: Math.max(0, (window.width - width * scale) / 2)
+        width: window.devicePreviewActive ? window.previewWidth : window.width
+        height: window.devicePreviewActive ? window.previewHeight : window.height - window.previewFooterHeight
+        scale: window.previewScale
+        transformOrigin: Item.TopLeft
+        clip: true
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 6
+
+            StackLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: window.stateInfoVisible ? 5 :
+                              window.activeScope === "SWITCH" ? 2 :
+                              window.activeScope === "ROUTE" ? 3 :
+                              window.activeScope === "ACCESSORY" ? 4 :
+                              window.engineCatalogVisible ? 1 : 0
+
+                CabView {
+                    cab: cabController
+                    selection: selectedEngineController
                 }
-                onEngineSelected: {
-                    window.stateInfoVisible = false
-                    window.engineCatalogVisible = false
-                }
-                onCloseRequested: {
-                    window.activeScope = cabController.scope
-                    window.engineCatalogVisible = false
-                }
-            }
 
-            OpsView {
-                id: switchOpsView
-                controller: switchOpsController
-                lcsController: lcsConfigController
-            }
-
-            OpsView {
-                id: routeOpsView
-                controller: routeOpsController
-            }
-
-            Item {
-                AccessoryCatalog {
-                    id: accessoryCatalog
-                    anchors.fill: parent
-                    visible: !window.accessoryOperatingVisible
-                controller: accessoryCatalogController
-                lcsController: lcsConfigController
-                onAccessoryRequested: function(key) {
-                    window.activeAccessory = accessoryCatalogController.operatingView(key)
-                    window.accessoryOperatingVisible = true
-                }
-                onAddRequested: {
-                    // The add workflow is implemented with the accessory operating layer.
-                }
-                    onLcsRequested: accessoryCatalog.openLcsConfiguration()
+                EngineCatalog {
+                    scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
+                    cab: cabController
+                    catalog: engineCatalogController
+                    selection: selectedEngineController
+                    onStateInfoRequested: function(scope, tmccId) {
+                        window.stateInfoScope = scope
+                        window.stateInfoId = tmccId
+                        window.stateInfoVisible = true
+                        window.engineCatalogVisible = true
+                    }
+                    onEngineSelected: {
+                        window.stateInfoVisible = false
+                        window.engineCatalogVisible = false
+                    }
+                    onCloseRequested: {
+                        window.activeScope = cabController.scope
+                        window.engineCatalogVisible = false
+                    }
                 }
 
-                AccessoryOperatingView {
-                    anchors.fill: parent
-                    visible: window.accessoryOperatingVisible
+                OpsView {
+                    id: switchOpsView
+                    controller: switchOpsController
+                    lcsController: lcsConfigController
+                }
+
+                OpsView {
+                    id: routeOpsView
+                    controller: routeOpsController
+                }
+
+                Item {
+                    AccessoryCatalog {
+                        id: accessoryCatalog
+                        anchors.fill: parent
+                        visible: !window.accessoryOperatingVisible
                     controller: accessoryCatalogController
-                    accessory: window.activeAccessory
-                    onCloseRequested: window.accessoryOperatingVisible = false
+                    lcsController: lcsConfigController
+                    onAccessoryRequested: function(key) {
+                        window.activeAccessory = accessoryCatalogController.operatingView(key)
+                        window.accessoryOperatingVisible = true
+                    }
+                    onAddRequested: {
+                        // The add workflow is implemented with the accessory operating layer.
+                    }
+                        onLcsRequested: accessoryCatalog.openLcsConfiguration()
+                    }
+
+                    AccessoryOperatingView {
+                        anchors.fill: parent
+                        visible: window.accessoryOperatingVisible
+                        controller: accessoryCatalogController
+                        accessory: window.activeAccessory
+                        onCloseRequested: window.accessoryOperatingVisible = false
+                    }
+                }
+
+                StateInfoView {
+                    scope: window.stateInfoScope
+                    tmccId: window.stateInfoId
+                    onCloseRequested: window.stateInfoVisible = false
+                    onAllStopRequested: cabController.halt()
                 }
             }
 
-            StateInfoView {
-                scope: window.stateInfoScope
-                tmccId: window.stateInfoId
-                onCloseRequested: window.stateInfoVisible = false
-                onAllStopRequested: cabController.halt()
+            SelectedEngineBar {
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 58 : 0
+                visible: !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
+                selection: selectedEngineController
             }
-        }
 
-        SelectedEngineBar {
-            Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 58 : 0
-            visible: !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
-            selection: selectedEngineController
-        }
-
-        ScopeBar {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 52
-            currentScope: window.activeScope
-            onScopePressed: function(scope) {
-                window.stateInfoVisible = false
-                switchOpsView.cancelTransientPanels()
-                routeOpsView.cancelTransientPanels()
-                accessoryCatalog.cancelTransientPanels()
-                if (scope === "SWITCH") {
-                    switchOpsController.reload()
-                    window.activeScope = "SWITCH"
-                    window.engineCatalogVisible = false
-                } else if (scope === "ROUTE") {
-                    routeOpsController.reload()
-                    window.activeScope = "ROUTE"
-                    window.engineCatalogVisible = false
-                } else if (scope === "ACCESSORY") {
-                    accessoryCatalogController.reload()
-                    window.activeScope = "ACCESSORY"
-                    window.accessoryOperatingVisible = false
-                    window.engineCatalogVisible = false
-                } else if (scope === "ENGINE" || scope === "TRAIN") {
-                    if (window.activeScope === scope && cabController.scope === scope)
-                        window.engineCatalogVisible = !window.engineCatalogVisible
-                    else
-                        window.engineCatalogVisible = cabController.scope !== scope
-                    window.activeScope = scope
+            ScopeBar {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 52
+                currentScope: window.activeScope
+                onScopePressed: function(scope) {
+                    window.stateInfoVisible = false
+                    switchOpsView.cancelTransientPanels()
+                    routeOpsView.cancelTransientPanels()
+                    accessoryCatalog.cancelTransientPanels()
+                    if (scope === "SWITCH") {
+                        switchOpsController.reload()
+                        window.activeScope = "SWITCH"
+                        window.engineCatalogVisible = false
+                    } else if (scope === "ROUTE") {
+                        routeOpsController.reload()
+                        window.activeScope = "ROUTE"
+                        window.engineCatalogVisible = false
+                    } else if (scope === "ACCESSORY") {
+                        accessoryCatalogController.reload()
+                        window.activeScope = "ACCESSORY"
+                        window.accessoryOperatingVisible = false
+                        window.engineCatalogVisible = false
+                    } else if (scope === "ENGINE" || scope === "TRAIN") {
+                        if (window.activeScope === scope && cabController.scope === scope)
+                            window.engineCatalogVisible = !window.engineCatalogVisible
+                        else
+                            window.engineCatalogVisible = cabController.scope !== scope
+                        window.activeScope = scope
+                    }
                 }
             }
+        }
+    }
+
+    DevicePreviewBar {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        anchors.bottomMargin: 6
+        height: 32
+        visible: window.previewControlsAvailable && window.engineScope
+        profile: window.previewProfile
+        resolutionText: window.devicePreviewActive ?
+            window.previewWidth + " × " + window.previewHeight +
+            (window.previewScale < 0.995 ? " · " + Math.round(window.previewScale * 100) + "%" : "") : "Current size"
+        onProfileSelected: function(key, displayWidth, displayHeight) {
+            window.selectDevicePreview(key, displayWidth, displayHeight)
         }
     }
 

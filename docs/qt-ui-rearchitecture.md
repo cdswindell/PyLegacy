@@ -31,3 +31,19 @@ The `pycab` launcher now prefers the Qt cab when PySide6 is installed. Compatibi
 - `PYTRAIN_LEGACY_GUI=1` opts out of the Qt default without changing scripts or services.
 
 The legacy cab should remain available until the Qt implementation has been exercised on macOS, Raspberry Pi touch hardware, and Steam Deck controller hardware. Retirement of GuiZero is a separate decision after parity testing, not a prerequisite for making Qt the preferred cab presentation.
+
+
+## Device previews on macOS
+
+The engine/train pages include Raspberry Pi (720 × 1280), PyCab (800 × 1280), and
+single Steam Deck pane (639 × 800) preview buttons below the scope bar. These
+resize the Mac window and keep the device layout at its target dimensions. When
+needed, the entire preview scales down to fit the Mac screen; the selector shows
+the scale. The selector sits outside the preview and is hidden on actual devices.
+Switch and Route retain their original window size and unscaled layout.
+
+## Visual design references
+
+The five screenshots supplied on November 8, 2026, their identities, and the
+user's design preferences are preserved in the
+[design reference index](design-references/2026-11-08/README.md).
