@@ -27,9 +27,6 @@ ApplicationWindow {
     property int normalWindowWidth: 720
     property int normalWindowHeight: 1280
     readonly property bool engineScope: activeScope === "ENGINE" || activeScope === "TRAIN"
-    readonly property bool rosterVisible: !stateInfoVisible &&
-        ((engineScope && engineCatalogVisible) || activeScope === "SWITCH" || activeScope === "ROUTE" ||
-         (activeScope === "ACCESSORY" && !accessoryOperatingVisible))
     readonly property bool previewControlsAvailable: Qt.platform.os === "osx"
     readonly property bool devicePreviewActive: previewControlsAvailable && engineScope && previewProfile.length > 0
     readonly property int previewFooterHeight: previewControlsAvailable && engineScope ? 44 : 0
@@ -172,9 +169,9 @@ ApplicationWindow {
 
             ScopeBar {
                 Layout.fillWidth: true
-                Layout.preferredHeight: window.rosterVisible ? 104 : previewViewport.height >= 1000 ? 84 : 52
-                roster: window.rosterVisible
-                largeTouch: previewViewport.height >= 1000
+                Layout.preferredHeight: 84
+                Layout.minimumHeight: 84
+                Layout.maximumHeight: 84
                 currentScope: window.activeScope
                 onScopePressed: function(scope) {
                     window.stateInfoVisible = false

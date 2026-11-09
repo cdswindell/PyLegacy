@@ -86,7 +86,7 @@ Item {
 
     Rectangle {
         id: handle
-        width: Math.max(48, Math.min(root.largeTouch ? 104 : 68, root.width - 6))
+        width: Math.max(24, Math.min(root.largeTouch ? 104 : 68, root.width - 6))
         height: root.largeTouch ? 72 : 46
         radius: 9
         x: (root.width - width) / 2

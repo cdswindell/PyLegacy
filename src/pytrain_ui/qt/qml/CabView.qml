@@ -31,7 +31,8 @@ Rectangle {
     }
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
-    readonly property int tileHeight: compact ? 74 : 150
+    readonly property int tileHeight: compact ? 84 : 112
+    readonly property int auxSide: compact ? 72 : 108
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
@@ -49,14 +50,15 @@ Rectangle {
         required property var action
         Layout.fillWidth: true
         Layout.minimumWidth: 0
+        Layout.preferredWidth: 0
         Layout.preferredHeight: root.tileHeight
         stacked: true
         wrapLabel: true
         padding: 6
-        iconSize: root.compact ? 48 : 104
+        iconSize: root.compact ? 48 : 72
         text: action.label
         iconSource: action.iconSource
-        font.pixelSize: root.compact ? 12 : 23
+        font.pixelSize: root.compact ? 14 : 18
         deferForHold: action.hold
         holdThreshold: action.holdThreshold
         repeatWhileHeld: action.repeat
@@ -75,12 +77,15 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.minimumHeight: root.compact ? 64 : 72
+            Layout.maximumHeight: root.compact ? 64 : 72
+            Layout.preferredHeight: root.compact ? 64 : 72
             spacing: 8
             CabButton {
-                Layout.preferredWidth: root.compact ? 88 : 160
-                Layout.preferredHeight: root.compact ? 46 : 72
+                Layout.preferredWidth: root.compact ? 88 : 120
+                Layout.preferredHeight: root.compact ? 42 : 54
                 text: "Reset"
-                font.pixelSize: root.compact ? 15 : 24
+                font.pixelSize: root.compact ? 15 : 18
                 onClicked: cab.reset()
             }
             ColumnLayout {
@@ -95,7 +100,7 @@ Rectangle {
                     elide: Text.ElideRight
                     wrapMode: Text.WordWrap
                     maximumLineCount: 2
-                    font.pixelSize: root.compact ? 18 : 26
+                    font.pixelSize: root.compact ? 18 : 22
                     font.bold: true
                 }
                 Label {
@@ -103,14 +108,14 @@ Rectangle {
                     text: cab.scope + " " + cab.tmccId
                     color: "#aeb5bf"
                     horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: root.compact ? 12 : 18
+                    font.pixelSize: root.compact ? 12 : 14
                 }
             }
             CabButton {
-                Layout.preferredWidth: root.compact ? 106 : 176
-                Layout.preferredHeight: root.compact ? 46 : 72
+                Layout.preferredWidth: root.compact ? 106 : 132
+                Layout.preferredHeight: root.compact ? 42 : 54
                 text: "ALL STOP"
-                font.pixelSize: root.compact ? 16 : 24
+                font.pixelSize: root.compact ? 16 : 18
                 font.bold: true
                 normalColor: "#9d2020"
                 pressedColor: "#c62d2d"
@@ -123,15 +128,15 @@ Rectangle {
             spacing: 6
             Button {
                 objectName: "driveTab"
-                Layout.preferredWidth: root.compact ? 104 : 156
-                Layout.preferredHeight: root.compact ? 34 : 54
+                Layout.preferredWidth: root.compact ? 104 : 117
+                Layout.preferredHeight: 40
                 text: "Drive"
                 checked: !root.effectsVisible
                 onClicked: root.effectsVisible = false
                 contentItem: Text {
                     text: parent.text
                     color: parent.checked ? "#ffffff" : "#aeb7c2"
-                    font.pixelSize: root.compact ? 14 : 22
+                    font.pixelSize: 18
                     font.bold: parent.checked
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -144,15 +149,15 @@ Rectangle {
             }
             Button {
                 objectName: "effectsTab"
-                Layout.preferredWidth: root.compact ? 104 : 156
-                Layout.preferredHeight: root.compact ? 34 : 54
+                Layout.preferredWidth: root.compact ? 104 : 117
+                Layout.preferredHeight: 40
                 text: "Effects"
                 checked: root.effectsVisible
                 onClicked: root.effectsVisible = true
                 contentItem: Text {
                     text: parent.text
                     color: parent.checked ? "#ffffff" : "#aeb7c2"
-                    font.pixelSize: root.compact ? 14 : 22
+                    font.pixelSize: 18
                     font.bold: parent.checked
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -164,29 +169,30 @@ Rectangle {
                 }
             }
             Item { Layout.fillWidth: true }
-            Label {
-                text: cab.engineType.replace(/_/g, " ")
-                color: "#8f9ba9"
-                font.pixelSize: root.compact ? 10 : 18
-            }
         }
 
-        RowLayout {
+        Item {
+            id: drivingArea
+            objectName: "drivingArea"
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
-            spacing: root.gap
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumWidth: 0
-                spacing: root.gap
+            Item {
+                id: operatingColumns
+                objectName: "operatingColumns"
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: (drivingArea.width - root.gap) * 3 / 5
 
                 Rectangle {
-                    Layout.fillWidth: true
-                    visible: !root.effectsVisible || !root.compact
-                    Layout.preferredHeight: root.compact ? 82 : 80
+                    id: artwork
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    visible: !root.effectsVisible
+                    height: visible ? (root.compact ? 64 : 120) : 0
                     radius: 8
                     color: "#e8ebef"
                     clip: true
@@ -211,21 +217,25 @@ Rectangle {
 
                 ScrollView {
                     id: actionScroll
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 0
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: artwork.bottom
+                    anchors.topMargin: artwork.visible ? root.gap : 0
+                    anchors.bottom: auxGrid.top
+                    anchors.bottomMargin: root.gap
                     clip: true
                     contentWidth: availableWidth
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
                     ColumnLayout {
+                        id: actionContent
                         width: actionScroll.availableWidth
                         spacing: root.gap
                         GridLayout {
                             visible: !root.effectsVisible
                             Layout.fillWidth: true
-                            columns: 2
+                            columns: 3
                             columnSpacing: root.gap
                             rowSpacing: root.gap
                             Repeater {
@@ -239,7 +249,7 @@ Rectangle {
                         GridLayout {
                             visible: root.effectsVisible
                             Layout.fillWidth: true
-                            columns: root.compact ? 3 : 2
+                            columns: 3
                             columnSpacing: 6
                             rowSpacing: 6
                             Repeater {
@@ -247,21 +257,62 @@ Rectangle {
                                 ActionTile {
                                     required property var modelData
                                     action: modelData
-                                    Layout.preferredHeight: root.compact ? 80 : 150
-                                    iconSize: root.compact ? 42 : 96
-                                    font.pixelSize: root.compact ? 10 : 18
+                                    Layout.preferredHeight: root.tileHeight
+                                    iconSize: root.compact ? 44 : 72
+                                    font.pixelSize: root.compact ? 13 : 18
                                 }
                             }
                         }
                     }
                 }
 
-
+                GridLayout {
+                    id: auxGrid
+                    objectName: "auxiliaryGrid"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: root.auxSide
+                    y: root.effectsVisible ? parent.height - height :
+                        Math.min(parent.height - height, artwork.height + (artwork.visible ? root.gap : 0) + actionContent.implicitHeight + root.gap)
+                    columns: 3
+                    columnSpacing: root.gap
+                    Repeater {
+                        model: cab.secondaryActionModel
+                        Item {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: root.auxSide
+                            FunctionButton {
+                                objectName: "auxControl_" + modelData.key
+                                anchors.centerIn: parent
+                                width: Math.min(root.auxSide, parent.width)
+                                height: width
+                                compact: true
+                                text: modelData.label.replace(" · ", "\n")
+                                holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
+                                          modelData.holdTarget === "more" ? "More controls" :
+                                          modelData.key === "sequence" ? "Repeat sequence" : ""
+                                font.pixelSize: root.compact ? 13 : 18
+                                deferForHold: modelData.hold
+                                holdThreshold: modelData.holdThreshold
+                                repeatWhileHeld: modelData.repeat
+                                repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
+                                onClicked: cab.triggerAction(modelData.key)
+                                onHeld: root.handleModelHold(modelData)
+                            }
+                        }
+                    }
+                }
             }
 
             Rectangle {
-                Layout.preferredWidth: root.compact ? 210 : 324
-                Layout.fillHeight: true
+                objectName: "drivingSliders"
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: (drivingArea.width - root.gap) * 2 / 5
                 radius: 10
                 color: "#20262e"
                 border.color: "#394450"
@@ -270,15 +321,17 @@ Rectangle {
                     anchors.fill: parent
                     anchors.margins: 8
                     spacing: root.compact ? 6 : 10
-                    RowLayout {
+                    Item {
+                        id: speedReadoutRow
                         Layout.fillWidth: true
-                        spacing: 6
-                        Item {
-                            visible: cab.analogModes.length > 0
-                            Layout.preferredWidth: root.compact ? 78 : 130
-                        }
+                        Layout.minimumHeight: root.compact ? 50 : 64
+                        Layout.maximumHeight: root.compact ? 50 : 64
+                        Layout.preferredHeight: root.compact ? 50 : 64
                         ColumnLayout {
-                            Layout.fillWidth: true
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: cab.analogModes.length > 0 ? (parent.width - 6) * 3 / 4 : parent.width
                             spacing: 0
                             Label {
                                 Layout.fillWidth: true
@@ -303,7 +356,7 @@ Rectangle {
                         spacing: 5
                         CabButton {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.compact ? 38 : 60
+                            Layout.preferredHeight: root.compact ? 32 : 45
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: reverseButton
@@ -315,7 +368,7 @@ Rectangle {
                         }
                         CabButton {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.compact ? 38 : 60
+                            Layout.preferredHeight: root.compact ? 32 : 45
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: forwardButton
@@ -326,48 +379,59 @@ Rectangle {
                             onClicked: root.requestDirection("FORWARD")
                         }
                     }
-                    RowLayout {
+                    ComboBox {
+                        id: analogMode
+                        visible: cab.analogModes.length > 0
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.compact ? 32 : 40
+                        model: cab.analogModes
+                        font.pixelSize: root.compact ? 11 : 18
+                        leftPadding: 4
+                        rightPadding: 14
+                        topPadding: 0
+                        bottomPadding: 0
+                        indicator: Text {
+                            x: analogMode.width - width - 4
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "▾"
+                            color: "#c7d5e3"
+                            font.pixelSize: 12
+                        }
+                        popup.width: root.compact ? 150 : 220
+                        contentItem: Text {
+                            leftPadding: 2
+                            rightPadding: 0
+                            text: root.compact && analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
+                            color: "#e9edf2"
+                            font: analogMode.font
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+                        background: Rectangle {
+                            color: "#303945"
+                            radius: 6
+                            border.color: "#627384"
+                        }
+                    }
+                    Item {
+                        id: sliderColumns
+                        objectName: "sliderColumns"
+                        readonly property real laneWidth: (width - 6) / 4
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.minimumHeight: 0
-                        spacing: 6
                         ColumnLayout {
                             visible: cab.analogModes.length > 0
-                            Layout.preferredWidth: root.compact ? 78 : 130
-                            Layout.fillHeight: true
+                            objectName: "variableControlLane"
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: sliderColumns.laneWidth
                             spacing: 6
-                            ComboBox {
-                                id: analogMode
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: root.compact ? 36 : 54
-                                model: cab.analogModes
-                                font.pixelSize: root.compact ? 11 : 18
-                                leftPadding: 4
-                                rightPadding: 14
-                                topPadding: 0
-                                bottomPadding: 0
-                                indicator: Text {
-                                    x: analogMode.width - width - 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "▾"
-                                    color: "#c7d5e3"
-                                    font.pixelSize: 12
-                                }
-                                popup.width: root.compact ? 150 : 220
-                                contentItem: Text {
-                                    leftPadding: 2
-                                    rightPadding: 0
-                                    text: root.compact && analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
-                                    color: "#e9edf2"
-                                    font: analogMode.font
-                                    verticalAlignment: Text.AlignVCenter
-                                    elide: Text.ElideRight
-                                }
-                                background: Rectangle {
-                                    color: "#303945"
-                                    radius: 6
-                                    border.color: "#627384"
-                                }
+                            Item {
+                                Layout.minimumHeight: root.compact ? 32 : 40
+                                Layout.maximumHeight: root.compact ? 32 : 40
+                                Layout.preferredHeight: root.compact ? 32 : 40
                             }
                             VerticalCabControl {
                                 id: analogControl
@@ -389,12 +453,17 @@ Rectangle {
                                     else if (analogMode.currentText === "Horn") cab.setQuillingHorn(v)
                                 }
                             }
-                            Label {
+                            Item {
                                 Layout.fillWidth: true
-                                text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
-                                color: "#9aabba"
-                                horizontalAlignment: Text.AlignHCenter
-                                font.pixelSize: root.compact ? 10 : 15
+                                Layout.minimumHeight: root.compact ? 32 : 40
+                                Layout.maximumHeight: root.compact ? 32 : 40
+                                Layout.preferredHeight: root.compact ? 32 : 40
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
+                                    color: "#9aabba"
+                                    font.pixelSize: root.compact ? 10 : 15
+                                }
                             }
                             Timer {
                                 interval: 500
@@ -404,15 +473,18 @@ Rectangle {
                             }
                         }
                         ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
+                            objectName: "throttleLane"
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: cab.analogModes.length > 0 ? sliderColumns.laneWidth * 3 : sliderColumns.width
                             spacing: 6
                             CabButton {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.compact ? 36 : 54
+                                Layout.preferredHeight: root.compact ? 32 : 40
                                 objectName: "speedStepUp"
                                 text: "+"
-                                font.pixelSize: root.compact ? 22 : 34
+                                font.pixelSize: root.compact ? 22 : 26
                                 enabled: !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(1)
@@ -430,10 +502,10 @@ Rectangle {
                             }
                             CabButton {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.compact ? 36 : 54
+                                Layout.preferredHeight: root.compact ? 32 : 40
                                 objectName: "speedStepDown"
                                 text: "−"
-                                font.pixelSize: root.compact ? 22 : 34
+                                font.pixelSize: root.compact ? 22 : 26
                                 enabled: !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(-1)
@@ -442,45 +514,13 @@ Rectangle {
                     }
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.compact ? 36 : 54
+                        Layout.preferredHeight: root.compact ? 32 : 40
                         text: cab.speedLimit > 0 ? "Speed limit · " + cab.speedLimit : "Set speed limit"
                         font.pixelSize: root.compact ? 12 : 18
                         onClicked: speedLimitPopup.open()
                     }
                 }
             }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 5
-            Item { Layout.fillWidth: true }
-            Repeater {
-                model: cab.secondaryActionModel
-                FunctionButton {
-                    required property var modelData
-                    readonly property int side: root.compact ? 80 : 144
-                    Layout.minimumWidth: side
-                    Layout.maximumWidth: side
-                    Layout.preferredWidth: side
-                    Layout.minimumHeight: side
-                    Layout.maximumHeight: side
-                    Layout.preferredHeight: side
-                    compact: true
-                    text: modelData.label.replace(" · ", "\n")
-                    holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
-                              modelData.holdTarget === "more" ? "More controls" :
-                              modelData.key === "sequence" ? "Repeat sequence" : ""
-                    font.pixelSize: root.compact ? 10 : 18
-                    deferForHold: modelData.hold
-                    holdThreshold: modelData.holdThreshold
-                    repeatWhileHeld: modelData.repeat
-                    repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
-                    onClicked: cab.triggerAction(modelData.key)
-                    onHeld: root.handleModelHold(modelData)
-                }
-            }
-            Item { Layout.fillWidth: true }
         }
 
         GridLayout {

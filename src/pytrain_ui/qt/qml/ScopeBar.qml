@@ -6,8 +6,7 @@ Rectangle {
     id: root
 
     property string currentScope: ""
-    property bool largeTouch: true
-    property bool roster: false
+    implicitHeight: 84
     signal scopePressed(string scope)
 
     radius: 9
@@ -28,6 +27,11 @@ Rectangle {
                 required property string modelData
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.preferredWidth: 0
+                Layout.minimumWidth: 0
+                Layout.minimumHeight: 76
+                Layout.maximumHeight: 76
+                Layout.preferredHeight: 76
                 radius: 7
                 color: scopeTap.pressed ? "#3c5265" : (root.currentScope === modelData ? "#246aa0" : "#303640")
                 border.width: root.currentScope === modelData ? 2 : 1
@@ -36,11 +40,12 @@ Rectangle {
                 Label {
                     anchors.centerIn: parent
                     width: parent.width - 6
-                    text: scopeButton.modelData === "ACCESSORY" ? "Accessory" : scopeButton.modelData.charAt(0) + scopeButton.modelData.slice(1).toLowerCase()
+                    text: scopeButton.modelData === "ACCESSORY" ? "Acc" : scopeButton.modelData.charAt(0) + scopeButton.modelData.slice(1).toLowerCase()
                     color: "#f4f6f8"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
-                    font.pixelSize: root.roster ? 24 : root.largeTouch ? 20 : 12
+                    wrapMode: Text.NoWrap
+                    font.pixelSize: 20
                     font.bold: root.currentScope === scopeButton.modelData
                 }
 

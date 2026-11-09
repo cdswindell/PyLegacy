@@ -98,3 +98,25 @@ representative data, a scrolled switch action targeted the correct ID and retain
 position, and speed-step lockout, target/current speed, Aux hints, and hold progress
 were rechecked. Full suite: 8,761 passed, 35 skipped. Physical Pi touch usability
 still needs the operator's review on the device.
+
+## Five-column revision — November 9
+
+The next physical-display review reduced the preceding oversized operating layout:
+
+- Three fifths of the operating area contain three equal button columns; the other
+  two fifths contain the variable control and throttle.
+- The variable-control lane uses one quarter of the slider area, and the throttle
+  uses three quarters, excluding their gutter. The mode selector spans the slider
+  block so its name remains readable.
+- Tall-layout operating tiles are 112 pixels high, down from 150. Aux buttons are
+  108-pixel squares, down from 144, aligned with the three operating columns.
+- Aux buttons remain visible on both Drive and Effects; Effects scrolls separately.
+- The engine-type label above the driving block is removed.
+- Scope navigation is always 84 pixels high with 76-pixel buttons, a fixed 20-pixel
+  font, and the label Acc. Its size does not change between rosters, operation pages,
+  or selected scopes. Long locomotive titles do not change the operating header height.
+
+The Pi/PyCab throttle rail is 555 pixels tall in the reference rendering. All three
+presets passed geometry checks for the 3:2 operating split and 3:1 slider split.
+Direction feedback, current/target speed, direct speed-step lockout, and Aux hold
+progress/hints were rechecked. Full suite: 8,761 passed, 35 skipped.
