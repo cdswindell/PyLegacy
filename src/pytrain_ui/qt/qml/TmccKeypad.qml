@@ -49,6 +49,27 @@ Popup {
     padding: 16
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
+    component KeyButton: Button {
+        id: keyControl
+        focusPolicy: Qt.NoFocus
+        font.pixelSize: 24
+
+        contentItem: Text {
+            text: keyControl.text
+            font: keyControl.font
+            color: keyControl.enabled ? "#ffffff" : "#7d8591"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        background: Rectangle {
+            radius: 10
+            color: keyControl.down ? "#4d5968" : (keyControl.highlighted ? "#246aa0" : "#343a44")
+            border.width: keyControl.highlighted ? 2 : 1
+            border.color: keyControl.highlighted ? "#78bff0" : "#626b78"
+        }
+    }
+
     background: Rectangle {
         color: "#171a1f"
         radius: 14
@@ -57,12 +78,23 @@ Popup {
     }
     contentItem: ColumnLayout {
         spacing: 10
-        Label {
+        RowLayout {
             Layout.fillWidth: true
-            text: root.title
-            color: "#f4f6f8"
-            font.pixelSize: 22
-            font.bold: true
+            spacing: 8
+            Label {
+                Layout.fillWidth: true
+                text: root.title
+                color: "#f4f6f8"
+                font.pixelSize: 22
+                font.bold: true
+            }
+            KeyButton {
+                Layout.preferredWidth: 44
+                Layout.preferredHeight: 44
+                text: "×"
+                Accessible.name: "Close keypad"
+                onClicked: root.close()
+            }
         }
         TextField {
             id: tmccIdEntry
@@ -84,7 +116,9 @@ Popup {
             columnSpacing: 8
             Repeater {
                 model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Del", "0", "↵"]
-                CabButton {
+                // Standard Button consumes the pointer gesture and clicks on release.
+                // Closing a popup on press lets the remaining gesture hit its catalog.
+                KeyButton {
                     required property string modelData
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
@@ -93,7 +127,7 @@ Popup {
                     font.pixelSize: 24
                     Accessible.name: modelData === "↵" ? "Enter" :
                                      modelData === "Del" ? "Backspace" : modelData
-                    selected: modelData === "↵"
+                    highlighted: modelData === "↵"
                     enabled: modelData !== "↵" || tmccIdEntry.acceptableInput
                     onClicked: {
                         if (modelData === "Del")
