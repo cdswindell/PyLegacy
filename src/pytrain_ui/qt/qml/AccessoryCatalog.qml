@@ -90,7 +90,7 @@ Rectangle {
     }
 
     component ChoiceButton: CabButton {
-        font.pixelSize: 14
+        font.pixelSize: 26
         font.bold: selected
     }
 
@@ -98,288 +98,223 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 10
-
+        Label {
+            Layout.fillWidth: true
+            text: "Operating Accessories"
+            color: "#f4f6f8"
+            font.pixelSize: 30
+            font.bold: true
+        }
         RowLayout {
             Layout.fillWidth: true
-            Label {
-                text: "Operating Accessories"
-                color: "#f4f6f8"
-                font.pixelSize: 24
-                font.bold: true
-            }
-            CabButton {
-                Layout.preferredWidth: 92
-                Layout.preferredHeight: 46
+            spacing: 10
+            ChoiceButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 92
                 text: "ADD…"
                 enabled: !lcsConfig.visible
-                font.pixelSize: 14
                 onClicked: root.addRequested()
             }
-            CabButton {
-                Layout.preferredWidth: 92
-                Layout.preferredHeight: 46
+            ChoiceButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 92
                 text: "LCS…"
                 enabled: !lcsConfig.visible
-                font.pixelSize: 14
                 onClicked: root.lcsRequested()
             }
-            Item { Layout.fillWidth: true }
-            CabButton {
-                Layout.preferredWidth: 120
-                Layout.preferredHeight: 54
+            ChoiceButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 108
                 text: "ALL STOP"
-                font.pixelSize: 17
                 font.bold: true
                 normalColor: "#8b2d32"
                 pressedColor: "#b43b42"
                 onClicked: root.controller.halt()
             }
         }
-
         RowLayout {
             Layout.fillWidth: true
-            spacing: 6
+            spacing: 8
             TextField {
                 id: searchField
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
-                placeholderText: "Search name, road number, TMCC ID, or LCS module"
-                font.pixelSize: 17
+                Layout.minimumWidth: 0
+                Layout.preferredHeight: 108
+                placeholderText: "Name, road #, or TMCC ID"
+                font.pixelSize: 26
                 selectByMouse: true
                 text: root.searchText
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
             }
-            CabButton {
-                Layout.preferredWidth: 72
-                Layout.preferredHeight: 54
+            ChoiceButton {
+                Layout.preferredWidth: 144
+                Layout.preferredHeight: 108
                 text: "Clear"
-                font.pixelSize: 14
                 enabled: searchField.text.length > 0 || root.directTmccId > 0
-                onClicked: {
-                    root.directTmccId = 0
-                    root.searchText = ""
-                    searchField.forceActiveFocus()
-                }
+                onClicked: { root.directTmccId = 0; root.searchText = ""; searchField.forceActiveFocus() }
             }
             KeypadButton {
-                Layout.preferredWidth: 52
-                Layout.preferredHeight: 54
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 108
                 onClicked: tmccKeypad.openFor(root.searchText)
             }
         }
-
         RowLayout {
             Layout.fillWidth: true
-            spacing: 7
-            Label { text: "Sort"; color: "#aeb7c2"; font.pixelSize: 13 }
-            ChoiceButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 42
-                text: "Name"
-                selected: root.sortMode === "NAME"
-                onClicked: root.sortMode = "NAME"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 42
-                text: "Road #"
-                selected: root.sortMode === "ROAD"
-                onClicked: root.sortMode = "ROAD"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 42
-                text: "TMCC ID"
-                selected: root.sortMode === "TMCC"
-                onClicked: root.sortMode = "TMCC"
-            }
-            Item { Layout.fillWidth: true }
-            Label {
-                text: root.visibleRows().length + " accessories"
-                color: "#9ea6b0"
-                font.pixelSize: 12
+            spacing: 8
+            Repeater {
+                model: [{key:"NAME",label:"Name"},{key:"ROAD",label:"Road #"},{key:"TMCC",label:"TMCC ID"}]
+                ChoiceButton {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: 0
+                    Layout.preferredHeight: 84
+                    text: modelData.label
+                    selected: root.sortMode === modelData.key
+                    onClicked: root.sortMode = modelData.key
+                }
             }
         }
-
-        RowLayout {
+        ListView {
             Layout.fillWidth: true
-            spacing: 7
-            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
-            ChoiceButton {
-                Layout.preferredWidth: 70
-                Layout.preferredHeight: 42
-                text: "All"
-                selected: root.typeFilter === "ALL"
-                onClicked: root.typeFilter = "ALL"
+            Layout.preferredHeight: 84
+            orientation: ListView.Horizontal
+            spacing: 8
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: [
+                {key:"ALL",label:"All"}, {key:"OPERATING",label:"Operating"},
+                {key:"ASC2",label:"ASC2"}, {key:"AMC2",label:"AMC2"},
+                {key:"BPC2",label:"BPC2"}, {key:"SENSOR_TRACK",label:"Sensor Track"}
+            ]
+            delegate: ChoiceButton {
+                required property var modelData
+                width: modelData.label.length > 8 ? 240 : modelData.label.length > 5 ? 220 : 164
+                height: 84
+                text: modelData.label
+                selected: root.typeFilter === modelData.key
+                onClicked: root.typeFilter = modelData.key
             }
-            ChoiceButton {
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 42
-                text: "Operating"
-                selected: root.typeFilter === "OPERATING"
-                onClicked: root.typeFilter = "OPERATING"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 82
-                Layout.preferredHeight: 42
-                text: "ASC2"
-                selected: root.typeFilter === "ASC2"
-                onClicked: root.typeFilter = "ASC2"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 82
-                Layout.preferredHeight: 42
-                text: "AMC2"
-                selected: root.typeFilter === "AMC2"
-                onClicked: root.typeFilter = "AMC2"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 82
-                Layout.preferredHeight: 42
-                text: "BPC2"
-                selected: root.typeFilter === "BPC2"
-                onClicked: root.typeFilter = "BPC2"
-            }
-            ChoiceButton {
-                Layout.preferredWidth: 122
-                Layout.preferredHeight: 42
-                text: "Sensor Track"
-                selected: root.typeFilter === "SENSOR_TRACK"
-                onClicked: root.typeFilter = "SENSOR_TRACK"
-            }
-            Item { Layout.fillWidth: true }
         }
-
         ListView {
             id: listView
+            objectName: "accessoryRoster"
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
             clip: true
-            spacing: 6
+            spacing: 10
             boundsBehavior: Flickable.StopAtBounds
             flickDeceleration: 1800
             model: root.visibleRows()
-
             delegate: Rectangle {
                 id: row
                 required property var modelData
                 width: ListView.view.width
-                height: 82
+                height: 208
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#272d35"
                 opacity: row.modelData.componentEnabled === false ? 0.62 : 1.0
                 border.width: 1
                 border.color: "#4b5664"
-
-                RowLayout {
+                ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 9
-                    spacing: 10
-
-                    Label {
-                        Layout.preferredWidth: 54
-                        text: row.modelData.primaryTmccId
-                        color: "#55bdf5"
-                        font.pixelSize: 22
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        Label {
-                            Layout.fillWidth: true
-                            text: row.modelData.roadName
-                            color: "#f4f6f8"
-                            font.pixelSize: 17
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: {
-                                var parts = []
-                                if (row.modelData.roadNumber)
-                                    parts.push("Road # " + row.modelData.roadNumber)
-                                if (row.modelData.lcsAssociations)
-                                    parts.push(row.modelData.lcsAssociations)
-                                return parts.join(" · ")
-                            }
-                            color: "#b8c0ca"
-                            font.pixelSize: 12
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: row.modelData.stateSummary || row.modelData.availableViews.join(" · ")
-                            color: row.modelData.stateSummary ? "#8fc9ef" :
-                                   (row.modelData.configured ? "#e9c46a" : "#8fa2b5")
-                            font.pixelSize: 11
-                            font.bold: row.modelData.stateSummary.length > 0
-                            elide: Text.ElideRight
-                        }
-                    }
-
+                    anchors.margins: 12
+                    spacing: 8
                     RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Label {
+                            Layout.preferredWidth: 70
+                            text: row.modelData.primaryTmccId
+                            color: "#55bdf5"
+                            font.pixelSize: 36
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 2
+                            Label {
+                                Layout.fillWidth: true
+                                text: row.modelData.roadName
+                                color: "#f4f6f8"
+                                font.pixelSize: 28
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: (row.modelData.roadNumber ? "Road # " + row.modelData.roadNumber : "") +
+                                      (row.modelData.lcsAssociations ? " · " + row.modelData.lcsAssociations : "")
+                                color: "#b8c0ca"
+                                font.pixelSize: 20
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                visible: row.modelData.quickActions.length > 0 && row.modelData.stateSummary.length > 0
+                                text: row.modelData.stateSummary
+                                color: "#8fc9ef"
+                                font.pixelSize: 18
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+                        }
+                        Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 42 }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
                         visible: row.modelData.quickActions.length > 0
-                        spacing: 5
+                        spacing: 8
                         Repeater {
                             model: row.modelData.quickActions
-                            CabButton {
+                            ChoiceButton {
                                 required property var modelData
-                                Layout.preferredWidth: (modelData.key === "HOLD" || modelData.key === "PULSE") ? 104 : 58
-                                Layout.preferredHeight: 38
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredWidth: (modelData.key === "HOLD" || modelData.key === "PULSE") ? 208 : 116
+                                Layout.preferredHeight: 76
                                 text: modelData.label
-                                font.pixelSize: 12
                                 font.bold: modelData.selected
                                 selected: modelData.selected
                                 enabled: modelData.enabled === undefined || modelData.enabled
                                 onClicked: {
                                     var id = row.modelData.primaryTmccId
-                                    if (modelData.key === "HOLD" || modelData.key === "PULSE")
-                                        root.controller.holdQuickAction(id, true)
-                                    else
-                                        root.controller.quickAction(modelData.key, id)
+                                    if (modelData.key === "HOLD" || modelData.key === "PULSE") root.controller.holdQuickAction(id, true)
+                                    else root.controller.quickAction(modelData.key, id)
                                 }
                                 onReleased: {
                                     var id = row.modelData.primaryTmccId
-                                    if (modelData.key === "HOLD" || modelData.key === "PULSE")
-                                        root.controller.holdQuickAction(id, false)
+                                    if (modelData.key === "HOLD" || modelData.key === "PULSE") root.controller.holdQuickAction(id, false)
                                 }
                             }
                         }
                     }
                     Label {
+                        Layout.fillWidth: true
                         visible: row.modelData.quickActions.length === 0
-                        text: row.modelData.preferredView
-                        color: "#f4f6f8"
-                        font.pixelSize: 13
-                        font.bold: true
-                    }
-                    Label {
-                        text: "›"
+                        text: row.modelData.stateSummary || row.modelData.availableViews.join(" · ")
                         color: "#8fc9ef"
-                        font.pixelSize: 28
+                        font.pixelSize: 22
+                        elide: Text.ElideRight
                     }
                 }
-
                 TapHandler {
                     id: tapHandler
                     gesturePolicy: TapHandler.DragThreshold
                     longPressThreshold: 0.75
-
                     function hasAction(key) {
-                        return row.modelData.quickActions.some(function(action) {
-                            return action.key === key &&
-                                   (action.enabled === undefined || action.enabled)
-                        })
+                        return row.modelData.quickActions.some(function(action) { return action.key === key && (action.enabled === undefined || action.enabled) })
                     }
-
                     onTapped: root.accessoryRequested(row.modelData.key)
                     onDoubleTapped: {
-                        if (hasAction("ON") && hasAction("OFF"))
-                            root.controller.toggleQuickAction(row.modelData.primaryTmccId)
+                        if (hasAction("ON") && hasAction("OFF")) root.controller.toggleQuickAction(row.modelData.primaryTmccId)
                     }
                 }
             }

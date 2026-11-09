@@ -79,7 +79,7 @@ Rectangle {
     }
 
     component ChoiceButton: CabButton {
-        font.pixelSize: 14
+        font.pixelSize: 26
         font.bold: selected
     }
 
@@ -90,9 +90,14 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: root.scope === "TRAIN" ? "TRAINS" : "ENGINES"; color: "#f4f6f8"; font.pixelSize: 24; font.bold: true }
-            CabButton { Layout.preferredWidth: 130; Layout.preferredHeight: 46; text: "ALL STOP"; font.pixelSize: 17; font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.halt() }
-            CabButton { Layout.preferredWidth: 100; Layout.preferredHeight: 46; text: "Cab"; font.pixelSize: 15; onClicked: root.closeRequested() }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Label { text: root.scope === "TRAIN" ? "TRAINS" : "ENGINES"; color: "#f4f6f8"; font.pixelSize: 28; font.bold: true }
+                Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#aeb7c2"; font.pixelSize: 18 }
+            }
+            CabButton { Layout.preferredWidth: 260; Layout.preferredHeight: 92; text: "ALL STOP"; font.pixelSize: 28; font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.halt() }
+            CabButton { Layout.preferredWidth: 200; Layout.preferredHeight: 92; text: "Cab"; font.pixelSize: 28; onClicked: root.closeRequested() }
         }
 
         RowLayout {
@@ -101,9 +106,9 @@ Rectangle {
             TextField {
                 id: searchField
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
-                placeholderText: "Search name, road number, TMCC ID, or type"
-                font.pixelSize: 17
+                Layout.preferredHeight: 108
+                placeholderText: "Name, road #, or TMCC ID"
+                font.pixelSize: 26
                 selectByMouse: true
                 text: root.searchText
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
@@ -113,16 +118,16 @@ Rectangle {
                 }
             }
             CabButton {
-                Layout.preferredWidth: 72
-                Layout.preferredHeight: 54
+                Layout.preferredWidth: 144
+                Layout.preferredHeight: 108
                 text: "Clear"
-                font.pixelSize: 14
+                font.pixelSize: 26
                 enabled: searchField.text.length > 0 || root.directTmccId > 0
                 onClicked: { root.directTmccId = 0; root.searchText = ""; searchField.forceActiveFocus() }
             }
             KeypadButton {
-                Layout.preferredWidth: 52
-                Layout.preferredHeight: 54
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 108
                 onClicked: tmccKeypad.openFor(root.searchText)
             }
         }
@@ -130,22 +135,19 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label { text: "Sort"; color: "#aeb7c2"; font.pixelSize: 13 }
-            ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "Name"; selected: root.sortMode === "name"; onClicked: root.sortMode = "name" }
-            ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "Road #"; selected: root.sortMode === "road"; onClicked: root.sortMode = "road" }
-            ChoiceButton { Layout.preferredWidth: 104; Layout.preferredHeight: 42; text: "TMCC ID"; selected: root.sortMode === "tmcc"; onClicked: root.sortMode = "tmcc" }
-            Item { Layout.fillWidth: true }
-            Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#9ea6b0"; font.pixelSize: 12 }
+            ChoiceButton { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0; Layout.preferredHeight: 84; text: "Name"; selected: root.sortMode === "name"; onClicked: root.sortMode = "name" }
+            ChoiceButton { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0; Layout.preferredHeight: 84; text: "Road #"; selected: root.sortMode === "road"; onClicked: root.sortMode = "road" }
+            ChoiceButton { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0; Layout.preferredHeight: 84; text: "TMCC ID"; selected: root.sortMode === "tmcc"; onClicked: root.sortMode = "tmcc" }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 13 }
+            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 22 }
             ListView {
                 id: typeList
                 Layout.fillWidth: true
-                Layout.preferredHeight: 42
+                Layout.preferredHeight: 84
                 orientation: ListView.Horizontal
                 spacing: 7
                 clip: true
@@ -153,8 +155,8 @@ Rectangle {
                 model: [{ "key": "ALL", "label": "All" }].concat(root.catalog ? root.catalog.typeFilters : [])
                 delegate: ChoiceButton {
                     required property var modelData
-                    width: Math.max(82, implicitWidth + 26)
-                    height: 42
+                    width: Math.max(164, implicitWidth + 40)
+                    height: 84
                     text: modelData.label
                     selected: root.typeFilter === modelData.key
                     onClicked: root.typeFilter = modelData.key
@@ -164,6 +166,7 @@ Rectangle {
 
         ListView {
             id: listView
+            objectName: "engineRoster"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -176,7 +179,7 @@ Rectangle {
                 id: row
                 required property var modelData
                 width: ListView.view.width
-                height: 72
+                height: 144
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#272d35"
                 border.width: 1
@@ -188,16 +191,16 @@ Rectangle {
                     anchors.rightMargin: 14
                     spacing: 14
                     Rectangle {
-                        Layout.preferredWidth: 66
-                        Layout.preferredHeight: 46
+                        Layout.preferredWidth: 132
+                        Layout.preferredHeight: 92
                         radius: 7
                         color: "#1c2229"
                         border.width: 1
                         border.color: "#596574"
                         Column {
                             anchors.centerIn: parent
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: root.scope === "TRAIN" ? "TRN" : "ENG"; color: "#9ea6b0"; font.pixelSize: 9; font.bold: true }
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 18; font.bold: true }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: root.scope === "TRAIN" ? "TRN" : "ENG"; color: "#9ea6b0"; font.pixelSize: 14; font.bold: true }
+                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 36; font.bold: true }
                         }
                     }
                     ColumnLayout {
@@ -207,11 +210,13 @@ Rectangle {
                             Layout.fillWidth: true
                             text: (row.modelData.roadName || (root.scope === "TRAIN" ? "Train" : "Engine")) + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
-                            font.pixelSize: 16
+                            font.pixelSize: 28
                             font.bold: true
                             elide: Text.ElideRight
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
                         }
-                        Label { Layout.fillWidth: true; text: row.modelData.engineTypeLabel; color: "#a9b2bd"; font.pixelSize: 11; elide: Text.ElideRight }
+                        Label { Layout.fillWidth: true; text: row.modelData.engineTypeLabel; color: "#a9b2bd"; font.pixelSize: 20; elide: Text.ElideRight }
                     }
                     Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 28 }
                 }

@@ -10,6 +10,7 @@ Control {
     property bool selected: false
     property bool compact: false
     property bool stacked: false
+    property bool wrapLabel: false
     property int iconSize: compact ? 30 : 42
     property bool deferForHold: false
     property string holdHint: ""
@@ -63,6 +64,7 @@ Control {
             Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignCenter
             text: root.text
+            wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
             color: root.enabled ? "#f5f7fa" : "#858c96"
             font: root.font
             horizontalAlignment: Text.AlignHCenter

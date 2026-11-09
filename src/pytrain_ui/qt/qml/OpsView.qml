@@ -283,50 +283,45 @@ Rectangle {
         }
     }
 
+    component TouchButton: CabButton {
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.preferredWidth: 0
+        Layout.preferredHeight: 92
+        font.pixelSize: 28
+    }
+
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 8
+        anchors.margins: 12
+        spacing: 10
 
+        Label {
+            Layout.fillWidth: true
+            text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
+            color: "#f4f6f8"
+            font.pixelSize: 30
+            font.bold: true
+        }
         RowLayout {
             Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-            Label {
-                text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
-                color: (lcsConfig.visible || routeBuilder.visible || routePicker.visible) ? "#777d86" : "#f4f6f8"
-                font.pixelSize: 24
-                font.bold: true
-            }
-            CabButton {
-                visible: controller
-                Layout.leftMargin: 16
-                Layout.preferredWidth: 90
-                Layout.preferredHeight: 46
+            spacing: 10
+            TouchButton {
                 text: "ADD…"
                 enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
-                font.bold: true
                 onClicked: {
-                    if (controller.scope === "SWITCH")
-                        root.openAddSwitch()
-                    else
-                        root.openAddRoute()
+                    if (controller.scope === "SWITCH") root.openAddSwitch()
+                    else root.openAddRoute()
                 }
             }
-            CabButton {
+            TouchButton {
                 visible: controller && controller.scope === "SWITCH" && root.lcsController
-                Layout.preferredWidth: 90
-                Layout.preferredHeight: 46
                 text: "LCS…"
                 enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
-                font.bold: true
                 onClicked: lcsConfig.open()
             }
-            Item {
-                Layout.fillWidth: true
-            }
-            CabButton {
-                Layout.preferredWidth: 120
-                Layout.preferredHeight: 54
+            TouchButton {
+                Layout.preferredHeight: 108
                 text: "ALL STOP"
                 font.bold: true
                 normalColor: "#9d2020"
@@ -334,25 +329,23 @@ Rectangle {
                 onClicked: controller.halt()
             }
         }
-
         RowLayout {
             Layout.fillWidth: true
-            spacing: 6
-
+            spacing: 8
             TextField {
                 id: searchField
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                Layout.preferredHeight: 46
-                placeholderText: "Search road name, road number, or TMCC ID"
-                font.pixelSize: 15
+                Layout.preferredHeight: 92
+                placeholderText: "Name, road #, or TMCC ID"
+                font.pixelSize: 26
                 onTextEdited: root.directTmccId = 0
             }
             CabButton {
-                Layout.preferredWidth: 76
-                Layout.preferredHeight: 46
+                Layout.preferredWidth: 152
+                Layout.preferredHeight: 92
                 text: "Clear"
-                font.pixelSize: 16
+                font.pixelSize: 28
                 enabled: searchField.text.length > 0 || root.directTmccId > 0
                 onClicked: {
                     root.directTmccId = 0
@@ -362,21 +355,16 @@ Rectangle {
                 }
             }
             KeypadButton {
-                Layout.preferredWidth: 52
-                Layout.preferredHeight: 46
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 92
                 onClicked: root.openTmccKeypad()
             }
         }
-
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 6
-
-            Label {
-                text: "Sort:"
-                color: "#aeb5bf"
-                font.pixelSize: 13
-            }
+            columns: 3
+            columnSpacing: 8
+            rowSpacing: 8
             Repeater {
                 model: [
                     { key: "roadName", label: "Name" },
@@ -386,143 +374,123 @@ Rectangle {
                     { key: "aligned", label: "Aligned" },
                     { key: "unaligned", label: "Unaligned" }
                 ] : [])
-                CabButton {
+                TouchButton {
                     required property var modelData
-                    Layout.fillWidth: controller && controller.scope === "ROUTE"
-                    Layout.preferredWidth: controller && controller.scope === "ROUTE" ? 0 : 145
-                    Layout.preferredHeight: 38
+                    Layout.preferredHeight: 76
                     text: modelData.label
                     selected: root.sortKey === modelData.key
                     onClicked: root.sortKey = modelData.key
                 }
             }
-            Item {
+            TouchButton {
                 visible: controller && controller.scope === "SWITCH"
-                Layout.preferredWidth: 8
-            }
-            CabButton {
-                visible: controller && controller.scope === "SWITCH"
-                Layout.fillWidth: true
-                Layout.minimumWidth: 170
-                Layout.preferredHeight: 38
+                Layout.columnSpan: 3
+                Layout.preferredHeight: 76
                 text: root.showInactiveSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
                 selected: true
                 onClicked: root.showInactiveSwitches = !root.showInactiveSwitches
             }
         }
-
         ListView {
             id: roster
+            objectName: "operationsRoster"
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
             clip: true
-            spacing: 5
+            spacing: 10
             model: rosterModel
-
             delegate: Rectangle {
                 id: row
                 required property var rowData
                 width: roster.width
-                height: 68
+                height: 184
                 radius: 8
                 color: "#262b32"
                 border.width: 1
                 border.color: "#444c57"
-
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
                     onDoubleTapped: {
-                        if (root.controller.scope === "ROUTE")
-                            root.controller.fireRoute(row.rowData.tmccId)
-                        else
-                            root.controller.toggleSwitch(row.rowData.tmccId)
+                        if (root.controller.scope === "ROUTE") root.controller.fireRoute(row.rowData.tmccId)
+                        else root.controller.toggleSwitch(row.rowData.tmccId)
                     }
                 }
-
-                RowLayout {
+                ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 6
-                    Label {
-                        Layout.preferredWidth: 50
-                        text: rowData.tmccId
-                        color: "#f4f6f8"
-                        font.pixelSize: 20
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-                    ColumnLayout {
+                    anchors.margins: 12
+                    spacing: 8
+                    RowLayout {
                         Layout.fillWidth: true
-                        spacing: 1
                         Label {
-                            Layout.fillWidth: true
-                            text: rowData.roadName || (controller && controller.scope === "SWITCH" ? "Switch" : "Route")
+                            Layout.preferredWidth: 70
+                            text: rowData.tmccId
                             color: "#f4f6f8"
-                            font.pixelSize: 16
+                            font.pixelSize: 36
                             font.bold: true
-                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 2
+                            Label {
+                                Layout.fillWidth: true
+                                text: rowData.roadName || (controller.scope === "SWITCH" ? "Switch" : "Route")
+                                color: "#f4f6f8"
+                                font.pixelSize: 28
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: (rowData.roadNumber ? "Road # " + rowData.roadNumber : "TMCC ID " + rowData.tmccId) +
+                                      (rowData.lcsAssociations ? " · " + rowData.lcsAssociations : "")
+                                color: "#aeb5bf"
+                                font.pixelSize: 20
+                                elide: Text.ElideRight
+                            }
                         }
                         Label {
-                            Layout.fillWidth: true
-                            text: {
-                                let detail = rowData.roadNumber ? "Road # " + rowData.roadNumber :
-                                                                  "TMCC ID " + rowData.tmccId
-                                if (rowData.lcsAssociations)
-                                    detail += " · " + rowData.lcsAssociations
-                                return detail
-                            }
-                            color: "#aeb5bf"
-                            font.pixelSize: 12
-                            elide: Text.ElideRight
+                            Layout.preferredWidth: 152
+                            text: rowData.stateText
+                            color: rowData.stateText === "ALIGNED" || rowData.stateText === "THRU" ? "#73d38a" :
+                                   rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
+                            font.pixelSize: 20
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                         }
                     }
-                    Label {
-                        Layout.preferredWidth: controller && controller.scope === "ROUTE" ? 108 : 58
-                        text: rowData.stateText
-                        color: rowData.stateText === "ALIGNED" || rowData.stateText === "THRU" ? "#73d38a" :
-                               rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
-                        font.pixelSize: 12
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-                    CabButton {
-                        visible: controller && controller.scope === "SWITCH"
-                        Layout.preferredWidth: 68
-                        Layout.preferredHeight: 46
-                        text: "THRU"
-                        selected: row.rowData.stateText === "THRU"
-                        onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
-                    }
-                    CabButton {
-                        visible: controller && controller.scope === "SWITCH"
-                        Layout.preferredWidth: 68
-                        Layout.preferredHeight: 46
-                        text: "OUT"
-                        selected: row.rowData.stateText === "OUT"
-                        onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
-                    }
-                    CabButton {
-                        visible: controller && controller.scope === "ROUTE"
-                        Layout.preferredWidth: 96
-                        Layout.preferredHeight: 46
-                        text: "FIRE"
-                        normalColor: "#a84418"
-                        pressedColor: "#d65a20"
-                        onClicked: controller.fireRoute(row.rowData.tmccId)
-                    }
-                    CabButton {
-                        visible: controller && controller.scope === "ROUTE"
-                        Layout.preferredWidth: 68
-                        Layout.preferredHeight: 46
-                        text: "EDIT…"
-                        onClicked: root.editRoute(row.rowData.tmccId)
-                    }
-                    CabButton {
-                        visible: controller && controller.scope === "SWITCH"
-                        Layout.preferredWidth: 58
-                        Layout.preferredHeight: 46
-                        text: "EDIT…"
-                        onClicked: root.editSwitch(row.rowData.tmccId)
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        TouchButton {
+                            visible: controller.scope === "SWITCH"
+                            text: "THRU"
+                            selected: row.rowData.stateText === "THRU"
+                            onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
+                        }
+                        TouchButton {
+                            visible: controller.scope === "SWITCH"
+                            text: "OUT"
+                            selected: row.rowData.stateText === "OUT"
+                            onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
+                        }
+                        TouchButton {
+                            visible: controller.scope === "ROUTE"
+                            text: "FIRE"
+                            normalColor: "#a84418"
+                            pressedColor: "#d65a20"
+                            onClicked: controller.fireRoute(row.rowData.tmccId)
+                        }
+                        TouchButton {
+                            text: "EDIT…"
+                            onClicked: {
+                                if (controller.scope === "SWITCH") root.editSwitch(row.rowData.tmccId)
+                                else root.editRoute(row.rowData.tmccId)
+                            }
+                        }
                     }
                 }
             }

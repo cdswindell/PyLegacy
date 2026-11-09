@@ -9,6 +9,7 @@ Item {
     property int value: 0
     property int pendingValue: value
     property bool springReturn: false
+    property bool largeTouch: false
     readonly property bool dragging: dragHandler.active
     readonly property int tickCount: maximumValue <= 7 ? maximumValue + 1 : 5
     readonly property real activeHeight: Math.max(1, height)
@@ -53,7 +54,7 @@ Item {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         height: rail.height
-        width: Math.min(42, root.width - 8)
+        width: Math.min(root.largeTouch ? 64 : 42, root.width - 8)
         radius: 12
         color: "#20242a"
         border.width: 1
@@ -85,8 +86,8 @@ Item {
 
     Rectangle {
         id: handle
-        width: Math.max(48, Math.min(68, root.width - 6))
-        height: 46
+        width: Math.max(48, Math.min(root.largeTouch ? 104 : 68, root.width - 6))
+        height: root.largeTouch ? 72 : 46
         radius: 9
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
@@ -97,7 +98,7 @@ Item {
         Text {
             anchors.centerIn: parent
             text: root.displayValue()
-            font.pixelSize: 17
+            font.pixelSize: root.largeTouch ? 26 : 17
             font.bold: true
             color: "#171a1f"
         }

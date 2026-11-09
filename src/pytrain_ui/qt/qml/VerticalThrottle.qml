@@ -10,6 +10,7 @@ Item {
     property int value: 0
     property int pendingValue: value
     property bool awaitingConfirmation: false
+    property bool largeTouch: false
     readonly property bool dragging: dragHandler.active
     readonly property real activeHeight: Math.max(1, height)
     signal valueCommitted(int value)
@@ -106,8 +107,8 @@ Item {
 
     Rectangle {
         id: handle
-        width: Math.min(96, root.width - 8)
-        height: 62
+        width: Math.min(root.largeTouch ? 144 : 96, root.width - 8)
+        height: root.largeTouch ? 96 : 62
         radius: 9
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
@@ -130,29 +131,29 @@ Item {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 3
+            y: root.largeTouch ? 6 : 3
             text: "TARGET"
-            font.pixelSize: 8
+            font.pixelSize: root.largeTouch ? 12 : 8
             font.bold: true
             color: "#263c50"
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 13
+            y: root.largeTouch ? 22 : 13
             text: root.displayValue()
-            font.pixelSize: 19
+            font.pixelSize: root.largeTouch ? 30 : 19
             font.bold: true
             color: "#14212e"
         }
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 9
+            anchors.bottomMargin: root.largeTouch ? 14 : 9
             spacing: 3
             Repeater {
                 model: 3
                 Rectangle {
-                    width: Math.min(48, handle.width - 20)
+                    width: Math.min(root.largeTouch ? 72 : 48, handle.width - 20)
                     height: 2
                     radius: 1
                     color: "#23394c"

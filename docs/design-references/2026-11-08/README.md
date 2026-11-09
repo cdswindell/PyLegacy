@@ -12,7 +12,7 @@ The Lionel version descriptions are the user's identification of the supplied sc
 
 ## Design direction
 
-- Leave the current Switch and Route screens as they are for now.
+- Preserve the simple Switch and Route workflows; enlarge controls and reflow rows per the November 9 physical-display feedback.
 - Preserve the Reset / engine-or-train title / ALL STOP header.
 - Preserve the recent/selected engine and train state strip above the scope buttons.
 - Prefer roster selection over requiring numeric ID entry.
@@ -65,3 +65,36 @@ passed, 35 skipped. Physical touch and controller evaluation remains to be done.
 - Aux controls retain hold progress and show a brief hint after half a second:
   Repeat sequence, Lighting panel, or More controls, as applicable.
 - The Qt application uses the existing bundled PyCab icon at small and large sizes.
+
+## Five-inch Pi touch sizing — November 9
+
+The physical display photos, including the dime for scale, showed that operating
+controls and roster rows were too small. The tall Pi/PyCab operating layouts now
+prioritize touch targets and readable captions over long slider tracks. The Aux
+row spans the screen below the driving area, and artwork is bounded to make room.
+The compact Steam Deck operating layout retains its separate sizing.
+
+| Control | Previous size | Updated size |
+| --- | --- | --- |
+| Operating scope bar | 52 high, 12-pixel label | 84 high, 20-pixel label |
+| Roster scope bar | 52 high | 104 high, 24-pixel label |
+| Reset / ALL STOP | 46 high | 72 high, 24-pixel text |
+| Drive / Effects | 34 high | 54 high, 22-pixel text |
+| Direction | 38 high | 60 high, 20-pixel text |
+| Speed +/− and mode selector | 36 high | 54 high, larger text |
+| Aux squares | 96 × 96 | 144 × 144, 18-pixel text |
+| Engine/train roster rows | 72 high | 144 high, 28-pixel names and 36-pixel IDs |
+| Switch/route roster rows | 68 high | 184 high, 92-high action buttons |
+| Accessory roster rows | 82 high | 208 high, 76-high quick actions |
+
+Dimensions are logical pixels. Roster buttons and search/filter rows are enlarged;
+filters can scroll horizontally, and lists show fewer entries. Switch/route names
+and state occupy a line above the action buttons. Incremental roster updates still
+preserve scroll position. Larger Effects tiles use two columns in tall layouts
+and scroll independently of the driving controls.
+
+Validation: all three device presets rendered, all five rosters rendered with
+representative data, a scrolled switch action targeted the correct ID and retained
+position, and speed-step lockout, target/current speed, Aux hints, and hold progress
+were rechecked. Full suite: 8,761 passed, 35 skipped. Physical Pi touch usability
+still needs the operator's review on the device.

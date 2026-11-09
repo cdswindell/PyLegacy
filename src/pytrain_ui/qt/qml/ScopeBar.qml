@@ -6,6 +6,8 @@ Rectangle {
     id: root
 
     property string currentScope: ""
+    property bool largeTouch: true
+    property bool roster: false
     signal scopePressed(string scope)
 
     radius: 9
@@ -38,7 +40,7 @@ Rectangle {
                     color: "#f4f6f8"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
-                    font.pixelSize: 12
+                    font.pixelSize: root.roster ? 24 : root.largeTouch ? 20 : 12
                     font.bold: root.currentScope === scopeButton.modelData
                 }
 

@@ -30,8 +30,8 @@ Rectangle {
         }
     }
     readonly property bool compact: height < 850
-    readonly property int gap: compact ? 6 : 10
-    readonly property int tileHeight: compact ? 74 : Math.max(112, Math.min(160, (height - 320) / 4))
+    readonly property int gap: compact ? 6 : 8
+    readonly property int tileHeight: compact ? 74 : 150
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
@@ -51,11 +51,12 @@ Rectangle {
         Layout.minimumWidth: 0
         Layout.preferredHeight: root.tileHeight
         stacked: true
+        wrapLabel: true
         padding: 6
         iconSize: root.compact ? 48 : 104
         text: action.label
         iconSource: action.iconSource
-        font.pixelSize: root.compact ? 12 : 15
+        font.pixelSize: root.compact ? 12 : 23
         deferForHold: action.hold
         holdThreshold: action.holdThreshold
         repeatWhileHeld: action.repeat
@@ -76,10 +77,10 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
             CabButton {
-                Layout.preferredWidth: root.compact ? 88 : 106
-                Layout.preferredHeight: 46
+                Layout.preferredWidth: root.compact ? 88 : 160
+                Layout.preferredHeight: root.compact ? 46 : 72
                 text: "Reset"
-                font.pixelSize: 15
+                font.pixelSize: root.compact ? 15 : 24
                 onClicked: cab.reset()
             }
             ColumnLayout {
@@ -92,7 +93,9 @@ Rectangle {
                     color: "#f4f6f8"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
-                    font.pixelSize: root.compact ? 18 : 22
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 2
+                    font.pixelSize: root.compact ? 18 : 26
                     font.bold: true
                 }
                 Label {
@@ -100,14 +103,14 @@ Rectangle {
                     text: cab.scope + " " + cab.tmccId
                     color: "#aeb5bf"
                     horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: 12
+                    font.pixelSize: root.compact ? 12 : 18
                 }
             }
             CabButton {
-                Layout.preferredWidth: root.compact ? 106 : 116
-                Layout.preferredHeight: 46
+                Layout.preferredWidth: root.compact ? 106 : 176
+                Layout.preferredHeight: root.compact ? 46 : 72
                 text: "ALL STOP"
-                font.pixelSize: 16
+                font.pixelSize: root.compact ? 16 : 24
                 font.bold: true
                 normalColor: "#9d2020"
                 pressedColor: "#c62d2d"
@@ -120,15 +123,15 @@ Rectangle {
             spacing: 6
             Button {
                 objectName: "driveTab"
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 34
+                Layout.preferredWidth: root.compact ? 104 : 156
+                Layout.preferredHeight: root.compact ? 34 : 54
                 text: "Drive"
                 checked: !root.effectsVisible
                 onClicked: root.effectsVisible = false
                 contentItem: Text {
                     text: parent.text
                     color: parent.checked ? "#ffffff" : "#aeb7c2"
-                    font.pixelSize: 14
+                    font.pixelSize: root.compact ? 14 : 22
                     font.bold: parent.checked
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -141,15 +144,15 @@ Rectangle {
             }
             Button {
                 objectName: "effectsTab"
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 34
+                Layout.preferredWidth: root.compact ? 104 : 156
+                Layout.preferredHeight: root.compact ? 34 : 54
                 text: "Effects"
                 checked: root.effectsVisible
                 onClicked: root.effectsVisible = true
                 contentItem: Text {
                     text: parent.text
                     color: parent.checked ? "#ffffff" : "#aeb7c2"
-                    font.pixelSize: 14
+                    font.pixelSize: root.compact ? 14 : 22
                     font.bold: parent.checked
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -164,7 +167,7 @@ Rectangle {
             Label {
                 text: cab.engineType.replace(/_/g, " ")
                 color: "#8f9ba9"
-                font.pixelSize: root.compact ? 10 : 12
+                font.pixelSize: root.compact ? 10 : 18
             }
         }
 
@@ -183,7 +186,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     visible: !root.effectsVisible || !root.compact
-                    Layout.preferredHeight: root.compact ? 82 : 158
+                    Layout.preferredHeight: root.compact ? 82 : 80
                     radius: 8
                     color: "#e8ebef"
                     clip: true
@@ -236,7 +239,7 @@ Rectangle {
                         GridLayout {
                             visible: root.effectsVisible
                             Layout.fillWidth: true
-                            columns: 3
+                            columns: root.compact ? 3 : 2
                             columnSpacing: 6
                             rowSpacing: 6
                             Repeater {
@@ -244,50 +247,20 @@ Rectangle {
                                 ActionTile {
                                     required property var modelData
                                     action: modelData
-                                    Layout.preferredHeight: root.compact ? 80 : 108
-                                    iconSize: root.compact ? 42 : 64
-                                    font.pixelSize: root.compact ? 10 : 12
+                                    Layout.preferredHeight: root.compact ? 80 : 150
+                                    iconSize: root.compact ? 42 : 96
+                                    font.pixelSize: root.compact ? 10 : 18
                                 }
                             }
                         }
                     }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 5
-                    Item { Layout.fillWidth: true }
-                    Repeater {
-                        model: cab.secondaryActionModel
-                        FunctionButton {
-                            required property var modelData
-                            readonly property int side: root.compact ? 80 : 96
-                            Layout.minimumWidth: side
-                            Layout.maximumWidth: side
-                            Layout.preferredWidth: side
-                            Layout.minimumHeight: side
-                            Layout.maximumHeight: side
-                            Layout.preferredHeight: side
-                            compact: true
-                            text: modelData.label.replace(" · ", "\n")
-                            holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
-                                      modelData.holdTarget === "more" ? "More controls" :
-                                      modelData.key === "sequence" ? "Repeat sequence" : ""
-                            font.pixelSize: root.compact ? 10 : 12
-                            deferForHold: modelData.hold
-                            holdThreshold: modelData.holdThreshold
-                            repeatWhileHeld: modelData.repeat
-                            repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
-                            onClicked: cab.triggerAction(modelData.key)
-                            onHeld: root.handleModelHold(modelData)
-                        }
-                    }
-                    Item { Layout.fillWidth: true }
-                }
+
             }
 
             Rectangle {
-                Layout.preferredWidth: root.compact ? 210 : 222
+                Layout.preferredWidth: root.compact ? 210 : 324
                 Layout.fillHeight: true
                 radius: 10
                 color: "#20262e"
@@ -302,7 +275,7 @@ Rectangle {
                         spacing: 6
                         Item {
                             visible: cab.analogModes.length > 0
-                            Layout.preferredWidth: 78
+                            Layout.preferredWidth: root.compact ? 78 : 130
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -312,7 +285,7 @@ Rectangle {
                                 text: "CURRENT SPEED"
                                 color: "#9aabba"
                                 horizontalAlignment: Text.AlignHCenter
-                                font.pixelSize: 10
+                                font.pixelSize: root.compact ? 10 : 15
                             }
                             Label {
                                 objectName: "currentSpeedReadout"
@@ -330,25 +303,25 @@ Rectangle {
                         spacing: 5
                         CabButton {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 38
+                            Layout.preferredHeight: root.compact ? 38 : 60
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: reverseButton
                             objectName: "reverseDirectionButton"
                             text: "◀ REV" + (root.requestedDirection === "REVERSE" ? " …" : "")
-                            font.pixelSize: 12
+                            font.pixelSize: root.compact ? 12 : 20
                             selected: root.displayedDirection.indexOf("REVERSE") >= 0
                             onClicked: root.requestDirection("REVERSE")
                         }
                         CabButton {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 38
+                            Layout.preferredHeight: root.compact ? 38 : 60
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: forwardButton
                             objectName: "forwardDirectionButton"
                             text: "FWD ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
-                            font.pixelSize: 12
+                            font.pixelSize: root.compact ? 12 : 20
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
                         }
@@ -360,15 +333,15 @@ Rectangle {
                         spacing: 6
                         ColumnLayout {
                             visible: cab.analogModes.length > 0
-                            Layout.preferredWidth: 78
+                            Layout.preferredWidth: root.compact ? 78 : 130
                             Layout.fillHeight: true
                             spacing: 6
                             ComboBox {
                                 id: analogMode
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 36
+                                Layout.preferredHeight: root.compact ? 36 : 54
                                 model: cab.analogModes
-                                font.pixelSize: 11
+                                font.pixelSize: root.compact ? 11 : 18
                                 leftPadding: 4
                                 rightPadding: 14
                                 topPadding: 0
@@ -380,11 +353,11 @@ Rectangle {
                                     color: "#c7d5e3"
                                     font.pixelSize: 12
                                 }
-                                popup.width: 150
+                                popup.width: root.compact ? 150 : 220
                                 contentItem: Text {
                                     leftPadding: 2
                                     rightPadding: 0
-                                    text: analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
+                                    text: root.compact && analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
                                     color: "#e9edf2"
                                     font: analogMode.font
                                     verticalAlignment: Text.AlignVCenter
@@ -399,6 +372,7 @@ Rectangle {
                             VerticalCabControl {
                                 id: analogControl
                                 objectName: "variableCabControl"
+                                largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
@@ -420,7 +394,7 @@ Rectangle {
                                 text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
                                 color: "#9aabba"
                                 horizontalAlignment: Text.AlignHCenter
-                                font.pixelSize: 10
+                                font.pixelSize: root.compact ? 10 : 15
                             }
                             Timer {
                                 interval: 500
@@ -435,10 +409,10 @@ Rectangle {
                             spacing: 6
                             CabButton {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 36
+                                Layout.preferredHeight: root.compact ? 36 : 54
                                 objectName: "speedStepUp"
                                 text: "+"
-                                font.pixelSize: 22
+                                font.pixelSize: root.compact ? 22 : 34
                                 enabled: !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(1)
@@ -446,6 +420,7 @@ Rectangle {
                             VerticalThrottle {
                                 id: throttle
                                 objectName: "targetSpeedThrottle"
+                                largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
@@ -455,10 +430,10 @@ Rectangle {
                             }
                             CabButton {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 36
+                                Layout.preferredHeight: root.compact ? 36 : 54
                                 objectName: "speedStepDown"
                                 text: "−"
-                                font.pixelSize: 22
+                                font.pixelSize: root.compact ? 22 : 34
                                 enabled: !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(-1)
@@ -467,13 +442,45 @@ Rectangle {
                     }
                     CabButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 36
+                        Layout.preferredHeight: root.compact ? 36 : 54
                         text: cab.speedLimit > 0 ? "Speed limit · " + cab.speedLimit : "Set speed limit"
-                        font.pixelSize: 12
+                        font.pixelSize: root.compact ? 12 : 18
                         onClicked: speedLimitPopup.open()
                     }
                 }
             }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 5
+            Item { Layout.fillWidth: true }
+            Repeater {
+                model: cab.secondaryActionModel
+                FunctionButton {
+                    required property var modelData
+                    readonly property int side: root.compact ? 80 : 144
+                    Layout.minimumWidth: side
+                    Layout.maximumWidth: side
+                    Layout.preferredWidth: side
+                    Layout.minimumHeight: side
+                    Layout.maximumHeight: side
+                    Layout.preferredHeight: side
+                    compact: true
+                    text: modelData.label.replace(" · ", "\n")
+                    holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
+                              modelData.holdTarget === "more" ? "More controls" :
+                              modelData.key === "sequence" ? "Repeat sequence" : ""
+                    font.pixelSize: root.compact ? 10 : 18
+                    deferForHold: modelData.hold
+                    holdThreshold: modelData.holdThreshold
+                    repeatWhileHeld: modelData.repeat
+                    repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
+                    onClicked: cab.triggerAction(modelData.key)
+                    onHeld: root.handleModelHold(modelData)
+                }
+            }
+            Item { Layout.fillWidth: true }
         }
 
         GridLayout {
@@ -486,7 +493,7 @@ Rectangle {
                     required property var modelData
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.preferredHeight: root.compact ? 38 : 48
+                    Layout.preferredHeight: root.compact ? 38 : 54
                     radius: 6
                     color: "#222a33"
                     Column {
@@ -496,13 +503,13 @@ Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: modelData.label
                             color: "#9aabba"
-                            font.pixelSize: root.compact ? 9 : 10
+                            font.pixelSize: root.compact ? 9 : 15
                         }
                         Label {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: modelData.value === "" ? "—" : modelData.value
                             color: "#f1f5f9"
-                            font.pixelSize: root.compact ? 12 : 14
+                            font.pixelSize: root.compact ? 12 : 20
                             font.bold: true
                         }
                     }
