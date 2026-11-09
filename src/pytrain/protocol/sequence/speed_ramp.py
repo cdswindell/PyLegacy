@@ -93,7 +93,7 @@ DEFAULT_LABOR: int = 12
 
 # how long, in seconds, a step issued by the ramp stays claimable. Tune this window
 # to allow for the Base 3 round trip and, on clients, the server broadcast delay
-ECHO_TTL: float = 2.000
+ECHO_TTL: float = 3.000
 
 # how many already matched values are remembered. Only the most recent one is ever
 # accepted again - a command sent two or three times, as the Lionel ecosystem does, is
