@@ -120,3 +120,22 @@ The Pi/PyCab throttle rail is 555 pixels tall in the reference rendering. All th
 presets passed geometry checks for the 3:2 operating split and 3:1 slider split.
 Direction feedback, current/target speed, direct speed-step lockout, and Aux hold
 progress/hints were rechecked. Full suite: 8,761 passed, 35 skipped.
+
+## Paired controls and selector alignment — November 9
+
+Related actions now share rows in the first two of the three operating columns:
+Bell/Horn, Brake/Boost, couplers, Crew/Tower, startup/shutdown, smoke, volume,
+RPM, labor, and equipment-specific on/off or up/down controls. The third column
+is left empty for pairs. The three momentum levels retain one three-button row.
+Aux 1–3 occupy their own row and match operating tile width and height instead
+of using smaller squares.
+
+The variable-control selector now sits directly above its slider. That lane uses
+one third of the driving block's slider width; the throttle uses two thirds.
+The Pi selector is approximately 82 pixels wide. Momentum is displayed as Mom.
+in the closed selector, with the full Momentum name retained in the menu.
+
+All three presets passed geometry checks for paired rows, equal Aux/operation
+sizes, selector/slider alignment, and the 1:2 slider-lane ratio. Current/target
+speed, ramp lockout, and Aux hold behavior were rechecked. Full suite: 8,761
+passed, 35 skipped.

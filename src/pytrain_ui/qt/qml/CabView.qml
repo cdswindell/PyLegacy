@@ -31,8 +31,7 @@ Rectangle {
     }
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
-    readonly property int tileHeight: compact ? 84 : 112
-    readonly property int auxSide: compact ? 72 : 108
+    readonly property int tileHeight: compact ? 72 : 112
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
@@ -46,6 +45,65 @@ Rectangle {
         }
     }
 
+    function pairedActionRows(actions) {
+        const aliases = {
+            bell: "signals", horn: "signals",
+            brake: "brake_boost", boost: "brake_boost",
+            rear_coupler: "couplers", front_coupler: "couplers",
+            engineer_chatter: "crew_tower", tower_chatter: "crew_tower",
+            conductor: "passenger_announcements", station: "passenger_announcements",
+            startup: "power", shutdown: "power",
+            acela_startup: "acela_power", acela_shutdown: "acela_power",
+            let_off: "steam_effects", water_injector: "steam_effects",
+            freight_load: "freight_loading", freight_unload: "freight_loading",
+            transformer_front_coupler: "transformer_couplers", transformer_rear_coupler: "transformer_couplers",
+            momentum_low: "momentum", momentum_medium: "momentum", momentum_high: "momentum"
+        }
+        const rows = []
+        for (const action of actions) {
+            const paired = action.key.match(/^(.*)_(up|down|on|off)$/)
+            const key = aliases[action.key] || (paired ? "pair:" + paired[1] : "single:" + action.key)
+            let row = rows.find(function(item) { return item.key === key })
+            if (!row) {
+                row = {key: key, actions: []}
+                rows.push(row)
+            }
+            row.actions.push(action)
+        }
+        return rows.map(function(row) { return row.actions })
+    }
+
+    component PairedActions: ColumnLayout {
+        required property var actions
+        Layout.fillWidth: true
+        spacing: root.gap
+        Repeater {
+            model: root.pairedActionRows(actions)
+            RowLayout {
+                id: pairedRow
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: root.gap
+                Repeater {
+                    model: 3
+                    Loader {
+                        id: actionCell
+                        required property int index
+                        readonly property var cellAction: pairedRow.modelData[index]
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 0
+                        Layout.minimumHeight: root.tileHeight
+                        Layout.maximumHeight: root.tileHeight
+                        Layout.preferredHeight: root.tileHeight
+                        active: index < pairedRow.modelData.length
+                        sourceComponent: ActionTile { action: actionCell.cellAction }
+                    }
+                }
+            }
+        }
+    }
+
     component ActionTile: FunctionButton {
         required property var action
         Layout.fillWidth: true
@@ -54,8 +112,8 @@ Rectangle {
         Layout.preferredHeight: root.tileHeight
         stacked: true
         wrapLabel: true
-        padding: 6
-        iconSize: root.compact ? 48 : 72
+        padding: root.compact ? 4 : 6
+        iconSize: root.compact ? 40 : 72
         text: action.label
         iconSource: action.iconSource
         font.pixelSize: root.compact ? 14 : 18
@@ -192,7 +250,7 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     visible: !root.effectsVisible
-                    height: visible ? (root.compact ? 64 : 120) : 0
+                    height: visible ? (root.compact ? 52 : 120) : 0
                     radius: 8
                     color: "#e8ebef"
                     clip: true
@@ -232,36 +290,13 @@ Rectangle {
                         id: actionContent
                         width: actionScroll.availableWidth
                         spacing: root.gap
-                        GridLayout {
+                        PairedActions {
                             visible: !root.effectsVisible
-                            Layout.fillWidth: true
-                            columns: 3
-                            columnSpacing: root.gap
-                            rowSpacing: root.gap
-                            Repeater {
-                                model: cab.primaryActionModel.concat(cab.quickActionModel)
-                                ActionTile {
-                                    required property var modelData
-                                    action: modelData
-                                }
-                            }
+                            actions: cab.primaryActionModel.concat(cab.quickActionModel)
                         }
-                        GridLayout {
+                        PairedActions {
                             visible: root.effectsVisible
-                            Layout.fillWidth: true
-                            columns: 3
-                            columnSpacing: 6
-                            rowSpacing: 6
-                            Repeater {
-                                model: cab.moreActionModel
-                                ActionTile {
-                                    required property var modelData
-                                    action: modelData
-                                    Layout.preferredHeight: root.tileHeight
-                                    iconSize: root.compact ? 44 : 72
-                                    font.pixelSize: root.compact ? 13 : 18
-                                }
-                            }
+                            actions: cab.moreActionModel
                         }
                     }
                 }
@@ -271,37 +306,34 @@ Rectangle {
                     objectName: "auxiliaryGrid"
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    height: root.auxSide
+                    height: root.tileHeight
                     y: root.effectsVisible ? parent.height - height :
                         Math.min(parent.height - height, artwork.height + (artwork.visible ? root.gap : 0) + actionContent.implicitHeight + root.gap)
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
                         model: cab.secondaryActionModel
-                        Item {
+                        FunctionButton {
                             required property var modelData
+                            objectName: "auxControl_" + modelData.key
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: root.auxSide
-                            FunctionButton {
-                                objectName: "auxControl_" + modelData.key
-                                anchors.centerIn: parent
-                                width: Math.min(root.auxSide, parent.width)
-                                height: width
-                                compact: true
-                                text: modelData.label.replace(" · ", "\n")
-                                holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
-                                          modelData.holdTarget === "more" ? "More controls" :
-                                          modelData.key === "sequence" ? "Repeat sequence" : ""
-                                font.pixelSize: root.compact ? 13 : 18
-                                deferForHold: modelData.hold
-                                holdThreshold: modelData.holdThreshold
-                                repeatWhileHeld: modelData.repeat
-                                repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
-                                onClicked: cab.triggerAction(modelData.key)
-                                onHeld: root.handleModelHold(modelData)
-                            }
+                            Layout.minimumHeight: root.tileHeight
+                            Layout.maximumHeight: root.tileHeight
+                            Layout.preferredHeight: root.tileHeight
+                            compact: true
+                            text: modelData.label.replace(" · ", "\n")
+                            holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
+                                      modelData.holdTarget === "more" ? "More controls" :
+                                      modelData.key === "sequence" ? "Repeat sequence" : ""
+                            font.pixelSize: root.compact ? 14 : 18
+                            deferForHold: modelData.hold
+                            holdThreshold: modelData.holdThreshold
+                            repeatWhileHeld: modelData.repeat
+                            repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
+                            onClicked: cab.triggerAction(modelData.key)
+                            onHeld: root.handleModelHold(modelData)
                         }
                     }
                 }
@@ -331,7 +363,7 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            width: cab.analogModes.length > 0 ? (parent.width - 6) * 3 / 4 : parent.width
+                            width: cab.analogModes.length > 0 ? (parent.width - 6) * 2 / 3 : parent.width
                             spacing: 0
                             Label {
                                 Layout.fillWidth: true
@@ -379,44 +411,10 @@ Rectangle {
                             onClicked: root.requestDirection("FORWARD")
                         }
                     }
-                    ComboBox {
-                        id: analogMode
-                        visible: cab.analogModes.length > 0
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.compact ? 32 : 40
-                        model: cab.analogModes
-                        font.pixelSize: root.compact ? 11 : 18
-                        leftPadding: 4
-                        rightPadding: 14
-                        topPadding: 0
-                        bottomPadding: 0
-                        indicator: Text {
-                            x: analogMode.width - width - 4
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "▾"
-                            color: "#c7d5e3"
-                            font.pixelSize: 12
-                        }
-                        popup.width: root.compact ? 150 : 220
-                        contentItem: Text {
-                            leftPadding: 2
-                            rightPadding: 0
-                            text: root.compact && analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
-                            color: "#e9edf2"
-                            font: analogMode.font
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
-                        }
-                        background: Rectangle {
-                            color: "#303945"
-                            radius: 6
-                            border.color: "#627384"
-                        }
-                    }
                     Item {
                         id: sliderColumns
                         objectName: "sliderColumns"
-                        readonly property real laneWidth: (width - 6) / 4
+                        readonly property real laneWidth: (width - 6) / 3
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.minimumHeight: 0
@@ -428,10 +426,40 @@ Rectangle {
                             anchors.bottom: parent.bottom
                             width: sliderColumns.laneWidth
                             spacing: 6
-                            Item {
-                                Layout.minimumHeight: root.compact ? 32 : 40
-                                Layout.maximumHeight: root.compact ? 32 : 40
+                            ComboBox {
+                                id: analogMode
+                                objectName: "variableControlSelector"
+                                visible: cab.analogModes.length > 0
+                                Layout.fillWidth: true
                                 Layout.preferredHeight: root.compact ? 32 : 40
+                                model: cab.analogModes
+                                font.pixelSize: root.compact ? 11 : 18
+                                leftPadding: 4
+                                rightPadding: 14
+                                topPadding: 0
+                                bottomPadding: 0
+                                indicator: Text {
+                                    x: analogMode.width - width - 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "▾"
+                                    color: "#c7d5e3"
+                                    font.pixelSize: 12
+                                }
+                                popup.width: root.compact ? 150 : 220
+                                contentItem: Text {
+                                    leftPadding: 2
+                                    rightPadding: 0
+                                    text: analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
+                                    color: "#e9edf2"
+                                    font: analogMode.font
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+                                }
+                                background: Rectangle {
+                                    color: "#303945"
+                                    radius: 6
+                                    border.color: "#627384"
+                                }
                             }
                             VerticalCabControl {
                                 id: analogControl
@@ -477,7 +505,7 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            width: cab.analogModes.length > 0 ? sliderColumns.laneWidth * 3 : sliderColumns.width
+                            width: cab.analogModes.length > 0 ? sliderColumns.laneWidth * 2 : sliderColumns.width
                             spacing: 6
                             CabButton {
                                 Layout.fillWidth: true
