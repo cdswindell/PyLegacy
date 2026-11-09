@@ -89,6 +89,7 @@ ApplicationWindow {
                               window.engineCatalogVisible ? 1 : 0
 
                 CabView {
+                    id: operatingCabView
                     cab: cabController
                     selection: selectedEngineController
                 }

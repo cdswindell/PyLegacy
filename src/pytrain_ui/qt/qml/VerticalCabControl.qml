@@ -11,7 +11,7 @@ Item {
     property bool springReturn: false
     readonly property bool dragging: dragHandler.active
     readonly property int tickCount: maximumValue <= 7 ? maximumValue + 1 : 5
-    readonly property real activeHeight: Math.min(height, 650)
+    readonly property real activeHeight: Math.max(1, height)
 
     signal valueMoved(int value)
     signal valueCommitted(int value)
@@ -19,7 +19,6 @@ Item {
 
     implicitWidth: 76
     implicitHeight: 420
-    Layout.maximumHeight: 650
 
     function clamp(v) {
         return Math.max(minimumValue, Math.min(maximumValue, v))

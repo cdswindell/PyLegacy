@@ -9,6 +9,8 @@ Control {
     property url iconSource: ""
     property bool selected: false
     property bool compact: false
+    property bool stacked: false
+    property int iconSize: compact ? 30 : 42
     property bool deferForHold: false
     property int holdThreshold: 1000
     property bool repeatWhileHeld: false
@@ -26,13 +28,15 @@ Control {
     font.pixelSize: compact ? 12 : 14
     focusPolicy: Qt.StrongFocus
 
-    contentItem: RowLayout {
-        spacing: root.compact ? 5 : 8
+    contentItem: GridLayout {
+        columns: root.stacked ? 1 : 2
+        rowSpacing: 4
+        columnSpacing: root.compact ? 5 : 8
 
         Rectangle {
-            Layout.preferredWidth: root.compact ? 30 : 42
-            Layout.preferredHeight: root.compact ? 30 : 42
-            Layout.alignment: Qt.AlignVCenter
+            Layout.preferredWidth: root.iconSize
+            Layout.preferredHeight: root.iconSize
+            Layout.alignment: Qt.AlignCenter
             visible: root.iconSource.toString().length > 0
             radius: root.compact ? 4 : 6
             color: "#e8ebef"
@@ -51,7 +55,8 @@ Control {
 
         Text {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
+            Layout.minimumWidth: 0
+            Layout.alignment: Qt.AlignCenter
             text: root.text
             color: root.enabled ? "#f5f7fa" : "#858c96"
             font: root.font

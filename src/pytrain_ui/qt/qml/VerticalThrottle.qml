@@ -11,12 +11,11 @@ Item {
     property int pendingValue: value
     property bool awaitingConfirmation: false
     readonly property bool dragging: dragHandler.active
-    readonly property real activeHeight: Math.min(height, 650)
+    readonly property real activeHeight: Math.max(1, height)
     signal valueCommitted(int value)
 
     implicitWidth: 112
     implicitHeight: 520
-    Layout.maximumHeight: 650
 
     function clamp(v) {
         return Math.max(minimumValue, Math.min(maximumValue, v))
@@ -72,9 +71,12 @@ Item {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         height: rail.height
-        width: 58
-        radius: 15
-        color: "#20242a"
+        width: 48
+        radius: 12
+        gradient: Gradient {
+            GradientStop { position: 0; color: "#10151c" }
+            GradientStop { position: 1; color: "#303a46" }
+        }
         border.width: 1
         border.color: "#4e5662"
     }
@@ -96,39 +98,65 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         height: root.activeHeight
-        width: 12
-        radius: 6
-        color: "#737b86"
+        width: 8
+        radius: 4
+        color: "#10151b"
+        border.color: "#536170"
     }
 
     Rectangle {
         id: handle
         width: Math.min(96, root.width - 8)
-        height: 54
-        radius: 11
+        height: 62
+        radius: 9
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
-        color: dragHandler.active ? "#f7f9fb" : "#e1e5ea"
+        gradient: Gradient {
+            GradientStop { position: 0; color: dragHandler.active ? "#f2f9ff" : "#d3dce5" }
+            GradientStop { position: 0.45; color: "#aab8c6" }
+            GradientStop { position: 0.5; color: "#7c8fa1" }
+            GradientStop { position: 1; color: "#43576a" }
+        }
         border.width: 2
         border.color: dragHandler.active ? "#5fb7f2" : "#9aa2ad"
 
         Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: 8
-            width: 46
-            height: 4
-            radius: 2
-            color: "#6b737e"
+            anchors.fill: parent
+            anchors.margins: 4
+            radius: 5
+            color: "transparent"
+            border.color: "#e2eaf2"
+            opacity: 0.5
         }
-
         Text {
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: -11
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 6
             text: root.displayValue()
-            font.pixelSize: 20
+            font.pixelSize: 19
             font.bold: true
-            color: "#171a1f"
+            color: "#14212e"
+        }
+        Column {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 9
+            spacing: 3
+            Repeater {
+                model: 3
+                Rectangle {
+                    width: Math.min(48, handle.width - 20)
+                    height: 2
+                    radius: 1
+                    color: "#23394c"
+                    Rectangle {
+                        y: 2
+                        width: parent.width
+                        height: 1
+                        color: "#c3d2df"
+                        opacity: 0.6
+                    }
+                }
+            }
         }
 
         DragHandler {

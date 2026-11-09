@@ -20,7 +20,7 @@ The Lionel version descriptions are the user's identification of the supplied sc
 - Explore a throttle that looks like a physical throttle, inspired by Cab 3.
 - Prefer larger button graphics and less unused space within and around controls.
 - Compare the three device previews before changing the engine/train design.
-- Icon redesign and styled slider thumbs are possible future work; do not apply them yet.
+- First design pass authorized: retain existing icon artwork, enlarge operating graphics, and try a grip-style throttle handle. Full 3D button artwork and labels embedded in graphics remain future work.
 
 ## Confirmed device preview dimensions
 
@@ -34,3 +34,22 @@ Dimensions describe the app content, including its state strip and scope buttons
 The preview selector appears on macOS, outside this area; it does not take space
 on the actual devices. Large previews may be scaled to fit on the Mac while retaining their target layout dimensions. This previews layout,
 not the physical screen size or pixel density of a device.
+
+## First engine/train design pass
+
+The first pass keeps the Reset / title / ALL STOP header and the existing
+recent-engine strip. Drive groups the existing primary and quick actions into
+large icon tiles with captions; Effects contains the remaining operation and
+tuning actions. Auxiliary panels stay accessible on both pages, along with the
+throttle, direction, variable control, and speed-limit setting.
+
+A shorter layout uses smaller artwork and icons at the Steam Deck pane size.
+Effects hides the artwork in that layout so the standard Legacy diesel actions
+fit without scrolling. Longer equipment action lists can scroll independently
+of the driving controls. The Pi layout uses larger graphics and a taller throttle.
+The throttle handle has a shaded grip; original function icon artwork is retained.
+
+Validation used synthetic Legacy engine state with outgoing command sends
+blocked, rendered Drive and Effects at all three preset sizes, and verified that
+Switch and Route restore their original window dimensions. Full suite: 8,750
+passed, 35 skipped. Physical touch and controller evaluation remains to be done.
