@@ -68,6 +68,19 @@ class PyTrainCabCommandAdapter:
         speed = max(0, min(maximum, int(speed)))
         RampSpeedReq(self.state.tmcc_id, speed, self.state.scope).send()
 
+    def step_speed(self, delta: int) -> bool:
+        """Send a direct speed nudge only while no local or remote ramp is active."""
+        state = self.state
+        if bool(getattr(state, "is_ramp_active", False)) or state.speed is None:
+            return False
+        maximum = 199 if state.is_legacy else 31
+        maximum = min(maximum, int(getattr(state, "speed_max", None) or maximum))
+        speed = max(0, min(maximum, int(state.speed) + int(delta)))
+        if speed == state.speed:
+            return False
+        CommandReq.build(self._enum_type.ABSOLUTE_SPEED, state.tmcc_id, data=speed, scope=state.scope).send()
+        return True
+
     def change_speed(self, delta: int) -> None:
         self.set_speed(self._state_adapter.current().target_speed + int(delta))
 

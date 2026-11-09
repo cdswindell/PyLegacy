@@ -53,3 +53,15 @@ Validation used synthetic Legacy engine state with outgoing command sends
 blocked, rendered Drive and Effects at all three preset sizes, and verified that
 Switch and Route restore their original window dimensions. Full suite: 8,750
 passed, 35 skipped. Physical touch and controller evaluation remains to be done.
+
+## November 9 control refinements
+
+- Direction buttons and Aux buttons share equal widths within their respective rows.
+- Brake, momentum, and quilling horn start at zero at the top and increase downward.
+- The throttle thumb displays target speed; the readout above it displays current speed.
+- Speed +/− buttons send a direct ABSOLUTE_SPEED based on current reported speed.
+  Both the buttons and the command adapter block these nudges while a local or remote
+  ramp is active. Throttle dragging retains the ramp request path.
+- Aux controls retain hold progress and show a brief hint after half a second:
+  Repeat sequence, Lighting panel, or More controls, as applicable.
+- The Qt application uses the existing bundled PyCab icon at small and large sizes.

@@ -12,6 +12,7 @@ Control {
     property bool stacked: false
     property int iconSize: compact ? 30 : 42
     property bool deferForHold: false
+    property string holdHint: ""
     property int holdThreshold: 1000
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
@@ -20,6 +21,10 @@ Control {
     property color pressedColor: "#48515e"
     property bool holdTriggered: false
     readonly property bool pressed: tapHandler.pressed
+
+    ToolTip.text: holdHint
+    ToolTip.delay: 500
+    ToolTip.visible: root.enabled && root.pressed && root.holdHint.length > 0 && !root.holdTriggered
 
     signal clicked()
     signal held()

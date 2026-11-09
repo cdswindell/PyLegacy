@@ -130,7 +130,15 @@ Item {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 6
+            y: 3
+            text: "TARGET"
+            font.pixelSize: 8
+            font.bold: true
+            color: "#263c50"
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 13
             text: root.displayValue()
             font.pixelSize: 19
             font.bold: true

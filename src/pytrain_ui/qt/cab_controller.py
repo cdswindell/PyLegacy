@@ -352,6 +352,11 @@ class CabController(QObject):
     def speed(self) -> int:
         return self._snapshot.speed
 
+    @Property(bool, notify=stateChanged)
+    def rampActive(self) -> bool:
+        state = self._state_port.state if self._state_port is not None else None
+        return bool(getattr(state, "is_ramp_active", False))
+
     @Property(int, notify=stateChanged)
     def targetSpeed(self) -> int:
         return self._snapshot.target_speed
@@ -432,6 +437,10 @@ class CabController(QObject):
     @Slot(int)
     def setSpeed(self, speed: int) -> None:
         self._command_port.set_speed(speed)
+
+    @Slot(int, result=bool)
+    def stepSpeed(self, delta: int) -> bool:
+        return self._command_port.step_speed(delta)
 
     @Slot(int)
     def changeSpeed(self, delta: int) -> None:

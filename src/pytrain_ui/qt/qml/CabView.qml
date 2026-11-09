@@ -262,9 +262,13 @@ Rectangle {
                             required property var modelData
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
+                            Layout.preferredWidth: 0
                             Layout.preferredHeight: 40
                             compact: true
                             text: modelData.label
+                            holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
+                                      modelData.holdTarget === "more" ? "More controls" :
+                                      modelData.key === "sequence" ? "Repeat sequence" : ""
                             font.pixelSize: root.compact ? 10 : 12
                             deferForHold: modelData.hold
                             holdThreshold: modelData.holdThreshold
@@ -290,30 +294,29 @@ Rectangle {
                     spacing: root.compact ? 6 : 10
                     RowLayout {
                         Layout.fillWidth: true
-                        Repeater {
-                            model: [
-                                {label: "SPEED", value: cab.speed},
-                                {label: "TARGET", value: throttle.dragging || throttle.awaitingConfirmation ? throttle.pendingValue : cab.targetSpeed}
-                            ]
-                            ColumnLayout {
-                                required property var modelData
+                        spacing: 6
+                        Item {
+                            visible: cab.analogModes.length > 0
+                            Layout.preferredWidth: 78
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            Label {
                                 Layout.fillWidth: true
-                                spacing: 0
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: modelData.label
-                                    color: "#9aabba"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    font.pixelSize: 10
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: modelData.value
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    font.pixelSize: root.compact ? 28 : 36
-                                    font.bold: true
-                                }
+                                text: "CURRENT SPEED"
+                                color: "#9aabba"
+                                horizontalAlignment: Text.AlignHCenter
+                                font.pixelSize: 10
+                            }
+                            Label {
+                                objectName: "currentSpeedReadout"
+                                Layout.fillWidth: true
+                                text: cab.speed
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                font.pixelSize: root.compact ? 28 : 36
+                                font.bold: true
                             }
                         }
                     }
@@ -323,6 +326,8 @@ Rectangle {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
+                            Layout.preferredWidth: 0
+                            Layout.minimumWidth: 0
                             id: reverseButton
                             objectName: "reverseDirectionButton"
                             text: "◀ REV" + (root.requestedDirection === "REVERSE" ? " …" : "")
@@ -333,6 +338,8 @@ Rectangle {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
+                            Layout.preferredWidth: 0
+                            Layout.minimumWidth: 0
                             id: forwardButton
                             objectName: "forwardDirectionButton"
                             text: "FWD ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
@@ -386,6 +393,7 @@ Rectangle {
                             }
                             VerticalCabControl {
                                 id: analogControl
+                                objectName: "variableCabControl"
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
@@ -423,27 +431,32 @@ Rectangle {
                             CabButton {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 36
+                                objectName: "speedStepUp"
                                 text: "+"
                                 font.pixelSize: 22
+                                enabled: !cab.rampActive
                                 repeatWhileHeld: true
-                                onClicked: cab.changeSpeed(1)
+                                onClicked: cab.stepSpeed(1)
                             }
                             VerticalThrottle {
                                 id: throttle
+                                objectName: "targetSpeedThrottle"
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
                                 maximumValue: Math.max(1, cab.speedMax)
-                                value: cab.speed
+                                value: cab.targetSpeed
                                 onValueCommitted: function(v) { cab.setSpeed(v) }
                             }
                             CabButton {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 36
+                                objectName: "speedStepDown"
                                 text: "−"
                                 font.pixelSize: 22
+                                enabled: !cab.rampActive
                                 repeatWhileHeld: true
-                                onClicked: cab.changeSpeed(-1)
+                                onClicked: cab.stepSpeed(-1)
                             }
                         }
                     }

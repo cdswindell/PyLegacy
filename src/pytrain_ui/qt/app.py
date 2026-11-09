@@ -15,7 +15,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     """Run the Qt cab for an already-initialized PyTrain runtime."""
     try:
         from PySide6.QtCore import QTimer, QUrl
-        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
         from PySide6.QtQml import QQmlApplicationEngine
         from PySide6.QtQuickControls2 import QQuickStyle
     except ImportError as exc:
@@ -41,6 +41,18 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     app = QGuiApplication(argv)
     app.setApplicationName("PyTrain")
     app.setOrganizationName("PyTrain")
+
+    icon = QIcon()
+    for size in ("small", "large"):
+        artwork = files("pytrain.gui.images").joinpath(f"en-US_pycab_{size}.png")
+        try:
+            pixmap = QPixmap()
+            if pixmap.loadFromData(artwork.read_bytes(), "PNG"):
+                icon.addPixmap(pixmap)
+        except OSError as exc:
+            log.warning("Unable to load PyCab app icon: %s", exc)
+    if not icon.isNull():
+        app.setWindowIcon(icon)
 
     restored_id = restore_engine()
     show_catalog = restored_id is None
