@@ -7,6 +7,8 @@ Rectangle {
     required property var cab
     required property var selection
     property bool effectsVisible: false
+    property string selectedAnalogMode: "Horn"
+    readonly property bool editorOpen: speedLimitDialog.visible
     property string requestedDirection: ""
     readonly property string reportedDirection: cab.direction
     readonly property string targetKey: cab.scope + ":" + cab.tmccId
@@ -15,7 +17,25 @@ Rectangle {
     // A button reflects the operator's request immediately. Delayed snapshots
     // with the old direction must not undo it; fresh direction feedback wins.
     onReportedDirectionChanged: requestedDirection = ""
-    onTargetKeyChanged: requestedDirection = ""
+    onTargetKeyChanged: {
+        requestedDirection = ""
+        selectedAnalogMode = "Horn"
+        Qt.callLater(root.syncAnalogMode)
+        if (speedLimitDialog)
+            speedLimitDialog.close()
+    }
+
+    function syncAnalogMode() {
+        const modes = cab.analogModes
+        const preferred = modes.indexOf(selectedAnalogMode)
+        const horn = modes.indexOf("Horn")
+        analogMode.currentIndex = preferred >= 0 ? preferred : horn >= 0 ? horn : modes.length ? 0 : -1
+    }
+
+    function editSpeedLimit() {
+        if (cab.supportsSpeedLimit)
+            speedLimitDialog.openFor(cab.speedLimit, cab.commandSpeedMax, cab.scope + " " + cab.tmccId)
+    }
 
     function requestDirection(direction) {
         cab.setDirection(direction)
@@ -38,8 +58,10 @@ Rectangle {
             commandPanel.openFor(action.holdTarget)
         } else if (action.holdKind === "analog") {
             const index = analogMode.find(action.holdTarget)
-            if (index >= 0)
+            if (index >= 0) {
+                selectedAnalogMode = action.holdTarget
                 analogMode.currentIndex = index
+            }
         } else {
             cab.triggerHoldAction(action.key)
         }
@@ -167,9 +189,8 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.minimumHeight: root.compact ? 64 : 72
-            Layout.maximumHeight: root.compact ? 64 : 72
-            Layout.preferredHeight: root.compact ? 64 : 72
+            Layout.minimumHeight: titleControls.implicitHeight
+            Layout.preferredHeight: Math.max(titleControls.implicitHeight, root.compact ? 64 : 72)
             spacing: 8
             CabButton {
                 Layout.preferredWidth: root.compact ? 88 : 120
@@ -179,6 +200,7 @@ Rectangle {
                 onClicked: cab.reset()
             }
             ColumnLayout {
+                id: titleControls
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 spacing: 2
@@ -193,12 +215,60 @@ Rectangle {
                     font.pixelSize: root.compact ? 18 : 22
                     font.bold: true
                 }
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: cab.scope + " " + cab.tmccId
-                    color: "#aeb5bf"
-                    horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: root.compact ? 12 : 14
+                    spacing: 6
+                    Button {
+                        objectName: "driveTab"
+                        Layout.preferredWidth: root.compact ? 104 : 117
+                        Layout.preferredHeight: 50
+                        text: "Drive"
+                        checked: !root.effectsVisible
+                        onClicked: root.effectsVisible = false
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.checked ? "#ffffff" : "#aeb7c2"
+                            font.pixelSize: 18
+                            font.bold: parent.checked
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            radius: 6
+                            color: parent.checked ? "#246aa0" : "#252b33"
+                            border.color: parent.checked ? "#78bff0" : "#434c58"
+                        }
+                    }
+                    Label {
+                        objectName: "engineIdentity"
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        text: cab.scope + " " + cab.tmccId
+                        color: "#c7d1dd"
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: root.compact ? 16 : 20
+                    }
+                    Button {
+                        objectName: "effectsTab"
+                        Layout.preferredWidth: root.compact ? 104 : 117
+                        Layout.preferredHeight: 50
+                        text: "Effects"
+                        checked: root.effectsVisible
+                        onClicked: root.effectsVisible = true
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.checked ? "#ffffff" : "#aeb7c2"
+                            font.pixelSize: 18
+                            font.bold: parent.checked
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            radius: 6
+                            color: parent.checked ? "#246aa0" : "#252b33"
+                            border.color: parent.checked ? "#78bff0" : "#434c58"
+                        }
+                    }
                 }
             }
             CabButton {
@@ -211,54 +281,6 @@ Rectangle {
                 pressedColor: "#c62d2d"
                 onClicked: cab.halt()
             }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
-            Button {
-                objectName: "driveTab"
-                Layout.preferredWidth: root.compact ? 104 : 117
-                Layout.preferredHeight: 40
-                text: "Drive"
-                checked: !root.effectsVisible
-                onClicked: root.effectsVisible = false
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.checked ? "#ffffff" : "#aeb7c2"
-                    font.pixelSize: 18
-                    font.bold: parent.checked
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                background: Rectangle {
-                    radius: 6
-                    color: parent.checked ? "#246aa0" : "#252b33"
-                    border.color: parent.checked ? "#78bff0" : "#434c58"
-                }
-            }
-            Button {
-                objectName: "effectsTab"
-                Layout.preferredWidth: root.compact ? 104 : 117
-                Layout.preferredHeight: 40
-                text: "Effects"
-                checked: root.effectsVisible
-                onClicked: root.effectsVisible = true
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.checked ? "#ffffff" : "#aeb7c2"
-                    font.pixelSize: 18
-                    font.bold: parent.checked
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                background: Rectangle {
-                    radius: 6
-                    color: parent.checked ? "#246aa0" : "#252b33"
-                    border.color: parent.checked ? "#78bff0" : "#434c58"
-                }
-            }
-            Item { Layout.fillWidth: true }
         }
 
         Item {
@@ -465,6 +487,9 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: root.compact ? 32 : 40
                                 model: cab.analogModes
+                                Component.onCompleted: root.syncAnalogMode()
+                                onModelChanged: Qt.callLater(root.syncAnalogMode)
+                                onActivated: root.selectedAnalogMode = currentText
                                 font.pixelSize: root.compact ? 11 : 18
                                 leftPadding: 4
                                 rightPadding: 14
@@ -572,13 +597,6 @@ Rectangle {
                             }
                         }
                     }
-                    CabButton {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.compact ? 32 : 40
-                        text: cab.speedLimit > 0 ? "Speed limit · " + cab.speedLimit : "Set speed limit"
-                        font.pixelSize: root.compact ? 12 : 18
-                        onClicked: speedLimitPopup.open()
-                    }
                 }
             }
         }
@@ -590,12 +608,34 @@ Rectangle {
             Repeater {
                 model: cab.infoModel
                 Rectangle {
+                    id: stateTile
                     required property var modelData
+                    readonly property bool editable: modelData.label === "Speed Lim" && cab.supportsSpeedLimit
+                    objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : ""
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     Layout.preferredHeight: root.compact ? 38 : 54
                     radius: 6
-                    color: "#222a33"
+                    color: editable ? "#263c50" : "#222a33"
+                    border.width: editable ? 1 : 0
+                    border.color: "#78bff0"
+                    activeFocusOnTab: editable
+                    Accessible.name: editable ? "Set speed limit" : modelData.label
+                    Accessible.role: editable ? Accessible.Button : Accessible.StaticText
+                    TapHandler {
+                        enabled: stateTile.editable
+                        onTapped: root.editSpeedLimit()
+                    }
+                    HoverHandler {
+                        enabled: stateTile.editable
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                    Keys.onPressed: function(event) {
+                        if (editable && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space)) {
+                            root.editSpeedLimit()
+                            event.accepted = true
+                        }
+                    }
                     Column {
                         anchors.centerIn: parent
                         spacing: 2
@@ -607,7 +647,8 @@ Rectangle {
                         }
                         Label {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.value === "" ? "—" : modelData.value
+                            text: stateTile.editable && (cab.speedLimit <= 0 || cab.speedLimit === 255) ? "No limit" :
+                                  modelData.value === "" ? "—" : modelData.value
                             color: "#f1f5f9"
                             font.pixelSize: root.compact ? 12 : 20
                             font.bold: true
@@ -628,65 +669,9 @@ Rectangle {
         y: (Overlay.overlay.height - height) / 2
     }
 
-    Popup {
-        id: speedLimitPopup
-        parent: Overlay.overlay
-        modal: true
-        focus: true
-        anchors.centerIn: parent
-        width: Math.min(Overlay.overlay.width - 36, 360)
-        padding: 14
-        background: Rectangle {
-            color: "#22272e"
-            radius: 10
-            border.width: 1
-            border.color: "#56606c"
-        }
-        ColumnLayout {
-            width: parent.width
-            spacing: 10
-            Label {
-                Layout.fillWidth: true
-                text: "Speed Limit"
-                color: "white"
-                font.pixelSize: 18
-                font.bold: true
-            }
-            Slider {
-                id: speedLimitSlider
-                Layout.fillWidth: true
-                from: 0
-                to: Math.max(1, cab.speedMax)
-                stepSize: 1
-                value: cab.speedLimit
-            }
-            Label {
-                Layout.fillWidth: true
-                text: Math.round(speedLimitSlider.value)
-                color: "#dce3eb"
-                horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: 18
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                CabButton {
-                    Layout.fillWidth: true
-                    text: "Clear"
-                    onClicked: {
-                        cab.clearSpeedLimit()
-                        speedLimitPopup.close()
-                    }
-                }
-                CabButton {
-                    Layout.fillWidth: true
-                    text: "Set"
-                    normalColor: "#246aa0"
-                    onClicked: {
-                        cab.setSpeedLimit(Math.round(speedLimitSlider.value))
-                        speedLimitPopup.close()
-                    }
-                }
-            }
-        }
+    SpeedLimitDialog {
+        id: speedLimitDialog
+        onLimitSubmitted: function(value) { cab.setSpeedLimit(value) }
+        onLimitCleared: cab.clearSpeedLimit()
     }
 }

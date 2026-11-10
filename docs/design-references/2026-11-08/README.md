@@ -165,3 +165,27 @@ applicable controls remain available.
 All three presets passed checks for the requested positions, unchanged header
 widths, matching Aux dimensions, selector alignment, and current/target feedback.
 Full suite: 8,761 passed, 35 skipped.
+
+
+## Compact title controls and speed limit editor — November 10
+
+Drive, the engine/train TMCC ID, and Effects share a row tucked immediately
+beneath the title, between Reset and ALL STOP. The two tabs are 50 pixels tall.
+Horn is the initial variable-slider mode when supported; state feedback retains
+a mode the user explicitly selects, while changing locomotives resets to Horn.
+
+The Speed Lim state tile opens Set Speed Limit, replacing the button beneath
+the throttle. The editor combines numeric keyboard entry, an on-screen keypad,
+and a synchronized slider. Apply or the return key commits the limit; Cancel,
+the close button, Escape, or changing locomotives discards the draft. No limit
+also requires Apply. Limits use the locomotive protocol range (31 or 199), so
+an existing lower limit does not prevent increasing it. Driving shortcuts are
+disabled while this editor is open.
+
+Pi, PyCab, and Steam Deck previews passed header geometry and live dialog
+interaction checks with command delivery mocked. The dialog tests cover both
+protocol ranges, validation, pointer-release submission, draft cancellation,
+keypad/backspace, slider synchronization, and clearing the limit.
+
+Full suite: 8,763 passed, 35 skipped. Ruff checks passed; PyCharm inspections,
+including warnings and weak warnings, found no issues in the new test file.

@@ -1,0 +1,223 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+Popup {
+    id: root
+    objectName: "speedLimitDialog"
+
+    property int maximumSpeed: 199
+    property bool unlimited: false
+    property string targetText: ""
+    property alias entryText: speedEntry.text
+    readonly property bool acceptableInput: unlimited || speedEntry.acceptableInput
+    signal limitSubmitted(int value)
+    signal limitCleared()
+
+    function openFor(currentLimit, maximum, target) {
+        maximumSpeed = Math.max(1, maximum)
+        targetText = target
+        unlimited = currentLimit <= 0 || currentLimit === 255
+        speedEntry.text = unlimited ? "" : String(Math.min(maximumSpeed, currentLimit))
+        limitSlider.value = unlimited ? maximumSpeed : Number(speedEntry.text)
+        open()
+        speedEntry.forceActiveFocus()
+        speedEntry.selectAll()
+    }
+
+    function syncEntry() {
+        unlimited = false
+        if (speedEntry.acceptableInput)
+            limitSlider.value = Number(speedEntry.text)
+    }
+
+    function enterDigit(digit) {
+        if (speedEntry.selectedText.length)
+            speedEntry.remove(speedEntry.selectionStart, speedEntry.selectionEnd)
+        speedEntry.insert(speedEntry.cursorPosition, digit)
+        syncEntry()
+    }
+
+    function deleteDigit() {
+        if (speedEntry.selectedText.length)
+            speedEntry.remove(speedEntry.selectionStart, speedEntry.selectionEnd)
+        else if (speedEntry.cursorPosition > 0)
+            speedEntry.remove(speedEntry.cursorPosition - 1, speedEntry.cursorPosition)
+        syncEntry()
+    }
+
+    function commit() {
+        if (!acceptableInput)
+            return
+        if (unlimited)
+            limitCleared()
+        else
+            limitSubmitted(Number(speedEntry.text))
+        close()
+    }
+
+    parent: Overlay.overlay
+    width: Math.min(parent.width - 24, 440)
+    height: Math.min(parent.height - 24, implicitHeight)
+    x: (parent.width - width) / 2
+    y: (parent.height - height) / 2
+    padding: 16
+    modal: true
+    focus: true
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+    component EditorButton: Button {
+        id: button
+        focusPolicy: Qt.NoFocus
+        font.pixelSize: 22
+        contentItem: Text {
+            text: button.text
+            font: button.font
+            color: button.enabled ? "#ffffff" : "#7d8591"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+            radius: 9
+            color: !button.enabled ? "#242930" : button.down ? "#4d5968" : button.highlighted ? "#246aa0" : "#343a44"
+            border.width: button.highlighted ? 2 : 1
+            border.color: button.highlighted ? "#78bff0" : "#626b78"
+        }
+    }
+
+    background: Rectangle {
+        color: "#171a1f"
+        radius: 14
+        border.width: 1
+        border.color: "#59616c"
+    }
+
+    contentItem: ColumnLayout {
+        spacing: 10
+        RowLayout {
+            Layout.fillWidth: true
+            Label {
+                Layout.fillWidth: true
+                text: "Set Speed Limit"
+                color: "#f4f6f8"
+                font.pixelSize: 26
+                font.bold: true
+            }
+            EditorButton {
+                Layout.preferredWidth: 44
+                Layout.preferredHeight: 44
+                text: "×"
+                Accessible.name: "Cancel speed limit"
+                onClicked: root.close()
+            }
+        }
+        Label {
+            Layout.fillWidth: true
+            text: root.targetText + " · 1–" + root.maximumSpeed
+            color: "#b5bfcb"
+            font.pixelSize: 18
+            elide: Text.ElideRight
+        }
+        TextField {
+            id: speedEntry
+            objectName: "speedLimitEntry"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 60
+            placeholderText: root.unlimited ? "No limit" : "1–" + root.maximumSpeed
+            horizontalAlignment: Text.AlignHCenter
+            font.pixelSize: 30
+            maximumLength: String(root.maximumSpeed).length
+            inputMethodHints: Qt.ImhDigitsOnly
+            validator: IntValidator { bottom: 1; top: root.maximumSpeed }
+            selectByMouse: true
+            onTextEdited: root.syncEntry()
+            onAccepted: root.commit()
+        }
+        Slider {
+            id: limitSlider
+            objectName: "speedLimitSlider"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            from: 1
+            to: root.maximumSpeed
+            stepSize: 1
+            snapMode: Slider.SnapAlways
+            onMoved: {
+                root.unlimited = false
+                speedEntry.text = String(Math.round(value))
+            }
+        }
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 3
+            rowSpacing: 8
+            columnSpacing: 8
+            Repeater {
+                model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "↵"]
+                EditorButton {
+                    required property string modelData
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: 0
+                    Layout.preferredHeight: 58
+                    text: modelData
+                    font.pixelSize: 26
+                    highlighted: modelData === "↵"
+                    enabled: modelData !== "↵" || root.acceptableInput
+                    Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "↵" ? "Apply speed limit" : modelData
+                    onClicked: {
+                        if (modelData === "⌫") root.deleteDigit()
+                        else if (modelData === "↵") root.commit()
+                        else root.enterDigit(modelData)
+                    }
+                }
+            }
+        }
+        Label {
+            Layout.fillWidth: true
+            text: !root.unlimited && speedEntry.text.length && !speedEntry.acceptableInput ?
+                  "Enter a speed from 1 to " + root.maximumSpeed : ""
+            color: "#f0a35a"
+            font.pixelSize: 16
+            Layout.preferredHeight: 20
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            EditorButton {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 54
+                text: "No limit"
+                font.pixelSize: 20
+                highlighted: root.unlimited
+                onClicked: {
+                    root.unlimited = true
+                    speedEntry.clear()
+                    limitSlider.value = root.maximumSpeed
+                }
+            }
+            EditorButton {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 54
+                text: "Cancel"
+                font.pixelSize: 20
+                onClicked: root.close()
+            }
+            EditorButton {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 54
+                text: "Apply"
+                font.pixelSize: 20
+                highlighted: true
+                enabled: root.acceptableInput
+                onClicked: root.commit()
+            }
+        }
+    }
+}
