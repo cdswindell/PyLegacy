@@ -139,3 +139,29 @@ All three presets passed geometry checks for paired rows, equal Aux/operation
 sizes, selector/slider alignment, and the 1:2 slider-lane ratio. Current/target
 speed, ramp lockout, and Aux hold behavior were rechecked. Full suite: 8,761
 passed, 35 skipped.
+
+## Drive row arrangement — November 10
+
+Reset and ALL STOP are 25% taller, rounded to whole pixels: 54 to 68 in tall
+layouts and 42 to 53 in compact layouts. Their widths and the header frame remain
+unchanged.
+
+The standard locomotive Drive page uses these one-based row/column positions:
+
+| Row | Column 1 | Column 2 | Column 3 |
+| --- | --- | --- | --- |
+| 1 | Start Up | Shut Down | |
+| 2 | Volume − | Volume + | |
+| 3 | Bell | Horn | Boost |
+| 4 | Rear Coupler | Front Coupler | Brake |
+| 5 | Crew | Tower | |
+| 6 | Aux1 | Aux2 | Aux3 |
+
+Startup/shutdown and volume controls move from Effects to Drive, retaining their
+existing command and hold behavior. Acela startup/shutdown variants use the same
+positions. Unsupported empty rows are omitted for other equipment, whose remaining
+applicable controls remain available.
+
+All three presets passed checks for the requested positions, unchanged header
+widths, matching Aux dimensions, selector alignment, and current/target feedback.
+Full suite: 8,761 passed, 35 skipped.

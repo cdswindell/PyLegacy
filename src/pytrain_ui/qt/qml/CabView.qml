@@ -73,12 +73,44 @@ Rectangle {
         return rows.map(function(row) { return row.actions })
     }
 
+    function isDriveUtility(key) {
+        return ["startup", "shutdown", "acela_startup", "acela_shutdown", "volume_down", "volume_up"].indexOf(key) >= 0
+    }
+
+    function driveActionRows() {
+        const actions = cab.primaryActionModel.concat(cab.quickActionModel,
+            cab.moreActionModel.filter(function(action) { return root.isDriveUtility(action.key) }))
+        const byKey = {}
+        const placed = {}
+        for (const action of actions)
+            byKey[action.key] = action
+        const cells = [
+            [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown],
+            [byKey.volume_down, byKey.volume_up],
+            [byKey.bell, byKey.horn, byKey.boost],
+            [byKey.rear_coupler, byKey.front_coupler, byKey.brake],
+            [byKey.engineer_chatter, byKey.tower_chatter]
+        ]
+        const rows = cells.filter(function(row) {
+            return row.some(function(action) { return action !== undefined })
+        })
+        for (const row of rows) {
+            for (const action of row) {
+                if (action)
+                    placed[action.key] = true
+            }
+        }
+        // Other equipment keeps its applicable controls after the standard rows.
+        return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] })))
+    }
+
     component PairedActions: ColumnLayout {
-        required property var actions
+        property var actions: []
+        property var rows: root.pairedActionRows(actions)
         Layout.fillWidth: true
         spacing: root.gap
         Repeater {
-            model: root.pairedActionRows(actions)
+            model: rows
             RowLayout {
                 id: pairedRow
                 required property var modelData
@@ -96,7 +128,7 @@ Rectangle {
                         Layout.minimumHeight: root.tileHeight
                         Layout.maximumHeight: root.tileHeight
                         Layout.preferredHeight: root.tileHeight
-                        active: index < pairedRow.modelData.length
+                        active: cellAction !== undefined && cellAction !== null
                         sourceComponent: ActionTile { action: actionCell.cellAction }
                     }
                 }
@@ -141,7 +173,7 @@ Rectangle {
             spacing: 8
             CabButton {
                 Layout.preferredWidth: root.compact ? 88 : 120
-                Layout.preferredHeight: root.compact ? 42 : 54
+                Layout.preferredHeight: Math.round((root.compact ? 42 : 54) * 1.25)
                 text: "Reset"
                 font.pixelSize: root.compact ? 15 : 18
                 onClicked: cab.reset()
@@ -171,7 +203,7 @@ Rectangle {
             }
             CabButton {
                 Layout.preferredWidth: root.compact ? 106 : 132
-                Layout.preferredHeight: root.compact ? 42 : 54
+                Layout.preferredHeight: Math.round((root.compact ? 42 : 54) * 1.25)
                 text: "ALL STOP"
                 font.pixelSize: root.compact ? 16 : 18
                 font.bold: true
@@ -292,11 +324,11 @@ Rectangle {
                         spacing: root.gap
                         PairedActions {
                             visible: !root.effectsVisible
-                            actions: cab.primaryActionModel.concat(cab.quickActionModel)
+                            rows: root.driveActionRows()
                         }
                         PairedActions {
                             visible: root.effectsVisible
-                            actions: cab.moreActionModel
+                            actions: cab.moreActionModel.filter(function(action) { return !root.isDriveUtility(action.key) })
                         }
                     }
                 }
