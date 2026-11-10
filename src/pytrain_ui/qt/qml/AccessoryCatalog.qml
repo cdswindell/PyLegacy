@@ -21,6 +21,21 @@ Rectangle {
             lcsConfig.open()
     }
 
+    function selectTmccId(tmccId, fromSearch) {
+        const exists = root.controller && root.controller.rows.some(function(row) {
+            return row.primaryTmccId === tmccId || row.tmccIds.indexOf(tmccId) >= 0
+        })
+        if (!exists) {
+            if (fromSearch) tmccKeypad.openFor(searchField.text)
+            tmccKeypad.errorText = "No accessory with TMCC ID " + tmccId + "."
+            return
+        }
+        root.typeFilter = "ALL"
+        root.directTmccId = tmccId
+        root.searchText = String(tmccId)
+        tmccKeypad.close()
+    }
+
     function cancelTransientPanels() {
         tmccKeypad.close()
         lcsConfig.close()
@@ -98,12 +113,19 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 10
-        Label {
+        RowLayout {
             Layout.fillWidth: true
-            text: "Operating Accessories"
-            color: "#f4f6f8"
-            font.pixelSize: 30
-            font.bold: true
+            spacing: 10
+            Label {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                text: "Operating Accessories"
+                color: "#f4f6f8"
+                font.pixelSize: 30
+                font.bold: true
+                elide: Text.ElideRight
+            }
+            AllStopButton { compact: root.height < 850; onClicked: root.controller.halt() }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -124,16 +146,6 @@ Rectangle {
                 enabled: !lcsConfig.visible
                 onClicked: root.lcsRequested()
             }
-            ChoiceButton {
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.preferredHeight: 108
-                text: "ALL STOP"
-                font.bold: true
-                normalColor: "#8b2d32"
-                pressedColor: "#b43b42"
-                onClicked: root.controller.halt()
-            }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -142,24 +154,24 @@ Rectangle {
                 id: searchField
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                Layout.preferredHeight: 108
+                Layout.preferredHeight: 54
                 placeholderText: "Name, road #, or TMCC ID"
                 font.pixelSize: 26
                 selectByMouse: true
                 text: root.searchText
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
+                onAccepted: if (/^[0-9]+$/.test(text) && Number(text) > 0 && Number(text) <= 98) root.selectTmccId(Number(text), true)
             }
-            ChoiceButton {
-                Layout.preferredWidth: 144
-                Layout.preferredHeight: 108
-                text: "Clear"
-                enabled: searchField.text.length > 0 || root.directTmccId > 0
-                onClicked: { root.directTmccId = 0; root.searchText = ""; searchField.forceActiveFocus() }
-            }
+            RosterBackspaceButton { field: searchField }
             KeypadButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 108
+                Layout.preferredWidth: 60
+                Layout.preferredHeight: 54
                 onClicked: tmccKeypad.openFor(root.searchText)
+            }
+            RosterSetButton {
+                entryText: searchField.text
+                maximumId: 98
+                onClicked: root.selectTmccId(Number(searchField.text), true)
             }
         }
         RowLayout {
@@ -328,19 +340,7 @@ Rectangle {
     TmccKeypad {
         id: tmccKeypad
         title: "Accessory TMCC ID"
-        onSubmitted: function(tmccId) {
-            const exists = root.controller && root.controller.rows.some(function(row) {
-                return row.primaryTmccId === tmccId || row.tmccIds.indexOf(tmccId) >= 0
-            })
-            if (!exists) {
-                errorText = "No accessory with TMCC ID " + tmccId + "."
-                return
-            }
-            root.typeFilter = "ALL"
-            root.directTmccId = tmccId
-            root.searchText = String(tmccId)
-            close()
-        }
+        onSubmitted: function(tmccId) { root.selectTmccId(tmccId, false) }
     }
 
 }

@@ -33,14 +33,8 @@ Rectangle {
                 font.pixelSize: 24
                 font.bold: true
             }
-            CabButton {
-                Layout.preferredWidth: 130
-                Layout.preferredHeight: 46
-                text: "ALL STOP"
-                font.pixelSize: 17
-                font.bold: true
-                normalColor: "#8b2d32"
-                pressedColor: "#b43b42"
+            AllStopButton {
+                compact: root.height < 850
                 onClicked: root.allStopRequested()
             }
         }

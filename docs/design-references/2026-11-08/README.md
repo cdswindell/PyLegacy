@@ -324,3 +324,28 @@ GUI completion, shared pending requests, and nonblocking shutdown.
 
 Full suite: 8,774 passed, 35 skipped. Ruff and PyCharm inspections, including
 weak warnings, passed for the new artwork tests. Pi timings remain unmeasured.
+
+
+## Consistent roster headers and compact search — November 10
+
+ALL STOP now uses one shared component on operating, roster, accessory, and
+StateInfo pages. Engine/Train, Switch, Route, and Accessory rosters position it
+at the upper-right edge, with the same fixed dimensions, red colors, bold text,
+and pressed feedback as Engine Ops at each device size. The roster Cab control
+sits to its left; Add/LCS controls remain below the Switch/Route/Accessory titles.
+
+Roster search rows are now 54 pixels tall. A 60-pixel Backspace key replaces
+the wide Clear button, deleting the selected text or the character before the
+caret and updating the filter once. The keypad trigger is also 60 pixels wide.
+A release-activated Set key is rightmost and enabled only for a numeric ID in
+the scope's valid range (1–9999 for engines/trains, 1–98 for other rosters).
+Engine/Train Set uses the existing direct Ops/StateInfo selection path; Switch
+and Route select/filter the component without operating it; Accessories filter
+to the matching ID. Unknown IDs retain the existing keypad error feedback.
+The Type label is removed before the engine/train category selectors.
+
+All five rosters passed matching-size, upper-right placement, search-height,
+and numeric-enable checks at Pi, PyCab, and Steam Deck dimensions. Pointer tests
+cover selected-range Backspace, single query edits, Set only on release, Return,
+and invalid/nonnumeric input. Full suite: 8,776 passed, 35 skipped. Ruff and
+PyCharm inspections, including weak warnings, passed for the new test file.

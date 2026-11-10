@@ -44,14 +44,8 @@ Rectangle {
                 elide: Text.ElideRight
             }
 
-            CabButton {
-                Layout.preferredWidth: 120
-                Layout.preferredHeight: 54
-                text: "ALL STOP"
-                font.pixelSize: 17
-                font.bold: true
-                normalColor: "#8b2d32"
-                pressedColor: "#b43b42"
+            AllStopButton {
+                compact: root.height < 850
                 onClicked: root.controller.halt()
             }
         }

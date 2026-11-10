@@ -99,11 +99,12 @@ Rectangle {
         tmccKeypad.openFor(searchField.text)
     }
 
-    function submitTmccId() {
-        if (!tmccKeypad.acceptableInput)
+    function submitTmccId(fromSearch) {
+        if (!fromSearch && !tmccKeypad.acceptableInput)
             return
-        const tmccId = Number(tmccKeypad.entryText)
+        const tmccId = Number(fromSearch ? searchField.text : tmccKeypad.entryText)
         if (!controller.rows.some(function(row) { return row.tmccId === tmccId })) {
+            if (fromSearch) tmccKeypad.openFor(searchField.text)
             tmccKeypad.errorText = "No " + (controller.scope === "SWITCH" ? "switch" : "route") +
                                   " with TMCC ID " + tmccId + "."
             return
@@ -296,12 +297,19 @@ Rectangle {
         anchors.margins: 12
         spacing: 10
 
-        Label {
+        RowLayout {
             Layout.fillWidth: true
-            text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
-            color: "#f4f6f8"
-            font.pixelSize: 30
-            font.bold: true
+            spacing: 10
+            Label {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
+                color: "#f4f6f8"
+                font.pixelSize: 30
+                font.bold: true
+                elide: Text.ElideRight
+            }
+            AllStopButton { compact: root.height < 850; onClicked: controller.halt() }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -320,14 +328,6 @@ Rectangle {
                 enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
                 onClicked: lcsConfig.open()
             }
-            TouchButton {
-                Layout.preferredHeight: 108
-                text: "ALL STOP"
-                font.bold: true
-                normalColor: "#9d2020"
-                pressedColor: "#c62d2d"
-                onClicked: controller.halt()
-            }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -336,28 +336,23 @@ Rectangle {
                 id: searchField
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                Layout.preferredHeight: 92
+                Layout.preferredHeight: 54
                 placeholderText: "Name, road #, or TMCC ID"
                 font.pixelSize: 26
+                selectByMouse: true
                 onTextEdited: root.directTmccId = 0
+                onAccepted: if (/^[0-9]+$/.test(text) && Number(text) > 0 && Number(text) <= 98) root.submitTmccId(true)
             }
-            CabButton {
-                Layout.preferredWidth: 152
-                Layout.preferredHeight: 92
-                text: "Clear"
-                font.pixelSize: 28
-                enabled: searchField.text.length > 0 || root.directTmccId > 0
-                onClicked: {
-                    root.directTmccId = 0
-                    searchField.clear()
-                    roster.positionViewAtBeginning()
-                    searchField.forceActiveFocus()
-                }
-            }
+            RosterBackspaceButton { field: searchField }
             KeypadButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 92
+                Layout.preferredWidth: 60
+                Layout.preferredHeight: 54
                 onClicked: root.openTmccKeypad()
+            }
+            RosterSetButton {
+                entryText: searchField.text
+                maximumId: 98
+                onClicked: root.submitTmccId(true)
             }
         }
         GridLayout {

@@ -101,8 +101,9 @@ Rectangle {
                 Label { text: root.scope === "TRAIN" ? "TRAINS" : "ENGINES"; color: "#f4f6f8"; font.pixelSize: 28; font.bold: true }
                 Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#aeb7c2"; font.pixelSize: 18 }
             }
-            CabButton { Layout.preferredWidth: 260; Layout.preferredHeight: 92; text: "ALL STOP"; font.pixelSize: 28; font.bold: true; normalColor: "#8b2d32"; pressedColor: "#b43b42"; onClicked: cab.halt() }
-            CabButton { Layout.preferredWidth: 200; Layout.preferredHeight: 92; text: "Cab"; font.pixelSize: 28; onClicked: root.closeRequested() }
+            Item { Layout.fillWidth: true }
+            CabButton { Layout.preferredWidth: 144; Layout.preferredHeight: root.height < 850 ? 72 : 88; text: "Cab"; font.pixelSize: 24; onClicked: root.closeRequested() }
+            AllStopButton { compact: root.height < 850; onClicked: cab.halt() }
         }
 
         RowLayout {
@@ -111,7 +112,7 @@ Rectangle {
             TouchSearchField {
                 id: searchField
                 Layout.fillWidth: true
-                Layout.preferredHeight: 108
+                Layout.preferredHeight: 54
                 placeholderText: "Name, road #, or TMCC ID"
                 font.pixelSize: 26
                 selectByMouse: true
@@ -122,18 +123,16 @@ Rectangle {
                         root.engineRequested(Number(text))
                 }
             }
-            CabButton {
-                Layout.preferredWidth: 144
-                Layout.preferredHeight: 108
-                text: "Clear"
-                font.pixelSize: 26
-                enabled: searchField.text.length > 0 || root.directTmccId > 0
-                onClicked: { root.directTmccId = 0; root.searchText = ""; searchField.forceActiveFocus() }
-            }
+            RosterBackspaceButton { field: searchField }
             KeypadButton {
-                Layout.preferredWidth: 104
-                Layout.preferredHeight: 108
+                Layout.preferredWidth: 60
+                Layout.preferredHeight: 54
                 onClicked: tmccKeypad.openFor(root.searchText)
+            }
+            RosterSetButton {
+                entryText: searchField.text
+                maximumId: 9999
+                onClicked: root.engineRequested(Number(searchField.text))
             }
         }
 
@@ -148,7 +147,6 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            Label { text: "Type"; color: "#aeb7c2"; font.pixelSize: 22 }
             ListView {
                 id: typeList
                 Layout.fillWidth: true
