@@ -177,8 +177,12 @@ a mode the user explicitly selects, while changing locomotives resets to Horn.
 The Speed Lim state tile opens Set Speed Limit, replacing the button beneath
 the throttle. The editor combines numeric keyboard entry, an on-screen keypad,
 and a synchronized slider. Set or the return key commits the limit; Cancel,
-the close button, Escape, or changing locomotives discards the draft. No limit
-is selected with Clear and requires Set. Limits use the locomotive protocol range (31 or 199), so
+the close button, Escape, or changing locomotives discards the draft. Clear
+immediately removes the limit and closes the dialog, even with an invalid draft.
+Clear is enabled only when the locomotive already has a limit. Set and the return
+key are enabled only for valid numeric input, never an empty field or zero.
+The dialog explicitly displays TMCC speed limit: 1–31 or Legacy speed limit: 1–199.
+Limits use the locomotive protocol range (31 or 199), so
 an existing lower limit does not prevent increasing it. Driving shortcuts are
 disabled while this editor is open.
 

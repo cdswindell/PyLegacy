@@ -101,7 +101,12 @@ def open_editor():
     assert value("editor.visible")
     assert value("editor.height") <= window().height() - 24
     assert value("editor.entryText") == "10"
+    assert value(button("Clear") + ".enabled")
+    assert value(button("Set") + ".enabled")
+    assert value(button("↵") + ".enabled")
     assert value(named("speedLimitSlider") + ".to") == maximum
+    protocol = "TMCC" if maximum == 31 else "Legacy"
+    assert value(named("speedLimitRange") + ".text") == protocol + " speed limit: 1–" + str(maximum)
 
 
 target = 57 if maximum == 199 else 25
@@ -138,6 +143,7 @@ open_editor()
 value("editor.entryText='" + str(maximum + 1) + "'")
 assert not value("editor.acceptableInput")
 assert not value(button("Set") + ".enabled")
+assert not value(button("↵") + ".enabled")
 value("editor.commit()")
 assert value("editor.visible")
 assert window().property("commits") == 1
@@ -163,18 +169,56 @@ assert window().property("commits") == 1
 click("Cancel")
 
 open_editor()
-click("Clear")
-assert value("editor.unlimited")
+value("editor.entryText='" + str(maximum + 1) + "'")
+assert not value("editor.acceptableInput")
+position = point(button("Clear"))
+QTest.mousePress(window(), Qt.LeftButton, pos=position)
+QTest.qWait(30)
+assert value("editor.visible"), "Clear must wait for pointer release"
 assert window().property("clears") == 0
-click("Cancel")
-assert window().property("saved") == target
-open_editor()
-click("Clear")
-click("Set")
+QTest.mouseRelease(window(), Qt.LeftButton, pos=position)
+QTest.qWait(30)
+assert not value("editor.visible"), "Clear must close the dialog"
 assert window().property("clears") == 1
 assert window().property("saved") == 255
 assert window().property("commits") == 1
 assert window().property("underlyingClicks") == 0
+
+for no_limit in (0, 255):
+    value("editor.openFor(" + str(no_limit) + "," + str(maximum) + ",'ENGINE 31')")
+    QTest.qWait(40)
+    assert value("editor.entryText") == ""
+    assert not value(button("Clear") + ".enabled")
+    assert not value(button("Set") + ".enabled")
+    assert not value(button("↵") + ".enabled")
+    click("Clear")
+    click("Set")
+    click("↵")
+    QTest.keyClick(window(), Qt.Key_Return)
+    assert value("editor.visible")
+    assert window().property("clears") == 1
+    assert window().property("commits") == 1
+    click("1")
+    assert value(button("Set") + ".enabled")
+    assert value(button("↵") + ".enabled")
+    assert not value(button("Clear") + ".enabled")
+    click("⌫")
+    assert not value(button("Set") + ".enabled")
+    assert not value(button("↵") + ".enabled")
+    click("Cancel")
+
+open_editor()
+value("editor.entryText='0'")
+assert not value(button("Set") + ".enabled")
+assert not value(button("↵") + ".enabled")
+value("editor.entryText='" + str(maximum) + "'")
+assert value(button("Set") + ".enabled")
+assert value(button("↵") + ".enabled")
+value("editor.entryText=''")
+assert not value(button("Set") + ".enabled")
+assert not value(button("↵") + ".enabled")
+assert value(button("Clear") + ".enabled")
+click("Cancel")
 
 open_editor()
 for digit in str(target):
@@ -191,7 +235,7 @@ print("SPEED_LIMIT_DIALOG_OK")
 
 @pytest.mark.skipif(importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test the dialog")
 @pytest.mark.parametrize("maximum", [31, 199])
-def test_speed_limit_dialog_commits_only_on_apply(maximum: int) -> None:
+def test_speed_limit_dialog_commits_on_set_or_clear(maximum: int) -> None:
     environment = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
     result = subprocess.run(

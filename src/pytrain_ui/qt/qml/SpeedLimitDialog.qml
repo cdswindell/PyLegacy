@@ -7,26 +7,25 @@ Popup {
     objectName: "speedLimitDialog"
 
     property int maximumSpeed: 199
-    property bool unlimited: false
+    property bool hasExistingLimit: false
     property string targetText: ""
     property alias entryText: speedEntry.text
-    readonly property bool acceptableInput: unlimited || speedEntry.acceptableInput
+    readonly property bool acceptableInput: speedEntry.text.length > 0 && speedEntry.acceptableInput
     signal limitSubmitted(int value)
     signal limitCleared()
 
     function openFor(currentLimit, maximum, target) {
         maximumSpeed = Math.max(1, maximum)
         targetText = target
-        unlimited = currentLimit <= 0 || currentLimit === 255
-        speedEntry.text = unlimited ? "" : String(Math.min(maximumSpeed, currentLimit))
-        limitSlider.value = unlimited ? maximumSpeed : Number(speedEntry.text)
+        hasExistingLimit = currentLimit > 0 && currentLimit !== 255
+        speedEntry.text = hasExistingLimit ? String(Math.min(maximumSpeed, currentLimit)) : ""
+        limitSlider.value = hasExistingLimit ? Number(speedEntry.text) : maximumSpeed
         open()
         speedEntry.forceActiveFocus()
         speedEntry.selectAll()
     }
 
     function syncEntry() {
-        unlimited = false
         if (speedEntry.acceptableInput)
             limitSlider.value = Number(speedEntry.text)
     }
@@ -49,10 +48,7 @@ Popup {
     function commit() {
         if (!acceptableInput)
             return
-        if (unlimited)
-            limitCleared()
-        else
-            limitSubmitted(Number(speedEntry.text))
+        limitSubmitted(Number(speedEntry.text))
         close()
     }
 
@@ -113,17 +109,24 @@ Popup {
         }
         Label {
             Layout.fillWidth: true
-            text: root.targetText + " · 1–" + root.maximumSpeed
+            text: root.targetText
             color: "#b5bfcb"
             font.pixelSize: 18
             elide: Text.ElideRight
+        }
+        Label {
+            objectName: "speedLimitRange"
+            Layout.fillWidth: true
+            text: (root.maximumSpeed === 31 ? "TMCC" : "Legacy") + " speed limit: 1–" + root.maximumSpeed
+            color: "#b5bfcb"
+            font.pixelSize: 18
         }
         TextField {
             id: speedEntry
             objectName: "speedLimitEntry"
             Layout.fillWidth: true
             Layout.preferredHeight: 60
-            placeholderText: root.unlimited ? "No limit" : "1–" + root.maximumSpeed
+            placeholderText: !root.hasExistingLimit ? "No limit" : "1–" + root.maximumSpeed
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 30
             maximumLength: String(root.maximumSpeed).length
@@ -143,7 +146,6 @@ Popup {
             stepSize: 1
             snapMode: Slider.SnapAlways
             onMoved: {
-                root.unlimited = false
                 speedEntry.text = String(Math.round(value))
             }
         }
@@ -175,7 +177,7 @@ Popup {
         }
         Label {
             Layout.fillWidth: true
-            text: !root.unlimited && speedEntry.text.length && !speedEntry.acceptableInput ?
+            text: speedEntry.text.length && !speedEntry.acceptableInput ?
                   "Enter a speed from 1 to " + root.maximumSpeed : ""
             color: "#f0a35a"
             font.pixelSize: 16
@@ -191,11 +193,10 @@ Popup {
                 Layout.preferredHeight: 54
                 text: "Clear"
                 font.pixelSize: 20
-                highlighted: root.unlimited
+                enabled: root.hasExistingLimit
                 onClicked: {
-                    root.unlimited = true
-                    speedEntry.clear()
-                    limitSlider.value = root.maximumSpeed
+                    root.limitCleared()
+                    root.close()
                 }
             }
             EditorButton {
