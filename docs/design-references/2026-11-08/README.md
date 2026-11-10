@@ -368,3 +368,16 @@ the five-roster checks cover matching ALL STOP placement, preserved search-field
 height, and numeric Set gating at all three device sizes.
 
 Full suite: 8,776 passed, 35 skipped.
+
+
+## Backspace artwork polish — November 10
+
+The shared Backspace symbol now has a heavier 3.5-pixel rounded outline and
+a 4-pixel X with rounded ends. The shoulder, tip, and right corners use smooth
+curves. Artwork is rendered at three times its display resolution and filtered
+down to 48 × 34 for smooth edges on software and hardware rendering backends.
+The X retains two pixels of clear space from the inside edge of the outline.
+Red coloring, disabled-state dimming, touch targets, and deletion behavior are
+unchanged across every use of the shared icon.
+
+Full suite: 8,776 passed, 35 skipped.
