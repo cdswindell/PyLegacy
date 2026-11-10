@@ -41,7 +41,7 @@ Popup {
     }
 
     parent: Overlay.overlay
-    width: Math.min(parent.width - 24, 440)
+    width: Math.min(parent.width - 24, 560)
     x: Math.max(0, (parent.width - width) / 2)
     y: Math.max(0, (parent.height - height) / 2)
     modal: true
@@ -89,8 +89,8 @@ Popup {
                 font.bold: true
             }
             KeyButton {
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 44
+                Layout.preferredWidth: 64
+                Layout.preferredHeight: 64
                 text: "×"
                 Accessible.name: "Close keypad"
                 onClicked: root.close()
@@ -99,7 +99,7 @@ Popup {
         TextField {
             id: tmccIdEntry
             Layout.fillWidth: true
-            Layout.preferredHeight: 60
+            Layout.preferredHeight: 76
             placeholderText: "1–" + root.maximumId
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 28
@@ -122,7 +122,7 @@ Popup {
                     required property string modelData
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 58
+                    Layout.preferredHeight: 74
                     text: modelData === "Del" ? "⌫" : modelData
                     font.pixelSize: 28
                     Accessible.name: modelData === "↵" ? "Enter" :

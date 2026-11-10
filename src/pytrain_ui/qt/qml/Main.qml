@@ -170,9 +170,10 @@ ApplicationWindow {
             }
 
             SelectedEngineBar {
+                Layout.topMargin: -4
                 color: "#0d1f58"
                 Layout.fillWidth: true
-                Layout.preferredHeight: visible ? (operatingCabView.compact ? 78 : 90) : 0
+                Layout.preferredHeight: visible ? (operatingCabView.compact ? 74 : 86) : 0
                 visible: !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
                 selection: selectedEngineController
             }

@@ -18,6 +18,8 @@ from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.contracts import EngineViewState
 from pytrain_ui.panels import panel_actions, panel_title
 
+from .artwork import ArtworkLoader
+
 _QUICK_ACTION_KEYS = frozenset(
     {"rear_coupler", "front_coupler", "engineer_chatter", "tower_chatter", "conductor", "station", "steward"}
 )
@@ -40,6 +42,8 @@ class CabController(QObject):
 
     def __init__(self, scope: CommandScope, tmcc_id: int, parent: QObject | None = None) -> None:
         super().__init__(parent)
+        self._artwork_loader = ArtworkLoader(self)
+        self._artwork_loader.artworkReady.connect(self._on_artwork_ready)
         self._target_generation = 0
         self.stateUpdateReceived.connect(self._on_state)
         self._state_port = None
@@ -53,7 +57,14 @@ class CabController(QObject):
         self._switch_target(scope, tmcc_id)
 
     def close(self) -> None:
+        self._artwork_loader.close()
         self._release_target()
+
+    @Slot(str)
+    def _on_artwork_ready(self, source: str) -> None:
+        path, _ = self._resolved_artwork(self._artwork_state())
+        if path and str(Path(path).resolve()) == source:
+            self.stateChanged.emit()
 
     def _release_target(self) -> None:
         self._target_generation += 1
@@ -266,6 +277,7 @@ class CabController(QObject):
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
         path, _ = self._resolved_artwork(self._artwork_state())
+        path = self._artwork_loader.request(path)
         return QUrl.fromLocalFile(str(path)).toString() if path else ""
 
     @Property(str, notify=stateChanged)

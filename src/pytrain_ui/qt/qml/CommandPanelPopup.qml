@@ -60,7 +60,7 @@ Popup {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 62
+            Layout.preferredHeight: 80
             color: "#292f38"
             radius: 14
 
@@ -100,10 +100,10 @@ Popup {
                 }
 
                 ToolButton {
-                    Layout.preferredWidth: 42
-                    Layout.preferredHeight: 42
+                    Layout.preferredWidth: 64
+                    Layout.preferredHeight: 64
                     text: "✕"
-                    font.pixelSize: 17
+                    font.pixelSize: 26
                     onClicked: root.close()
 
                     contentItem: Text {

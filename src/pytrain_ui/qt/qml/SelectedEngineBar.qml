@@ -51,7 +51,7 @@ Rectangle {
             required property var modelData
 
             width: root.compactTiles ? 200 : 240
-            height: selectedList.height - 6
+            height: selectedList.height - 2
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
             radius: 7
             color: cardTap.pressed ? "#64a9d2" : modelData.current ? "#246aa0" : "#292f38"

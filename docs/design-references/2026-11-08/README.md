@@ -284,3 +284,43 @@ was mocked during UI checks.
 Reset and ALL STOP text is 24 pixels in tall layouts and 20 in compact layouts,
 with their matched button sizes unchanged. Full suite: 8,764 passed, 35 skipped.
 Ruff and PyCharm inspections, including weak warnings, passed for the new test.
+
+
+## Larger artwork and background display cache — November 10
+
+The image area now uses spare space after the fixed Drive rows, up to 48 extra
+pixels in tall layouts or 16 in compact layouts. Both tabs use the Drive-row
+budget, so switching pages does not move or resize the shared image. Original
+button rows, columns, and touch sizes remain intact. The state-to-engine-tile
+gap and bottom padding are tighter; recent-engine card heights are preserved.
+
+The Qt cab prepares a lossless PNG display copy when engine artwork contains
+blank top/bottom rows. It trims only white/near-white or transparent rows, keeps
+a two-pixel safety margin and the entire image width, and preserves colored
+backgrounds, faint details, animated files, and source originals. Copies live in
+cache/qt_artwork, respecting PYTRAIN_CACHE_DIR. Cache identity includes source
+path, modification time, size, and algorithm version. Changed originals get a
+fresh copy; deleted display copies regenerate. Unreadable images or a read-only
+cache fall back to the source.
+
+Image decoding, pixel scanning, and writing run on a lazy daemon worker, never
+on the GUI thread. The property returns the original immediately and queues
+one pending job per source version. Completion is queued to the Qt owner thread
+and updates only the current target. Shutdown does not wait for image work.
+Existing local artwork was prepared: 54 of 72 images were trimmed, removing
+2,671 blank rows. Pi/Steam Deck prepare their local images automatically. A
+62-image Mac benchmark measured median cold preparation of 3.9 ms (149 ms
+maximum) and a median cached lookup of 0.050 ms; these are not Pi measurements.
+
+Popup close controls are now 64 pixels tall, including the keypads, search
+keyboard, and command panel. The shared ID keypad is about 27% larger: maximum
+width 560 (from 440), digit height 74 (from 58), and entry height 76 (from 60).
+The cab ALL STOP label is slightly smaller at 22/18 pixels; its button dimensions
+and Reset styling are unchanged.
+
+Tests cover conservative trimming, original preservation, source invalidation,
+missing/corrupt input, cache failures, regeneration, background execution, queued
+GUI completion, shared pending requests, and nonblocking shutdown.
+
+Full suite: 8,774 passed, 35 skipped. Ruff and PyCharm inspections, including
+weak warnings, passed for the new artwork tests. Pi timings remain unmeasured.

@@ -72,7 +72,7 @@ Popup {
         spacing: 8
         RowLayout {
             Label { Layout.fillWidth: true; text: "Search"; color: "white"; font.pixelSize: 24; font.bold: true }
-            KeyboardKey { Layout.fillWidth: false; Layout.preferredWidth: 52; Layout.preferredHeight: 44; text: "×"; Accessible.name: "Close keyboard"; onClicked: root.close() }
+            KeyboardKey { Layout.fillWidth: false; Layout.preferredWidth: 64; Layout.preferredHeight: 64; text: "×"; Accessible.name: "Close keyboard"; onClicked: root.close() }
         }
         TextField {
             id: entry

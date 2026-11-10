@@ -196,6 +196,7 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: root.compact ? 8 : 12
+        anchors.bottomMargin: 4
         spacing: root.gap
 
         RowLayout {
@@ -241,7 +242,7 @@ Rectangle {
                 Layout.preferredWidth: root.compact ? 106 : 132
                 Layout.preferredHeight: root.compact ? 72 : 88
                 text: "ALL STOP"
-                font.pixelSize: root.compact ? 20 : 24
+                font.pixelSize: root.compact ? 18 : 22
                 font.bold: true
                 normalColor: "#9d2020"
                 pressedColor: "#c62d2d"
@@ -352,13 +353,19 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.top: pageTabs.bottom
                     anchors.topMargin: -8
-                    height: root.compact ? 64 : 96
+                    height: {
+                        const base = root.compact ? 64 : 96
+                        const rows = root.driveActionRows().length
+                        const controls = rows * root.tileHeight + Math.max(0, rows - 1) * root.gap
+                        const spare = parent.height - y - base - controls - auxGrid.height - root.gap * 2 - 4
+                        return base + Math.min(root.compact ? 16 : 48, Math.max(0, spare))
+                    }
                     radius: 8
                     color: "#e8ebef"
                     clip: true
                     Image {
                         anchors.fill: parent
-                        anchors.margins: 5
+                        anchors.margins: 2
                         source: cab.artworkSource
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
@@ -661,6 +668,7 @@ Rectangle {
 
         GridLayout {
             Layout.fillWidth: true
+            Layout.topMargin: -4
             columns: 6
             columnSpacing: 4
             Repeater {

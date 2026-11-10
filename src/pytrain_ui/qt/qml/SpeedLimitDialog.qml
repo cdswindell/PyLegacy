@@ -100,8 +100,8 @@ Popup {
                 font.bold: true
             }
             EditorButton {
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 44
+                Layout.preferredWidth: 64
+                Layout.preferredHeight: 64
                 text: "×"
                 Accessible.name: "Cancel speed limit"
                 onClicked: root.close()
