@@ -217,6 +217,7 @@ Popup {
                 font.pixelSize: 20
                 onClicked: root.close()
             }
+            Item { Layout.preferredWidth: 24 }
             EditorButton {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0

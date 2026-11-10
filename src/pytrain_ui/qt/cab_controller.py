@@ -324,7 +324,7 @@ class CabController(QObject):
             smoke = str(getattr(state, "smoke_text", "") or "")
         else:
             brake = "NA"
-            smoke = "NA"
+            smoke = str(getattr(state, "smoke_text", "") or "")
 
         rpm = getattr(state, "rpm", None) if bool(getattr(state, "is_rpm", False)) else None
         return [
@@ -335,6 +335,22 @@ class CabController(QObject):
             {"label": "Effort", "value": "" if labor is None else str(labor)},
             {"label": "RPM", "value": "NA" if rpm is None else str(rpm)},
         ]
+
+    @Property("QVariantMap", notify=stateChanged)
+    def stateEditValues(self) -> dict:
+        state = self._state_port.state if self._state_port is not None else None
+        smoke = getattr(state, "smoke_level", None)
+        smoke_name = getattr(smoke, "name", "")
+        smoke_values = {"SMOKE_OFF": 0, "SMOKE_ON": 1, "SMOKE_LOW": 1, "SMOKE_MEDIUM": 2, "SMOKE_HIGH": 3}
+        return {
+            "Mom": getattr(state, "momentum", None),
+            "Brake": getattr(state, "train_brake", None),
+            "Smoke": smoke_values.get(smoke_name),
+        }
+
+    @Property(bool, notify=stateChanged)
+    def supportsSmoke(self) -> bool:
+        return bool(self._command_port is not None and self._command_port.supports_smoke())
 
     @Property(bool, notify=stateChanged)
     def supportsMomentum(self) -> bool:
@@ -465,6 +481,10 @@ class CabController(QObject):
     @Slot(int)
     def setTrainBrake(self, value: int) -> None:
         self._command_port.set_train_brake(value)
+
+    @Slot(int)
+    def setSmoke(self, value: int) -> None:
+        self._command_port.set_smoke(value)
 
     @Slot(int)
     def setQuillingHorn(self, value: int) -> None:

@@ -8,7 +8,7 @@ Rectangle {
     required property var selection
     property bool effectsVisible: false
     property string selectedAnalogMode: "Horn"
-    readonly property bool editorOpen: speedLimitDialog.visible
+    readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible
     property string requestedDirection: ""
     readonly property string reportedDirection: cab.direction
     readonly property string targetKey: cab.scope + ":" + cab.tmccId
@@ -23,6 +23,8 @@ Rectangle {
         Qt.callLater(root.syncAnalogMode)
         if (speedLimitDialog)
             speedLimitDialog.close()
+        if (stateValueDialog)
+            stateValueDialog.close()
     }
 
     function syncAnalogMode() {
@@ -35,6 +37,14 @@ Rectangle {
     function editSpeedLimit() {
         if (cab.supportsSpeedLimit)
             speedLimitDialog.openFor(cab.speedLimit, cab.commandSpeedMax, cab.scope + " " + cab.tmccId)
+    }
+
+    function editState(label) {
+        if (label === "Speed Lim") {
+            editSpeedLimit()
+            return
+        }
+        stateValueDialog.openFor(label, cab.isLegacy, cab.stateEditValues[label], cab.scope + " " + cab.tmccId)
     }
 
     function requestDirection(direction) {
@@ -670,7 +680,10 @@ Rectangle {
                 Rectangle {
                     id: stateTile
                     required property var modelData
-                    readonly property bool editable: modelData.label === "Speed Lim" && cab.supportsSpeedLimit
+                    readonly property bool editable: (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
+                        (modelData.label === "Mom" && cab.supportsMomentum) ||
+                        (modelData.label === "Brake" && cab.supportsTrainBrake) ||
+                        (modelData.label === "Smoke" && cab.supportsSmoke)
                     objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : ""
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
@@ -680,11 +693,11 @@ Rectangle {
                     border.width: editable ? 1 : 0
                     border.color: "#78bff0"
                     activeFocusOnTab: editable
-                    Accessible.name: editable ? "Set speed limit" : modelData.label
+                    Accessible.name: editable ? "Set " + modelData.label : modelData.label
                     Accessible.role: editable ? Accessible.Button : Accessible.StaticText
                     TapHandler {
                         enabled: stateTile.editable
-                        onTapped: root.editSpeedLimit()
+                        onTapped: root.editState(modelData.label)
                     }
                     HoverHandler {
                         enabled: stateTile.editable
@@ -692,7 +705,7 @@ Rectangle {
                     }
                     Keys.onPressed: function(event) {
                         if (editable && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space)) {
-                            root.editSpeedLimit()
+                            root.editState(modelData.label)
                             event.accepted = true
                         }
                     }
@@ -707,7 +720,7 @@ Rectangle {
                         }
                         Label {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: stateTile.editable && (cab.speedLimit <= 0 || cab.speedLimit === 255) ? "No limit" :
+                            text: modelData.label === "Speed Lim" && (cab.speedLimit <= 0 || cab.speedLimit === 255) ? "No limit" :
                                   modelData.value === "" ? "—" : modelData.value
                             color: "#f1f5f9"
                             font.pixelSize: root.compact ? 17 : 22
@@ -727,6 +740,15 @@ Rectangle {
         height: Math.min(Overlay.overlay.height - 24, 760)
         x: (Overlay.overlay.width - width) / 2
         y: (Overlay.overlay.height - height) / 2
+    }
+
+    StateValueDialog {
+        id: stateValueDialog
+        onValueSubmitted: function(kind, value) {
+            if (kind === "Mom") cab.setMomentum(value)
+            else if (kind === "Brake") cab.setTrainBrake(value)
+            else if (kind === "Smoke") cab.setSmoke(value)
+        }
     }
 
     SpeedLimitDialog {

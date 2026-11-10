@@ -95,7 +95,7 @@ class PyTrainCabCommandAdapter:
                 scope=self.state.scope,
             ).send()
             return
-        name = "MOMENTUM_LOW" if value <= 1 else "MOMENTUM_MEDIUM" if value <= 4 else "MOMENTUM_HIGH"
+        name = "MOMENTUM_LOW" if value == 0 else "MOMENTUM_HIGH" if value == 7 else "MOMENTUM_MEDIUM"
         self.send_named(name)
 
     def set_train_brake(self, value: int) -> None:
@@ -220,6 +220,18 @@ class PyTrainCabCommandAdapter:
         if self.state.is_legacy:
             return self.supports_effect("SMOKE_OFF") and self.supports_effect("SMOKE_HIGH")
         return self.supports_named("SMOKE_OFF") and self.supports_named("SMOKE_ON")
+
+    def set_smoke(self, value: int) -> None:
+        if not self.state.is_legacy:
+            self.send_named("SMOKE_ON" if value > 0 else "SMOKE_OFF")
+            return
+        levels = (
+            TMCC2EffectsControl.SMOKE_OFF,
+            TMCC2EffectsControl.SMOKE_LOW,
+            TMCC2EffectsControl.SMOKE_MEDIUM,
+            TMCC2EffectsControl.SMOKE_HIGH,
+        )
+        CommandReq.build(levels[max(0, min(3, int(value)))], self.state.tmcc_id, scope=self.state.scope).send()
 
     def _step_smoke(self, delta: int) -> bool:
         if not self.state.is_legacy:
