@@ -332,7 +332,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            TextField {
+            TouchSearchField {
                 id: searchField
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
@@ -404,7 +404,7 @@ Rectangle {
                 id: row
                 required property var rowData
                 width: roster.width
-                height: 184
+                height: 138
                 radius: 8
                 color: "#262b32"
                 border.width: 1
@@ -418,8 +418,8 @@ Rectangle {
                 }
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 8
+                    anchors.margins: 6
+                    spacing: 4
                     RowLayout {
                         Layout.fillWidth: true
                         Label {
@@ -464,20 +464,29 @@ Rectangle {
                     }
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: 4
                         TouchButton {
+                            Layout.preferredHeight: 60
+                            Layout.minimumHeight: 60
+                            Layout.maximumHeight: 60
                             visible: controller.scope === "SWITCH"
                             text: "THRU"
                             selected: row.rowData.stateText === "THRU"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
                         }
                         TouchButton {
+                            Layout.preferredHeight: 60
+                            Layout.minimumHeight: 60
+                            Layout.maximumHeight: 60
                             visible: controller.scope === "SWITCH"
                             text: "OUT"
                             selected: row.rowData.stateText === "OUT"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
                         }
                         TouchButton {
+                            Layout.preferredHeight: 60
+                            Layout.minimumHeight: 60
+                            Layout.maximumHeight: 60
                             visible: controller.scope === "ROUTE"
                             text: "FIRE"
                             normalColor: "#a84418"
@@ -485,6 +494,9 @@ Rectangle {
                             onClicked: controller.fireRoute(row.rowData.tmccId)
                         }
                         TouchButton {
+                            Layout.preferredHeight: 60
+                            Layout.minimumHeight: 60
+                            Layout.maximumHeight: 60
                             text: "EDIT…"
                             onClicked: {
                                 if (controller.scope === "SWITCH") root.editSwitch(row.rowData.tmccId)
@@ -514,7 +526,7 @@ Rectangle {
         closePolicy: Popup.NoAutoClose
 
         background: Rectangle {
-            color: "#171a1f"
+            color: "#102858"
             radius: 14
             border.width: 1
             border.color: "#59616c"
@@ -797,7 +809,7 @@ Rectangle {
         closePolicy: Popup.NoAutoClose
 
         background: Rectangle {
-            color: "#20242a"
+            color: "#102858"
             radius: 14
             border.width: 1
             border.color: "#59616c"
@@ -865,7 +877,7 @@ Rectangle {
                     onClicked: root.showUnnamedRouteSwitches = !root.showUnnamedRouteSwitches
                 }
             }
-            TextField {
+            TouchSearchField {
                 id: routeCandidateSearchField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 44
@@ -972,7 +984,7 @@ Rectangle {
         closePolicy: Popup.NoAutoClose
 
         background: Rectangle {
-            color: "#20242a"
+            color: "#102858"
             radius: 14
             border.width: 1
             border.color: "#59616c"
@@ -1100,7 +1112,7 @@ Rectangle {
         closePolicy: Popup.NoAutoClose
 
         background: Rectangle {
-            color: "#20242a"
+            color: "#102858"
             radius: 14
             border.width: 1
             border.color: "#59616c"
@@ -1155,7 +1167,7 @@ Rectangle {
         closePolicy: Popup.NoAutoClose
 
         background: Rectangle {
-            color: "#20242a"
+            color: "#102858"
             radius: 14
             border.width: 1
             border.color: "#59616c"

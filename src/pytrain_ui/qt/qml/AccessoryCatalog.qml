@@ -138,7 +138,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            TextField {
+            TouchSearchField {
                 id: searchField
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
@@ -215,7 +215,7 @@ Rectangle {
                 id: row
                 required property var modelData
                 width: ListView.view.width
-                height: 208
+                height: 156
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#272d35"
                 opacity: row.modelData.componentEnabled === false ? 0.62 : 1.0
@@ -279,7 +279,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 Layout.preferredWidth: (modelData.key === "HOLD" || modelData.key === "PULSE") ? 208 : 116
-                                Layout.preferredHeight: 76
+                                Layout.preferredHeight: 57
                                 text: modelData.label
                                 font.bold: modelData.selected
                                 selected: modelData.selected

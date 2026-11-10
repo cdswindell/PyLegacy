@@ -41,7 +41,7 @@ Popup {
     }
 
     parent: Overlay.overlay
-    width: Math.min(parent.width - 24, 340)
+    width: Math.min(parent.width - 24, 440)
     x: Math.max(0, (parent.width - width) / 2)
     y: Math.max(0, (parent.height - height) / 2)
     modal: true
@@ -52,7 +52,7 @@ Popup {
     component KeyButton: Button {
         id: keyControl
         focusPolicy: Qt.NoFocus
-        font.pixelSize: 24
+        font.pixelSize: 28
 
         contentItem: Text {
             text: keyControl.text
@@ -71,7 +71,7 @@ Popup {
     }
 
     background: Rectangle {
-        color: "#171a1f"
+        color: "#102858"
         radius: 14
         border.width: 1
         border.color: "#59616c"
@@ -85,7 +85,7 @@ Popup {
                 Layout.fillWidth: true
                 text: root.title
                 color: "#f4f6f8"
-                font.pixelSize: 22
+                font.pixelSize: 26
                 font.bold: true
             }
             KeyButton {
@@ -99,7 +99,7 @@ Popup {
         TextField {
             id: tmccIdEntry
             Layout.fillWidth: true
-            Layout.preferredHeight: 54
+            Layout.preferredHeight: 60
             placeholderText: "1–" + root.maximumId
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 28
@@ -124,7 +124,7 @@ Popup {
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 58
                     text: modelData === "Del" ? "⌫" : modelData
-                    font.pixelSize: 24
+                    font.pixelSize: 28
                     Accessible.name: modelData === "↵" ? "Enter" :
                                      modelData === "Del" ? "Backspace" : modelData
                     highlighted: modelData === "↵"

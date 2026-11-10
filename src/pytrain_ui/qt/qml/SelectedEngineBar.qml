@@ -50,11 +50,11 @@ Rectangle {
             id: card
             required property var modelData
 
-            width: root.compactTiles ? 137 : 170
+            width: root.compactTiles ? 200 : 240
             height: selectedList.height - 6
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
             radius: 7
-            color: modelData.current ? "#246aa0" : "#292f38"
+            color: cardTap.pressed ? "#64a9d2" : modelData.current ? "#246aa0" : "#292f38"
             border.width: modelData.current ? 2 : 1
             border.color: modelData.current ? "#78bff0" : (modelData.active ? "#d0a24c" : "#505b68")
             clip: true
@@ -69,7 +69,7 @@ Rectangle {
                     visible: !root.compactTiles
                     text: modelData.tmccId
                     color: "white"
-                    font.pixelSize: 15
+                    font.pixelSize: 20
                     font.bold: true
                 }
 
@@ -82,7 +82,7 @@ Rectangle {
                         id: nameViewport
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
-                        Layout.preferredHeight: 15
+                        Layout.preferredHeight: 22
                         clip: true
 
                         readonly property real marqueeGap: 18
@@ -101,7 +101,7 @@ Rectangle {
                                     return number.length > 0 ? name + " " + number : name
                                 }
                                 color: "#f4f6f8"
-                                font.pixelSize: 11
+                                font.pixelSize: 16
                                 font.bold: card.modelData.current
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -141,7 +141,7 @@ Rectangle {
                             visible: root.compactTiles
                             text: modelData.tmccId
                             color: "white"
-                            font.pixelSize: 12
+                            font.pixelSize: 18
                             font.bold: true
                         }
                         Item {
@@ -150,23 +150,23 @@ Rectangle {
                         Label {
                             text: modelData.direction
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
+                            font.pixelSize: 12
                         }
                         Label {
                             text: "SP " + modelData.speed
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
+                            font.pixelSize: 12
                         }
                         Label {
                             text: "SM " + modelData.smoke
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
+                            font.pixelSize: 12
                         }
                         Label {
                             visible: !root.compactTiles
                             text: "M " + root.shortState(modelData.momentum)
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
+                            font.pixelSize: 12
                         }
                         Label {
                             Layout.fillWidth: true
@@ -174,7 +174,7 @@ Rectangle {
                             visible: !root.compactTiles
                             text: "B " + root.shortState(modelData.brake)
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
-                            font.pixelSize: 9
+                            font.pixelSize: 12
                             horizontalAlignment: Text.AlignLeft
                             elide: Text.ElideRight
                         }
@@ -182,12 +182,12 @@ Rectangle {
                 }
 
                 CabButton {
-                    Layout.minimumWidth: root.compactTiles ? 24 : 28
-                    Layout.maximumWidth: root.compactTiles ? 24 : 28
-                    Layout.preferredWidth: root.compactTiles ? 24 : 28
-                    Layout.minimumHeight: root.compactTiles ? 24 : 28
-                    Layout.maximumHeight: root.compactTiles ? 24 : 28
-                    Layout.preferredHeight: root.compactTiles ? 24 : 28
+                    Layout.minimumWidth: 44
+                    Layout.maximumWidth: 44
+                    Layout.preferredWidth: 44
+                    Layout.minimumHeight: 44
+                    Layout.maximumHeight: 44
+                    Layout.preferredHeight: 44
                     text: "×"
                     font.pixelSize: root.compactTiles ? 14 : 16
                     normalColor: "#343a44"
@@ -200,6 +200,7 @@ Rectangle {
             }
 
             TapHandler {
+                id: cardTap
                 gesturePolicy: TapHandler.DragThreshold
                 onTapped: {
                     if (root.selection)

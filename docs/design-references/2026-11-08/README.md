@@ -242,3 +242,45 @@ Reset and ALL STOP. Button sizes and the tab hit areas remain unchanged; the
 control area and sliders give up only those 16 pixels of height.
 
 All three device previews passed. Full suite: 8,763 passed, 35 skipped.
+
+
+## Touch sizing and current-speed layout — November 10
+
+Implemented the selected Readout above design: the full-width current-speed
+readout uses the bundled Digital Dream font and always displays three digits.
+Direction buttons are 64 pixels tall in tall layouts and 52 in compact layouts.
+The variable-slider selector and speed +/− buttons share a height of 60 pixels
+(tall) or 52 (compact), with larger step symbols. The variable range label is
+restored below its slider. The throttle retains its full-length track; only the
+thumb is 20% shorter (77/50 pixels), preserving its target label, value, and grip.
+
+Reset and ALL STOP now share both width (132/106) and height (88/72). Page tabs
+are 56 pixels tall. The locomotive title remains centered with two-line wrapping
+for long names. Artwork extends upward into the tab-to-image gap without moving
+the action buttons down. The slider panel's upper edge is raised to meet the
+tabs, with its lower edge unchanged.
+
+Recent-engine cards are wider and their bar is 90/78 pixels tall, with larger
+identity/state text and 44-pixel close controls. Roster rows are 25% shorter:
+Engine/Train 108, Switch/Route 138, and Accessory 156 pixels. Switch/Route row
+actions remain 60 pixels tall, and row padding accommodates the existing text.
+
+Cab and function buttons show a brief visual acknowledgement for short taps and
+keyboard activation; their command timing and hold/repeat logic still use the
+actual pointer state. Tabs, selector, roster rows, and keyboard keys have visible
+pressed states. Popup surfaces and the native control palette are dark navy.
+The ID keypad now matches the speed-limit panel's 440-pixel maximum width.
+
+TouchSearchField opens a self-contained QWERTY search keyboard on Linux (Pi and
+Steam Deck), without an optional Qt Virtual Keyboard dependency. Search changes
+filter the roster live; Done, close, or Escape dismisses without selecting an
+engine. It includes digits, Shift, Backspace, space, hyphen, and Clear. macOS
+retains normal hardware-keyboard text entry. The keyboard interaction test covers
+these edits, dismissal, one edit per key, and minimum footer touch-target sizes.
+
+Preview and pointer checks cover Pi, PyCab, and Steam Deck; all command delivery
+was mocked during UI checks.
+
+Reset and ALL STOP text is 24 pixels in tall layouts and 20 in compact layouts,
+with their matched button sizes unchanged. Full suite: 8,764 passed, 35 skipped.
+Ruff and PyCharm inspections, including weak warnings, passed for the new test.

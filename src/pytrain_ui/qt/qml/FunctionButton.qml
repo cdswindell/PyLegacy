@@ -19,13 +19,17 @@ Control {
     property int repeatInterval: 250
     property color normalColor: "#303640"
     property color selectedColor: "#176fa8"
-    property color pressedColor: "#48515e"
+    property color pressedColor: "#5c9fc6"
     property bool holdTriggered: false
     readonly property bool pressed: tapHandler.pressed
+    readonly property bool visualPressed: pressed || pressFlash.running
 
     ToolTip.text: holdHint
     ToolTip.delay: 500
     ToolTip.visible: root.enabled && root.pressed && root.holdHint.length > 0 && !root.holdTriggered
+
+    Timer { id: pressFlash; interval: 140 }
+    onClicked: pressFlash.restart()
 
     signal clicked()
     signal held()
@@ -75,7 +79,7 @@ Control {
 
     background: Rectangle {
         radius: root.compact ? 7 : 9
-        color: !root.enabled ? "#242930" : root.pressed ? root.pressedColor : root.selected ? root.selectedColor : root.normalColor
+        color: !root.enabled ? "#242930" : root.visualPressed ? root.pressedColor : root.selected ? root.selectedColor : root.normalColor
         border.width: 1
         border.color: root.selected ? "#78c9ff" : "#626b78"
 

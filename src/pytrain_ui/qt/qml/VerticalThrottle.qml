@@ -107,8 +107,9 @@ Item {
 
     Rectangle {
         id: handle
+        objectName: "throttleThumb"
         width: Math.min(root.largeTouch ? 144 : 96, root.width - 8)
-        height: root.largeTouch ? 96 : 62
+        height: Math.round((root.largeTouch ? 96 : 62) * 0.8)
         radius: 9
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
@@ -148,8 +149,8 @@ Item {
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.largeTouch ? 14 : 9
-            spacing: 3
+            anchors.bottomMargin: root.largeTouch ? 7 : 4
+            spacing: 2
             Repeater {
                 model: 3
                 Rectangle {

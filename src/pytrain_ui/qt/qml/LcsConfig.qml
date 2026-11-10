@@ -30,7 +30,7 @@ Popup {
     }
 
     background: Rectangle {
-        color: "#171b20"
+        color: "#102858"
         radius: 14
         border.width: 1
         border.color: "#59616c"
@@ -424,7 +424,7 @@ Popup {
                     font.bold: true
 
                     background: Rectangle {
-                        color: "#171b20"
+                        color: "#102858"
                     }
                 }
 

@@ -52,6 +52,7 @@ Rectangle {
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
     readonly property int tileHeight: compact ? 72 : 112
+    readonly property int sliderButtonHeight: compact ? 52 : 60
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
@@ -179,6 +180,11 @@ Rectangle {
         onHeld: root.handleModelHold(action)
     }
 
+    FontLoader {
+        id: speedFont
+        source: "../../../pytrain/gui/fonts/digital-dream/DIGITALDREAM.ttf"
+    }
+
     color: "#0d1f58"
     gradient: Gradient {
         GradientStop { position: 0; color: "#173775" }
@@ -189,19 +195,19 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: root.compact ? 10 : 14
+        anchors.margins: root.compact ? 8 : 12
         spacing: root.gap
 
         RowLayout {
             Layout.fillWidth: true
             Layout.minimumHeight: titleControls.implicitHeight
-            Layout.preferredHeight: Math.max(titleControls.implicitHeight, root.compact ? 64 : 72)
+            Layout.preferredHeight: Math.max(titleControls.implicitHeight, root.compact ? 76 : 96)
             spacing: 8
             CabButton {
-                Layout.preferredWidth: root.compact ? 88 : 120
-                Layout.preferredHeight: Math.round((root.compact ? 42 : 54) * 1.25)
+                Layout.preferredWidth: root.compact ? 106 : 132
+                Layout.preferredHeight: root.compact ? 72 : 88
                 text: "Reset"
-                font.pixelSize: root.compact ? 15 : 18
+                font.pixelSize: root.compact ? 20 : 24
                 onClicked: cab.reset()
             }
             ColumnLayout {
@@ -217,7 +223,7 @@ Rectangle {
                     elide: Text.ElideRight
                     wrapMode: Text.WordWrap
                     maximumLineCount: 2
-                    font.pixelSize: root.compact ? 18 : 22
+                    font.pixelSize: root.compact ? 20 : 24
                     font.bold: true
                 }
                 Label {
@@ -232,9 +238,9 @@ Rectangle {
             }
             CabButton {
                 Layout.preferredWidth: root.compact ? 106 : 132
-                Layout.preferredHeight: Math.round((root.compact ? 42 : 54) * 1.25)
+                Layout.preferredHeight: root.compact ? 72 : 88
                 text: "ALL STOP"
-                font.pixelSize: root.compact ? 16 : 18
+                font.pixelSize: root.compact ? 20 : 24
                 font.bold: true
                 normalColor: "#9d2020"
                 pressedColor: "#c62d2d"
@@ -275,7 +281,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    height: 40
+                    height: 56
                     currentIndex: root.effectsVisible ? 1 : 0
                     spacing: 6
                     padding: 0
@@ -309,12 +315,12 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.topMargin: pageTab.checked ? 0 : 5
                                     radius: 10
-                                    color: pageTab.checked ? "#16376b" : "#0a204a"
+                                    color: pageTab.down ? "#4199cd" : pageTab.checked ? "#16376b" : "#0a204a"
                                     border.width: 1
                                     border.color: pageTab.checked ? "#88b5e1" : "#49668c"
                                     gradient: Gradient {
-                                        GradientStop { position: 0; color: pageTab.checked ? "#315c94" : "#162e55" }
-                                        GradientStop { position: 1; color: pageTab.checked ? "#16376b" : "#0a204a" }
+                                        GradientStop { position: 0; color: pageTab.down ? "#68bce9" : pageTab.checked ? "#315c94" : "#162e55" }
+                                        GradientStop { position: 1; color: pageTab.down ? "#4199cd" : pageTab.checked ? "#16376b" : "#0a204a" }
                                     }
                                 }
                                 Rectangle {
@@ -324,7 +330,7 @@ Rectangle {
                                     anchors.leftMargin: 1
                                     anchors.rightMargin: 1
                                     height: 8
-                                    color: pageTab.checked ? "#16376b" : "#0a204a"
+                                    color: pageTab.down ? "#4199cd" : pageTab.checked ? "#16376b" : "#0a204a"
                                 }
                                 Rectangle {
                                     anchors.left: parent.left
@@ -344,8 +350,8 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: pageTabs.bottom
-                    anchors.topMargin: 4
-                    height: root.compact ? 52 : 108
+                    anchors.topMargin: -8
+                    height: root.compact ? 64 : 96
                     radius: 8
                     color: "#e8ebef"
                     clip: true
@@ -438,6 +444,7 @@ Rectangle {
                 objectName: "drivingSliders"
                 anchors.right: parent.right
                 anchors.top: parent.top
+                anchors.topMargin: -16
                 anchors.bottom: parent.bottom
                 width: (drivingArea.width - root.gap) * 2 / 5
                 radius: 10
@@ -451,14 +458,14 @@ Rectangle {
                     Item {
                         id: speedReadoutRow
                         Layout.fillWidth: true
-                        Layout.minimumHeight: root.compact ? 50 : 64
-                        Layout.maximumHeight: root.compact ? 50 : 64
-                        Layout.preferredHeight: root.compact ? 50 : 64
+                        Layout.minimumHeight: root.compact ? 78 : 96
+                        Layout.maximumHeight: root.compact ? 78 : 96
+                        Layout.preferredHeight: root.compact ? 78 : 96
                         ColumnLayout {
                             anchors.right: parent.right
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            width: cab.analogModes.length > 0 ? (parent.width - 6) * 2 / 3 : parent.width
+                            width: parent.width
                             spacing: 0
                             Label {
                                 Layout.fillWidth: true
@@ -470,10 +477,11 @@ Rectangle {
                             Label {
                                 objectName: "currentSpeedReadout"
                                 Layout.fillWidth: true
-                                text: cab.speed
-                                color: "white"
+                                text: ("000" + Math.max(0, Math.min(199, Math.round(cab.speed)))).slice(-3)
+                                font.family: speedFont.status === FontLoader.Ready ? speedFont.name : "monospace"
+                                color: "#e4f6ff"
                                 horizontalAlignment: Text.AlignHCenter
-                                font.pixelSize: root.compact ? 28 : 36
+                                font.pixelSize: root.compact ? 36 : 46
                                 font.bold: true
                             }
                         }
@@ -483,25 +491,25 @@ Rectangle {
                         spacing: 5
                         CabButton {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.compact ? 32 : 45
+                            Layout.preferredHeight: root.compact ? 52 : 64
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: reverseButton
                             objectName: "reverseDirectionButton"
                             text: "◀ REV" + (root.requestedDirection === "REVERSE" ? " …" : "")
-                            font.pixelSize: root.compact ? 12 : 20
+                            font.pixelSize: root.compact ? 17 : 22
                             selected: root.displayedDirection.indexOf("REVERSE") >= 0
                             onClicked: root.requestDirection("REVERSE")
                         }
                         CabButton {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.compact ? 32 : 45
+                            Layout.preferredHeight: root.compact ? 52 : 64
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: forwardButton
                             objectName: "forwardDirectionButton"
                             text: "FWD ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
-                            font.pixelSize: root.compact ? 12 : 20
+                            font.pixelSize: root.compact ? 17 : 22
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
                         }
@@ -526,7 +534,9 @@ Rectangle {
                                 objectName: "variableControlSelector"
                                 visible: cab.analogModes.length > 0
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.compact ? 32 : 40
+                                Layout.minimumHeight: root.sliderButtonHeight
+                                Layout.maximumHeight: root.sliderButtonHeight
+                                Layout.preferredHeight: root.sliderButtonHeight
                                 model: cab.analogModes
                                 Component.onCompleted: root.syncAnalogMode()
                                 onModelChanged: Qt.callLater(root.syncAnalogMode)
@@ -544,6 +554,9 @@ Rectangle {
                                     font.pixelSize: 12
                                 }
                                 popup.width: root.compact ? 150 : 220
+                                popup.background: Rectangle { color: "#102858"; radius: 8; border.color: "#6385af" }
+                                ToolTip.visible: hovered
+                                ToolTip.text: currentText + (currentText === "Horn" ? " · 0–15" : " · 0–7")
                                 contentItem: Text {
                                     leftPadding: 2
                                     rightPadding: 0
@@ -554,7 +567,7 @@ Rectangle {
                                     elide: Text.ElideRight
                                 }
                                 background: Rectangle {
-                                    color: "#303945"
+                                    color: analogMode.down ? "#5597bf" : "#303945"
                                     radius: 6
                                     border.color: "#627384"
                                 }
@@ -579,17 +592,16 @@ Rectangle {
                                     else if (analogMode.currentText === "Horn") cab.setQuillingHorn(v)
                                 }
                             }
-                            Item {
+                            Label {
+                                objectName: "variableControlRange"
                                 Layout.fillWidth: true
-                                Layout.minimumHeight: root.compact ? 32 : 40
-                                Layout.maximumHeight: root.compact ? 32 : 40
-                                Layout.preferredHeight: root.compact ? 32 : 40
-                                Label {
-                                    anchors.centerIn: parent
-                                    text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
-                                    color: "#9aabba"
-                                    font.pixelSize: root.compact ? 10 : 15
-                                }
+                                Layout.minimumHeight: 20
+                                Layout.maximumHeight: 20
+                                Layout.preferredHeight: 20
+                                horizontalAlignment: Text.AlignHCenter
+                                text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
+                                color: "#bdcfe5"
+                                font.pixelSize: root.compact ? 12 : 15
                             }
                             Timer {
                                 interval: 500
@@ -607,10 +619,12 @@ Rectangle {
                             spacing: 6
                             CabButton {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.compact ? 32 : 40
+                                Layout.minimumHeight: root.sliderButtonHeight
+                                Layout.maximumHeight: root.sliderButtonHeight
+                                Layout.preferredHeight: root.sliderButtonHeight
                                 objectName: "speedStepUp"
                                 text: "+"
-                                font.pixelSize: root.compact ? 22 : 26
+                                font.pixelSize: root.compact ? 32 : 38
                                 enabled: !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(1)
@@ -628,10 +642,12 @@ Rectangle {
                             }
                             CabButton {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.compact ? 32 : 40
+                                Layout.minimumHeight: root.sliderButtonHeight
+                                Layout.maximumHeight: root.sliderButtonHeight
+                                Layout.preferredHeight: root.sliderButtonHeight
                                 objectName: "speedStepDown"
                                 text: "−"
-                                font.pixelSize: root.compact ? 22 : 26
+                                font.pixelSize: root.compact ? 32 : 38
                                 enabled: !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(-1)
@@ -691,7 +707,7 @@ Rectangle {
                             text: stateTile.editable && (cab.speedLimit <= 0 || cab.speedLimit === 255) ? "No limit" :
                                   modelData.value === "" ? "—" : modelData.value
                             color: "#f1f5f9"
-                            font.pixelSize: root.compact ? 12 : 20
+                            font.pixelSize: root.compact ? 17 : 22
                             font.bold: true
                         }
                     }

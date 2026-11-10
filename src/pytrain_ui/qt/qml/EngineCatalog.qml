@@ -108,7 +108,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
-            TextField {
+            TouchSearchField {
                 id: searchField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 108
@@ -184,7 +184,7 @@ Rectangle {
                 id: row
                 required property var modelData
                 width: ListView.view.width
-                height: 144
+                height: 108
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#272d35"
                 border.width: 1

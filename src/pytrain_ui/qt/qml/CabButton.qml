@@ -10,8 +10,12 @@ Control {
     property int repeatInterval: 250
     property color normalColor: "#343a44"
     property color selectedColor: "#246aa0"
-    property color pressedColor: "#4d5968"
+    property color pressedColor: "#5c9fc6"
     readonly property bool pressed: tapHandler.pressed
+    readonly property bool visualPressed: pressed || pressFlash.running
+
+    Timer { id: pressFlash; interval: 140 }
+    onClicked: pressFlash.restart()
 
     signal clicked()
     signal released()
@@ -33,7 +37,7 @@ Control {
 
     background: Rectangle {
         radius: 10
-        color: !root.enabled ? "#242930" : root.pressed ? root.pressedColor : (root.selected ? root.selectedColor : root.normalColor)
+        color: !root.enabled ? "#242930" : root.visualPressed ? root.pressedColor : (root.selected ? root.selectedColor : root.normalColor)
         border.width: root.selected ? 2 : 1
         border.color: !root.enabled ? "#39414b" : root.selected ? "#78bff0" : "#626b78"
     }
