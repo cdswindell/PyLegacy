@@ -208,6 +208,7 @@ Rectangle {
                 Layout.preferredHeight: root.compact ? 72 : 88
                 text: "Reset"
                 font.pixelSize: root.compact ? 20 : 24
+                font.bold: true
                 onClicked: cab.reset()
             }
             ColumnLayout {
