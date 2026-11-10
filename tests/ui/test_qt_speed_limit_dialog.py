@@ -122,7 +122,7 @@ for digit in str(target):
 QTest.qWait(30)
 assert value("editor.entryText") == str(target)
 assert value(named("speedLimitSlider") + ".value") == target
-position = point(button("Apply"))
+position = point(button("Set"))
 QTest.mousePress(window(), Qt.LeftButton, pos=position)
 QTest.qWait(30)
 assert value("editor.visible"), "The dialog must not close before pointer release"
@@ -137,7 +137,7 @@ assert window().property("underlyingClicks") == 0
 open_editor()
 value("editor.entryText='" + str(maximum + 1) + "'")
 assert not value("editor.acceptableInput")
-assert not value(button("Apply") + ".enabled")
+assert not value(button("Set") + ".enabled")
 value("editor.commit()")
 assert value("editor.visible")
 assert window().property("commits") == 1
@@ -163,14 +163,14 @@ assert window().property("commits") == 1
 click("Cancel")
 
 open_editor()
-click("No limit")
+click("Clear")
 assert value("editor.unlimited")
 assert window().property("clears") == 0
 click("Cancel")
 assert window().property("saved") == target
 open_editor()
-click("No limit")
-click("Apply")
+click("Clear")
+click("Set")
 assert window().property("clears") == 1
 assert window().property("saved") == 255
 assert window().property("commits") == 1

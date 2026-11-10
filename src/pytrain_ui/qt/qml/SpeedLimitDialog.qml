@@ -164,7 +164,7 @@ Popup {
                     font.pixelSize: 26
                     highlighted: modelData === "↵"
                     enabled: modelData !== "↵" || root.acceptableInput
-                    Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "↵" ? "Apply speed limit" : modelData
+                    Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "↵" ? "Set speed limit" : modelData
                     onClicked: {
                         if (modelData === "⌫") root.deleteDigit()
                         else if (modelData === "↵") root.commit()
@@ -189,7 +189,7 @@ Popup {
                 Layout.minimumWidth: 0
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 54
-                text: "No limit"
+                text: "Clear"
                 font.pixelSize: 20
                 highlighted: root.unlimited
                 onClicked: {
@@ -212,7 +212,7 @@ Popup {
                 Layout.minimumWidth: 0
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 54
-                text: "Apply"
+                text: "Set"
                 font.pixelSize: 20
                 highlighted: true
                 enabled: root.acceptableInput
