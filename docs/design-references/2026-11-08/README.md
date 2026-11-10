@@ -381,3 +381,12 @@ Red coloring, disabled-state dimming, touch targets, and deletion behavior are
 unchanged across every use of the shared icon.
 
 Full suite: 8,776 passed, 35 skipped.
+
+
+## Roster Set key sizing — November 10
+
+Set now matches the adjacent Backspace and keypad keys at 84 × 84 pixels,
+with its text increased from 22 to 24 pixels. A broader text-button font
+uniformity review is deferred to a separate design pass.
+
+Full suite: 8,776 passed, 35 skipped.

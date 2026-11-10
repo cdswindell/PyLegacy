@@ -7,9 +7,9 @@ Button {
     property string entryText: ""
     property int maximumId: 9999
     objectName: "rosterSetButton"
-    Layout.preferredWidth: 104
-    Layout.minimumWidth: 104
-    Layout.maximumWidth: 104
+    Layout.preferredWidth: 84
+    Layout.minimumWidth: 84
+    Layout.maximumWidth: 84
     Layout.preferredHeight: 84
     text: "Set"
     focusPolicy: Qt.NoFocus
@@ -18,7 +18,7 @@ Button {
     contentItem: Text {
         text: root.text
         color: root.enabled ? "white" : "#7d8591"
-        font.pixelSize: 22
+        font.pixelSize: 24
         font.bold: root.enabled
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
