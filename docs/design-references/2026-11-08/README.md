@@ -193,3 +193,24 @@ keypad/backspace, slider synchronization, and clearing the limit.
 
 Full suite: 8,763 passed, 35 skipped. Ruff checks passed; PyCharm inspections,
 including warnings and weak warnings, found no issues in the new test file.
+
+
+## Drive and Speed page tabs — November 10
+
+Drive and Speed now form a 40-pixel tab strip across the left three-column
+control area. A muted selected background and blue underline identify the active
+page. The former Effects page is labeled Speed; its available commands are
+unchanged. The locomotive image stays visible on both pages, and switching tabs
+changes only the action controls below it. The throttle and variable slider
+remain shared and retain their positions.
+
+The header again groups the locomotive title and TMCC ID closely between Reset
+and ALL STOP. Tall-layout artwork is 108 pixels high, down from 120, to make room
+for the tabs. Compact-layout artwork remains 52 pixels high. Aux controls retain
+the same operation-button size and remain available on either page.
+
+Pointer checks cover both tab directions on Pi, PyCab, and Steam Deck, including
+unchanged artwork/throttle geometry. Existing Switch and Route layouts are
+unchanged.
+
+Full suite: 8,763 passed, 35 skipped.

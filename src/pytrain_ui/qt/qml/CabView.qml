@@ -215,60 +215,14 @@ Rectangle {
                     font.pixelSize: root.compact ? 18 : 22
                     font.bold: true
                 }
-                RowLayout {
+                Label {
+                    objectName: "engineIdentity"
                     Layout.fillWidth: true
-                    spacing: 6
-                    Button {
-                        objectName: "driveTab"
-                        Layout.preferredWidth: root.compact ? 104 : 117
-                        Layout.preferredHeight: 50
-                        text: "Drive"
-                        checked: !root.effectsVisible
-                        onClicked: root.effectsVisible = false
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? "#ffffff" : "#aeb7c2"
-                            font.pixelSize: 18
-                            font.bold: parent.checked
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        background: Rectangle {
-                            radius: 6
-                            color: parent.checked ? "#246aa0" : "#252b33"
-                            border.color: parent.checked ? "#78bff0" : "#434c58"
-                        }
-                    }
-                    Label {
-                        objectName: "engineIdentity"
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        text: cab.scope + " " + cab.tmccId
-                        color: "#c7d1dd"
-                        horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: root.compact ? 16 : 20
-                    }
-                    Button {
-                        objectName: "effectsTab"
-                        Layout.preferredWidth: root.compact ? 104 : 117
-                        Layout.preferredHeight: 50
-                        text: "Effects"
-                        checked: root.effectsVisible
-                        onClicked: root.effectsVisible = true
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.checked ? "#ffffff" : "#aeb7c2"
-                            font.pixelSize: 18
-                            font.bold: parent.checked
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        background: Rectangle {
-                            radius: 6
-                            color: parent.checked ? "#246aa0" : "#252b33"
-                            border.color: parent.checked ? "#78bff0" : "#434c58"
-                        }
-                    }
+                    Layout.minimumWidth: 0
+                    text: cab.scope + " " + cab.tmccId
+                    color: "#c7d1dd"
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: root.compact ? 16 : 20
                 }
             }
             CabButton {
@@ -298,13 +252,68 @@ Rectangle {
                 anchors.bottom: parent.bottom
                 width: (drivingArea.width - root.gap) * 3 / 5
 
-                Rectangle {
-                    id: artwork
+                TabBar {
+                    id: pageTabs
+                    objectName: "cabPageTabs"
+                    implicitWidth: 0
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    visible: !root.effectsVisible
-                    height: visible ? (root.compact ? 52 : 120) : 0
+                    height: 40
+                    currentIndex: root.effectsVisible ? 1 : 0
+                    background: Rectangle {
+                        color: "#202832"
+                        radius: 6
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: 1
+                            color: "#434c58"
+                        }
+                    }
+                    Repeater {
+                        model: ["Drive", "Speed"]
+                        TabButton {
+                            required property int index
+                            required property string modelData
+                            objectName: index === 0 ? "driveTab" : "speedTab"
+                            implicitWidth: 100
+                            width: pageTabs.availableWidth / 2
+                            height: pageTabs.height
+                            text: modelData
+                            onClicked: root.effectsVisible = index === 1
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.checked ? "#ffffff" : "#aeb7c2"
+                                font.pixelSize: 18
+                                font.bold: parent.checked
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            background: Rectangle {
+                                color: parent.checked ? "#293e50" : "transparent"
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    height: 3
+                                    visible: parent.parent.checked
+                                    color: "#58b9ed"
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: artwork
+                    objectName: "locomotiveArtwork"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: pageTabs.bottom
+                    anchors.topMargin: 4
+                    height: root.compact ? 52 : 108
                     radius: 8
                     color: "#e8ebef"
                     clip: true
@@ -362,7 +371,7 @@ Rectangle {
                     anchors.right: parent.right
                     height: root.tileHeight
                     y: root.effectsVisible ? parent.height - height :
-                        Math.min(parent.height - height, artwork.height + (artwork.visible ? root.gap : 0) + actionContent.implicitHeight + root.gap)
+                        Math.min(parent.height - height, artwork.y + artwork.height + root.gap + actionContent.implicitHeight + root.gap)
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
