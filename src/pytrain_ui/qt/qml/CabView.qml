@@ -179,7 +179,12 @@ Rectangle {
         onHeld: root.handleModelHold(action)
     }
 
-    color: "#171a1f"
+    color: "#0d1f58"
+    gradient: Gradient {
+        GradientStop { position: 0; color: "#173775" }
+        GradientStop { position: 0.5; color: "#0d1f58" }
+        GradientStop { position: 1; color: "#09183f" }
+    }
     radius: 14
 
     ColumnLayout {
@@ -252,6 +257,16 @@ Rectangle {
                 anchors.bottom: parent.bottom
                 width: (drivingArea.width - root.gap) * 3 / 5
 
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.topMargin: pageTabs.height - 1
+                    anchors.leftMargin: -2
+                    anchors.rightMargin: -2
+                    radius: 8
+                    color: "#16376b"
+                    border.color: "#5275a4"
+                }
+
                 TabBar {
                     id: pageTabs
                     objectName: "cabPageTabs"
@@ -261,26 +276,23 @@ Rectangle {
                     anchors.top: parent.top
                     height: 40
                     currentIndex: root.effectsVisible ? 1 : 0
-                    background: Rectangle {
-                        color: "#202832"
-                        radius: 6
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            height: 1
-                            color: "#434c58"
-                        }
-                    }
+                    spacing: 6
+                    padding: 0
+                    background: Item {}
                     Repeater {
                         model: ["Drive", "Speed"]
                         TabButton {
+                            id: pageTab
                             required property int index
                             required property string modelData
                             objectName: index === 0 ? "driveTab" : "speedTab"
                             implicitWidth: 100
-                            width: pageTabs.availableWidth / 2
+                            width: (pageTabs.availableWidth - pageTabs.spacing) / 2
                             height: pageTabs.height
+                            y: 0
+                            padding: 0
+                            topInset: 0
+                            bottomInset: 0
                             text: modelData
                             onClicked: root.effectsVisible = index === 1
                             contentItem: Text {
@@ -291,15 +303,34 @@ Rectangle {
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
-                            background: Rectangle {
-                                color: parent.checked ? "#293e50" : "transparent"
+                            background: Item {
+                                Rectangle {
+                                    anchors.fill: parent
+                                    anchors.topMargin: pageTab.checked ? 0 : 5
+                                    radius: 10
+                                    color: pageTab.checked ? "#16376b" : "#0a204a"
+                                    border.width: 1
+                                    border.color: pageTab.checked ? "#88b5e1" : "#49668c"
+                                    gradient: Gradient {
+                                        GradientStop { position: 0; color: pageTab.checked ? "#315c94" : "#162e55" }
+                                        GradientStop { position: 1; color: pageTab.checked ? "#16376b" : "#0a204a" }
+                                    }
+                                }
                                 Rectangle {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     anchors.bottom: parent.bottom
-                                    height: 3
-                                    visible: parent.parent.checked
-                                    color: "#58b9ed"
+                                    anchors.leftMargin: 1
+                                    anchors.rightMargin: 1
+                                    height: 8
+                                    color: pageTab.checked ? "#16376b" : "#0a204a"
+                                }
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    height: 1
+                                    color: pageTab.checked ? "#16376b" : "#5275a4"
                                 }
                             }
                         }
@@ -409,8 +440,8 @@ Rectangle {
                 anchors.bottom: parent.bottom
                 width: (drivingArea.width - root.gap) * 2 / 5
                 radius: 10
-                color: "#20262e"
-                border.color: "#394450"
+                color: "#102858"
+                border.color: "#496b9d"
 
                 ColumnLayout {
                     anchors.fill: parent

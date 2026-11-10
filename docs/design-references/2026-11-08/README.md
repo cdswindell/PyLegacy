@@ -214,3 +214,22 @@ unchanged artwork/throttle geometry. Existing Switch and Route layouts are
 unchanged.
 
 Full suite: 8,763 passed, 35 skipped.
+
+
+## Raised tabs and navy background — November 10
+
+The supplied Cab3 reference uses a predominant deep navy near #0d1f58, with
+darker areas near #071438. Engine/Train operating and roster backgrounds now
+use a gentle wash from #173775 through #0d1f58 to #09183f. The slider panel,
+recent-engine bar, and scope-bar surround use related navy shades. Existing
+button artwork and operation-button sizes remain unchanged.
+
+Drive and Speed now have rounded upper corners, outlined raised edges, a
+subtle vertical highlight, and a shared blue page surface. The active tab rises
+above the inactive tab and its lower edge blends into the page. Both pages
+retain their shared locomotive image and unchanged slider geometry.
+
+Pointer switching and device previews passed for Pi, PyCab, and Steam Deck.
+Switch, Route, and Accessory retain their current background styling.
+
+Full suite: 8,763 passed, 35 skipped.

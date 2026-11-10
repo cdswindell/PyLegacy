@@ -9,7 +9,7 @@ ApplicationWindow {
     height: 1280
     minimumWidth: 480
     minimumHeight: devicePreviewActive ? 400 : 720
-    color: "#0f1115"
+    color: engineScope ? "#09183f" : "#0f1115"
     title: "PyTrain — " + activeScope
     onClosing: Qt.quit()
 
@@ -161,6 +161,7 @@ ApplicationWindow {
             }
 
             SelectedEngineBar {
+                color: "#0d1f58"
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? 58 : 0
                 visible: !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
@@ -168,6 +169,7 @@ ApplicationWindow {
             }
 
             ScopeBar {
+                color: window.engineScope ? "#102858" : "#20242a"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 84
                 Layout.minimumHeight: 84
