@@ -245,6 +245,7 @@ Rectangle {
         Item {
             id: drivingArea
             objectName: "drivingArea"
+            Layout.topMargin: 16
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0

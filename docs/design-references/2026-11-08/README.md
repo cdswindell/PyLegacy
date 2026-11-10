@@ -233,3 +233,12 @@ Pointer switching and device previews passed for Pi, PyCab, and Steam Deck.
 Switch, Route, and Accessory retain their current background styling.
 
 Full suite: 8,763 passed, 35 skipped.
+
+
+## Header clearance — November 10
+
+Added 16 logical pixels above the driving area to separate the page tabs from
+Reset and ALL STOP. Button sizes and the tab hit areas remain unchanged; the
+control area and sliders give up only those 16 pixels of height.
+
+All three device previews passed. Full suite: 8,763 passed, 35 skipped.
