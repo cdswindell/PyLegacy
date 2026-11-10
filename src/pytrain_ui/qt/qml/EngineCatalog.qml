@@ -112,7 +112,10 @@ Rectangle {
             TouchSearchField {
                 id: searchField
                 Layout.fillWidth: true
+                Layout.minimumHeight: 54
+                Layout.maximumHeight: 54
                 Layout.preferredHeight: 54
+                Layout.alignment: Qt.AlignVCenter
                 placeholderText: "Name, road #, or TMCC ID"
                 font.pixelSize: 26
                 selectByMouse: true
@@ -125,8 +128,8 @@ Rectangle {
             }
             RosterBackspaceButton { field: searchField }
             KeypadButton {
-                Layout.preferredWidth: 60
-                Layout.preferredHeight: 54
+                Layout.preferredWidth: 84
+                Layout.preferredHeight: 84
                 onClicked: tmccKeypad.openFor(root.searchText)
             }
             RosterSetButton {

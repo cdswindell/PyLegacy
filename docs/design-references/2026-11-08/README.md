@@ -349,3 +349,22 @@ and numeric-enable checks at Pi, PyCab, and Steam Deck dimensions. Pointer tests
 cover selected-range Backspace, single query edits, Set only on release, Return,
 and invalid/nonnumeric input. Full suite: 8,776 passed, 35 skipped. Ruff and
 PyCharm inspections, including weak warnings, passed for the new test file.
+
+
+## Larger roster action keys and red Backspace — November 10
+
+Search inputs stay 54 pixels tall and are vertically centered beside larger
+action keys: Backspace and keypad are 84 × 84, and Set is 104 × 84. This retains
+the compact text entry without tying touch-target height to the field.
+
+All Backspace keys use the same native vector icon: a red outline and X with
+two logical pixels of clear space between their strokes. The icon replaces the
+font glyph in roster actions, ID keypads, the speed-limit editor, and the search
+keyboard. Disabled keys retain the red icon at reduced opacity. Other key labels,
+validation, deletion, hold behavior, and release-activated selection are unchanged.
+
+Existing pointer tests cover deletion and selection across all affected keyboards;
+the five-roster checks cover matching ALL STOP placement, preserved search-field
+height, and numeric Set gating at all three device sizes.
+
+Full suite: 8,776 passed, 35 skipped.

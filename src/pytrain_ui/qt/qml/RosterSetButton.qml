@@ -7,10 +7,10 @@ Button {
     property string entryText: ""
     property int maximumId: 9999
     objectName: "rosterSetButton"
-    Layout.preferredWidth: 88
-    Layout.minimumWidth: 88
-    Layout.maximumWidth: 88
-    Layout.preferredHeight: 54
+    Layout.preferredWidth: 104
+    Layout.minimumWidth: 104
+    Layout.maximumWidth: 104
+    Layout.preferredHeight: 84
     text: "Set"
     focusPolicy: Qt.NoFocus
     Accessible.name: "Select TMCC ID"

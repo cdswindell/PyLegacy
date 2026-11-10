@@ -54,12 +54,21 @@ Popup {
         Layout.preferredWidth: 0
         Layout.preferredHeight: 56
         font.pixelSize: 22
-        contentItem: Text {
-            text: key.text
-            font: key.font
-            color: "#ffffff"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+        contentItem: Item {
+            Text {
+                anchors.fill: parent
+                visible: key.text !== "⌫"
+                text: key.text
+                font: key.font
+                color: "#ffffff"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            BackspaceIcon {
+                anchors.fill: parent
+                visible: key.text === "⌫"
+                opacity: key.enabled ? 1 : 0.45
+            }
         }
         background: Rectangle {
             radius: 7

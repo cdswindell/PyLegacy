@@ -6,10 +6,10 @@ Button {
     id: root
     required property var field
     objectName: "rosterBackspaceButton"
-    Layout.preferredWidth: 60
-    Layout.minimumWidth: 60
-    Layout.maximumWidth: 60
-    Layout.preferredHeight: 54
+    Layout.preferredWidth: 84
+    Layout.minimumWidth: 84
+    Layout.maximumWidth: 84
+    Layout.preferredHeight: 84
     focusPolicy: Qt.NoFocus
     text: "⌫"
     Accessible.name: "Backspace search text"
@@ -23,13 +23,7 @@ Button {
         field.textEdited()
         field.forceActiveFocus()
     }
-    contentItem: Text {
-        text: root.text
-        color: root.enabled ? "white" : "#7d8591"
-        font.pixelSize: 28
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-    }
+    contentItem: BackspaceIcon { opacity: root.enabled ? 1 : 0.45 }
     background: Rectangle {
         radius: 8
         color: root.down ? "#68a9d0" : "#343a44"

@@ -66,12 +66,21 @@ Popup {
         id: button
         focusPolicy: Qt.NoFocus
         font.pixelSize: 22
-        contentItem: Text {
-            text: button.text
-            font: button.font
-            color: button.enabled ? "#ffffff" : "#7d8591"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+        contentItem: Item {
+            Text {
+                anchors.fill: parent
+                visible: button.text !== "⌫"
+                text: button.text
+                font: button.font
+                color: button.enabled ? "#ffffff" : "#7d8591"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            BackspaceIcon {
+                anchors.fill: parent
+                visible: button.text === "⌫"
+                opacity: button.enabled ? 1 : 0.45
+            }
         }
         background: Rectangle {
             radius: 9

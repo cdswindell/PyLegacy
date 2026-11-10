@@ -54,13 +54,22 @@ Popup {
         focusPolicy: Qt.NoFocus
         font.pixelSize: 28
 
-        contentItem: Text {
-            text: keyControl.text
-            font: keyControl.font
-            color: keyControl.enabled ? "#ffffff" : "#7d8591"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
+        contentItem: Item {
+            Text {
+                anchors.fill: parent
+                visible: keyControl.text !== "⌫"
+                text: keyControl.text
+                font: keyControl.font
+                color: keyControl.enabled ? "#ffffff" : "#7d8591"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+            }
+            BackspaceIcon {
+                anchors.fill: parent
+                visible: keyControl.text === "⌫"
+                opacity: keyControl.enabled ? 1 : 0.45
+            }
         }
         background: Rectangle {
             radius: 10
