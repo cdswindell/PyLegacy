@@ -150,14 +150,14 @@ The standard locomotive Drive page uses these one-based row/column positions:
 
 | Row | Column 1 | Column 2 | Column 3 |
 | --- | --- | --- | --- |
-| 1 | Start Up | Shut Down | |
-| 2 | Volume − | Volume + | |
-| 3 | Bell | Horn | Boost |
+| 1 | Start Up | Shut Down | Volume + |
+| 2 | Bell | Horn | Volume − |
+| 3 | Smoke − | Smoke + | Boost |
 | 4 | Rear Coupler | Front Coupler | Brake |
 | 5 | Crew | Tower | |
 | 6 | Aux1 | Aux2 | Aux3 |
 
-Startup/shutdown and volume controls move from Effects to Drive, retaining their
+Startup/shutdown, volume, and smoke controls move from Effects to Drive, retaining their
 existing command and hold behavior. Acela startup/shutdown variants use the same
 positions. Unsupported empty rows are omitted for other equipment, whose remaining
 applicable controls remain available.

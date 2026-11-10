@@ -74,7 +74,7 @@ Rectangle {
     }
 
     function isDriveUtility(key) {
-        return ["startup", "shutdown", "acela_startup", "acela_shutdown", "volume_down", "volume_up"].indexOf(key) >= 0
+        return ["startup", "shutdown", "acela_startup", "acela_shutdown", "volume_down", "volume_up", "smoke_down", "smoke_up"].indexOf(key) >= 0
     }
 
     function driveActionRows() {
@@ -85,9 +85,9 @@ Rectangle {
         for (const action of actions)
             byKey[action.key] = action
         const cells = [
-            [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown],
-            [byKey.volume_down, byKey.volume_up],
-            [byKey.bell, byKey.horn, byKey.boost],
+            [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, byKey.volume_up],
+            [byKey.bell, byKey.horn, byKey.volume_down],
+            [byKey.smoke_down, byKey.smoke_up, byKey.boost],
             [byKey.rear_coupler, byKey.front_coupler, byKey.brake],
             [byKey.engineer_chatter, byKey.tower_chatter]
         ]
