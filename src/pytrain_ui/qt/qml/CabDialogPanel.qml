@@ -40,7 +40,7 @@ Rectangle {
             if (ditchLights && choicesView.availableWidth < 540)
                 continue
             const columns = ditchLights ? 4 : 3
-            const buttonHeight = ditchLights ? 106 : choiceHeight
+            const buttonHeight = ditchLights ? 86 : choiceHeight
             const rows = Math.ceil(commands.length / columns)
             const sectionHeight = sectionHeadingHeight + rows * (buttonHeight + choiceSpacing)
             const categoryRows = Math.ceil((categories.length - sections.length - 1) / 2)
