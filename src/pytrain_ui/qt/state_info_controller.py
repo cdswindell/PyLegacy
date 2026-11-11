@@ -115,7 +115,6 @@ class StateInfoController(QObject):
             component = train.get_consist_component(state.tmcc_id) if train else None
             membership = self._rows(
                 (
-                    ("Bluetooth ID", state.bt_id),
                     ("Train TMCC ID", state.train_tmcc_id or None),
                     ("Consist position", component.position if component else None),
                     ("Consist direction", component.direction if component else None),
@@ -196,6 +195,7 @@ class StateInfoController(QObject):
             "identity": self._identity(state) if state or draft else [],
             "live": live,
             "membership": membership,
+            "bluetoothId": state.bt_id if isinstance(state, EngineState) and self._scope == CommandScope.ENGINE else "",
             "record": " ".join(part for part in ("4D" if state.is_d4 else "", state.record_no_label) if part)
             if isinstance(state, EngineState)
             else "",

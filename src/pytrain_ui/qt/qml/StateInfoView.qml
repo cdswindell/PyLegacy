@@ -164,8 +164,16 @@ Rectangle {
                 }
 
                 Label {
+                    Layout.fillWidth: true
                     visible: text.length > 0
-                    text: root.record.record || ""
+                    text: {
+                        const recordId = root.record.record || ""
+                        const bluetooth = root.record.bluetoothId
+                        if (!bluetooth)
+                            return recordId
+                        return (recordId ? recordId + "  ·  " : "") + "Bluetooth ID: " + bluetooth
+                    }
+                    wrapMode: Text.WordWrap
                     color: "#b5c9e5"
                     font.pixelSize: 16
                 }
