@@ -159,11 +159,12 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 12
-            spacing: 8
+            spacing: 24
             EditorButton {
                 visible: root.kind === "Brake"
                 text: "Off"
-                Layout.preferredWidth: 112
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 onClicked: {
                     root.draftValue = 0
                     root.commit()
@@ -171,15 +172,17 @@ Popup {
             }
             EditorButton {
                 text: "Cancel"
-                Layout.preferredWidth: 150
+                Layout.fillWidth: root.kind === "Brake"
+                Layout.preferredWidth: root.kind === "Brake" ? 0 : 150
                 onClicked: root.close()
             }
-            Item { Layout.fillWidth: true; Layout.minimumWidth: 32 }
+            Item { visible: root.kind !== "Brake"; Layout.fillWidth: true }
             EditorButton {
                 visible: root.kind === "Brake"
                 objectName: "stateValueSet"
                 text: "Set"
-                Layout.preferredWidth: 150
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 highlighted: true
                 enabled: root.draftValue >= 0
                 onClicked: root.commit()

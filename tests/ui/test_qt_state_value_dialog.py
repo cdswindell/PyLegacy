@@ -138,9 +138,17 @@ for legacy in (True, False):
                 assert window().property("commits") == before + level + 1
             assert window().property("underlyingClicks") == 0
             continue
-        cancel_point, set_point = point(button("Cancel")), point(button("Set"))
-        assert set_point.x() - cancel_point.x() > 180
-        assert abs(set_point.y() - cancel_point.y()) < 2
+        footer = [button(label) for label in ("Off", "Cancel", "Set")]
+        widths = [value(item + ".width") for item in footer]
+        heights = [value(item + ".height") for item in footer]
+        assert max(widths) - min(widths) <= 1
+        assert max(heights) - min(heights) <= 1
+        off_point, cancel_point, set_point = map(point, footer)
+        assert off_point.y() == cancel_point.y() == set_point.y()
+        first_step = cancel_point.x() - off_point.x()
+        second_step = set_point.x() - cancel_point.x()
+        assert first_step - widths[0] >= 20
+        assert abs(first_step - second_step) <= 1
         value("editor.draftValue=2")
         assert window().property("commits") == before
         click("Cancel")
