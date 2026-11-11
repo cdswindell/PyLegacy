@@ -7,6 +7,7 @@ Control {
 
     property string text: ""
     property url iconSource: ""
+    property int speedChevrons: 0
     property bool selected: false
     property bool compact: false
     property bool stacked: false
@@ -61,6 +62,11 @@ Control {
                 smooth: true
                 mipmap: true
             }
+        }
+
+        SpeedChevrons {
+            Layout.alignment: Qt.AlignCenter
+            count: root.speedChevrons
         }
 
         Text {

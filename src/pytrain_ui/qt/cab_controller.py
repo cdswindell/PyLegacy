@@ -499,6 +499,11 @@ class CabController(QObject):
     def setSpeed(self, speed: int) -> None:
         self._command_port.set_speed(speed)
 
+    @Slot(str)
+    def setSpeedPreset(self, name: str) -> None:
+        if self._command_port is not None:
+            self._command_port.set_speed_preset(name)
+
     @Slot(int, result=bool)
     def stepSpeed(self, delta: int) -> bool:
         return self._command_port.step_speed(delta)

@@ -107,8 +107,7 @@ Rectangle {
             acela_startup: "acela_power", acela_shutdown: "acela_power",
             let_off: "steam_effects", water_injector: "steam_effects",
             freight_load: "freight_loading", freight_unload: "freight_loading",
-            transformer_front_coupler: "transformer_couplers", transformer_rear_coupler: "transformer_couplers",
-            momentum_low: "momentum", momentum_medium: "momentum", momentum_high: "momentum"
+            transformer_front_coupler: "transformer_couplers", transformer_rear_coupler: "transformer_couplers"
         }
         const rows = []
         for (const action of actions) {
@@ -155,6 +154,17 @@ Rectangle {
         return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] })))
     }
 
+    function speedActionRows() {
+        const presets = ["Restricted", "Slow", "Medium", "Limited", "Normal", "Highball"].map((label, index) => ({
+            key: label.toUpperCase(),
+            label: label,
+            speedChevrons: index + 1
+        }))
+        const otherActions = cab.moreActionModel.filter(action =>
+            !root.isDriveUtility(action.key) && !action.key.startsWith("momentum_"))
+        return [presets.slice(0, 3), presets.slice(3)].concat(root.pairedActionRows(otherActions))
+    }
+
     component PairedActions: ColumnLayout {
         property var actions: []
         property var rows: root.pairedActionRows(actions)
@@ -198,13 +208,20 @@ Rectangle {
         padding: root.compact ? 4 : 6
         iconSize: root.compact ? 40 : 72
         text: action.label
-        iconSource: action.iconSource
+        iconSource: action.iconSource || ""
+        speedChevrons: action.speedChevrons || 0
+        enabled: !speedChevrons || cab.hasThrottle
         font.pixelSize: root.compact ? 14 : 18
-        deferForHold: action.hold
-        holdThreshold: action.holdThreshold
-        repeatWhileHeld: action.repeat
+        deferForHold: action.hold || false
+        holdThreshold: action.holdThreshold || 1000
+        repeatWhileHeld: action.repeat || false
         repeatInterval: action.repeatInterval > 0 ? action.repeatInterval : 250
-        onClicked: root.cab.triggerAction(action.key)
+        onClicked: {
+            if (speedChevrons)
+                root.cab.setSpeedPreset(action.key)
+            else
+                root.cab.triggerAction(action.key)
+        }
         onHeld: root.handleModelHold(action)
     }
 
@@ -501,7 +518,7 @@ Rectangle {
                         }
                         PairedActions {
                             visible: root.effectsVisible
-                            actions: cab.moreActionModel.filter(function(action) { return !root.isDriveUtility(action.key) })
+                            rows: root.speedActionRows()
                         }
                     }
                 }

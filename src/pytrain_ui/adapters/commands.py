@@ -10,8 +10,8 @@ from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffe
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
 from pytrain.protocol.sequence.sequence_req import SequenceReq
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
-from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1RRSpeedsEnum
+from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RRSpeedsEnum
 
 from pytrain_ui.actions import CabAction, action_applies_to_type, cab_action
 from pytrain_ui.profiles import EngineControlProfile, resolve_engine_control_profile
@@ -75,6 +75,15 @@ class PyTrainCabCommandAdapter:
         maximum = 199 if self.state.is_legacy else 31
         speed = max(0, min(maximum, int(speed)))
         RampSpeedReq(self.state.tmcc_id, speed, self.state.scope).send()
+
+    def set_speed_preset(self, name: str) -> None:
+        state = self.state
+        if not state.has_throttle or state.is_remote_ramping:
+            return
+        speeds = TMCC2RRSpeedsEnum if state.is_legacy else TMCC1RRSpeedsEnum
+        preset = speeds.by_name(name)
+        if preset is not None:
+            self.set_speed(preset.speed)
 
     def step_speed(self, delta: int) -> bool:
         """Send a direct speed nudge only while no local or remote ramp is active."""

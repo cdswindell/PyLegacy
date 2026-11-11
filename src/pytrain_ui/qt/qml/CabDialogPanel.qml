@@ -144,31 +144,13 @@ Rectangle {
         readonly property int speedChevrons: Math.max(0, root.speedRank(modelData.command))
         topPadding: speedChevrons > 0 ? 32 : padding
 
-        Canvas {
+        SpeedChevrons {
             anchors.top: parent.top
             anchors.topMargin: 8
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 92
-            height: 22
-            visible: choice.speedChevrons > 0
-            onPaint: {
-                const context = getContext("2d")
-                context.clearRect(0, 0, width, height)
-                const count = choice.speedChevrons
-                const step = 10
-                const firstX = (width - (count - 1) * step - 8) / 2
-                context.strokeStyle = "#f5f7fa"
-                context.lineWidth = 4
-                context.lineJoin = "miter"
-                context.beginPath()
-                for (let i = 0; i < count; ++i) {
-                    const x = firstX + i * step
-                    context.moveTo(x, 2)
-                    context.lineTo(x + 8, height / 2)
-                    context.lineTo(x, height - 2)
-                }
-                context.stroke()
-            }
+            width: implicitWidth
+            height: implicitHeight
+            count: choice.speedChevrons
         }
         Layout.fillWidth: true
         Layout.minimumWidth: 0
