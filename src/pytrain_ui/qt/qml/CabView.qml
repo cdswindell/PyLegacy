@@ -44,7 +44,8 @@ Rectangle {
             editSpeedLimit()
             return
         }
-        stateValueDialog.openFor(label, cab.isLegacy, cab.stateEditValues[label], cab.scope + " " + cab.tmccId)
+        stateValueDialog.openFor(label, cab.isLegacy, cab.stateEditValues[label], cab.scope + " " + cab.tmccId,
+                                 label === "Mom" ? cab.mediumMomentum() : 3)
     }
 
     function requestDirection(direction) {
@@ -745,7 +746,7 @@ Rectangle {
     StateValueDialog {
         id: stateValueDialog
         onValueSubmitted: function(kind, value) {
-            if (kind === "Mom") cab.setMomentum(value)
+            if (kind === "Mom") cab.setMomentumPreset(value)
             else if (kind === "Brake") cab.setTrainBrake(value)
             else if (kind === "Smoke") cab.setSmoke(value)
         }

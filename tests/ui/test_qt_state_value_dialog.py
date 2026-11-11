@@ -96,17 +96,35 @@ def click(label):
 
 
 for legacy in (True, False):
-    for kind, current, choice, expected in (("Mom", 6, "High", 7), ("Smoke", 1, "Off", 0), ("Brake", 4, None, 2)):
+    for kind, current in (("Mom", 6), ("Smoke", 1), ("Brake", 4)):
         if kind == "Brake" and not legacy:
             continue
         def open_editor(current_value=current):
-            value("editor.openFor('" + kind + "'," + str(legacy).lower() + "," + str(current_value) + ",'ENGINE 31')")
+            value("editor.openFor('" + kind + "'," + str(legacy).lower() + "," + str(current_value) + ",'ENGINE 31',5)")
             QTest.qWait(30)
         before = window().property("commits")
         open_editor()
         assert value("editor.draftValue") == current
         assert value("editor.currentText") != "Not reported"
         assert value("editor.sliderAvailable") == (kind == "Brake" or (kind == "Mom" and legacy))
+        if kind == "Mom":
+            assert value(button("Set") + " === null")
+            for count, (label, expected) in enumerate(
+                (("Low", 0), ("Medium", 2 if legacy else 3), ("High", 7)), start=1
+            ):
+                slider = named("stateValueSlider")
+                assert value(slider + ".value") == 5
+                if legacy:
+                    value(slider + ".value=2")
+                    assert window().property("commits") == before + count - 1
+                click(label)
+                assert not value("editor.visible")
+                assert window().property("saved") == expected
+                assert window().property("commits") == before + count
+                open_editor()
+            click("Cancel")
+            assert window().property("underlyingClicks") == 0
+            continue
         if kind == "Smoke":
             assert value(button("Set") + " === null")
             click("Cancel")
@@ -123,19 +141,13 @@ for legacy in (True, False):
         cancel_point, set_point = point(button("Cancel")), point(button("Set"))
         assert set_point.x() - cancel_point.x() > 180
         assert abs(set_point.y() - cancel_point.y()) < 2
-        if choice:
-            click(choice)
-        else:
-            value("editor.draftValue=2")
+        value("editor.draftValue=2")
         assert window().property("commits") == before
         click("Cancel")
         assert not value("editor.visible")
         assert window().property("commits") == before
         open_editor()
-        if choice:
-            click(choice)
-        else:
-            value("editor.draftValue=2")
+        value("editor.draftValue=2")
         position = point(button("Set"))
         QTest.mousePress(window(), Qt.LeftButton, pos=position)
         assert value("editor.visible")
@@ -143,7 +155,7 @@ for legacy in (True, False):
         QTest.mouseRelease(window(), Qt.LeftButton, pos=position)
         QTest.qWait(30)
         assert not value("editor.visible")
-        assert window().property("saved") == expected
+        assert window().property("saved") == 2
         assert window().property("commits") == before + 1
         assert window().property("underlyingClicks") == 0
         open_editor("null")

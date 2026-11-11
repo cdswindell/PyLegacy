@@ -6,7 +6,7 @@ import json
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
-from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, QUrl, Signal, Slot
 
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
@@ -473,6 +473,24 @@ class CabController(QObject):
     @Slot(int)
     def changeSpeed(self, delta: int) -> None:
         self._command_port.change_speed(delta)
+
+    def _medium_momentum_key(self) -> str:
+        return f"cab/medium_momentum/{self.scope}/{self.tmccId}"
+
+    @Slot(result=int)
+    def mediumMomentum(self) -> int:
+        if not self.isLegacy:
+            return 3
+        current = self.stateEditValues["Mom"]
+        default = current if current is not None and 1 <= current <= 6 else 3
+        value = QSettings().value(self._medium_momentum_key(), default, type=int)
+        return value if 1 <= value <= 6 else default
+
+    @Slot(int)
+    def setMomentumPreset(self, value: int) -> None:
+        self.setMomentum(value)
+        if self.isLegacy and 1 <= value <= 6:
+            QSettings().setValue(self._medium_momentum_key(), value)
 
     @Slot(int)
     def setMomentum(self, value: int) -> None:

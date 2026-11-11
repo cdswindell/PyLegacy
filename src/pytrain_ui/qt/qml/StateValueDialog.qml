@@ -12,7 +12,7 @@ Popup {
     property string currentText: ""
     readonly property string titleText: kind === "Mom" ? "Momentum" : kind === "Brake" ? "Train Brake" : "Smoke"
     readonly property bool sliderAvailable: kind === "Brake" || (kind === "Mom" && legacy)
-    readonly property var choices: kind === "Mom" ? ["Low", "Med", "High"] : legacy ? ["Off", "Low", "Medium", "High"] : ["Off", "On"]
+    readonly property var choices: kind === "Mom" ? ["Low", "Medium", "High"] : legacy ? ["Off", "Low", "Medium", "High"] : ["Off", "On"]
     signal valueSubmitted(string kind, int value)
 
     function description(value) {
@@ -24,17 +24,17 @@ Popup {
             return String(value)
         return choices[value]
     }
-    function openFor(field, isLegacy, current, target) {
+    function openFor(field, isLegacy, current, target, medium) {
         kind = field
         legacy = isLegacy
         targetText = target
         draftValue = current === null || current === undefined ? -1 : current
         currentText = description(draftValue)
-        valueSlider.value = Math.max(0, draftValue)
+        valueSlider.value = kind === "Mom" ? (medium ?? 3) : Math.max(0, draftValue)
         open()
     }
     function choiceValue(index) {
-        return kind === "Mom" ? [0, 3, 7][index] : index
+        return kind === "Mom" ? [0, legacy ? Math.round(valueSlider.value) : 3, 7][index] : index
     }
     function selected(index) {
         if (kind === "Mom" && index === 1)
@@ -128,10 +128,7 @@ Popup {
                     highlighted: root.selected(index)
                     onClicked: {
                         root.draftValue = root.choiceValue(index)
-                        if (root.kind === "Smoke")
-                            root.commit()
-                        else
-                            valueSlider.value = root.draftValue
+                        root.commit()
                     }
                 }
             }
@@ -141,7 +138,8 @@ Popup {
             visible: root.sliderAvailable
             Label {
                 Layout.alignment: Qt.AlignHCenter
-                text: root.draftValue < 0 ? "Choose a value: 0–7" : String(root.draftValue) + "  (0–7)"
+                text: root.kind === "Mom" ? "Medium level: " + valueSlider.value + "  (1–6)" :
+                      root.draftValue < 0 ? "Choose a value: 0–7" : String(root.draftValue) + "  (0–7)"
                 color: "white"
                 font.pixelSize: 26
             }
@@ -150,12 +148,12 @@ Popup {
                 objectName: "stateValueSlider"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 72
-                from: 0
-                to: 7
+                from: root.kind === "Mom" ? 1 : 0
+                to: root.kind === "Mom" ? 6 : 7
                 stepSize: 1
                 snapMode: Slider.SnapAlways
-                onMoved: root.draftValue = Math.round(value)
-                onPressedChanged: if (pressed) root.draftValue = Math.round(value)
+                onMoved: if (root.kind === "Brake") root.draftValue = Math.round(value)
+                onPressedChanged: if (pressed && root.kind === "Brake") root.draftValue = Math.round(value)
             }
         }
         RowLayout {
@@ -178,7 +176,7 @@ Popup {
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 32 }
             EditorButton {
-                visible: root.kind !== "Smoke"
+                visible: root.kind === "Brake"
                 objectName: "stateValueSet"
                 text: "Set"
                 Layout.preferredWidth: 150
