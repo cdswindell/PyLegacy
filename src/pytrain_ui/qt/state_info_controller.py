@@ -186,6 +186,7 @@ class StateInfoController(QObject):
             self._details(state) if isinstance(state, EngineState) and state.comp_data is not None else ([], [])
         )
         model = {
+            "scopeTitle": self._scope.title,
             "creating": draft is not None,
             "canCreate": bool(draft and draft.can_create and self._pending is None),
             "canClear": bool(not draft and state and state.is_deletable),

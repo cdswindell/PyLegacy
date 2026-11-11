@@ -105,7 +105,7 @@ Rectangle {
             Layout.fillWidth: true
             Label {
                 Layout.fillWidth: true
-                text: root.record.creating ? "Create Engine" : "StateInfo"
+                text: root.record.creating ? "Create Engine" : (root.record.scopeTitle || "Engine") + " Information"
                 color: "white"
                 font.pixelSize: 22
                 font.bold: true
@@ -261,6 +261,7 @@ Rectangle {
         property string errorText: ""
         readonly property bool numeric: field.key === "number"
         readonly property bool choice: !!field.options && field.options.length > 0
+        readonly property bool shortList: choice && field.options.length <= 6
 
         function openFor(row) {
             field = row
@@ -284,7 +285,7 @@ Rectangle {
         }
 
         parent: Overlay.overlay
-        width: Math.min(parent.width - 24, 480)
+        width: Math.min(parent.width - 24, numeric ? 560 : 480)
         x: (parent.width - width) / 2
         y: Math.max(12, (parent.height - height) / 2)
         padding: 16
@@ -302,7 +303,7 @@ Rectangle {
             }
             ComboBox {
                 id: picker
-                visible: fieldEditor.choice
+                visible: fieldEditor.choice && !fieldEditor.shortList
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
                 textRole: "label"
@@ -310,15 +311,34 @@ Rectangle {
                 model: fieldEditor.field.options || []
                 font.pixelSize: 18
             }
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: fieldEditor.shortList
+                spacing: 6
+                Repeater {
+                    model: fieldEditor.shortList ? fieldEditor.field.options : []
+                    InfoButton {
+                        required property int index
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 50
+                        text: modelData.label
+                        selected: picker.currentIndex === index
+                        Accessible.checkable: true
+                        Accessible.checked: selected
+                        onClicked: picker.currentIndex = index
+                    }
+                }
+            }
             RowLayout {
                 visible: !fieldEditor.choice
                 Layout.fillWidth: true
                 TouchSearchField {
                     id: entry
-                    touchKeyboardEnabled: !fieldEditor.numeric && Qt.platform.os === "linux"
+                    touchKeyboardEnabled: fieldEditor.field.key === "name"
                     keyboardTitle: fieldEditor.field.label || ""
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 52
+                    Layout.preferredHeight: fieldEditor.numeric ? 68 : 52
                     maximumLength: fieldEditor.numeric ? 4 : 31
                     inputMethodHints: fieldEditor.numeric ? Qt.ImhDigitsOnly : Qt.ImhNone
                     selectByMouse: true
@@ -336,11 +356,15 @@ Rectangle {
                 visible: fieldEditor.numeric
                 Layout.fillWidth: true
                 columns: 3
+                rowSpacing: 8
+                columnSpacing: 8
                 Repeater {
                     model: fieldEditor.numeric ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "⌫"] : []
                     FooterButton {
                         required property string modelData
                         text: modelData
+                        Layout.preferredHeight: 74
+                        font.pixelSize: 26
                         onClicked: {
                             if (modelData === "Clear") {
                                 entry.clear()
@@ -367,7 +391,7 @@ Rectangle {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 18
-                FooterButton { text: "Close"; onClicked: fieldEditor.close() }
+                FooterButton { text: fieldEditor.choice ? "Cancel" : "Close"; onClicked: fieldEditor.close() }
                 FooterButton {
                     text: "Apply"
                     selected: true
