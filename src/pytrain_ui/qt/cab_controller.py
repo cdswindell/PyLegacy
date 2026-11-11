@@ -179,6 +179,12 @@ class CabController(QObject):
             if not self._command_port.supports_action(action):
                 continue
             whistle = action.key == "horn" and self.isSteam
+            label = "Whistle" if whistle else action.label
+            if action.command_kind == "smoke":
+                if action.command == "SMOKE_ON":
+                    label = "Smoke >" if profile.is_legacy else "Smoke On"
+                else:
+                    label = "< Smoke" if profile.is_legacy else "Smoke Off"
             icon = "whistle.jpg" if whistle else action.icon
             icon_path = find_file(icon) if icon else None
             hold_enabled = action.hold and not (action.hold_legacy_only and not profile.is_legacy)
@@ -189,7 +195,7 @@ class CabController(QObject):
             model.append(
                 {
                     "key": action.key,
-                    "label": "Whistle" if whistle else action.label,
+                    "label": label,
                     "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
                     "hold": hold_enabled,
                     "holdThreshold": action.hold_threshold_ms,
