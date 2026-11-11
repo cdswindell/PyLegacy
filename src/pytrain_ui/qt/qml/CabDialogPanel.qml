@@ -244,12 +244,39 @@ Rectangle {
             }
         }
 
-        DialogButton {
+        RowLayout {
+            id: footer
+            readonly property bool lightsPanel: root.panelKey === "lights"
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 160
-            Layout.preferredHeight: 52
-            text: "Close"
-            onClicked: root.close()
+            Layout.fillWidth: lightsPanel
+            Layout.preferredWidth: lightsPanel ? -1 : 160
+            spacing: root.choiceSpacing
+
+            DialogButton {
+                visible: footer.lightsPanel
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 52
+                text: "Aux 2"
+                onClicked: root.cab.triggerPanelCommand("AUX2_OPTION_ONE")
+            }
+
+            DialogButton {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 52
+                text: "Close"
+                onClicked: root.close()
+            }
+
+            DialogButton {
+                visible: footer.lightsPanel && root.cab.isLegacy
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 52
+                text: "Cab"
+                onClicked: root.cab.triggerPanelCommand("CAB_AUTO")
+            }
         }
     }
 }
