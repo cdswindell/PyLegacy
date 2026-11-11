@@ -92,7 +92,7 @@ Popup {
         spacing: root.gap
         Label {
             Layout.fillWidth: true
-            text: "Bell/Horn Options"
+            text: root.cab.isSteam ? "Bell/Whistle Options" : "Bell/Horn Options"
             color: "#f5f7fa"
             font.pixelSize: 21
             font.bold: true
