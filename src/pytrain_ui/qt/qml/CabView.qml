@@ -217,12 +217,14 @@ Rectangle {
     radius: 14
 
     ColumnLayout {
+        id: cabLayout
         anchors.fill: parent
         anchors.margins: root.compact ? 8 : 12
         anchors.bottomMargin: 4
         spacing: root.gap
 
         RowLayout {
+            id: cabHeader
             Layout.fillWidth: true
             Layout.minimumHeight: titleControls.implicitHeight
             Layout.preferredHeight: Math.max(titleControls.implicitHeight, root.compact ? 76 : 96)
@@ -231,7 +233,7 @@ Rectangle {
                 Layout.preferredWidth: root.compact ? 106 : 132
                 Layout.preferredHeight: root.compact ? 72 : 88
                 text: "Reset"
-                enabled: !root.stateInfoVisible || !root.stateInfoFromRoster
+                enabled: !bellHornPanel.visible && (!root.stateInfoVisible || !root.stateInfoFromRoster)
                 font.pixelSize: root.compact ? 20 : 24
                 font.bold: true
                 onClicked: cab.reset()
@@ -272,6 +274,7 @@ Rectangle {
         Item {
             id: drivingArea
             objectName: "drivingArea"
+            enabled: !bellHornPanel.visible
             visible: !root.stateInfoVisible
             Layout.topMargin: 16
             Layout.fillWidth: true
@@ -812,6 +815,7 @@ Rectangle {
         }
 
         GridLayout {
+            enabled: !bellHornPanel.visible
             visible: !root.stateInfoVisible
             Layout.fillWidth: true
             Layout.topMargin: -4
@@ -881,7 +885,10 @@ Rectangle {
     }
 
     MouseArea {
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        y: cabLayout.y + cabHeader.y + cabHeader.height
+        height: root.height - y
         z: 1
         visible: bellHornPanel.visible
         onClicked: root.closeBellHornOptions()
