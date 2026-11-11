@@ -684,7 +684,9 @@ Rectangle {
                     readonly property bool editable: (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
                         (modelData.label === "Brake" && cab.supportsTrainBrake) ||
-                        (modelData.label === "Smoke" && cab.supportsSmoke)
+                        (modelData.label === "Smoke" && cab.supportsSmoke) ||
+                        (modelData.label === "Effort" && cab.isLegacy) ||
+                        (modelData.label === "RPM" && cab.supportsRpm)
                     objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : ""
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
@@ -749,6 +751,8 @@ Rectangle {
             if (kind === "Mom") cab.setMomentumPreset(value)
             else if (kind === "Brake") cab.setTrainBrake(value)
             else if (kind === "Smoke") cab.setSmoke(value)
+            else if (kind === "Effort") cab.setLabor(value)
+            else if (kind === "RPM") cab.setRpm(value)
         }
     }
 

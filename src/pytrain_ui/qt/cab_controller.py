@@ -346,7 +346,14 @@ class CabController(QObject):
             "Mom": getattr(state, "momentum", None),
             "Brake": getattr(state, "train_brake", None),
             "Smoke": smoke_values.get(smoke_name),
+            "Effort": getattr(state, "labor", None),
+            "RPM": getattr(state, "rpm", None) if self.supportsRpm else None,
         }
+
+    @Property(bool, notify=stateChanged)
+    def supportsRpm(self) -> bool:
+        state = self._state_port.state if self._state_port is not None else None
+        return self.isLegacy and bool(getattr(state, "is_rpm", False))
 
     @Property(bool, notify=stateChanged)
     def supportsSmoke(self) -> bool:
@@ -503,6 +510,14 @@ class CabController(QObject):
     @Slot(int)
     def setSmoke(self, value: int) -> None:
         self._command_port.set_smoke(value)
+
+    @Slot(int)
+    def setLabor(self, value: int) -> None:
+        self._command_port.set_labor(value)
+
+    @Slot(int)
+    def setRpm(self, value: int) -> None:
+        self._command_port.set_rpm(value)
 
     @Slot(int)
     def setQuillingHorn(self, value: int) -> None:

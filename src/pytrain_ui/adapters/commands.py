@@ -110,6 +110,16 @@ class PyTrainCabCommandAdapter:
             scope=self.state.scope,
         ).send()
 
+    def set_labor(self, value: int) -> None:
+        state = self.state
+        if state.is_legacy and 0 <= value <= 31:
+            CommandReq.build(TMCC2EngineCommandEnum.ENGINE_LABOR, state.tmcc_id, data=value, scope=state.scope).send()
+
+    def set_rpm(self, value: int) -> None:
+        state = self.state
+        if state.is_legacy and getattr(state, "is_rpm", False) and 0 <= value <= 7:
+            CommandReq.build(TMCC2EngineCommandEnum.DIESEL_RPM, state.tmcc_id, data=value, scope=state.scope).send()
+
     def set_quilling_horn(self, value: int) -> None:
         value = max(0, min(15, int(value)))
         if value <= 0:

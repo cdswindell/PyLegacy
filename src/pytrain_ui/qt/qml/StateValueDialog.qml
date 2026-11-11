@@ -10,9 +10,16 @@ Popup {
     property int draftValue: -1
     property string targetText: ""
     property string currentText: ""
-    readonly property string titleText: kind === "Mom" ? "Momentum" : kind === "Brake" ? "Train Brake" : "Smoke"
-    readonly property bool sliderAvailable: kind === "Brake" || (kind === "Mom" && legacy)
-    readonly property var choices: kind === "Mom" ? ["Low", "Medium", "High"] : legacy ? ["Off", "Low", "Medium", "High"] : ["Off", "On"]
+    readonly property var titles: ({Mom: "Momentum", Brake: "Train Brake", Smoke: "Smoke",
+                                    Effort: "Effort (Labor)", RPM: "RPM"})
+    readonly property string titleText: titles[kind]
+    readonly property bool hasSetButton: kind === "Brake" || kind === "Effort" || kind === "RPM"
+    readonly property bool sliderAvailable: hasSetButton || (kind === "Mom" && legacy)
+    readonly property var choices: {
+        if (kind === "Mom") return ["Low", "Medium", "High"]
+        if (kind === "Smoke") return legacy ? ["Off", "Low", "Medium", "High"] : ["Off", "On"]
+        return []
+    }
     signal valueSubmitted(string kind, int value)
 
     function description(value) {
@@ -20,7 +27,7 @@ Popup {
             return "Not reported"
         if (kind === "Mom")
             return value === 0 ? "Low (0)" : value === 7 ? "High (7)" : "Med (" + value + ")"
-        if (kind === "Brake")
+        if (hasSetButton)
             return String(value)
         return choices[value]
     }
@@ -115,7 +122,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
-            visible: root.kind !== "Brake"
+            visible: root.choices.length > 0
             spacing: 10
             Repeater {
                 model: root.choices
@@ -139,7 +146,7 @@ Popup {
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 text: root.kind === "Mom" ? "Medium level: " + valueSlider.value + "  (1–6)" :
-                      root.draftValue < 0 ? "Choose a value: 0–7" : String(root.draftValue) + "  (0–7)"
+                      (root.draftValue < 0 ? "Choose a value" : String(root.draftValue)) + "  (0–" + valueSlider.to + ")"
                 color: "white"
                 font.pixelSize: 26
             }
@@ -149,11 +156,11 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 72
                 from: root.kind === "Mom" ? 1 : 0
-                to: root.kind === "Mom" ? 6 : 7
+                to: root.kind === "Effort" ? 31 : root.kind === "Mom" ? 6 : 7
                 stepSize: 1
                 snapMode: Slider.SnapAlways
-                onMoved: if (root.kind === "Brake") root.draftValue = Math.round(value)
-                onPressedChanged: if (pressed && root.kind === "Brake") root.draftValue = Math.round(value)
+                onMoved: if (root.hasSetButton) root.draftValue = Math.round(value)
+                onPressedChanged: if (pressed && root.hasSetButton) root.draftValue = Math.round(value)
             }
         }
         RowLayout {
@@ -161,25 +168,25 @@ Popup {
             Layout.topMargin: 12
             spacing: 24
             EditorButton {
-                visible: root.kind === "Brake"
-                text: "Off"
+                visible: root.hasSetButton
+                text: root.kind === "Brake" ? "Off" : "Default"
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 onClicked: {
-                    root.draftValue = 0
+                    root.draftValue = root.kind === "Effort" ? 12 : 0
                     root.commit()
                 }
             }
-            Item { visible: root.kind !== "Brake"; Layout.fillWidth: true }
+            Item { visible: !root.hasSetButton; Layout.fillWidth: true }
             EditorButton {
                 text: "Cancel"
-                Layout.fillWidth: root.kind === "Brake"
-                Layout.preferredWidth: root.kind === "Brake" ? 0 : 150
+                Layout.fillWidth: root.hasSetButton
+                Layout.preferredWidth: root.hasSetButton ? 0 : 150
                 onClicked: root.close()
             }
-            Item { visible: root.kind !== "Brake"; Layout.fillWidth: true }
+            Item { visible: !root.hasSetButton; Layout.fillWidth: true }
             EditorButton {
-                visible: root.kind === "Brake"
+                visible: root.hasSetButton
                 objectName: "stateValueSet"
                 text: "Set"
                 Layout.fillWidth: true

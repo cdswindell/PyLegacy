@@ -80,3 +80,30 @@ def test_train_brake_editor_requires_legacy(monkeypatch, legacy: bool, level: in
         build.return_value.send.assert_called_once_with()
     else:
         build.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("legacy", "rpm_capable", "labor", "rpm", "expected"),
+    [
+        (True, True, 31, 7, [(TMCC2EngineCommandEnum.ENGINE_LABOR, 31), (TMCC2EngineCommandEnum.DIESEL_RPM, 7)]),
+        (True, False, 0, 4, [(TMCC2EngineCommandEnum.ENGINE_LABOR, 0)]),
+        (False, True, 12, 3, []),
+        (True, True, 32, -1, []),
+    ],
+)
+def test_labor_and_rpm_editor_commands(
+    monkeypatch, legacy: bool, rpm_capable: bool, labor: int, rpm: int, expected: list
+) -> None:
+    build = Mock()
+    monkeypatch.setattr(CommandReq, "build", build)
+    state = SimpleNamespace(is_legacy=legacy, is_rpm=rpm_capable, scope=CommandScope.TRAIN, tmcc_id=31)
+    adapter = PyTrainCabCommandAdapter(Mock(spec=PyTrainCabStateAdapter, state=state))
+
+    adapter.set_labor(labor)
+    adapter.set_rpm(rpm)
+
+    assert build.call_count == len(expected)
+    for request, (command, level) in zip(build.call_args_list, expected):
+        assert request.args == (command, 31)
+        assert request.kwargs == {"data": level, "scope": CommandScope.TRAIN}
+    assert build.return_value.send.call_count == len(expected)

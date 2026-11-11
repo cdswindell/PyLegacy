@@ -96,8 +96,8 @@ def click(label):
 
 
 for legacy in (True, False):
-    for kind, current in (("Mom", 6), ("Smoke", 1), ("Brake", 4)):
-        if kind == "Brake" and not legacy:
+    for kind, current in (("Mom", 6), ("Smoke", 1), ("Brake", 4), ("Effort", 12), ("RPM", 3)):
+        if kind in ("Brake", "Effort", "RPM") and not legacy:
             continue
         def open_editor(current_value=current):
             value("editor.openFor('" + kind + "'," + str(legacy).lower() + "," + str(current_value) + ",'ENGINE 31',5)")
@@ -106,7 +106,7 @@ for legacy in (True, False):
         open_editor()
         assert value("editor.draftValue") == current
         assert value("editor.currentText") != "Not reported"
-        assert value("editor.sliderAvailable") == (kind == "Brake" or (kind == "Mom" and legacy))
+        assert value("editor.sliderAvailable") == (kind in ("Brake", "Effort", "RPM") or (kind == "Mom" and legacy))
         if kind == "Mom":
             assert value(button("Set") + " === null")
             for count, (label, expected) in enumerate(
@@ -138,24 +138,37 @@ for legacy in (True, False):
                 assert window().property("commits") == before + level + 1
             assert window().property("underlyingClicks") == 0
             continue
-        footer = [button(label) for label in ("Off", "Cancel", "Set")]
+        slider = named("stateValueSlider")
+        assert value(slider + ".value") == current
+        assert value(slider + ".from") == 0
+        assert value(slider + ".to") == (31 if kind == "Effort" else 7)
+        reset_label = "Off" if kind == "Brake" else "Default"
+        labels = (reset_label, "Cancel", "Set")
+        footer = [button(label) for label in labels]
         widths = [value(item + ".width") for item in footer]
         heights = [value(item + ".height") for item in footer]
         assert max(widths) - min(widths) <= 1
         assert max(heights) - min(heights) <= 1
-        off_point, cancel_point, set_point = map(point, footer)
-        assert off_point.y() == cancel_point.y() == set_point.y()
-        first_step = cancel_point.x() - off_point.x()
-        second_step = set_point.x() - cancel_point.x()
-        assert first_step - widths[0] >= 20
-        assert abs(first_step - second_step) <= 1
-        value("editor.draftValue=2")
+        points = [point(item) for item in footer]
+        assert all(p.y() == points[0].y() for p in points)
+        steps = [right.x() - left.x() for left, right in zip(points, points[1:])]
+        assert min(steps) - widths[0] >= 20
+        assert max(steps) - min(steps) <= 1
+        slider_position = point(slider) + QPoint(round(value(slider + ".width") / 4), 0)
+        QTest.mouseClick(window(), Qt.LeftButton, pos=slider_position)
+        chosen = value(slider + ".value")
+        assert chosen != current
+        assert value("editor.draftValue") == chosen
         assert window().property("commits") == before
         click("Cancel")
         assert not value("editor.visible")
         assert window().property("commits") == before
         open_editor()
-        value("editor.draftValue=2")
+        slider_position = point(slider) + QPoint(round(value(slider + ".width") / 4), 0)
+        QTest.mouseClick(window(), Qt.LeftButton, pos=slider_position)
+        chosen = value(slider + ".value")
+        assert chosen != current
+        assert value("editor.draftValue") == chosen
         position = point(button("Set"))
         QTest.mousePress(window(), Qt.LeftButton, pos=position)
         assert value("editor.visible")
@@ -163,20 +176,19 @@ for legacy in (True, False):
         QTest.mouseRelease(window(), Qt.LeftButton, pos=position)
         QTest.qWait(30)
         assert not value("editor.visible")
-        assert window().property("saved") == 2
+        assert window().property("saved") == chosen
         assert window().property("commits") == before + 1
         assert window().property("underlyingClicks") == 0
         open_editor("null")
         assert value("editor.currentText") == "Not reported"
         assert not value(button("Set") + ".enabled")
         click("Cancel")
-        if kind == "Brake":
-            open_editor()
-            click("Off")
-            assert not value("editor.visible")
-            assert window().property("saved") == 0
-            assert window().property("commits") == before + 2
-            assert window().property("underlyingClicks") == 0
+        open_editor()
+        click(reset_label)
+        assert not value("editor.visible")
+        assert window().property("saved") == (12 if kind == "Effort" else 0)
+        assert window().property("commits") == before + 2
+        assert window().property("underlyingClicks") == 0
 window().close()
 print("STATE_DIALOG_OK")
 """
