@@ -427,17 +427,26 @@ Rectangle {
                             if (stepped)
                                 return
                             distance += dx
-                            if (Math.abs(distance) >= 32) {
+                            if (Math.abs(distance) >= 56) {
                                 stepped = true
-                                root.selection.selectRelative(distance < 0 ? 1 : -1)
+                                if (!swipeCooldown.running) {
+                                    swipeCooldown.start()
+                                    root.selection.selectRelative(distance < 0 ? 1 : -1)
+                                }
                             }
                         }
                     }
 
                     Timer {
                         id: swipeIdle
-                        interval: 250
+                        interval: 350
                         onTriggered: artworkWheel.resetSwipe()
+                    }
+
+                    Timer {
+                        // A physical swipe can arrive as several separate scroll sequences.
+                        id: swipeCooldown
+                        interval: 450
                     }
                 }
 
