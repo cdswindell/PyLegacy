@@ -21,19 +21,41 @@ Rectangle {
 
     readonly property int choiceHeight: 74
     readonly property int choiceSpacing: 18
-    readonly property var generalActions: sortedActions("General")
-    readonly property bool showGeneralInline: {
-        if (category || !generalActions.length)
-            return false
-        const categoryRows = Math.ceil((categories.length - 1) / 2)
-        const generalRows = Math.ceil(generalActions.length / 3)
-        const rows = categoryRows + generalRows
-        return choicesView.availableHeight >= rows * (choiceHeight + choiceSpacing) + generalHeading.implicitHeight
+    readonly property int sectionHeadingHeight: 26
+    readonly property var inlineSections: {
+        if (category)
+            return []
+
+        const candidates = panelKey === "lights"
+            ? ["Rule 17", "Marker Lights", "Tender Lights", "Ditch Lights"]
+            : ["General"]
+        const sections = []
+        let sectionsHeight = 0
+        for (const name of candidates) {
+            const commands = sortedActions(name)
+            if (!commands.length)
+                continue
+
+            const ditchLights = name === "Ditch Lights"
+            if (ditchLights && choicesView.availableWidth < 540)
+                continue
+            const columns = ditchLights ? 4 : 3
+            const buttonHeight = ditchLights ? 106 : choiceHeight
+            const rows = Math.ceil(commands.length / columns)
+            const sectionHeight = sectionHeadingHeight + rows * (buttonHeight + choiceSpacing)
+            const categoryRows = Math.ceil((categories.length - sections.length - 1) / 2)
+            const categoriesHeight = categoryRows * (choiceHeight + choiceSpacing)
+            if (categoriesHeight + sectionsHeight + sectionHeight <= choicesView.availableHeight) {
+                sections.push({name, commands, columns, buttonHeight})
+                sectionsHeight += sectionHeight + choiceSpacing
+            }
+        }
+        return sections
     }
 
     readonly property var choices: category
         ? sortedActions(category)
-        : categories.filter(name => !showGeneralInline || name !== "General")
+        : categories.filter(name => !inlineSections.some(section => section.name === name))
             .map(name => ({label: name, command: ""}))
 
     function sortedActions(section) {
@@ -183,30 +205,39 @@ Rectangle {
                     ChoiceButton {}
                 }
 
-                Label {
-                    id: generalHeading
-                    visible: root.showGeneralInline
-                    Layout.columnSpan: 2
-                    text: "General dialogs"
-                    font.pixelSize: 20
-                    font.bold: true
-                    color: "#bad4ea"
-                }
+                Repeater {
+                    model: root.inlineSections
+                    ColumnLayout {
+                        id: inlineSection
+                        required property var modelData
+                        Layout.columnSpan: 2
+                        Layout.fillWidth: true
+                        spacing: root.choiceSpacing
 
-                GridLayout {
-                    visible: root.showGeneralInline
-                    columns: 3
-                    Layout.columnSpan: 2
-                    Layout.fillWidth: true
-                    rowSpacing: root.choiceSpacing
-                    columnSpacing: root.choiceSpacing
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: root.sectionHeadingHeight
+                            text: inlineSection.modelData.name === "General" ? "General dialogs" : inlineSection.modelData.name
+                            font.pixelSize: 20
+                            font.bold: true
+                            color: "#bad4ea"
+                        }
 
-                    Repeater {
-                        model: root.showGeneralInline ? root.generalActions : []
-                        ChoiceButton {
-                            required property int index
-                            Layout.row: Math.floor(index / 3)
-                            Layout.column: index % 3
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: inlineSection.modelData.columns
+                            rowSpacing: root.choiceSpacing
+                            columnSpacing: root.choiceSpacing
+
+                            Repeater {
+                                model: inlineSection.modelData.commands
+                                ChoiceButton {
+                                    required property int index
+                                    Layout.row: Math.floor(index / inlineSection.modelData.columns)
+                                    Layout.column: index % inlineSection.modelData.columns
+                                    Layout.preferredHeight: Math.max(inlineSection.modelData.buttonHeight, implicitHeight)
+                                }
+                            }
                         }
                     }
                 }
