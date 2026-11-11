@@ -40,7 +40,9 @@ class CabController(QObject):
     rosterChanged = Signal()
     stateUpdateReceived = Signal(int, object)
 
-    def __init__(self, scope: CommandScope, tmcc_id: int, parent: QObject | None = None) -> None:
+    def __init__(
+        self, scope: CommandScope, tmcc_id: int, parent: QObject | None = None, *, remember_initial: bool = True
+    ) -> None:
         super().__init__(parent)
         self._artwork_loader = ArtworkLoader(self)
         self._artwork_loader.artworkReady.connect(self._on_artwork_ready)
@@ -53,8 +55,9 @@ class CabController(QObject):
         self._targets: list[tuple[CommandScope, int, str]] = []
         self._target_labels: list[str] = []
         self._target_index = -1
+        self._last_targets: dict[CommandScope, int] = {}
         self._reload_roster()
-        self._switch_target(scope, tmcc_id)
+        self._switch_target(scope, tmcc_id, remember=remember_initial)
 
     def close(self) -> None:
         self._artwork_loader.close()
@@ -93,11 +96,13 @@ class CabController(QObject):
         self._target_labels = [item[2] for item in targets]
         self.rosterChanged.emit()
 
-    def _switch_target(self, scope: CommandScope, tmcc_id: int) -> None:
+    def _switch_target(self, scope: CommandScope, tmcc_id: int, *, remember: bool = True) -> None:
         self._release_target()
         self._state_port = PyTrainCabStateAdapter(scope, tmcc_id)
         self._command_port = PyTrainCabCommandAdapter(self._state_port)
         self._snapshot = self._state_port.current()
+        if remember and tmcc_id > 0:
+            self._last_targets[scope] = tmcc_id
         generation = self._target_generation
         self._unsubscribe = self._state_port.subscribe(
             lambda snapshot: self.stateUpdateReceived.emit(generation, snapshot)
@@ -232,8 +237,24 @@ class CabController(QObject):
         self._switch_target(scope, tmcc_id)
         return True
 
+    @Slot(str, result=bool)
+    def restoreScope(self, scope_name: str) -> bool:
+        scope = CommandScope[scope_name]
+        tmcc_id = self._last_targets.get(scope)
+        if tmcc_id is None:
+            return False
+        if ComponentStateStore.get_state(scope, tmcc_id, create=False) is None:
+            del self._last_targets[scope]
+            return False
+        if self.scope != scope_name or self.tmccId != tmcc_id:
+            self._switch_target(scope, tmcc_id)
+        return True
+
     @Slot(str, int)
     def forgetClearedTarget(self, scope: str, tmcc_id: int) -> None:
+        scope_key = CommandScope[scope]
+        if self._last_targets.get(scope_key) == tmcc_id:
+            del self._last_targets[scope_key]
         if self.scope != scope or self.tmccId != tmcc_id:
             return
         self._release_target()

@@ -244,12 +244,10 @@ ApplicationWindow {
                         window.accessoryOperatingVisible = false
                         window.engineCatalogVisible = false
                     } else if (scope === "ENGINE" || scope === "TRAIN") {
-                        if (showKeypad)
+                        if (showKeypad || (window.activeScope === scope && !window.engineCatalogVisible))
                             window.engineCatalogVisible = true
-                        else if (window.activeScope === scope && cabController.scope === scope)
-                            window.engineCatalogVisible = cabController.tmccId <= 0 || !window.engineCatalogVisible
                         else
-                            window.engineCatalogVisible = cabController.tmccId <= 0 || cabController.scope !== scope
+                            window.engineCatalogVisible = !cabController.restoreScope(scope)
                         window.activeScope = scope
                     }
 

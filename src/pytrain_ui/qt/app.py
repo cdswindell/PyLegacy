@@ -62,7 +62,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         scope = CommandScope.ENGINE
         tmcc_id = restored_id
 
-    cab = CabController(scope, tmcc_id)
+    cab = CabController(scope, tmcc_id, remember_initial=not show_catalog)
     accessories = AccessoryCatalogController()
     catalog = EngineCatalogController()
     selection = SelectedEngineController(cab)
