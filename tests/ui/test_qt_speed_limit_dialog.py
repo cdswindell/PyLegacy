@@ -103,7 +103,9 @@ def open_editor():
     assert value("editor.entryText") == "10"
     assert value(button("Clear") + ".enabled")
     assert value(button("Set") + ".enabled")
-    assert value(button("↵") + ".enabled")
+    zero_position, set_position = point(button("0")), point(button("Set"))
+    assert set_position.y() == zero_position.y()
+    assert set_position.x() > zero_position.x()
     assert value(named("speedLimitSlider") + ".to") == maximum
     protocol = "TMCC" if maximum == 31 else "Legacy"
     assert value(named("speedLimitRange") + ".text") == protocol + " speed limit: 1–" + str(maximum)
@@ -143,7 +145,6 @@ open_editor()
 value("editor.entryText='" + str(maximum + 1) + "'")
 assert not value("editor.acceptableInput")
 assert not value(button("Set") + ".enabled")
-assert not value(button("↵") + ".enabled")
 value("editor.commit()")
 assert value("editor.visible")
 assert window().property("commits") == 1
@@ -190,40 +191,33 @@ for no_limit in (0, 255):
     assert value("editor.entryText") == ""
     assert not value(button("Clear") + ".enabled")
     assert not value(button("Set") + ".enabled")
-    assert not value(button("↵") + ".enabled")
     click("Clear")
     click("Set")
-    click("↵")
     QTest.keyClick(window(), Qt.Key_Return)
     assert value("editor.visible")
     assert window().property("clears") == 1
     assert window().property("commits") == 1
     click("1")
     assert value(button("Set") + ".enabled")
-    assert value(button("↵") + ".enabled")
     assert not value(button("Clear") + ".enabled")
     click("⌫")
     assert not value(button("Set") + ".enabled")
-    assert not value(button("↵") + ".enabled")
     click("Close")
 
 open_editor()
 value("editor.entryText='0'")
 assert not value(button("Set") + ".enabled")
-assert not value(button("↵") + ".enabled")
 value("editor.entryText='" + str(maximum) + "'")
 assert value(button("Set") + ".enabled")
-assert value(button("↵") + ".enabled")
 value("editor.entryText=''")
 assert not value(button("Set") + ".enabled")
-assert not value(button("↵") + ".enabled")
 assert value(button("Clear") + ".enabled")
 click("Close")
 
 open_editor()
 for digit in str(target):
     click(digit)
-click("↵")
+click("Set")
 assert window().property("saved") == target
 assert window().property("commits") == 2
 assert not value("editor.visible")

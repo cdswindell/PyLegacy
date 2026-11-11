@@ -164,7 +164,7 @@ Popup {
             rowSpacing: 8
             columnSpacing: 8
             Repeater {
-                model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "↵"]
+                model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "Set"]
                 EditorButton {
                     required property string modelData
                     Layout.fillWidth: true
@@ -173,12 +173,12 @@ Popup {
                     Layout.preferredHeight: 58
                     text: modelData
                     font.pixelSize: 26
-                    highlighted: modelData === "↵"
-                    enabled: modelData !== "↵" || root.acceptableInput
-                    Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "↵" ? "Set speed limit" : modelData
+                    highlighted: modelData === "Set"
+                    enabled: modelData !== "Set" || root.acceptableInput
+                    Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "Set" ? "Set speed limit" : modelData
                     onClicked: {
                         if (modelData === "⌫") root.deleteDigit()
-                        else if (modelData === "↵") root.commit()
+                        else if (modelData === "Set") root.commit()
                         else root.enterDigit(modelData)
                     }
                 }
@@ -216,17 +216,6 @@ Popup {
                 text: "Close"
                 font.pixelSize: 20
                 onClicked: root.close()
-            }
-            EditorButton {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: 0
-                Layout.preferredHeight: 54
-                text: "Set"
-                font.pixelSize: 20
-                highlighted: true
-                enabled: root.acceptableInput
-                onClicked: root.commit()
             }
         }
     }
