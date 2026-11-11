@@ -142,15 +142,35 @@ Control {
 
             Row {
                 anchors.centerIn: parent
+                height: smokeLabel.height
                 spacing: 4
                 layoutDirection: root.labelChevron < 0 ? Qt.LeftToRight : Qt.RightToLeft
 
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: root.labelChevron < 0 ? "‹" : "›"
-                    color: smokeLabel.color
-                    font.pixelSize: Math.round(root.font.pixelSize * 1.5)
-                    font.bold: true
+                FontMetrics {
+                    id: labelMetrics
+                    font: smokeLabel.font
+                }
+
+                Canvas {
+                    width: Math.ceil(labelMetrics.capitalHeight * 0.65) + 2
+                    height: Math.ceil(labelMetrics.capitalHeight) + 2
+                    // Align the drawing to the ink above the label baseline.
+                    y: smokeLabel.y + smokeLabel.baselineOffset - (labelMetrics.capitalHeight + height) / 2
+                    onPaint: {
+                        const context = getContext("2d")
+                        const pointsLeft = root.labelChevron < 0
+                        const edge = pointsLeft ? width - 2 : 2
+                        const point = pointsLeft ? 2 : width - 2
+                        context.clearRect(0, 0, width, height)
+                        context.strokeStyle = smokeLabel.color
+                        context.lineWidth = Math.max(2, labelMetrics.capitalHeight * 0.2)
+                        context.lineJoin = "round"
+                        context.beginPath()
+                        context.moveTo(edge, 2)
+                        context.lineTo(point, height / 2)
+                        context.lineTo(edge, height - 2)
+                        context.stroke()
+                    }
                 }
 
                 Text {
