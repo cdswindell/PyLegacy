@@ -377,6 +377,7 @@ Rectangle {
                         cache: false
                     }
                     DragHandler {
+                        id: artworkDrag
                         target: null
                         xAxis.enabled: true
                         yAxis.enabled: false
@@ -389,6 +390,54 @@ Rectangle {
                             if (Math.abs(distance) >= 48 && Math.abs(distance) > Math.abs(vertical))
                                 root.selection.selectRelative(distance < 0 ? 1 : -1)
                         }
+                    }
+                    WheelHandler {
+                        id: artworkWheel
+                        enabled: artworkDrag.enabled
+                        target: null
+                        orientation: Qt.Horizontal
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        blocking: false
+                        property real distance: 0
+                        property bool stepped: false
+
+                        function resetSwipe() {
+                            distance = 0
+                            stepped = false
+                        }
+
+                        onWheel: function(event) {
+                            if (event.phase === Qt.ScrollBegin || event.phase === Qt.ScrollEnd) {
+                                swipeIdle.stop()
+                                resetSwipe()
+                            }
+                            if (event.phase === Qt.ScrollMomentum || event.phase === Qt.ScrollEnd)
+                                return
+
+                            const pixels = event.pixelDelta
+                            const angles = event.angleDelta
+                            const hasPixels = pixels.x !== 0 || pixels.y !== 0
+                            const dx = hasPixels ? pixels.x : angles.x / 3
+                            const dy = hasPixels ? pixels.y : angles.y / 3
+                            if (Math.abs(dx) <= Math.abs(dy))
+                                return
+
+                            if (event.phase === Qt.NoScrollPhase)
+                                swipeIdle.restart()
+                            if (stepped)
+                                return
+                            distance += dx
+                            if (Math.abs(distance) >= 32) {
+                                stepped = true
+                                root.selection.selectRelative(distance < 0 ? 1 : -1)
+                            }
+                        }
+                    }
+
+                    Timer {
+                        id: swipeIdle
+                        interval: 250
+                        onTriggered: artworkWheel.resetSwipe()
                     }
                 }
 
