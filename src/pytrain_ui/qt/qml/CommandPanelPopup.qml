@@ -116,7 +116,7 @@ Popup {
 
                     background: Rectangle {
                         radius: 8
-                        color: parent.down ? "#48515e" : "#343b45"
+                        color: parent.down ? "#355775" : "#343b45"
                         border.width: 1
                         border.color: "#596371"
                     }

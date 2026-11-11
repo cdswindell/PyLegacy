@@ -43,7 +43,7 @@ RowLayout {
             }
             background: Rectangle {
                 radius: 6
-                color: choice.down ? "#4d5968" : choice.checked ? "#246aa0" : "#303640"
+                color: choice.down ? "#355775" : choice.checked ? "#246aa0" : "#303640"
                 border.width: choice.checked ? 2 : 1
                 border.color: choice.checked ? "#78bff0" : "#626b78"
             }

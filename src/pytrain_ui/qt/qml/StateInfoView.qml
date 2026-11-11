@@ -41,7 +41,7 @@ Rectangle {
         }
         background: Rectangle {
             radius: 8
-            color: button.down ? "#5c9fc6" : button.selected ? "#246aa0" : "#344862"
+            color: button.down ? Qt.darker("#5c9fc6", 1.45) : button.selected ? "#246aa0" : "#344862"
             border.color: button.selected ? "#78bff0" : "#657c98"
         }
     }

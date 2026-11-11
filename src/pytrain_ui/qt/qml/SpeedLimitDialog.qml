@@ -84,7 +84,7 @@ Popup {
         }
         background: Rectangle {
             radius: 9
-            color: !button.enabled ? "#242930" : button.down ? "#4d5968" : button.highlighted ? "#246aa0" : "#343a44"
+            color: !button.enabled ? "#242930" : button.down ? "#355775" : button.highlighted ? "#246aa0" : "#343a44"
             border.width: button.highlighted ? 2 : 1
             border.color: button.highlighted ? "#78bff0" : "#626b78"
         }

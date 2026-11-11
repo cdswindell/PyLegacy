@@ -84,7 +84,7 @@ Popup {
         }
         background: Rectangle {
             radius: 9
-            color: button.down ? "#397bad" : button.highlighted ? "#006fa5" : "#303e58"
+            color: button.down ? Qt.darker("#397bad", 1.45) : button.highlighted ? "#006fa5" : "#303e58"
             border.color: button.highlighted ? "#78d5ff" : "#667b9c"
             border.width: button.highlighted ? 2 : 1
             opacity: button.enabled ? 1 : 0.5

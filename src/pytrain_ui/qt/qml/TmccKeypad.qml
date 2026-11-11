@@ -75,7 +75,7 @@ Popup {
         }
         background: Rectangle {
             radius: 10
-            color: keyControl.down ? (keyControl.text === "⌫" ? "#355775" : "#4d5968") : (keyControl.highlighted ? "#246aa0" : "#343a44")
+            color: keyControl.down ? (keyControl.text === "⌫" ? "#68a9d0" : "#355775") : (keyControl.highlighted ? "#246aa0" : "#343a44")
             border.width: keyControl.highlighted ? 2 : 1
             border.color: keyControl.highlighted ? "#78bff0" : "#626b78"
         }

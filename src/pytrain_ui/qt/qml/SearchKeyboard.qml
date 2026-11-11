@@ -77,7 +77,7 @@ Popup {
         }
         background: Rectangle {
             radius: 7
-            color: key.down ? (key.text === "⌫" ? Qt.darker("#69b7df", 1.45) : "#69b7df") : key.highlighted ? "#246aa0" : "#334a6a"
+            color: key.down ? (key.text === "⌫" ? "#69b7df" : Qt.darker("#69b7df", 1.45)) : key.highlighted ? "#246aa0" : "#334a6a"
             border.color: key.down ? "#d2f1ff" : "#718baa"
             border.width: key.down ? 2 : 1
         }

@@ -54,7 +54,7 @@ Rectangle {
             height: selectedList.height - 2
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
             radius: 7
-            color: cardTap.pressed ? "#64a9d2" : modelData.current ? "#246aa0" : "#292f38"
+            color: cardTap.pressed ? Qt.darker("#64a9d2", 1.45) : modelData.current ? "#246aa0" : "#292f38"
             border.width: modelData.current ? 2 : 1
             border.color: modelData.current ? "#78bff0" : (modelData.active ? "#d0a24c" : "#505b68")
             clip: true
@@ -191,7 +191,7 @@ Rectangle {
                     text: "×"
                     font.pixelSize: root.compactTiles ? 14 : 16
                     normalColor: "#343a44"
-                    pressedColor: "#4d5968"
+                    pressedColor: "#4d7ba0"
                     onClicked: {
                         if (root.selection)
                             root.selection.dismissEngine(card.modelData.tmccId)

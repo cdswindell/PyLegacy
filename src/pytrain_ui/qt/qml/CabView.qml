@@ -345,12 +345,12 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.topMargin: pageTab.checked ? 0 : 5
                                     radius: 10
-                                    color: pageTab.down ? "#4199cd" : pageTab.checked ? "#16376b" : "#0a204a"
+                                    color: pageTab.down ? Qt.darker("#4199cd", 1.45) : pageTab.checked ? "#16376b" : "#0a204a"
                                     border.width: 1
                                     border.color: pageTab.checked ? "#88b5e1" : "#49668c"
                                     gradient: Gradient {
-                                        GradientStop { position: 0; color: pageTab.down ? "#68bce9" : pageTab.checked ? "#315c94" : "#162e55" }
-                                        GradientStop { position: 1; color: pageTab.down ? "#4199cd" : pageTab.checked ? "#16376b" : "#0a204a" }
+                                        GradientStop { position: 0; color: pageTab.down ? Qt.darker("#68bce9", 1.45) : pageTab.checked ? "#315c94" : "#162e55" }
+                                        GradientStop { position: 1; color: pageTab.down ? Qt.darker("#4199cd", 1.45) : pageTab.checked ? "#16376b" : "#0a204a" }
                                     }
                                 }
                                 Rectangle {
@@ -360,7 +360,7 @@ Rectangle {
                                     anchors.leftMargin: 1
                                     anchors.rightMargin: 1
                                     height: 8
-                                    color: pageTab.down ? "#4199cd" : pageTab.checked ? "#16376b" : "#0a204a"
+                                    color: pageTab.down ? Qt.darker("#4199cd", 1.45) : pageTab.checked ? "#16376b" : "#0a204a"
                                 }
                                 Rectangle {
                                     anchors.left: parent.left
@@ -671,7 +671,7 @@ Rectangle {
                                     elide: Text.ElideRight
                                 }
                                 background: Rectangle {
-                                    color: analogMode.down ? "#5597bf" : "#303945"
+                                    color: analogMode.down ? Qt.darker("#5597bf", 1.45) : "#303945"
                                     radius: 6
                                     border.color: "#627384"
                                 }
