@@ -7,7 +7,7 @@ from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
-from pytrain.protocol.sequence.ramp_speed_req import ENGINEER_DIALOG_DELAY, RampSpeedDialogReq, RampSpeedReq
+from pytrain.protocol.sequence.ramp_speed_req import RampSpeedDialogReq, RampSpeedReq
 from pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
 from pytrain.protocol.sequence.sequence_req import SequenceReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1RRSpeedsEnum
@@ -83,11 +83,9 @@ class PyTrainCabCommandAdapter:
         if name == "EMERGENCY_STOP":
             state.cancel_ramps(0, reason="Emergency stop", hard_stop=True, yield_speed=0)
             CommandReq.build(self._enum_type.ABSOLUTE_SPEED, state.tmcc_id, data=0, scope=state.scope).send()
-            for dialog, delay in (
-                (TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD, 0.2),
-                (TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD, 0.2 + ENGINEER_DIALOG_DELAY),
-            ):
-                CommandReq.build(dialog, state.tmcc_id, scope=state.scope).send(delay=delay)
+            CommandReq.build(
+                TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, state.tmcc_id, scope=state.scope
+            ).send(delay=0.2)
             return
         if state.is_remote_ramping:
             return

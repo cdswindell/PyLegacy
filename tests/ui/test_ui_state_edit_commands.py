@@ -1,7 +1,7 @@
 """State editors send the selected engine's protocol and address scope."""
 
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -9,7 +9,7 @@ from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CAB1_CONTROL_TYPE, LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
 from pytrain_ui.adapters.commands import PyTrainCabCommandAdapter
 from pytrain_ui.adapters.state import PyTrainCabStateAdapter
 
@@ -140,7 +140,7 @@ def test_labor_and_rpm_editor_commands(
         if command.name.startswith(("TOWER_SPEED_", "ENGINEER_SPEED_"))
     ],
 )
-def test_speed_dialog_sends_only_railsounds(
+def test_speed_dialog_sends_only_the_sound_command(
     monkeypatch, scope: CommandScope, command: TMCC2RailSoundsDialogControl
 ) -> None:
     build = Mock()
@@ -154,3 +154,53 @@ def test_speed_dialog_sends_only_railsounds(
     assert not adapter.play_dialog("SPEED_HIGHBALL")
     build.assert_called_once_with(command, 31, scope=scope)
     build.return_value.send.assert_called_once_with()
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_emergency_stop_sends_zero_and_only_the_emergency_dialog(
+    monkeypatch, legacy: bool, scope: CommandScope
+) -> None:
+    build = Mock()
+    monkeypatch.setattr(CommandReq, "build", build)
+    state = SimpleNamespace(
+        is_legacy=legacy,
+        scope=scope,
+        tmcc_id=31,
+        has_throttle=True,
+        is_remote_ramping=True,
+        cancel_ramps=Mock(),
+    )
+    adapter = PyTrainCabCommandAdapter(Mock(spec=PyTrainCabStateAdapter, state=state))
+
+    adapter.set_speed_preset("EMERGENCY_STOP")
+
+    state.cancel_ramps.assert_called_once_with(0, reason="Emergency stop", hard_stop=True, yield_speed=0)
+    speed_command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
+    assert build.mock_calls == [
+        call(speed_command, 31, data=0, scope=scope),
+        call().send(),
+        call(TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, 31, scope=scope),
+        call().send(delay=0.2),
+    ]
+
+
+@pytest.mark.parametrize("with_dialog", [False, True])
+def test_normal_stop_uses_the_zero_speed_ramp(monkeypatch, with_dialog: bool) -> None:
+    ramp = Mock()
+    dialog_ramp = Mock()
+    monkeypatch.setattr("pytrain_ui.adapters.commands.RampSpeedReq", ramp)
+    monkeypatch.setattr("pytrain_ui.adapters.commands.RampSpeedDialogReq", dialog_ramp)
+    state = SimpleNamespace(
+        is_legacy=True, scope=CommandScope.ENGINE, tmcc_id=31, has_throttle=True, is_remote_ramping=False
+    )
+    adapter = PyTrainCabCommandAdapter(Mock(spec=PyTrainCabStateAdapter, state=state))
+
+    adapter.set_speed_preset("STOP_HOLD", with_dialog)
+
+    if with_dialog:
+        assert dialog_ramp.mock_calls == [call(31, TMCC2RRSpeedsEnum.STOP_HOLD, CommandScope.ENGINE), call().send()]
+        ramp.assert_not_called()
+    else:
+        assert ramp.mock_calls == [call(31, 0, CommandScope.ENGINE), call().send()]
+        dialog_ramp.assert_not_called()
