@@ -86,7 +86,7 @@ def point(item):
 
 
 def button(label):
-    return find("item.text==='" + label + "' && item.clicked!==undefined")
+    return find("item.text==='" + label + "' && item.clicked!==undefined && item.visible")
 
 
 def click(label):
@@ -107,6 +107,19 @@ for legacy in (True, False):
         assert value("editor.draftValue") == current
         assert value("editor.currentText") != "Not reported"
         assert value("editor.sliderAvailable") == (kind == "Brake" or (kind == "Mom" and legacy))
+        if kind == "Smoke":
+            assert value(button("Set") + " === null")
+            click("Cancel")
+            assert not value("editor.visible")
+            assert window().property("commits") == before
+            for level, label in enumerate(("Off", "Low", "Medium", "High") if legacy else ("Off", "On")):
+                open_editor()
+                click(label)
+                assert not value("editor.visible")
+                assert window().property("saved") == level
+                assert window().property("commits") == before + level + 1
+            assert window().property("underlyingClicks") == 0
+            continue
         cancel_point, set_point = point(button("Cancel")), point(button("Set"))
         assert set_point.x() - cancel_point.x() > 180
         assert abs(set_point.y() - cancel_point.y()) < 2
@@ -137,6 +150,13 @@ for legacy in (True, False):
         assert value("editor.currentText") == "Not reported"
         assert not value(button("Set") + ".enabled")
         click("Cancel")
+        if kind == "Brake":
+            open_editor()
+            click("Off")
+            assert not value("editor.visible")
+            assert window().property("saved") == 0
+            assert window().property("commits") == before + 2
+            assert window().property("underlyingClicks") == 0
 window().close()
 print("STATE_DIALOG_OK")
 """

@@ -128,7 +128,10 @@ Popup {
                     highlighted: root.selected(index)
                     onClicked: {
                         root.draftValue = root.choiceValue(index)
-                        valueSlider.value = root.draftValue
+                        if (root.kind === "Smoke")
+                            root.commit()
+                        else
+                            valueSlider.value = root.draftValue
                     }
                 }
             }
@@ -158,7 +161,16 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 12
-            spacing: 0
+            spacing: 8
+            EditorButton {
+                visible: root.kind === "Brake"
+                text: "Off"
+                Layout.preferredWidth: 112
+                onClicked: {
+                    root.draftValue = 0
+                    root.commit()
+                }
+            }
             EditorButton {
                 text: "Cancel"
                 Layout.preferredWidth: 150
@@ -166,6 +178,7 @@ Popup {
             }
             Item { Layout.fillWidth: true; Layout.minimumWidth: 32 }
             EditorButton {
+                visible: root.kind !== "Smoke"
                 objectName: "stateValueSet"
                 text: "Set"
                 Layout.preferredWidth: 150
