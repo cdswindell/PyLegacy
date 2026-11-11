@@ -240,7 +240,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "pantograph_front_down",
-        "Front Panto Down",
+        "Front Down",
         "PANTO_FRONT_DOWN_CAB2",
         "panto-down-f.jpg",
         "l",
@@ -249,7 +249,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "pantograph_front_up",
-        "Front Panto Up",
+        "Front Up",
         "PANTO_FRONT_UP_CAB2",
         "panto-up-f.jpg",
         "l",
@@ -258,7 +258,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "pantograph_rear_down",
-        "Rear Panto Down",
+        "Rear Down",
         "PANTO_REAR_DOWN_CAB2",
         "panto-down-r.jpg",
         "l",
@@ -267,7 +267,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "pantograph_rear_up",
-        "Rear Panto Up",
+        "Rear Up",
         "PANTO_REAR_UP_CAB2",
         "panto-up-r.jpg",
         "l",
