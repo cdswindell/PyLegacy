@@ -368,7 +368,7 @@ Rectangle {
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: ["Drive", "Speed/Volume"]
+                        model: ["Controls", "Speed/Volume"]
                         TabButton {
                             id: pageTab
                             required property int index
