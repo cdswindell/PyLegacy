@@ -6,6 +6,13 @@ Rectangle {
     id: root
     required property var cab
     required property var selection
+    property var infoController: null
+    property bool stateInfoVisible: false
+    property bool stateInfoFromRoster: false
+    property string stateInfoIdentity: ""
+    readonly property bool stateInfoEditorOpen: stateInfo.editorOpen
+    signal stateInfoRequested()
+    signal stateInfoClosed()
     property bool effectsVisible: false
     property string selectedAnalogMode: "Horn"
     readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible
@@ -219,6 +226,7 @@ Rectangle {
                 Layout.preferredWidth: root.compact ? 106 : 132
                 Layout.preferredHeight: root.compact ? 72 : 88
                 text: "Reset"
+                enabled: !root.stateInfoVisible || !root.stateInfoFromRoster
                 font.pixelSize: root.compact ? 20 : 24
                 font.bold: true
                 onClicked: cab.reset()
@@ -230,7 +238,8 @@ Rectangle {
                 spacing: 2
                 Label {
                     Layout.fillWidth: true
-                    text: (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
+                    text: root.stateInfoVisible && root.stateInfoFromRoster ? (root.stateInfoIdentity.startsWith("ENGINE") ? "Engine record" : "Train record") :
+                          (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
                     color: "#f4f6f8"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
@@ -243,7 +252,7 @@ Rectangle {
                     objectName: "engineIdentity"
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    text: cab.scope + " " + cab.tmccId
+                    text: root.stateInfoVisible ? root.stateInfoIdentity : cab.scope + " " + cab.tmccId
                     color: "#c7d1dd"
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: root.compact ? 16 : 20
@@ -258,6 +267,7 @@ Rectangle {
         Item {
             id: drivingArea
             objectName: "drivingArea"
+            visible: !root.stateInfoVisible
             Layout.topMargin: 16
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -375,6 +385,11 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: false
+                    }
+                    TapHandler {
+                        enabled: !!root.infoController && cab.tmccId > 0
+                        gesturePolicy: TapHandler.DragThreshold
+                        onLongPressed: root.stateInfoRequested()
                     }
                     DragHandler {
                         id: artworkDrag
@@ -734,7 +749,65 @@ Rectangle {
             }
         }
 
+        RowLayout {
+            visible: root.stateInfoVisible
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.compact ? 80 : 112
+            Layout.maximumHeight: Layout.preferredHeight
+            spacing: 8
+
+            Rectangle {
+                visible: !root.stateInfoFromRoster
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                color: "#e8ebef"
+                radius: 8
+                clip: true
+                Image {
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    source: parent.visible ? cab.artworkSource : ""
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: root.stateInfoFromRoster
+                Layout.preferredWidth: root.compact ? 145 : 185
+                spacing: 0
+                Label {
+                    Layout.fillWidth: true
+                    text: "CURRENT SPEED"
+                    color: "#9aabba"
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: 15
+                }
+                Label {
+                    objectName: "stateInfoSpeedReadout"
+                    Layout.fillWidth: true
+                    text: root.stateInfoFromRoster ? "—" : ("000" + Math.max(0, Math.min(199, Math.round(cab.speed)))).slice(-3)
+                    font.family: speedFont.status === FontLoader.Ready ? speedFont.name : "monospace"
+                    color: "#e4f6ff"
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: root.compact ? 36 : 46
+                    font.bold: true
+                }
+            }
+        }
+
+        StateInfoView {
+            id: stateInfo
+            visible: root.stateInfoVisible
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            controller: root.infoController
+            onCloseRequested: root.stateInfoClosed()
+        }
+
         GridLayout {
+            visible: !root.stateInfoVisible
             Layout.fillWidth: true
             Layout.topMargin: -4
             columns: 6

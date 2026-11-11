@@ -263,6 +263,18 @@ class SelectedEngineController(QObject):
         self._prune_watchers()
         self.selectionChanged.emit()
 
+    @Slot()
+    def pruneDeleted(self) -> None:
+        remaining = {
+            tmcc_id
+            for tmcc_id in self._selected_ids + self._active_ids
+            if ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False) is not None
+        }
+        self._selected_ids = [tmcc_id for tmcc_id in self._selected_ids if tmcc_id in remaining]
+        self._active_ids = [tmcc_id for tmcc_id in self._active_ids if tmcc_id in remaining]
+        self._prune_watchers()
+        self.selectionChanged.emit()
+
     @Slot(int)
     def selectRelative(self, delta: int) -> None:
         if not delta or self._cab.scope != CommandScope.ENGINE.name:

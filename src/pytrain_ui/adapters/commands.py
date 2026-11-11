@@ -167,7 +167,8 @@ class PyTrainCabCommandAdapter:
     def stop(self) -> None:
         self.send_named("STOP_IMMEDIATE")
 
-    def halt(self) -> None:
+    @staticmethod
+    def halt() -> None:
         """Stop the entire layout, independently of the selected engine or train."""
         CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
 

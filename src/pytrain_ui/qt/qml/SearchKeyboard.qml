@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Popup {
     id: root
     objectName: "searchKeyboard"
+    property string title: "Search"
     property var targetField: null
     property bool upperCase: false
 
@@ -80,7 +81,7 @@ Popup {
     contentItem: ColumnLayout {
         spacing: 8
         RowLayout {
-            Label { Layout.fillWidth: true; text: "Search"; color: "white"; font.pixelSize: 24; font.bold: true }
+            Label { Layout.fillWidth: true; text: root.title; color: "white"; font.pixelSize: 24; font.bold: true }
             KeyboardKey { Layout.fillWidth: false; Layout.preferredWidth: 64; Layout.preferredHeight: 64; text: "×"; Accessible.name: "Close keyboard"; onClicked: root.close() }
         }
         TextField {
@@ -90,7 +91,8 @@ Popup {
             Layout.preferredHeight: 60
             font.pixelSize: 24
             selectByMouse: true
-            placeholderText: "Name, road #, or TMCC ID"
+            maximumLength: root.targetField ? root.targetField.maximumLength : 32767
+            placeholderText: root.targetField ? root.targetField.placeholderText : ""
             onTextEdited: root.publish()
             onAccepted: root.close()
         }

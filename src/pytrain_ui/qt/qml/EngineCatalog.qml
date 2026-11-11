@@ -8,10 +8,18 @@ Rectangle {
     required property var cab
     required property var catalog
     required property var selection
+    property var infoController: null
     signal engineSelected()
     signal closeRequested()
     signal engineRequested(int tmccId)
     signal stateInfoRequested(string scope, int tmccId)
+
+    function requestAddress(tmccId) {
+        if (scope === "ENGINE" && infoController && infoController.needsEngineRecord(tmccId))
+            stateInfoRequested(scope, tmccId)
+        else
+            engineRequested(tmccId)
+    }
 
     onEngineRequested: function(tmccId) {
         if (!cab.selectAddress(scope, tmccId)) {
@@ -102,7 +110,7 @@ Rectangle {
                 Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#aeb7c2"; font.pixelSize: 18 }
             }
             Item { Layout.fillWidth: true }
-            CabButton { Layout.preferredWidth: 144; Layout.preferredHeight: root.height < 850 ? 72 : 88; text: "Cab"; font.pixelSize: 24; onClicked: root.closeRequested() }
+            CabButton { Layout.preferredWidth: 144; Layout.preferredHeight: root.height < 850 ? 72 : 88; text: "Cab"; enabled: cab.tmccId > 0; font.pixelSize: 24; onClicked: root.closeRequested() }
             AllStopButton { compact: root.height < 850; onClicked: cab.halt() }
         }
 
@@ -123,7 +131,7 @@ Rectangle {
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
                 onAccepted: {
                     if (/^[0-9]{1,4}$/.test(text) && Number(text) > 0)
-                        root.engineRequested(Number(text))
+                        root.requestAddress(Number(text))
                 }
             }
             RosterBackspaceButton { field: searchField }
@@ -135,7 +143,7 @@ Rectangle {
             RosterSetButton {
                 entryText: searchField.text
                 maximumId: 9999
-                onClicked: root.engineRequested(Number(searchField.text))
+                onClicked: root.requestAddress(Number(searchField.text))
             }
         }
 
@@ -249,7 +257,7 @@ Rectangle {
         maximumId: 9999
         onSubmitted: function(tmccId) {
             close()
-            root.engineRequested(tmccId)
+            root.requestAddress(tmccId)
         }
     }
 

@@ -222,6 +222,15 @@ class CabController(QObject):
         self._switch_target(scope, tmcc_id)
         return True
 
+    @Slot(str, int)
+    def forgetClearedTarget(self, scope: str, tmcc_id: int) -> None:
+        if self.scope != scope or self.tmccId != tmcc_id:
+            return
+        self._release_target()
+        self._snapshot = EngineViewState(scope=scope, tmcc_id=0)
+        self._target_index = -1
+        self.stateChanged.emit()
+
     @Slot()
     def refreshRoster(self) -> None:
         current_scope = CommandScope[self.scope]
@@ -479,7 +488,8 @@ class CabController(QObject):
 
     @Slot(int)
     def changeSpeed(self, delta: int) -> None:
-        self._command_port.change_speed(delta)
+        if self._command_port is not None:
+            self._command_port.change_speed(delta)
 
     def _medium_momentum_key(self) -> str:
         return f"cab/medium_momentum/{self.scope}/{self.tmccId}"
@@ -547,19 +557,23 @@ class CabController(QObject):
 
     @Slot()
     def bell(self) -> None:
-        self._command_port.bell()
+        if self._command_port is not None:
+            self._command_port.bell()
 
     @Slot(bool)
     def horn(self, active: bool) -> None:
-        self._command_port.horn(active)
+        if self._command_port is not None:
+            self._command_port.horn(active)
 
     @Slot(bool)
     def boost(self, active: bool) -> None:
-        self._command_port.boost(active)
+        if self._command_port is not None:
+            self._command_port.boost(active)
 
     @Slot(bool)
     def brake(self, active: bool) -> None:
-        self._command_port.brake(active)
+        if self._command_port is not None:
+            self._command_port.brake(active)
 
     @Slot()
     def stop(self) -> None:
@@ -567,7 +581,10 @@ class CabController(QObject):
 
     @Slot()
     def halt(self) -> None:
-        self._command_port.halt()
+        if self._command_port is None:
+            PyTrainCabCommandAdapter.halt()
+        else:
+            self._command_port.halt()
 
     @Slot()
     def reset(self) -> None:

@@ -29,6 +29,41 @@ ApplicationWindow {
     property bool stateInfoVisible: false
     property string stateInfoScope: "ENGINE"
     property int stateInfoId: 0
+    property bool stateInfoFromRoster: false
+
+    function openStateInfo(scope, tmccId, fromRoster) {
+        stateInfoScope = scope
+        stateInfoId = tmccId
+        stateInfoFromRoster = fromRoster
+        stateInfoVisible = true
+        stateInfoController.openFor(scope, tmccId, fromRoster)
+    }
+
+    function closeStateInfo() {
+        stateInfoVisible = false
+        stateInfoController.close()
+    }
+
+    Connections {
+        target: stateInfoController
+        function onRecordReady(scope, tmccId) {
+            if (!cabController.selectAddress(scope, tmccId))
+                return
+            if (scope === "ENGINE")
+                selectedEngineController.selectEngine(tmccId)
+            engineCatalogController.reload()
+            window.engineCatalogVisible = false
+            window.closeStateInfo()
+        }
+        function onRecordCleared(scope, tmccId) {
+            window.engineCatalogVisible = true
+            window.closeStateInfo()
+            cabController.forgetClearedTarget(scope, tmccId)
+            selectedEngineController.pruneDeleted()
+            engineCatalogController.reload()
+            cabController.refreshRoster()
+        }
+    }
 
     property string previewProfile: ""
     property int previewWidth: 720
@@ -91,7 +126,7 @@ ApplicationWindow {
             StackLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                currentIndex: window.stateInfoVisible ? 5 :
+                currentIndex: window.stateInfoVisible ? 0 :
                               window.activeScope === "SWITCH" ? 2 :
                               window.activeScope === "ROUTE" ? 3 :
                               window.activeScope === "ACCESSORY" ? 4 :
@@ -101,23 +136,28 @@ ApplicationWindow {
                     id: operatingCabView
                     cab: cabController
                     selection: selectedEngineController
+                    infoController: stateInfoController
+                    stateInfoVisible: window.stateInfoVisible
+                    stateInfoFromRoster: window.stateInfoFromRoster
+                    stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
+                    onStateInfoRequested: window.openStateInfo(cabController.scope, cabController.tmccId, false)
+                    onStateInfoClosed: window.closeStateInfo()
                 }
 
                 EngineCatalog {
                     scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
                     cab: cabController
                     catalog: engineCatalogController
+                    infoController: stateInfoController
                     selection: selectedEngineController
                     onStateInfoRequested: function(scope, tmccId) {
-                        window.stateInfoScope = scope
-                        window.stateInfoId = tmccId
-                        window.stateInfoVisible = true
                         window.engineCatalogVisible = true
+                        window.openStateInfo(scope, tmccId, true)
                     }
                     onEngineSelected: {
-                        window.stateInfoVisible = false
                         window.engineCatalogVisible = false
                     }
+                    onVisibleChanged: if (visible) engineCatalogController.reload()
                     onCloseRequested: {
                         window.activeScope = cabController.scope
                         window.engineCatalogVisible = false
@@ -161,12 +201,7 @@ ApplicationWindow {
                     }
                 }
 
-                StateInfoView {
-                    scope: window.stateInfoScope
-                    tmccId: window.stateInfoId
-                    onCloseRequested: window.stateInfoVisible = false
-                    onAllStopRequested: cabController.halt()
-                }
+
             }
 
             SelectedEngineBar {
@@ -186,7 +221,8 @@ ApplicationWindow {
                 Layout.maximumHeight: 84
                 currentScope: window.activeScope
                 onScopePressed: function(scope) {
-                    window.stateInfoVisible = false
+                    if (window.stateInfoVisible)
+                        window.closeStateInfo()
                     switchOpsView.cancelTransientPanels()
                     routeOpsView.cancelTransientPanels()
                     accessoryCatalog.cancelTransientPanels()
@@ -205,9 +241,9 @@ ApplicationWindow {
                         window.engineCatalogVisible = false
                     } else if (scope === "ENGINE" || scope === "TRAIN") {
                         if (window.activeScope === scope && cabController.scope === scope)
-                            window.engineCatalogVisible = !window.engineCatalogVisible
+                            window.engineCatalogVisible = cabController.tmccId <= 0 || !window.engineCatalogVisible
                         else
-                            window.engineCatalogVisible = cabController.scope !== scope
+                            window.engineCatalogVisible = cabController.tmccId <= 0 || cabController.scope !== scope
                         window.activeScope = scope
                     }
                 }
@@ -235,13 +271,13 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: window.stateInfoVisible
-        onActivated: window.stateInfoVisible = false
+        enabled: window.stateInfoVisible && !operatingCabView.stateInfoEditorOpen
+        onActivated: window.closeStateInfo()
     }
 
     Shortcut {
         sequence: "Escape"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible
+        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible && cabController.tmccId > 0
         onActivated: {
             window.activeScope = cabController.scope
             window.engineCatalogVisible = false
