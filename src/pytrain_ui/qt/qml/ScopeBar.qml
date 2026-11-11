@@ -20,7 +20,7 @@ Rectangle {
         spacing: 4
 
         Repeater {
-            model: ["ENGINE", "TRAIN", "SWITCH", "ACCESSORY", "ROUTE"]
+            model: ["SWITCH", "ACCESSORY", "ROUTE", "TRAIN", "ENGINE"]
 
             Rectangle {
                 id: scopeButton
