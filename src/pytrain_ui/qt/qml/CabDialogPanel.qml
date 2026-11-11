@@ -18,6 +18,7 @@ Rectangle {
 
     readonly property var choices: category
         ? actions.filter(action => action.section === category)
+            .sort((first, second) => first.label.localeCompare(second.label))
         : categories.map(name => ({label: name, command: ""}))
 
     readonly property var towerGeneralActions: panelKey === "tower" && !category
