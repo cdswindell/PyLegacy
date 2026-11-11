@@ -484,6 +484,11 @@ class CabController(QObject):
         return model
 
     @Slot(str)
+    def playDialog(self, command: str) -> None:
+        if self._command_port is not None:
+            self._command_port.play_dialog(command)
+
+    @Slot(str)
     def triggerPanelCommand(self, command: str) -> None:
         if self._command_port is not None:
             self._command_port.send_panel_command(command)

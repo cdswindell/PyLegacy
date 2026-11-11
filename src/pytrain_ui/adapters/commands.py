@@ -5,7 +5,7 @@ from __future__ import annotations
 from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import TMCC_CONTROL_TYPE, CommandScope
-from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
@@ -336,6 +336,17 @@ class PyTrainCabCommandAdapter:
         if not self.state.is_legacy:
             return self.supports_named(name)
         return TMCC2EngineOpsEnum.look_up(name) is not None or SequenceCommandEnum.by_name(name) is not None
+
+    def play_dialog(self, name: str) -> bool:
+        """Send a RailSounds dialog packet without a speed command or sequence."""
+        state = self.state
+        if not state.is_legacy:
+            return False
+        command = TMCC2RailSoundsDialogControl.by_name(name)
+        if command is None:
+            return False
+        CommandReq.build(command, state.tmcc_id, scope=state.scope).send()
+        return True
 
     def send_panel_command(self, name: str) -> bool:
         """Resolve a panel command through the same Legacy lookup path as EngineGui."""

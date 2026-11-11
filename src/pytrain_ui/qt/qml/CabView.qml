@@ -16,7 +16,7 @@ Rectangle {
     property bool effectsVisible: false
     property string selectedAnalogMode: "Horn"
     readonly property bool dialogPanelOpen: dialogPanel.visible
-    readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible || bellHornPanel.visible
+    readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible || bellHornPanel.visible || dialogPanelOpen
     property string requestedDirection: ""
     readonly property string reportedDirection: cab.direction
     readonly property string targetKey: cab.scope + ":" + cab.tmccId
@@ -279,7 +279,7 @@ Rectangle {
         Item {
             id: drivingArea
             objectName: "drivingArea"
-            enabled: !bellHornPanel.visible
+            enabled: !bellHornPanel.visible && !root.dialogPanelOpen
             visible: !root.stateInfoVisible
             Layout.topMargin: 16
             Layout.fillWidth: true
@@ -820,7 +820,7 @@ Rectangle {
         }
 
         GridLayout {
-            enabled: !bellHornPanel.visible
+            enabled: !bellHornPanel.visible && !root.dialogPanelOpen
             visible: !root.stateInfoVisible
             Layout.fillWidth: true
             Layout.topMargin: -4

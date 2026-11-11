@@ -16,6 +16,12 @@ Rectangle {
         return order.filter(name => actions.some(action => action.section === name))
     }
 
+    readonly property var choices: category
+        ? actions.filter(action => action.section === category)
+        : categories.map(name => ({label: name, command: ""}))
+
+    onCategoryChanged: choicesView.contentItem.contentY = 0
+
     function openFor(key) {
         title = cab.panelTitle(key)
         actions = cab.panelModel(key)
@@ -49,7 +55,7 @@ Rectangle {
     component DialogButton: Button {
         id: button
         padding: 10
-        font.pixelSize: 22
+        font.pixelSize: 24
         contentItem: Text {
             text: button.text
             font: button.font
@@ -71,15 +77,15 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
-        spacing: 12
+        spacing: 16
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
             DialogButton {
                 visible: root.category !== ""
-                Layout.preferredWidth: 98
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: 124
+                Layout.preferredHeight: 58
                 text: "Back"
                 onClicked: root.category = ""
             }
@@ -94,8 +100,7 @@ Rectangle {
         }
 
         ScrollView {
-            id: categoryView
-            visible: root.category === ""
+            id: choicesView
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
@@ -104,49 +109,29 @@ Rectangle {
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             GridLayout {
-                width: categoryView.availableWidth
+                width: choicesView.availableWidth
                 columns: 2
-                rowSpacing: 14
-                columnSpacing: 14
+                rowSpacing: 18
+                columnSpacing: 18
 
                 Repeater {
-                    model: root.categories
+                    model: root.choices
                     DialogButton {
-                        required property string modelData
+                        required property var modelData
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         Layout.preferredWidth: 0
-                        Layout.preferredHeight: 70
-                        text: modelData
+                        Layout.preferredHeight: Math.max(74, implicitHeight)
+                        text: modelData.label
                         onClicked: {
-                            root.category = modelData
-                            commandList.positionViewAtBeginning()
-                            commandList.forceActiveFocus()
+                            if (root.category) {
+                                root.cab.playDialog(modelData.command)
+                                root.category = ""
+                            } else {
+                                root.category = modelData.label
+                            }
                         }
                     }
-                }
-            }
-        }
-
-        ListView {
-            id: commandList
-            visible: root.category !== ""
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumHeight: 0
-            clip: true
-            spacing: 12
-            boundsBehavior: Flickable.StopAtBounds
-            model: root.actions.filter(action => action.section === root.category)
-            ScrollBar.vertical: ScrollBar {}
-            delegate: DialogButton {
-                required property var modelData
-                width: ListView.view.width - 12
-                height: Math.max(64, implicitHeight)
-                text: modelData.label
-                onClicked: {
-                    root.cab.triggerPanelCommand(modelData.command)
-                    root.category = ""
                 }
             }
         }

@@ -7,7 +7,7 @@ import pytest
 
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CAB1_CONTROL_TYPE, LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
-from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from pytrain_ui.adapters.commands import PyTrainCabCommandAdapter
@@ -129,3 +129,28 @@ def test_labor_and_rpm_editor_commands(
         assert request.args == (command, 31)
         assert request.kwargs == {"data": level, "scope": scope}
     assert build.return_value.send.call_count == len(expected)
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+@pytest.mark.parametrize(
+    "command",
+    [
+        command
+        for command in TMCC2RailSoundsDialogControl
+        if command.name.startswith(("TOWER_SPEED_", "ENGINEER_SPEED_"))
+    ],
+)
+def test_speed_dialog_sends_only_railsounds(
+    monkeypatch, scope: CommandScope, command: TMCC2RailSoundsDialogControl
+) -> None:
+    build = Mock()
+    monkeypatch.setattr(CommandReq, "build", build)
+    adapter = PyTrainCabCommandAdapter(
+        Mock(spec=PyTrainCabStateAdapter, state=SimpleNamespace(is_legacy=True, scope=scope, tmcc_id=31))
+    )
+
+    assert adapter.play_dialog(command.name)
+    assert not adapter.play_dialog("ABSOLUTE_SPEED")
+    assert not adapter.play_dialog("SPEED_HIGHBALL")
+    build.assert_called_once_with(command, 31, scope=scope)
+    build.return_value.send.assert_called_once_with()
