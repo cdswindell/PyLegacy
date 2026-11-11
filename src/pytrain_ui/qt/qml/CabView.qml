@@ -81,7 +81,7 @@ Rectangle {
         if (action.holdKind === "panel") {
             if (action.holdTarget === "bell_horn")
                 bellHornPanel.openOptions()
-            else if (action.holdTarget === "crew" || action.holdTarget === "tower")
+            else if (["crew", "tower", "lights"].includes(action.holdTarget))
                 dialogPanel.openFor(action.holdTarget)
             else
                 commandPanel.openFor(action.holdTarget)

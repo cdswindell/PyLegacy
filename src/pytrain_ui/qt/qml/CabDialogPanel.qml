@@ -10,6 +10,9 @@ Rectangle {
     property string category: ""
     property var actions: []
     readonly property var categories: {
+        if (panelKey === "lights")
+            return Array.from(new Set(actions.map(action => action.section)))
+                .sort((first, second) => first.localeCompare(second))
         const order = panelKey === "crew"
             ? ["Acknowledge", "Conductor", "Arrive/Depart", "Station", "Status", "Steward", "General", "Etc"]
             : ["Arrive/Depart", "General", "Speed"]
@@ -117,6 +120,8 @@ Rectangle {
         onClicked: {
             if (opensCategory) {
                 root.category = modelData.label
+            } else if (root.panelKey === "lights") {
+                root.cab.triggerPanelCommand(modelData.command)
             } else {
                 root.cab.playDialog(modelData.command)
             }
@@ -162,6 +167,16 @@ Rectangle {
                 columns: 2
                 rowSpacing: root.choiceSpacing
                 columnSpacing: root.choiceSpacing
+
+                Label {
+                    visible: root.actions.length === 0
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    text: root.panelKey === "lights" ? "No lighting commands available" : "No dialogs available"
+                    font.pixelSize: 20
+                    color: "#bad4ea"
+                    wrapMode: Text.WordWrap
+                }
 
                 Repeater {
                     model: root.choices
