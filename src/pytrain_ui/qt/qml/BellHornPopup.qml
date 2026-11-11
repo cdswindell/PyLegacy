@@ -7,37 +7,36 @@ Popup {
     required property var cab
     required property real operatingButtonWidth
     required property int operatingButtonHeight
-    property point artworkBottom: Qt.point(0, 0)
     property var actions: []
     readonly property int gap: 8
     readonly property real buttonWidth: (width - leftPadding - rightPadding - gap * 3) / 4
 
-    function openBelow(item) {
-        artworkBottom = item.mapToItem(parent, 0, item.height)
+    function openOptions() {
         actions = cab.panelModel("bell_horn")
         open()
     }
 
     padding: 12
     width: Math.min(parent.width - 24, 4 * Math.ceil(operatingButtonWidth) + gap * 3 + leftPadding + rightPadding)
-    x: Math.max(12, Math.min(artworkBottom.x, parent.width - width - 12))
-    y: Math.max(12, Math.min(artworkBottom.y + gap, parent.height - height - 12))
-    modal: true
+    x: (parent.width - width) / 2
+    y: (parent.height - height) / 2
+    modal: false
     focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape
 
     background: Rectangle { color: "#102858"; radius: 12; border.color: "#626c79" }
 
     component OptionButton: Button {
         id: button
         property url artwork: ""
+        property int buttonHeight: root.operatingButtonHeight
         Layout.preferredWidth: root.buttonWidth
         Layout.minimumWidth: root.buttonWidth
         Layout.maximumWidth: root.buttonWidth
-        Layout.preferredHeight: root.operatingButtonHeight
-        Layout.minimumHeight: root.operatingButtonHeight
-        Layout.maximumHeight: root.operatingButtonHeight
-        font.pixelSize: 19
+        Layout.preferredHeight: buttonHeight
+        Layout.minimumHeight: buttonHeight
+        Layout.maximumHeight: buttonHeight
+        font.pixelSize: 24
         contentItem: Item {
             Text {
                 anchors.fill: parent
@@ -104,7 +103,7 @@ Popup {
                                 if (command === "CYCLE_BELL_TONE" || command === "CYCLE_HORN_TONE") return "Cycle\nTone"
                                 return modelData.label
                             }
-                            font.pixelSize: command === "RING_BELL" || command === "BLOW_HORN_ONE" ? 26 : 19
+                            font.pixelSize: command === "RING_BELL" || command === "BLOW_HORN_ONE" ? 32 : 24
                             artwork: modelData.iconSource || ""
                             Accessible.name: section.modelData + ": " + modelData.label
                             onClicked: root.cab.triggerPanelCommand(command)
@@ -115,6 +114,8 @@ Popup {
         }
         OptionButton {
             Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 16
+            buttonHeight: 48
             text: "Close"
             onClicked: root.close()
         }

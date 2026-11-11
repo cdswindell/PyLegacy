@@ -77,7 +77,7 @@ Rectangle {
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
             if (action.holdTarget === "bell_horn")
-                bellHornPanel.openBelow(artwork)
+                bellHornPanel.openOptions()
             else
                 commandPanel.openFor(action.holdTarget)
         } else if (action.holdKind === "analog") {
@@ -874,6 +874,18 @@ Rectangle {
                 }
             }
         }
+    }
+
+    function closeBellHornOptions() {
+        bellHornPanel.close()
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        z: 1
+        visible: bellHornPanel.visible
+        onClicked: root.closeBellHornOptions()
+        onWheel: function(event) { event.accepted = true }
     }
 
     BellHornPopup {

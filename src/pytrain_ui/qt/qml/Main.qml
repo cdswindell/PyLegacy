@@ -221,6 +221,7 @@ ApplicationWindow {
                 Layout.maximumHeight: 84
                 currentScope: window.activeScope
                 onScopePressed: function(scope) {
+                    operatingCabView.closeBellHornOptions()
                     if (window.stateInfoVisible)
                         window.closeStateInfo()
                     switchOpsView.cancelTransientPanels()
