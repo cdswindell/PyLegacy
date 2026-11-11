@@ -119,7 +119,6 @@ Rectangle {
                 root.category = modelData.label
             } else {
                 root.cab.playDialog(modelData.command)
-                root.category = ""
             }
         }
     }
