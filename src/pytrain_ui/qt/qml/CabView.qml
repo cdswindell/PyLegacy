@@ -861,7 +861,7 @@ Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: modelData.label === "Speed Lim" && (cab.speedLimit <= 0 || cab.speedLimit === 255) ? "No limit" :
                                   modelData.value === "" ? "—" : modelData.value
-                            color: "#f1f5f9"
+                            color: stateTile.editable ? "#f1f5f9" : "#87919e"
                             font.pixelSize: root.compact ? 17 : 22
                             font.bold: true
                         }
