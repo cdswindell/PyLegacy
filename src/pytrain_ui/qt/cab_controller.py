@@ -180,6 +180,8 @@ class CabController(QObject):
                 continue
             icon_path = find_file(action.icon) if action.icon else None
             hold_enabled = action.hold and not (action.hold_legacy_only and not profile.is_legacy)
+            if hold_enabled and action.hold_target == "bell_horn":
+                hold_enabled = profile.is_legacy or bool(getattr(self._command_port.state, "bt_id", None))
             if hold_enabled and action.hold_kind == "analog":
                 hold_enabled = action.hold_target in profile.analog_modes
             model.append(
