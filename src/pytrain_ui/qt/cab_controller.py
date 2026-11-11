@@ -282,6 +282,10 @@ class CabController(QObject):
         return self._action_model("secondary")
 
     @Property(list, notify=stateChanged)
+    def speedSoundActionModel(self) -> list[dict]:
+        return self._action_model("speed")
+
+    @Property(list, notify=stateChanged)
     def tuningActionModel(self) -> list[dict]:
         return self._action_model("tuning")
 
@@ -499,10 +503,10 @@ class CabController(QObject):
     def setSpeed(self, speed: int) -> None:
         self._command_port.set_speed(speed)
 
-    @Slot(str)
-    def setSpeedPreset(self, name: str) -> None:
+    @Slot(str, bool)
+    def setSpeedPreset(self, name: str, with_dialog: bool) -> None:
         if self._command_port is not None:
-            self._command_port.set_speed_preset(name)
+            self._command_port.set_speed_preset(name, with_dialog)
 
     @Slot(int, result=bool)
     def stepSpeed(self, delta: int) -> bool:

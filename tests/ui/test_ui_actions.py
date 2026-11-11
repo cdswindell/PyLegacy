@@ -71,13 +71,11 @@ def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
     crew = cab_action("engineer_chatter")
     tower = cab_action("tower_chatter")
     lights = cab_action("lights")
-    more = cab_action("more")
     sequence = cab_action("sequence")
 
     assert crew is not None and (crew.hold, crew.hold_kind, crew.hold_target) == (True, "panel", "crew")
     assert tower is not None and (tower.hold, tower.hold_kind, tower.hold_target) == (True, "panel", "tower")
     assert lights is not None and (lights.hold, lights.hold_kind, lights.hold_target) == (True, "panel", "lights")
-    assert more is not None and (more.hold, more.hold_kind, more.hold_target) == (True, "panel", "more")
     assert sequence is not None and sequence.repeat is True
     assert sequence.repeat_interval_ms == 200
 
@@ -163,16 +161,17 @@ def test_secondary_actions_follow_engine_ops_layout() -> None:
         "more",
     ]
 
-    sequence = cab_action("sequence")
-    lights = cab_action("lights")
-    more = cab_action("more")
-    acela_aux2 = cab_action("acela_aux2")
-    acela_aux3 = cab_action("acela_aux3")
-    assert all(action is not None for action in (sequence, lights, more, acela_aux2, acela_aux3))
+    by_key: dict[str, CabAction] = {action.key: action for action in secondary}
+    sequence = by_key["sequence"]
+    lights = by_key["lights"]
+    more = by_key["more"]
+    acela_aux2 = by_key["acela_aux2"]
+    acela_aux3 = by_key["acela_aux3"]
 
     assert action_applies_to_type(sequence, "a") is True
     assert action_applies_to_type(lights, "a") is False
     assert action_applies_to_type(more, "a") is False
+    assert (more.label, more.command, more.hold) == ("Aux 3", "AUX3_OPTION_ONE", False)
     assert action_applies_to_type(acela_aux2, "a") is True
     assert action_applies_to_type(acela_aux3, "a") is True
 

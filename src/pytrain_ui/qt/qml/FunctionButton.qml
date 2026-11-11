@@ -21,6 +21,7 @@ Control {
     property color normalColor: "#303640"
     property color selectedColor: "#176fa8"
     property color pressedColor: "#5c9fc6"
+    property color textColor: "#f5f7fa"
     property bool holdTriggered: false
     readonly property bool pressed: tapHandler.pressed
     readonly property bool visualPressed: pressed || pressFlash.running
@@ -75,7 +76,7 @@ Control {
             Layout.alignment: Qt.AlignCenter
             text: root.text
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
-            color: root.enabled ? "#f5f7fa" : "#858c96"
+            color: root.enabled ? root.textColor : "#858c96"
             font: root.font
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

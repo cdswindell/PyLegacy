@@ -7,7 +7,7 @@ from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
-from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
+from pytrain.protocol.sequence.ramp_speed_req import ENGINEER_DIALOG_DELAY, RampSpeedDialogReq, RampSpeedReq
 from pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
 from pytrain.protocol.sequence.sequence_req import SequenceReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1RRSpeedsEnum
@@ -76,13 +76,29 @@ class PyTrainCabCommandAdapter:
         speed = max(0, min(maximum, int(speed)))
         RampSpeedReq(self.state.tmcc_id, speed, self.state.scope).send()
 
-    def set_speed_preset(self, name: str) -> None:
+    def set_speed_preset(self, name: str, with_dialog: bool = False) -> None:
         state = self.state
-        if not state.has_throttle or state.is_remote_ramping:
+        if not state.has_throttle:
+            return
+        if name == "EMERGENCY_STOP":
+            state.cancel_ramps(0, reason="Emergency stop", hard_stop=True, yield_speed=0)
+            CommandReq.build(self._enum_type.ABSOLUTE_SPEED, state.tmcc_id, data=0, scope=state.scope).send()
+            if with_dialog:
+                for dialog, delay in (
+                    (TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD, 0.2),
+                    (TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD, 0.2 + ENGINEER_DIALOG_DELAY),
+                ):
+                    CommandReq.build(dialog, state.tmcc_id, scope=state.scope).send(delay=delay)
+            return
+        if state.is_remote_ramping:
             return
         speeds = TMCC2RRSpeedsEnum if state.is_legacy else TMCC1RRSpeedsEnum
         preset = speeds.by_name(name)
-        if preset is not None:
+        if preset is None:
+            return
+        if with_dialog:
+            RampSpeedDialogReq(state.tmcc_id, preset, state.scope).send()
+        else:
             self.set_speed(preset.speed)
 
     def step_speed(self, delta: int) -> bool:

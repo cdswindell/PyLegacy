@@ -158,11 +158,32 @@ Rectangle {
         const presets = ["Restricted", "Slow", "Medium", "Limited", "Normal", "Highball"].map((label, index) => ({
             key: label.toUpperCase(),
             label: label,
+            speedPreset: true,
+            hold: true,
             speedChevrons: index + 1
         }))
+        const byKey = {}
+        for (const action of cab.speedSoundActionModel.concat(cab.moreActionModel))
+            byKey[action.key] = action
         const otherActions = cab.moreActionModel.filter(action =>
-            !root.isDriveUtility(action.key) && !action.key.startsWith("momentum_"))
-        return [presets.slice(0, 3), presets.slice(3)].concat(root.pairedActionRows(otherActions))
+            !root.isDriveUtility(action.key) && !action.key.startsWith("momentum_")
+                && action.key !== "labor_up" && action.key !== "labor_down")
+        const stopAndRoll = [
+            {key: "STOP_HOLD", label: "Normal Stop", speedPreset: true},
+            {key: "EMERGENCY_STOP", label: "Emergency Stop", speedPreset: true, hold: true},
+            {
+                key: "ROLL",
+                label: "Roll",
+                speedPreset: true,
+                iconSource: Qt.resolvedUrl("../../../pytrain/gui/images/engine_gui/roll-speed.jpg")
+            }
+        ]
+        const rows = [
+            presets.slice(0, 3), presets.slice(3), stopAndRoll, cab.secondaryActionModel,
+            [byKey.master_volume_up, byKey.blend_up, byKey.labor_up],
+            [byKey.master_volume_down, byKey.blend_down, byKey.labor_down]
+        ]
+        return rows.concat(root.pairedActionRows(otherActions))
     }
 
     component PairedActions: ColumnLayout {
@@ -199,6 +220,9 @@ Rectangle {
 
     component ActionTile: FunctionButton {
         required property var action
+        readonly property bool emergencyStop: action.key === "EMERGENCY_STOP"
+        readonly property bool auxiliary: action.group === "secondary"
+        objectName: auxiliary ? "auxControl_" + action.key : ""
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
@@ -207,22 +231,32 @@ Rectangle {
         wrapLabel: true
         padding: root.compact ? 4 : 6
         iconSize: root.compact ? 40 : 72
-        text: action.label
+        compact: auxiliary
+        text: auxiliary ? action.label.replace(" · ", "\n") : action.label
+        holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
+                  auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
-        enabled: !speedChevrons || cab.hasThrottle
+        enabled: !action.speedPreset || cab.hasThrottle
+        textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
+        pressedColor: emergencyStop ? "#76131c" : "#5c9fc6"
         font.pixelSize: root.compact ? 14 : 18
         deferForHold: action.hold || false
         holdThreshold: action.holdThreshold || 1000
         repeatWhileHeld: action.repeat || false
         repeatInterval: action.repeatInterval > 0 ? action.repeatInterval : 250
         onClicked: {
-            if (speedChevrons)
-                root.cab.setSpeedPreset(action.key)
+            if (action.speedPreset)
+                root.cab.setSpeedPreset(action.key, false)
             else
                 root.cab.triggerAction(action.key)
         }
-        onHeld: root.handleModelHold(action)
+        onHeld: {
+            if (action.speedPreset)
+                root.cab.setSpeedPreset(action.key, true)
+            else
+                root.handleModelHold(action)
+        }
     }
 
     FontLoader {
@@ -348,7 +382,10 @@ Rectangle {
                             topInset: 0
                             bottomInset: 0
                             text: modelData
-                            onClicked: root.effectsVisible = index === 1
+                            onClicked: {
+                                root.effectsVisible = index === 1
+                                actionScroll.contentItem.contentY = 0
+                            }
                             contentItem: Text {
                                 text: parent.text
                                 color: parent.checked ? "#ffffff" : "#aeb7c2"
@@ -528,34 +565,19 @@ Rectangle {
                     objectName: "auxiliaryGrid"
                     anchors.left: parent.left
                     anchors.right: parent.right
+                    visible: !root.effectsVisible
                     height: root.tileHeight
-                    y: root.effectsVisible ? parent.height - height :
+                    y: root.effectsVisible ? parent.height :
                         Math.min(parent.height - height, artwork.y + artwork.height + root.gap + actionContent.implicitHeight + root.gap)
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
                         model: cab.secondaryActionModel
-                        FunctionButton {
+                        ActionTile {
                             required property var modelData
-                            objectName: "auxControl_" + modelData.key
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            Layout.preferredWidth: 0
+                            action: modelData
                             Layout.minimumHeight: root.tileHeight
                             Layout.maximumHeight: root.tileHeight
-                            Layout.preferredHeight: root.tileHeight
-                            compact: true
-                            text: modelData.label.replace(" · ", "\n")
-                            holdHint: modelData.holdTarget === "lights" ? "Lighting panel" :
-                                      modelData.holdTarget === "more" ? "More controls" :
-                                      modelData.key === "sequence" ? "Repeat sequence" : ""
-                            font.pixelSize: root.compact ? 14 : 18
-                            deferForHold: modelData.hold
-                            holdThreshold: modelData.holdThreshold
-                            repeatWhileHeld: modelData.repeat
-                            repeatInterval: modelData.repeatInterval > 0 ? modelData.repeatInterval : 250
-                            onClicked: cab.triggerAction(modelData.key)
-                            onHeld: root.handleModelHold(modelData)
                         }
                     }
                 }
