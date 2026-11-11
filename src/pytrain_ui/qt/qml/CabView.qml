@@ -826,7 +826,7 @@ Rectangle {
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
                         (modelData.label === "Brake" && cab.supportsTrainBrake) ||
                         (modelData.label === "Smoke" && cab.supportsSmoke) ||
-                        (modelData.label === "Effort" && cab.isLegacy) ||
+                        (modelData.label === "Effort" && cab.supportsLabor) ||
                         (modelData.label === "RPM" && cab.supportsRpm)
                     objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : ""
                     Layout.fillWidth: true

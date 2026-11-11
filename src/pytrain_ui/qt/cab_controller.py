@@ -360,9 +360,12 @@ class CabController(QObject):
         }
 
     @Property(bool, notify=stateChanged)
+    def supportsLabor(self) -> bool:
+        return self._command_port is not None and self._command_port.supports_labor()
+
+    @Property(bool, notify=stateChanged)
     def supportsRpm(self) -> bool:
-        state = self._state_port.state if self._state_port is not None else None
-        return self.isLegacy and bool(getattr(state, "is_rpm", False))
+        return self._command_port is not None and self._command_port.supports_rpm()
 
     @Property(bool, notify=stateChanged)
     def supportsSmoke(self) -> bool:

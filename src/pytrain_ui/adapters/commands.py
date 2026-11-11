@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
+from pytrain.protocol.constants import TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
@@ -110,14 +111,23 @@ class PyTrainCabCommandAdapter:
             scope=self.state.scope,
         ).send()
 
+    def supports_labor(self) -> bool:
+        state = self.state
+        return state.is_legacy or (
+            state.scope == CommandScope.ENGINE and getattr(state, "control_type", None) == TMCC_CONTROL_TYPE
+        )
+
+    def supports_rpm(self) -> bool:
+        return self.supports_labor() and bool(getattr(self.state, "is_rpm", False))
+
     def set_labor(self, value: int) -> None:
         state = self.state
-        if state.is_legacy and 0 <= value <= 31:
+        if self.supports_labor() and 0 <= value <= 31:
             CommandReq.build(TMCC2EngineCommandEnum.ENGINE_LABOR, state.tmcc_id, data=value, scope=state.scope).send()
 
     def set_rpm(self, value: int) -> None:
         state = self.state
-        if state.is_legacy and getattr(state, "is_rpm", False) and 0 <= value <= 7:
+        if self.supports_rpm() and 0 <= value <= 7:
             CommandReq.build(TMCC2EngineCommandEnum.DIESEL_RPM, state.tmcc_id, data=value, scope=state.scope).send()
 
     def set_quilling_horn(self, value: int) -> None:

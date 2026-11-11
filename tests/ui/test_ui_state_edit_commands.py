@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from pytrain.protocol.command_req import CommandReq
-from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.constants import CAB1_CONTROL_TYPE, LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
@@ -83,20 +83,42 @@ def test_train_brake_editor_requires_legacy(monkeypatch, legacy: bool, level: in
 
 
 @pytest.mark.parametrize(
-    ("legacy", "rpm_capable", "labor", "rpm", "expected"),
+    ("scope", "control_type", "rpm_capable", "labor", "rpm", "expected"),
     [
-        (True, True, 31, 7, [(TMCC2EngineCommandEnum.ENGINE_LABOR, 31), (TMCC2EngineCommandEnum.DIESEL_RPM, 7)]),
-        (True, False, 0, 4, [(TMCC2EngineCommandEnum.ENGINE_LABOR, 0)]),
-        (False, True, 12, 3, []),
-        (True, True, 32, -1, []),
+        (
+            CommandScope.TRAIN,
+            LEGACY_CONTROL_TYPE,
+            True,
+            31,
+            7,
+            [(TMCC2EngineCommandEnum.ENGINE_LABOR, 31), (TMCC2EngineCommandEnum.DIESEL_RPM, 7)],
+        ),
+        (
+            CommandScope.ENGINE,
+            TMCC_CONTROL_TYPE,
+            True,
+            12,
+            3,
+            [(TMCC2EngineCommandEnum.ENGINE_LABOR, 12), (TMCC2EngineCommandEnum.DIESEL_RPM, 3)],
+        ),
+        (CommandScope.ENGINE, TMCC_CONTROL_TYPE, False, 0, 4, [(TMCC2EngineCommandEnum.ENGINE_LABOR, 0)]),
+        (CommandScope.ENGINE, CAB1_CONTROL_TYPE, True, 12, 3, []),
+        (CommandScope.TRAIN, TMCC_CONTROL_TYPE, True, 12, 3, []),
+        (CommandScope.ENGINE, LEGACY_CONTROL_TYPE, True, 32, -1, []),
     ],
 )
 def test_labor_and_rpm_editor_commands(
-    monkeypatch, legacy: bool, rpm_capable: bool, labor: int, rpm: int, expected: list
+    monkeypatch, scope: CommandScope, control_type: int, rpm_capable: bool, labor: int, rpm: int, expected: list
 ) -> None:
     build = Mock()
     monkeypatch.setattr(CommandReq, "build", build)
-    state = SimpleNamespace(is_legacy=legacy, is_rpm=rpm_capable, scope=CommandScope.TRAIN, tmcc_id=31)
+    state = SimpleNamespace(
+        is_legacy=control_type == LEGACY_CONTROL_TYPE,
+        control_type=control_type,
+        is_rpm=rpm_capable,
+        scope=scope,
+        tmcc_id=31,
+    )
     adapter = PyTrainCabCommandAdapter(Mock(spec=PyTrainCabStateAdapter, state=state))
 
     adapter.set_labor(labor)
@@ -105,5 +127,5 @@ def test_labor_and_rpm_editor_commands(
     assert build.call_count == len(expected)
     for request, (command, level) in zip(build.call_args_list, expected):
         assert request.args == (command, 31)
-        assert request.kwargs == {"data": level, "scope": CommandScope.TRAIN}
+        assert request.kwargs == {"data": level, "scope": scope}
     assert build.return_value.send.call_count == len(expected)
