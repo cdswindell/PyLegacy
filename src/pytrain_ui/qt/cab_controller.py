@@ -360,6 +360,10 @@ class CabController(QObject):
         state = self._state_port.state if self._state_port is not None else None
         return bool(getattr(state, "is_diesel", False))
 
+    @Property(bool, notify=stateChanged)
+    def isElectric(self) -> bool:
+        return self._command_port is not None and self._command_port.controller_type_key == "l"
+
     @Property(str, notify=stateChanged)
     def controlType(self) -> str:
         if self._command_port is None:

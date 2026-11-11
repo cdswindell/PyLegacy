@@ -129,6 +129,8 @@ Rectangle {
     function isEngineSpecificControl(key) {
         return (cab.isDiesel && (key === "rpm_up" || key === "rpm_down"))
             || (cab.isSteam && (key === "let_off" || key === "water_injector"))
+            || (cab.isElectric && ["pantograph_front_up", "pantograph_front_down",
+                "pantograph_rear_up", "pantograph_rear_down", "electric_smoke_up", "electric_smoke_down"].includes(key))
     }
 
     function driveActionRows() {
@@ -140,7 +142,13 @@ Rectangle {
             byKey[action.key] = action
         const topControl = cab.isSteam ? byKey.let_off : cab.isDiesel ? byKey.rpm_up : byKey.volume_up
         const secondControl = cab.isSteam ? byKey.water_injector : cab.isDiesel ? byKey.rpm_down : byKey.volume_down
-        const rows = [
+        const rows = cab.isElectric ? [
+            [byKey.pantograph_front_up, byKey.pantograph_rear_up, byKey.bell],
+            [byKey.pantograph_front_down, byKey.pantograph_rear_down, byKey.horn],
+            [byKey.electric_smoke_down, byKey.electric_smoke_up],
+            [byKey.rear_coupler, byKey.front_coupler, byKey.boost],
+            [byKey.engineer_chatter, byKey.tower_chatter, byKey.brake]
+        ] : [
             [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, topControl],
             [byKey.bell, byKey.horn, secondControl],
             [byKey.smoke_down, byKey.smoke_up],
@@ -154,7 +162,8 @@ Rectangle {
             }
         }
         // Other equipment keeps its applicable controls after the standard rows.
-        return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] && action.key !== "volume_up" && action.key !== "volume_down" })))
+        return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] && action.key !== "volume_up" && action.key !== "volume_down"
+            && !(cab.isElectric && (action.key === "startup" || action.key === "shutdown")) })))
     }
 
     function speedActionRows() {
@@ -169,7 +178,8 @@ Rectangle {
         for (const action of cab.speedSoundActionModel.concat(cab.moreActionModel))
             byKey[action.key] = action
         const otherActions = cab.moreActionModel.filter(action =>
-            !root.isDriveUtility(action.key) && !root.isEngineSpecificControl(action.key)
+            (!root.isDriveUtility(action.key) || (cab.isElectric && (action.key === "startup" || action.key === "shutdown")))
+                && !root.isEngineSpecificControl(action.key)
                 && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
@@ -184,13 +194,14 @@ Rectangle {
         ]
         const auxiliary = cab.secondaryActionModel
         const canLoadWater = cab.isLegacy && cab.isSteam
+        const canRefuel = cab.isLegacy && (cab.isDiesel || cab.isSteam)
         const auxiliaryRow = [
             auxiliary.find(action => action.key === "sequence" || action.key.endsWith("_aux1")),
             byKey.set_address,
             {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
         ]
-        if (cab.isLegacy && (cab.isDiesel || cab.isSteam))
-            auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: true}
+        if (canRefuel || cab.isElectric)
+            auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
             [byKey.master_volume_up, byKey.blend_up, byKey.labor_up],
@@ -250,8 +261,8 @@ Rectangle {
         labelChevron: text === "< Smoke" ? -1 : text === "Smoke >" ? 1 : 0
         displayLabel: showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
         gaugeLabel: action.gauge ? action.label : ""
-        gaugeLevel: action.gauge === "FUEL" ? cab.fuelLevel
-                    : action.gauge === "WATER" && !action.disabled ? cab.waterLevel : -1
+        gaugeLevel: action.disabled ? -1
+                    : action.gauge === "FUEL" ? cab.fuelLevel : action.gauge === "WATER" ? cab.waterLevel : -1
         holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
