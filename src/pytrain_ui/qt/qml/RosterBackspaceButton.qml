@@ -14,14 +14,21 @@ Button {
     text: "⌫"
     Accessible.name: "Backspace search text"
     enabled: field && field.text.length > 0
+    function finishEdit() {
+        field.textEdited()
+        field.forceActiveFocus()
+    }
+    onPressAndHold: {
+        field.clear()
+        finishEdit()
+    }
     onClicked: {
         let start = field.selectedText.length ? field.selectionStart : field.cursorPosition
         const end = field.selectedText.length ? field.selectionEnd : field.cursorPosition
         if (start === end) start = Math.max(0, start - 1)
         field.text = field.text.slice(0, start) + field.text.slice(end)
         field.cursorPosition = start
-        field.textEdited()
-        field.forceActiveFocus()
+        finishEdit()
     }
     contentItem: BackspaceIcon { opacity: root.enabled ? 1 : 0.45 }
     background: Rectangle {

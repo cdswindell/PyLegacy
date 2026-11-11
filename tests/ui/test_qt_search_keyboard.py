@@ -81,13 +81,17 @@ def button(text):
     return find("item.text==='" + text + "' && item.clicked!==undefined")
 
 
-def click(item):
+def point(item):
     encoded = value(
         "(function(){var b=" + item
         + ";var p=b.mapToItem(null,b.width/2,b.height/2);return JSON.stringify([p.x,p.y]);})()"
     )
     x, y = json.loads(encoded)
-    QTest.mouseClick(window(), Qt.LeftButton, pos=QPoint(round(x), round(y)))
+    return QPoint(round(x), round(y))
+
+
+def click(item):
+    QTest.mouseClick(window(), Qt.LeftButton, pos=point(item))
     QTest.qWait(30)
 
 
@@ -114,6 +118,13 @@ assert window().property("selections") == 0
 QTest.qWait(80)
 assert not value("window.keyboardPopup().visible"), "Closing must not immediately reopen the keyboard"
 click("field")
+position = point(button("⌫"))
+QTest.mousePress(window(), Qt.LeftButton, pos=position)
+QTest.qWait(1000)
+assert value("field.text") == ""
+QTest.mouseRelease(window(), Qt.LeftButton, pos=position)
+assert value("window.keyboardPopup().visible")
+click(button("3"))
 click(button("Clear"))
 assert value("field.text") == ""
 click(button("3"))

@@ -22,6 +22,10 @@ Popup {
             targetField.textEdited()
         }
     }
+    function clearEntry() {
+        entry.clear()
+        publish()
+    }
     function typeKey(key) {
         if (key === "⇧") {
             upperCase = !upperCase
@@ -108,6 +112,7 @@ Popup {
                         required property string modelData
                         text: root.upperCase ? modelData.toUpperCase() : modelData
                         Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "⇧" ? "Shift" : text
+                        onPressAndHold: if (modelData === "⌫") root.clearEntry()
                         onClicked: root.typeKey(modelData)
                     }
                 }
@@ -116,7 +121,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            KeyboardKey { text: "Clear"; onClicked: { entry.text = ""; root.publish() } }
+            KeyboardKey { text: "Clear"; onClicked: root.clearEntry() }
             KeyboardKey { text: "Space"; onClicked: root.typeKey(" ") }
             KeyboardKey { text: "−"; onClicked: root.typeKey("-") }
             KeyboardKey { text: "Done"; highlighted: true; onClicked: root.close() }

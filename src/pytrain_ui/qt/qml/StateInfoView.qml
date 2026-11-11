@@ -310,18 +310,27 @@ Rectangle {
                 model: fieldEditor.field.options || []
                 font.pixelSize: 18
             }
-            TouchSearchField {
-                id: entry
+            RowLayout {
                 visible: !fieldEditor.choice
-                touchKeyboardEnabled: !fieldEditor.numeric && Qt.platform.os === "linux"
-                keyboardTitle: fieldEditor.field.label || ""
                 Layout.fillWidth: true
-                Layout.preferredHeight: 52
-                maximumLength: fieldEditor.numeric ? 4 : 31
-                inputMethodHints: fieldEditor.numeric ? Qt.ImhDigitsOnly : Qt.ImhNone
-                selectByMouse: true
-                font.pixelSize: 20
-                onAccepted: fieldEditor.submit()
+                TouchSearchField {
+                    id: entry
+                    touchKeyboardEnabled: !fieldEditor.numeric && Qt.platform.os === "linux"
+                    keyboardTitle: fieldEditor.field.label || ""
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 52
+                    maximumLength: fieldEditor.numeric ? 4 : 31
+                    inputMethodHints: fieldEditor.numeric ? Qt.ImhDigitsOnly : Qt.ImhNone
+                    selectByMouse: true
+                    font.pixelSize: 20
+                    onAccepted: fieldEditor.submit()
+                }
+                RosterBackspaceButton {
+                    visible: fieldEditor.field.key === "name"
+                    field: entry
+                    Accessible.name: "Backspace road name"
+                    Layout.preferredHeight: 52
+                }
             }
             GridLayout {
                 visible: fieldEditor.numeric

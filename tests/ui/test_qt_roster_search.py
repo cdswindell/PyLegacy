@@ -104,6 +104,13 @@ QTest.mouseClick(window(), Qt.LeftButton, pos=point("backspace"))
 assert value("field.text") == ""
 assert window().property("edits") == 2
 assert not value("backspace.enabled")
+value("field.text='Pennsylvania';field.cursorPosition=12")
+position = point("backspace")
+QTest.mousePress(window(), Qt.LeftButton, pos=position)
+QTest.qWait(1000)
+assert value("field.text") == ""
+QTest.mouseRelease(window(), Qt.LeftButton, pos=position)
+assert window().property("edits") == 3
 value("field.text='42'")
 position = point("setter")
 QTest.mousePress(window(), Qt.LeftButton, pos=position)

@@ -140,6 +140,12 @@ Popup {
                                      modelData === "Del" ? "Backspace" : modelData
                     highlighted: modelData === "↵"
                     enabled: modelData !== "↵" || tmccIdEntry.acceptableInput
+                    onPressAndHold: {
+                        if (modelData === "Del") {
+                            tmccIdEntry.clear()
+                            tmccKeypadError.text = ""
+                        }
+                    }
                     onClicked: {
                         if (modelData === "Del")
                             root.deleteTmccDigit()

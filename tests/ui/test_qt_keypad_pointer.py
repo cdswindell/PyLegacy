@@ -37,6 +37,7 @@ ApplicationWindow {
     property int programmedId: 0
     property int underlyingClicks: 0
     property bool keypadVisible: keypad.visible
+    property string keypadText: keypad.entryText
     MouseArea { anchors.fill: parent; onClicked: window.underlyingClicks += 1 }
     TmccKeypad {
         id: keypad
@@ -86,6 +87,19 @@ def click(item):
     QTest.qWait(30)
     QTest.mouseRelease(surface, Qt.LeftButton, pos=position)
     QTest.qWait(30)
+
+if sys.argv[2] == "submit":
+    for digit in "123":
+        click(key(digit))
+    click(key("⌫"))
+    assert root_window().property("keypadText") == "12"
+    delete_key = key("⌫")
+    position = delete_key.mapToScene(delete_key.boundingRect().center()).toPoint()
+    QTest.mousePress(delete_key.window(), Qt.LeftButton, pos=position)
+    QTest.qWait(1000)
+    assert root_window().property("keypadText") == ""
+    QTest.mouseRelease(delete_key.window(), Qt.LeftButton, pos=position)
+    assert root_window().property("keypadVisible")
 
 for digit in "3233":
     click(key(digit))
