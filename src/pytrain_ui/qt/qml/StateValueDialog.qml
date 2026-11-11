@@ -170,6 +170,7 @@ Popup {
                     root.commit()
                 }
             }
+            Item { visible: root.kind !== "Brake"; Layout.fillWidth: true }
             EditorButton {
                 text: "Cancel"
                 Layout.fillWidth: root.kind === "Brake"
