@@ -144,8 +144,8 @@ Rectangle {
             [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, topControl],
             [byKey.bell, byKey.horn, secondControl],
             [byKey.smoke_down, byKey.smoke_up],
-            [byKey.rear_coupler, byKey.front_coupler, byKey.brake],
-            [byKey.engineer_chatter, byKey.tower_chatter, byKey.boost]
+            [byKey.rear_coupler, byKey.front_coupler, byKey.boost],
+            [byKey.engineer_chatter, byKey.tower_chatter, byKey.brake]
         ]
         for (const row of rows) {
             for (const action of row) {
