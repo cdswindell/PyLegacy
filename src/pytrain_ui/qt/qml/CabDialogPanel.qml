@@ -16,14 +16,27 @@ Rectangle {
         return order.filter(name => actions.some(action => action.section === name))
     }
 
-    readonly property var choices: category
-        ? actions.filter(action => action.section === category)
-            .sort((first, second) => first.label.localeCompare(second.label))
-        : categories.map(name => ({label: name, command: ""}))
+    readonly property int choiceHeight: 74
+    readonly property int choiceSpacing: 18
+    readonly property var generalActions: sortedActions("General")
+    readonly property bool showGeneralInline: {
+        if (category || !generalActions.length)
+            return false
+        const categoryRows = Math.ceil((categories.length - 1) / 2)
+        const generalRows = Math.ceil(generalActions.length / 3)
+        const rows = categoryRows + generalRows
+        return choicesView.availableHeight >= rows * (choiceHeight + choiceSpacing) + generalHeading.implicitHeight
+    }
 
-    readonly property var towerGeneralActions: panelKey === "tower" && !category
-        ? actions.filter(action => action.section === "General")
-        : []
+    readonly property var choices: category
+        ? sortedActions(category)
+        : categories.filter(name => !showGeneralInline || name !== "General")
+            .map(name => ({label: name, command: ""}))
+
+    function sortedActions(section) {
+        return actions.filter(action => action.section === section)
+            .sort((first, second) => first.label.localeCompare(second.label))
+    }
 
     onCategoryChanged: choicesView.contentItem.contentY = 0
 
@@ -98,7 +111,7 @@ Rectangle {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
-        Layout.preferredHeight: Math.max(74, implicitHeight)
+        Layout.preferredHeight: Math.max(root.choiceHeight, implicitHeight)
         text: modelData.label
         navigates: opensCategory
         onClicked: {
@@ -148,8 +161,8 @@ Rectangle {
             GridLayout {
                 width: choicesView.availableWidth
                 columns: 2
-                rowSpacing: 18
-                columnSpacing: 18
+                rowSpacing: root.choiceSpacing
+                columnSpacing: root.choiceSpacing
 
                 Repeater {
                     model: root.choices
@@ -157,7 +170,8 @@ Rectangle {
                 }
 
                 Label {
-                    visible: root.towerGeneralActions.length > 0
+                    id: generalHeading
+                    visible: root.showGeneralInline
                     Layout.columnSpan: 2
                     text: "General dialogs"
                     font.pixelSize: 20
@@ -165,15 +179,21 @@ Rectangle {
                     color: "#bad4ea"
                 }
 
-                RowLayout {
-                    visible: root.towerGeneralActions.length > 0
+                GridLayout {
+                    visible: root.showGeneralInline
+                    columns: 3
                     Layout.columnSpan: 2
                     Layout.fillWidth: true
-                    spacing: 18
+                    rowSpacing: root.choiceSpacing
+                    columnSpacing: root.choiceSpacing
 
                     Repeater {
-                        model: root.towerGeneralActions
-                        ChoiceButton {}
+                        model: root.showGeneralInline ? root.generalActions : []
+                        ChoiceButton {
+                            required property int index
+                            Layout.row: Math.floor(index / 3)
+                            Layout.column: index % 3
+                        }
                     }
                 }
             }
