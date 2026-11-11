@@ -20,6 +20,10 @@ Rectangle {
         ? actions.filter(action => action.section === category)
         : categories.map(name => ({label: name, command: ""}))
 
+    readonly property var towerGeneralActions: panelKey === "tower" && !category
+        ? actions.filter(action => action.section === "General")
+        : []
+
     onCategoryChanged: choicesView.contentItem.contentY = 0
 
     function openFor(key) {
@@ -54,8 +58,11 @@ Rectangle {
 
     component DialogButton: Button {
         id: button
+        property bool navigates: false
         padding: 10
         font.pixelSize: 24
+        font.bold: navigates
+        rightPadding: navigates ? 36 : padding
         contentItem: Text {
             text: button.text
             font: button.font
@@ -64,12 +71,41 @@ Rectangle {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
+        Text {
+            visible: button.navigates
+            anchors.right: parent.right
+            anchors.rightMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            text: "›"
+            font.pixelSize: 32
+            color: "#a4d8ff"
+        }
         background: Rectangle {
             radius: 8
-            border.color: button.activeFocus ? "#a4d8ff" : "#7287a0"
+            border.color: button.activeFocus ? "#a4d8ff" : button.navigates ? "#5b9bcb" : "#7287a0"
             gradient: Gradient {
-                GradientStop { position: 0; color: button.down ? "#28425e" : "#4e647d" }
-                GradientStop { position: 1; color: button.down ? "#426482" : "#263950" }
+                GradientStop { position: 0; color: button.navigates ? (button.down ? "#12365d" : "#245781") : (button.down ? "#28425e" : "#4e647d") }
+                GradientStop { position: 1; color: button.navigates ? (button.down ? "#245781" : "#163658") : (button.down ? "#426482" : "#263950") }
+            }
+        }
+    }
+
+    component ChoiceButton: DialogButton {
+        id: choice
+        required property var modelData
+        readonly property bool opensCategory: !modelData.command
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.preferredWidth: 0
+        Layout.preferredHeight: Math.max(74, implicitHeight)
+        text: modelData.label
+        navigates: opensCategory
+        onClicked: {
+            if (opensCategory) {
+                root.category = modelData.label
+            } else {
+                root.cab.playDialog(modelData.command)
+                root.category = ""
             }
         }
     }
@@ -116,21 +152,27 @@ Rectangle {
 
                 Repeater {
                     model: root.choices
-                    DialogButton {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        Layout.preferredWidth: 0
-                        Layout.preferredHeight: Math.max(74, implicitHeight)
-                        text: modelData.label
-                        onClicked: {
-                            if (root.category) {
-                                root.cab.playDialog(modelData.command)
-                                root.category = ""
-                            } else {
-                                root.category = modelData.label
-                            }
-                        }
+                    ChoiceButton {}
+                }
+
+                Label {
+                    visible: root.towerGeneralActions.length > 0
+                    Layout.columnSpan: 2
+                    text: "General dialogs"
+                    font.pixelSize: 20
+                    font.bold: true
+                    color: "#bad4ea"
+                }
+
+                RowLayout {
+                    visible: root.towerGeneralActions.length > 0
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    spacing: 18
+
+                    Repeater {
+                        model: root.towerGeneralActions
+                        ChoiceButton {}
                     }
                 }
             }
