@@ -173,8 +173,8 @@ Rectangle {
                 && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
-            {key: "STOP_HOLD", label: "Normal Stop", speedPreset: true},
-            {key: "EMERGENCY_STOP", label: "Emergency Stop", speedPreset: true, hold: true},
+            {key: "STOP_HOLD", label: "Normal", speedPreset: true},
+            {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true, hold: true},
             {
                 key: "ROLL",
                 label: "Roll",
@@ -248,8 +248,11 @@ Rectangle {
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
+        stopSign: emergencyStop || action.key === "STOP_HOLD"
+        Accessible.name: stopSign ? text + " Stop" : text
         enabled: !action.speedPreset || cab.hasThrottle
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
+        font.bold: emergencyStop
         pressedColor: emergencyStop ? "#76131c" : "#5c9fc6"
         font.pixelSize: root.compact ? 14 : 18
         deferForHold: action.hold || false

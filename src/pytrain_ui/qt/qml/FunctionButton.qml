@@ -9,6 +9,7 @@ Control {
     property string labelMarkup: ""
     property url iconSource: ""
     property int speedChevrons: 0
+    property bool stopSign: false
     property bool selected: false
     property bool compact: false
     property bool stacked: false
@@ -63,6 +64,43 @@ Control {
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 mipmap: true
+            }
+        }
+
+        Canvas {
+            visible: root.stopSign
+            Layout.alignment: Qt.AlignCenter
+            Layout.preferredWidth: root.iconSize
+            Layout.preferredHeight: root.iconSize
+
+            onPaint: {
+                const context = getContext("2d")
+                context.clearRect(0, 0, width, height)
+                const edge = width - 2
+                const cut = width * 0.30
+                context.beginPath()
+                context.moveTo(cut, 2)
+                context.lineTo(width - cut, 2)
+                context.lineTo(edge, cut)
+                context.lineTo(edge, height - cut)
+                context.lineTo(width - cut, height - 2)
+                context.lineTo(cut, height - 2)
+                context.lineTo(2, height - cut)
+                context.lineTo(2, cut)
+                context.closePath()
+                context.fillStyle = "#b51f2a"
+                context.strokeStyle = "#ffffff"
+                context.lineWidth = 2
+                context.fill()
+                context.stroke()
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: "STOP"
+                color: "#ffffff"
+                font.pixelSize: Math.round(root.iconSize * 0.25)
+                font.bold: true
             }
         }
 
