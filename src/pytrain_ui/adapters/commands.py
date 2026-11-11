@@ -9,6 +9,7 @@ from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, 
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedReq
 from pytrain.protocol.sequence.sequence_constants import SequenceCommandEnum
+from pytrain.protocol.sequence.sequence_req import SequenceReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum
 
@@ -16,6 +17,12 @@ from pytrain_ui.actions import CabAction, action_applies_to_type, cab_action
 from pytrain_ui.profiles import EngineControlProfile, resolve_engine_control_profile
 
 from .state import PyTrainCabStateAdapter
+
+
+_TMCC1_TONE_COMMANDS = {
+    SequenceCommandEnum.CYCLE_BELL_TONE: TMCC1EngineCommandEnum.RING_BELL,
+    SequenceCommandEnum.CYCLE_HORN_TONE: TMCC1EngineCommandEnum.BLOW_HORN_ONE,
+}
 
 
 class PyTrainCabCommandAdapter:
@@ -335,8 +342,10 @@ class PyTrainCabCommandAdapter:
         state = self.state
         if state.is_legacy:
             return TMCC2EngineOpsEnum.look_up(name) or SequenceCommandEnum.by_name(name)
-        if name in {"CYCLE_BELL_TONE", "CYCLE_HORN_TONE"} and getattr(state, "bt_id", None):
-            return SequenceCommandEnum.by_name(name)
+        if getattr(state, "bt_id", None):
+            sequence = SequenceCommandEnum.by_name(name)
+            if sequence in _TMCC1_TONE_COMMANDS:
+                return sequence
         return TMCC1EngineCommandEnum.by_name(name)
 
     def supports_panel_command(self, name: str) -> bool:
@@ -358,7 +367,15 @@ class PyTrainCabCommandAdapter:
         command = self._panel_command(name)
         if command is None:
             return False
-        CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
+
+        state = self.state
+        if not state.is_legacy and command in _TMCC1_TONE_COMMANDS:
+            request = SequenceReq(command, state.tmcc_id, scope=state.scope)
+            request.add(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, state.tmcc_id, scope=state.scope)
+            request.add(_TMCC1_TONE_COMMANDS[command], state.tmcc_id, scope=state.scope, delay=0.2)
+        else:
+            request = CommandReq.build(command, state.tmcc_id, scope=state.scope)
+        request.send()
         return True
 
     def send_named(self, name: str) -> bool:
