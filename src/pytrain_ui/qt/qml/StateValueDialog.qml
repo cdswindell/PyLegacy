@@ -104,7 +104,7 @@ Popup {
             EditorButton {
                 text: "×"
                 Layout.preferredWidth: 64
-                Accessible.name: "Cancel " + root.titleText
+                Accessible.name: "Close " + root.titleText
                 onClicked: root.close()
             }
         }
@@ -179,7 +179,7 @@ Popup {
             }
             Item { visible: !root.hasSetButton; Layout.fillWidth: true }
             EditorButton {
-                text: "Cancel"
+                text: "Close"
                 Layout.fillWidth: root.hasSetButton
                 Layout.preferredWidth: root.hasSetButton ? 0 : 150
                 onClicked: root.close()

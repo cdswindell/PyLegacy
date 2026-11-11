@@ -112,7 +112,7 @@ Popup {
                 Layout.preferredWidth: 64
                 Layout.preferredHeight: 64
                 text: "×"
-                Accessible.name: "Cancel speed limit"
+                Accessible.name: "Close speed limit"
                 onClicked: root.close()
             }
         }
@@ -213,7 +213,7 @@ Popup {
                 Layout.minimumWidth: 0
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 54
-                text: "Cancel"
+                text: "Close"
                 font.pixelSize: 20
                 onClicked: root.close()
             }

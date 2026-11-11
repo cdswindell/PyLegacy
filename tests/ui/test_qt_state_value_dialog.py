@@ -122,12 +122,12 @@ for legacy in (True, False):
                 assert window().property("saved") == expected
                 assert window().property("commits") == before + count
                 open_editor()
-            click("Cancel")
+            click("Close")
             assert window().property("underlyingClicks") == 0
             continue
         if kind == "Smoke":
             assert value(button("Set") + " === null")
-            click("Cancel")
+            click("Close")
             assert not value("editor.visible")
             assert window().property("commits") == before
             for level, label in enumerate(("Off", "Low", "Medium", "High") if legacy else ("Off", "On")):
@@ -143,7 +143,7 @@ for legacy in (True, False):
         assert value(slider + ".from") == 0
         assert value(slider + ".to") == (31 if kind == "Effort" else 7)
         reset_label = "Off" if kind == "Brake" else "Default"
-        labels = (reset_label, "Cancel", "Set")
+        labels = (reset_label, "Close", "Set")
         footer = [button(label) for label in labels]
         widths = [value(item + ".width") for item in footer]
         heights = [value(item + ".height") for item in footer]
@@ -160,7 +160,7 @@ for legacy in (True, False):
         assert chosen != current
         assert value("editor.draftValue") == chosen
         assert window().property("commits") == before
-        click("Cancel")
+        click("Close")
         assert not value("editor.visible")
         assert window().property("commits") == before
         open_editor()
@@ -182,7 +182,7 @@ for legacy in (True, False):
         open_editor("null")
         assert value("editor.currentText") == "Not reported"
         assert not value(button("Set") + ".enabled")
-        click("Cancel")
+        click("Close")
         open_editor()
         click(reset_label)
         assert not value("editor.visible")

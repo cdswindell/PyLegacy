@@ -117,7 +117,7 @@ assert value("editor.entryText") == str(target)
 assert value(named("speedLimitSlider") + ".value") == target
 assert window().property("commits") == 0
 assert window().property("saved") == 10
-click("Cancel")
+click("Close")
 assert not value("editor.visible")
 assert window().property("saved") == 10
 
@@ -147,7 +147,7 @@ assert not value(button("↵") + ".enabled")
 value("editor.commit()")
 assert value("editor.visible")
 assert window().property("commits") == 1
-click("Cancel")
+click("Close")
 
 open_editor()
 for digit in str(target):
@@ -166,7 +166,7 @@ QTest.qWait(30)
 assert int(value("editor.entryText")) == round(value(slider + ".value"))
 assert int(value("editor.entryText")) > 10
 assert window().property("commits") == 1
-click("Cancel")
+click("Close")
 
 open_editor()
 value("editor.entryText='" + str(maximum + 1) + "'")
@@ -205,7 +205,7 @@ for no_limit in (0, 255):
     click("⌫")
     assert not value(button("Set") + ".enabled")
     assert not value(button("↵") + ".enabled")
-    click("Cancel")
+    click("Close")
 
 open_editor()
 value("editor.entryText='0'")
@@ -218,7 +218,7 @@ value("editor.entryText=''")
 assert not value(button("Set") + ".enabled")
 assert not value(button("↵") + ".enabled")
 assert value(button("Clear") + ".enabled")
-click("Cancel")
+click("Close")
 
 open_editor()
 for digit in str(target):
