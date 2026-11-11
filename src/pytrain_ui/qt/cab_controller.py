@@ -303,6 +303,11 @@ class CabController(QObject):
             return "UNKNOWN"
         return self._command_port.control_profile.engine_type
 
+    @Property(bool, notify=stateChanged)
+    def isSteam(self) -> bool:
+        state = self._state_port.state if self._state_port is not None else None
+        return bool(getattr(state, "is_steam", False))
+
     @Property(str, notify=stateChanged)
     def controlType(self) -> str:
         if self._command_port is None:

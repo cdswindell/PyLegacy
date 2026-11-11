@@ -8,7 +8,7 @@ Popup {
     required property real operatingButtonWidth
     required property int operatingButtonHeight
     property var actions: []
-    readonly property int gap: 8
+    readonly property int gap: 14
     readonly property real buttonWidth: (width - leftPadding - rightPadding - gap * 3) / 4
 
     function openOptions() {
@@ -38,6 +38,7 @@ Popup {
         Layout.maximumHeight: buttonHeight
         font.pixelSize: 24
         contentItem: Item {
+            transform: Translate { y: button.down ? 2 : -1 }
             Text {
                 anchors.fill: parent
                 visible: !crossing.visible
@@ -58,10 +59,32 @@ Popup {
                 mipmap: true
             }
         }
-        background: Rectangle {
-            radius: 8
-            color: button.down ? "#5c9fc6" : "#303640"
-            border.color: "#626b78"
+        background: Item {
+            Rectangle {
+                anchors.fill: parent
+                radius: 10
+                color: "#07162c"
+                border.color: "#102239"
+            }
+            Rectangle {
+                anchors.fill: parent
+                anchors.topMargin: button.down ? 3 : 0
+                anchors.bottomMargin: button.down ? 0 : 4
+                radius: 10
+                border.color: button.activeFocus ? "#a4d8ff" : button.down ? "#72a3c5" : "#7c8fa7"
+                gradient: Gradient {
+                    GradientStop { position: 0; color: button.down ? "#213953" : "#5c6f86" }
+                    GradientStop { position: 0.18; color: button.down ? "#2e4d69" : "#485a70" }
+                    GradientStop { position: 1; color: button.down ? "#426482" : "#28384e" }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    radius: 8
+                    color: "transparent"
+                    border.color: button.down ? "#456782" : "#51677e"
+                }
+            }
         }
     }
 
@@ -83,9 +106,10 @@ Popup {
                 readonly property var commands: root.actions.filter(action => action.section === modelData)
                 visible: commands.length > 0
                 Layout.fillWidth: true
-                spacing: 4
+                spacing: 7
+                readonly property string rowTitle: modelData === "Horn" && root.cab.isSteam ? "Whistle" : modelData
                 Label {
-                    text: section.modelData
+                    text: section.rowTitle
                     color: "#b5c9e5"
                     font.pixelSize: 15
                     font.bold: true
@@ -105,7 +129,7 @@ Popup {
                             }
                             font.pixelSize: command === "RING_BELL" || command === "BLOW_HORN_ONE" ? 32 : 24
                             artwork: modelData.iconSource || ""
-                            Accessible.name: section.modelData + ": " + modelData.label
+                            Accessible.name: section.rowTitle + ": " + modelData.label
                             onClicked: root.cab.triggerPanelCommand(command)
                         }
                     }
@@ -114,7 +138,7 @@ Popup {
         }
         OptionButton {
             Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 16
+            Layout.topMargin: 26
             buttonHeight: 48
             text: "Close"
             onClicked: root.close()
