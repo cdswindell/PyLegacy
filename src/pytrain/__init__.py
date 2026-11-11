@@ -8,6 +8,7 @@
 import importlib
 import importlib.metadata
 import sys
+from functools import cache
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
@@ -186,7 +187,9 @@ def is_package() -> bool:
     return installed_package() is not None
 
 
+@cache
 def get_version() -> str:
+    """Resolve the version of the imported code on first use."""
     root = source_root()
     if root is not None and (root / ".git").exists():
         # A checkout's live version takes priority over stale build files or metadata.

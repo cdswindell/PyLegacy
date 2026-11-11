@@ -1,6 +1,7 @@
 """Resolve versions from the imported code even when another distribution is installed."""
 
 import sys
+from importlib import metadata
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,13 +10,20 @@ import pytest
 import pytrain
 
 
+@pytest.fixture(autouse=True)
+def clear_version_cache():
+    pytrain.get_version.cache_clear()
+    yield
+    pytrain.get_version.cache_clear()
+
+
 @pytest.fixture
 def source_tree(tmp_path, monkeypatch) -> Path:
     root = tmp_path / "checkout"
     package_dir = root / "src" / "pytrain"
     package_dir.mkdir(parents=True)
     (root / "pyproject.toml").touch()
-    monkeypatch.setattr(pytrain, "__file__", str(package_dir / "__init__.py"))
+    monkeypatch.setitem(vars(pytrain), "__file__", str(package_dir / "__init__.py"))
     return root
 
 
@@ -45,7 +53,7 @@ def test_checkout_uses_live_git_version(source_tree, monkeypatch, tmp_path, pack
         calls.append(kwargs)
         return "2.9.8.post0+gabc123"
 
-    monkeypatch.setattr(pytrain.importlib.metadata, "version", unrelated_metadata)
+    monkeypatch.setattr(metadata, "version", unrelated_metadata)
     monkeypatch.setitem(sys.modules, "setuptools_scm", SimpleNamespace(get_version=git_version))
     monkeypatch.chdir(tmp_path)
 
@@ -53,13 +61,14 @@ def test_checkout_uses_live_git_version(source_tree, monkeypatch, tmp_path, pack
     assert pytrain.installed_package() is None
     assert pytrain.is_package() is False
     assert pytrain.get_version() == "v2.9.8+"
+    assert pytrain.get_version_tuple() == (2, 9, 8)
     assert calls == [{"root": str(source_tree), "version_scheme": "only-version"}]
 
 
 @pytest.mark.usefixtures("bundled_version")
 def test_checkout_does_not_hide_git_failure(source_tree, monkeypatch):
     (source_tree / ".git").mkdir()
-    monkeypatch.setattr(pytrain.importlib.metadata, "version", lambda _: "1.0.0")
+    monkeypatch.setattr(metadata, "version", lambda _: "1.0.0")
 
     def git_version(**_kwargs):
         raise LookupError("No version tags")
@@ -72,7 +81,7 @@ def test_checkout_does_not_hide_git_failure(source_tree, monkeypatch):
 
 @pytest.mark.usefixtures("source_tree", "bundled_version")
 def test_source_export_uses_its_bundled_version(monkeypatch):
-    monkeypatch.setattr(pytrain.importlib.metadata, "version", lambda _: "1.0.0")
+    monkeypatch.setattr(metadata, "version", lambda _: "1.0.0")
     monkeypatch.setitem(sys.modules, "setuptools_scm", None)
 
     assert pytrain.get_version() == "v2.3.4"
@@ -87,14 +96,14 @@ def test_installed_code_uses_its_bundled_version(tmp_path, monkeypatch, package)
     (tmp_path / "pyproject.toml").touch()
     (tmp_path / ".git").mkdir()
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(pytrain, "__file__", str(tmp_path / "site-packages" / "pytrain" / "__init__.py"))
+    monkeypatch.setitem(vars(pytrain), "__file__", str(tmp_path / "site-packages" / "pytrain" / "__init__.py"))
 
     def installed_metadata(name):
         if name == package:
             return "1.0.0"
         raise pytrain.PackageNotFoundError(name)
 
-    monkeypatch.setattr(pytrain.importlib.metadata, "version", installed_metadata)
+    monkeypatch.setattr(metadata, "version", installed_metadata)
     monkeypatch.setitem(sys.modules, "setuptools_scm", None)
 
     assert pytrain.source_root() is None
@@ -105,7 +114,7 @@ def test_installed_code_uses_its_bundled_version(tmp_path, monkeypatch, package)
 
 @pytest.mark.usefixtures("source_tree")
 def test_source_export_without_version_does_not_use_unrelated_metadata(monkeypatch):
-    monkeypatch.setattr(pytrain.importlib.metadata, "version", lambda _: "1.0.0")
+    monkeypatch.setattr(metadata, "version", lambda _: "1.0.0")
     monkeypatch.setitem(sys.modules, "pytrain._version", None)
 
     with pytest.raises(ModuleNotFoundError, match="pytrain._version"):

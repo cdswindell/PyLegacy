@@ -1,14 +1,21 @@
 import sys
+from importlib import metadata
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
-import setuptools_scm
+import pytest
 
 import src.pytrain as pytrain
 from .test_base import TestBase
 
 
 class TestPyTrain(TestBase):
+    @pytest.fixture(autouse=True)
+    def clear_version_cache(self):
+        pytrain.get_version.cache_clear()
+        yield
+        pytrain.get_version.cache_clear()
+
     def test_get_version(self):
         assert pytrain.get_version() is not None
         assert pytrain.get_version().startswith("v")
@@ -23,16 +30,18 @@ class TestPyTrain(TestBase):
 
     def test_get_version_strips_git_local_metadata(self, monkeypatch):
         monkeypatch.setattr(
-            pytrain.importlib.metadata,
+            metadata,
             "version",
             lambda _: (_ for _ in ()).throw(pytrain.PackageNotFoundError),
         )
 
         def fake_git_version(**kwargs):
-            assert kwargs["root"] == str(Path(pytrain.__file__).resolve().parents[2])
+            module_file = pytrain.__file__
+            assert module_file is not None
+            assert kwargs["root"] == str(Path(module_file).resolve().parents[2])
             assert kwargs["version_scheme"] == "only-version"
             return "2.3.4+gabc123.d20260505"
 
-        monkeypatch.setattr(setuptools_scm, "get_version", fake_git_version)
+        monkeypatch.setitem(sys.modules, "setuptools_scm", SimpleNamespace(get_version=fake_git_version))
 
         assert pytrain.get_version() == "v2.3.4+"
