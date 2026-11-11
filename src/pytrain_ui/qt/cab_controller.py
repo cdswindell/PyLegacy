@@ -322,6 +322,18 @@ class CabController(QObject):
         state = self._state_port.state if self._state_port is not None else None
         return bool(getattr(state, "is_steam", False))
 
+    @Property(int, notify=stateChanged)
+    def fuelLevel(self) -> int:
+        state = self._state_port.state if self._state_port is not None else None
+        level = getattr(state, "fuel_level_pct", None)
+        return level if level is not None else -1
+
+    @Property(int, notify=stateChanged)
+    def waterLevel(self) -> int:
+        state = self._state_port.state if self._state_port is not None else None
+        level = getattr(state, "water_level_pct", None)
+        return level if level is not None else -1
+
     @Property(bool, notify=stateChanged)
     def isDiesel(self) -> bool:
         state = self._state_port.state if self._state_port is not None else None

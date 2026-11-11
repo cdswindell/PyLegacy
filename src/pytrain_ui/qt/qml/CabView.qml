@@ -173,8 +173,8 @@ Rectangle {
                 && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
-            {key: "STOP_HOLD", label: "Normal", speedPreset: true},
-            {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true, hold: true},
+            {key: "STOP_HOLD", label: "Normal", speedPreset: true, hold: true},
+            {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true},
             {
                 key: "ROLL",
                 label: "Roll",
@@ -182,8 +182,13 @@ Rectangle {
                 iconSource: Qt.resolvedUrl("../../../pytrain/gui/images/engine_gui/roll-speed.jpg")
             }
         ]
+        const auxiliaryRow = cab.secondaryActionModel.slice()
+        if (cab.isLegacy && (cab.isDiesel || cab.isSteam))
+            auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: true}
+        if (cab.isLegacy && cab.isSteam)
+            auxiliaryRow[2] = {key: "water", label: "Water", gauge: "WATER", hold: true}
         const rows = [
-            presets.slice(0, 3), presets.slice(3), stopAndRoll, cab.secondaryActionModel,
+            presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
             [byKey.master_volume_up, byKey.blend_up, byKey.labor_up],
             [byKey.master_volume_down, byKey.blend_down, byKey.labor_down]
         ]
@@ -236,14 +241,12 @@ Rectangle {
         padding: root.compact ? 4 : 6
         iconSize: root.compact ? 40 : 72
         compact: auxiliary
-        text: auxiliary ? action.label.replace(" · ", "\n") : action.label
-        labelMarkup: {
-            if (text !== "< Smoke" && text !== "Smoke >")
-                return ""
-            const size = Math.round(font.pixelSize * 1.5)
-            const style = '<span style="font-size:' + size + 'px; font-weight:bold">'
-            return text === "< Smoke" ? style + "‹</span> Smoke" : "Smoke " + style + "›</span>"
-        }
+        text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
+              : auxiliary ? action.label.replace(" · ", "\n") : action.label
+        labelChevron: text === "< Smoke" ? -1 : text === "Smoke >" ? 1 : 0
+        displayLabel: labelChevron ? "Smoke" : text
+        showGauge: !!action.gauge
+        gaugeLevel: action.gauge === "FUEL" ? cab.fuelLevel : action.gauge === "WATER" ? cab.waterLevel : -1
         holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
@@ -253,7 +256,7 @@ Rectangle {
         enabled: !action.speedPreset || cab.hasThrottle
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         font.bold: emergencyStop
-        pressedColor: emergencyStop ? "#76131c" : "#5c9fc6"
+        pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
         font.pixelSize: root.compact ? 14 : 18
         deferForHold: action.hold || false
         holdThreshold: action.holdThreshold || 1000
@@ -262,12 +265,16 @@ Rectangle {
         onClicked: {
             if (action.speedPreset)
                 root.cab.setSpeedPreset(action.key, false)
+            else if (showGauge)
+                root.cab.playDialog("ENGINEER_" + action.gauge + "_LEVEL")
             else
                 root.cab.triggerAction(action.key)
         }
         onHeld: {
             if (action.speedPreset)
                 root.cab.setSpeedPreset(action.key, true)
+            else if (showGauge)
+                root.cab.playDialog("ENGINEER_" + action.gauge + "_REFILLED")
             else
                 root.handleModelHold(action)
         }

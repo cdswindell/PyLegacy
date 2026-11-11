@@ -6,7 +6,10 @@ Control {
     id: root
 
     property string text: ""
-    property string labelMarkup: ""
+    property string displayLabel: text
+    property int labelChevron: 0
+    property bool showGauge: false
+    property int gaugeLevel: -1
     property url iconSource: ""
     property int speedChevrons: 0
     property bool stopSign: false
@@ -104,6 +107,14 @@ Control {
             }
         }
 
+        LevelGauge {
+            visible: root.showGauge
+            Layout.alignment: Qt.AlignCenter
+            Layout.preferredWidth: root.iconSize
+            Layout.preferredHeight: root.iconSize
+            level: root.gaugeLevel
+        }
+
         SpeedChevrons {
             Layout.alignment: Qt.AlignCenter
             count: root.speedChevrons
@@ -113,14 +124,43 @@ Control {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignCenter
-            text: root.labelMarkup || root.text
-            textFormat: root.labelMarkup ? Text.RichText : Text.AutoText
+            visible: root.labelChevron === 0
+            text: root.displayLabel
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
             color: root.enabled ? root.textColor : "#858c96"
             font: root.font
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+        }
+
+        Item {
+            visible: root.labelChevron !== 0
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignCenter
+            implicitHeight: smokeLabel.implicitHeight
+
+            Row {
+                anchors.centerIn: parent
+                spacing: 4
+                layoutDirection: root.labelChevron < 0 ? Qt.LeftToRight : Qt.RightToLeft
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.labelChevron < 0 ? "‹" : "›"
+                    color: smokeLabel.color
+                    font.pixelSize: Math.round(root.font.pixelSize * 1.5)
+                    font.bold: true
+                }
+
+                Text {
+                    id: smokeLabel
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.displayLabel
+                    color: root.enabled ? root.textColor : "#858c96"
+                    font: root.font
+                }
+            }
         }
     }
 

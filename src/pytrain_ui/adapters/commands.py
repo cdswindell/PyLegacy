@@ -83,12 +83,11 @@ class PyTrainCabCommandAdapter:
         if name == "EMERGENCY_STOP":
             state.cancel_ramps(0, reason="Emergency stop", hard_stop=True, yield_speed=0)
             CommandReq.build(self._enum_type.ABSOLUTE_SPEED, state.tmcc_id, data=0, scope=state.scope).send()
-            if with_dialog:
-                for dialog, delay in (
-                    (TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD, 0.2),
-                    (TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD, 0.2 + ENGINEER_DIALOG_DELAY),
-                ):
-                    CommandReq.build(dialog, state.tmcc_id, scope=state.scope).send(delay=delay)
+            for dialog, delay in (
+                (TMCC2RailSoundsDialogControl.TOWER_SPEED_STOP_HOLD, 0.2),
+                (TMCC2RailSoundsDialogControl.ENGINEER_SPEED_STOP_HOLD, 0.2 + ENGINEER_DIALOG_DELAY),
+            ):
+                CommandReq.build(dialog, state.tmcc_id, scope=state.scope).send(delay=delay)
             return
         if state.is_remote_ramping:
             return
