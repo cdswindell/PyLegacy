@@ -169,6 +169,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold=True,
         hold_kind="panel",
         hold_target="crew",
+        hold_legacy_only=True,
     ),
     CabAction(
         "tower_chatter",
@@ -179,6 +180,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold=True,
         hold_kind="panel",
         hold_target="tower",
+        hold_legacy_only=True,
     ),
     CabAction(
         "conductor",
@@ -286,6 +288,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold=True,
         hold_kind="panel",
         hold_target="lights",
+        hold_legacy_only=True,
         excluded_type_keys=frozenset({"a"}),
     ),
     CabAction(
