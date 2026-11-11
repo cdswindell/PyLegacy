@@ -53,8 +53,6 @@ Popup {
 
     component KeyboardKey: Button {
         id: key
-        property bool holdActivated: false
-        onPressedChanged: if (!pressed) holdActivated = false
         focusPolicy: Qt.NoFocus
         Layout.fillWidth: true
         Layout.minimumWidth: 0
@@ -79,7 +77,7 @@ Popup {
         }
         background: Rectangle {
             radius: 7
-            color: key.holdActivated ? Qt.darker("#69b7df", 1.45) : key.down ? "#69b7df" : key.highlighted ? "#246aa0" : "#334a6a"
+            color: key.down ? (key.text === "⌫" ? Qt.darker("#69b7df", 1.45) : "#69b7df") : key.highlighted ? "#246aa0" : "#334a6a"
             border.color: key.down ? "#d2f1ff" : "#718baa"
             border.width: key.down ? 2 : 1
         }
@@ -114,12 +112,7 @@ Popup {
                         required property string modelData
                         text: root.upperCase ? modelData.toUpperCase() : modelData
                         Accessible.name: modelData === "⌫" ? "Backspace" : modelData === "⇧" ? "Shift" : text
-                        onPressAndHold: {
-                            if (modelData === "⌫") {
-                                holdActivated = true
-                                root.clearEntry()
-                            }
-                        }
+                        onPressAndHold: if (modelData === "⌫") root.clearEntry()
                         onClicked: root.typeKey(modelData)
                     }
                 }

@@ -35,7 +35,7 @@ Button {
     contentItem: BackspaceIcon { opacity: root.enabled ? 1 : 0.45 }
     background: Rectangle {
         radius: 8
-        color: holdFlash.running ? Qt.darker("#68a9d0", 1.45) : root.down ? "#68a9d0" : "#343a44"
+        color: (root.down || holdFlash.running) ? Qt.darker("#68a9d0", 1.45) : "#343a44"
         border.color: "#626b78"
     }
 }

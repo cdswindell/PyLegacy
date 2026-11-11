@@ -53,8 +53,6 @@ Popup {
 
     component KeyButton: Button {
         id: keyControl
-        property bool holdActivated: false
-        onPressedChanged: if (!pressed) holdActivated = false
         focusPolicy: Qt.NoFocus
         font.pixelSize: 28
 
@@ -77,7 +75,7 @@ Popup {
         }
         background: Rectangle {
             radius: 10
-            color: keyControl.holdActivated ? Qt.lighter("#4d5968", 1.5) : keyControl.down ? "#4d5968" : (keyControl.highlighted ? "#246aa0" : "#343a44")
+            color: keyControl.down ? (keyControl.text === "⌫" ? "#355775" : "#4d5968") : (keyControl.highlighted ? "#246aa0" : "#343a44")
             border.width: keyControl.highlighted ? 2 : 1
             border.color: keyControl.highlighted ? "#78bff0" : "#626b78"
         }
@@ -144,7 +142,6 @@ Popup {
                     enabled: modelData !== "↵" || tmccIdEntry.acceptableInput
                     onPressAndHold: {
                         if (modelData === "Del") {
-                            holdActivated = true
                             tmccIdEntry.clear()
                             tmccKeypadError.text = ""
                         }

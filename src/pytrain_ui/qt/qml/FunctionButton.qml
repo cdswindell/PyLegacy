@@ -22,7 +22,6 @@ Control {
     property color pressedColor: "#5c9fc6"
     property bool holdTriggered: false
     readonly property bool pressed: tapHandler.pressed
-    readonly property bool visualHeld: pressed && holdTriggered
     readonly property bool visualPressed: pressed || pressFlash.running
 
     ToolTip.text: holdHint
@@ -81,8 +80,7 @@ Control {
     background: Rectangle {
         radius: root.compact ? 7 : 9
         color: !root.enabled ? "#242930"
-            : root.visualHeld ? Qt.darker(root.pressedColor, 1.45)
-            : root.visualPressed ? root.pressedColor
+            : root.visualPressed ? (root.deferForHold ? Qt.darker(root.pressedColor, 1.45) : root.pressedColor)
             : root.selected ? root.selectedColor : root.normalColor
         border.width: 1
         border.color: root.selected ? "#78c9ff" : "#626b78"
