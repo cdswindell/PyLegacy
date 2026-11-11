@@ -247,6 +247,7 @@ Rectangle {
         RowLayout {
             id: footer
             readonly property bool lightsPanel: root.panelKey === "lights"
+            readonly property int buttonHeight: lightsPanel ? 60 : 52
             Layout.alignment: Qt.AlignHCenter
             Layout.fillWidth: lightsPanel
             Layout.preferredWidth: lightsPanel ? -1 : 160
@@ -256,7 +257,7 @@ Rectangle {
                 visible: footer.lightsPanel
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
-                Layout.preferredHeight: 52
+                Layout.preferredHeight: footer.buttonHeight
                 text: "Aux 2"
                 onClicked: root.cab.triggerPanelCommand("AUX2_OPTION_ONE")
             }
@@ -264,7 +265,7 @@ Rectangle {
             DialogButton {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
-                Layout.preferredHeight: 52
+                Layout.preferredHeight: footer.buttonHeight
                 text: "Close"
                 onClicked: root.close()
             }
@@ -273,7 +274,7 @@ Rectangle {
                 visible: footer.lightsPanel && root.cab.isLegacy
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
-                Layout.preferredHeight: 52
+                Layout.preferredHeight: footer.buttonHeight
                 text: "Cab"
                 onClicked: root.cab.triggerPanelCommand("CAB_AUTO")
             }
