@@ -16,6 +16,10 @@ Rectangle {
     signal addRequested()
     signal lcsRequested()
 
+    function openTmccKeypad() {
+        tmccKeypad.openFor(root.searchText)
+    }
+
     function openLcsConfiguration() {
         if (root.lcsController)
             lcsConfig.open()
@@ -169,7 +173,7 @@ Rectangle {
             KeypadButton {
                 Layout.preferredWidth: 84
                 Layout.preferredHeight: 84
-                onClicked: tmccKeypad.openFor(root.searchText)
+                onClicked: root.openTmccKeypad()
             }
             RosterSetButton {
                 entryText: searchField.text

@@ -7,7 +7,7 @@ Rectangle {
 
     property string currentScope: ""
     implicitHeight: 84
-    signal scopePressed(string scope)
+    signal scopePressed(string scope, bool showKeypad)
 
     radius: 9
     color: "#20242a"
@@ -51,7 +51,14 @@ Rectangle {
 
                 TapHandler {
                     id: scopeTap
-                    onTapped: root.scopePressed(scopeButton.modelData)
+                    property bool held: false
+                    longPressThreshold: 0.45
+                    onPressedChanged: if (pressed) held = false
+                    onLongPressed: {
+                        held = true
+                        root.scopePressed(scopeButton.modelData, true)
+                    }
+                    onTapped: if (!held) root.scopePressed(scopeButton.modelData, false)
                 }
             }
         }

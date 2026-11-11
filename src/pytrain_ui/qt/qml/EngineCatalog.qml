@@ -14,6 +14,10 @@ Rectangle {
     signal engineRequested(int tmccId)
     signal stateInfoRequested(string scope, int tmccId)
 
+    function openTmccKeypad() {
+        tmccKeypad.openFor(root.searchText)
+    }
+
     function requestAddress(tmccId) {
         if (scope === "ENGINE" && infoController && infoController.needsEngineRecord(tmccId))
             stateInfoRequested(scope, tmccId)
@@ -138,7 +142,7 @@ Rectangle {
             KeypadButton {
                 Layout.preferredWidth: 84
                 Layout.preferredHeight: 84
-                onClicked: tmccKeypad.openFor(root.searchText)
+                onClicked: root.openTmccKeypad()
             }
             RosterSetButton {
                 entryText: searchField.text

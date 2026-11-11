@@ -146,6 +146,7 @@ ApplicationWindow {
                 }
 
                 EngineCatalog {
+                    id: engineCatalog
                     scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
                     cab: cabController
                     catalog: engineCatalogController
@@ -221,7 +222,7 @@ ApplicationWindow {
                 Layout.minimumHeight: 84
                 Layout.maximumHeight: 84
                 currentScope: window.activeScope
-                onScopePressed: function(scope) {
+                onScopePressed: function(scope, showKeypad) {
                     operatingCabView.closeBellHornOptions()
                     operatingCabView.closeDialogPanel()
                     if (window.stateInfoVisible)
@@ -243,11 +244,20 @@ ApplicationWindow {
                         window.accessoryOperatingVisible = false
                         window.engineCatalogVisible = false
                     } else if (scope === "ENGINE" || scope === "TRAIN") {
-                        if (window.activeScope === scope && cabController.scope === scope)
+                        if (showKeypad)
+                            window.engineCatalogVisible = true
+                        else if (window.activeScope === scope && cabController.scope === scope)
                             window.engineCatalogVisible = cabController.tmccId <= 0 || !window.engineCatalogVisible
                         else
                             window.engineCatalogVisible = cabController.tmccId <= 0 || cabController.scope !== scope
                         window.activeScope = scope
+                    }
+
+                    if (showKeypad) {
+                        const roster = scope === "SWITCH" ? switchOpsView :
+                                       scope === "ROUTE" ? routeOpsView :
+                                       scope === "ACCESSORY" ? accessoryCatalog : engineCatalog
+                        Qt.callLater(roster.openTmccKeypad)
                     }
                 }
             }
