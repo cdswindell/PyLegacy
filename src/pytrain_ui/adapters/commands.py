@@ -315,7 +315,7 @@ class PyTrainCabCommandAdapter:
         if action.legacy_only and not self.state.is_legacy:
             return False
         if action.command_kind == "sequence":
-            return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and self.state.is_legacy
+            return action.command in {"LABOR_EFFECT_DOWN", "LABOR_EFFECT_UP"} and self.supports_labor()
         if action.command_kind == "generic":
             return self.supports_panel_command(action.command)
         if action.command_kind == "effects":

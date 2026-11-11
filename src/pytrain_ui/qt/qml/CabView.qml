@@ -140,11 +140,17 @@ Rectangle {
         const placed = {}
         for (const action of actions)
             byKey[action.key] = action
+        if (cab.isElectric && !cab.isLegacy) {
+            for (const action of cab.speedSoundActionModel)
+                byKey[action.key] = action
+        }
         const topControl = cab.isSteam ? byKey.let_off : cab.isDiesel ? byKey.rpm_up : byKey.volume_up
         const secondControl = cab.isSteam ? byKey.water_injector : cab.isDiesel ? byKey.rpm_down : byKey.volume_down
         const rows = cab.isElectric ? [
-            [byKey.pantograph_front_up, byKey.pantograph_rear_up, byKey.bell],
-            [byKey.pantograph_front_down, byKey.pantograph_rear_down, byKey.horn],
+            [cab.isLegacy ? byKey.pantograph_front_up : byKey.volume_up,
+             cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.bell],
+            [cab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
+             cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.horn],
             [byKey.electric_smoke_down, byKey.electric_smoke_up],
             [byKey.rear_coupler, byKey.front_coupler, byKey.boost],
             [byKey.engineer_chatter, byKey.tower_chatter, byKey.brake]
@@ -204,8 +210,8 @@ Rectangle {
             auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
-            [byKey.master_volume_up, byKey.blend_up, byKey.labor_up],
-            [byKey.master_volume_down, byKey.blend_down, byKey.labor_down]
+            [byKey.master_volume_up, byKey.blend_up, byKey.labor_up || byKey.electric_effort_up],
+            [byKey.master_volume_down, byKey.blend_down, byKey.labor_down || byKey.electric_effort_down]
         ]
         return rows.concat(root.pairedActionRows(otherActions))
     }
