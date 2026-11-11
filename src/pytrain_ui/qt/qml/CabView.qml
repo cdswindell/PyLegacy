@@ -105,7 +105,6 @@ Rectangle {
             conductor: "passenger_announcements", station: "passenger_announcements",
             startup: "power", shutdown: "power",
             acela_startup: "acela_power", acela_shutdown: "acela_power",
-            let_off: "steam_effects", water_injector: "steam_effects",
             freight_load: "freight_loading", freight_unload: "freight_loading",
             transformer_front_coupler: "transformer_couplers", transformer_rear_coupler: "transformer_couplers"
         }
@@ -127,23 +126,27 @@ Rectangle {
         return ["startup", "shutdown", "acela_startup", "acela_shutdown", "volume_down", "volume_up", "smoke_down", "smoke_up"].indexOf(key) >= 0
     }
 
+    function isEngineSpecificControl(key) {
+        return (cab.isDiesel && (key === "rpm_up" || key === "rpm_down"))
+            || (cab.isSteam && (key === "let_off" || key === "water_injector"))
+    }
+
     function driveActionRows() {
         const actions = cab.primaryActionModel.concat(cab.quickActionModel,
-            cab.moreActionModel.filter(function(action) { return root.isDriveUtility(action.key) }))
+            cab.moreActionModel.filter(action => root.isDriveUtility(action.key) || root.isEngineSpecificControl(action.key)))
         const byKey = {}
         const placed = {}
         for (const action of actions)
             byKey[action.key] = action
-        const cells = [
-            [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, byKey.volume_up],
-            [byKey.bell, byKey.horn, byKey.volume_down],
-            [byKey.smoke_down, byKey.smoke_up, byKey.boost],
+        const topControl = cab.isSteam ? byKey.let_off : cab.isDiesel ? byKey.rpm_up : byKey.volume_up
+        const secondControl = cab.isSteam ? byKey.water_injector : cab.isDiesel ? byKey.rpm_down : byKey.volume_down
+        const rows = [
+            [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, topControl],
+            [byKey.bell, byKey.horn, secondControl],
+            [byKey.smoke_down, byKey.smoke_up],
             [byKey.rear_coupler, byKey.front_coupler, byKey.brake],
-            [byKey.engineer_chatter, byKey.tower_chatter]
+            [byKey.engineer_chatter, byKey.tower_chatter, byKey.boost]
         ]
-        const rows = cells.filter(function(row) {
-            return row.some(function(action) { return action !== undefined })
-        })
         for (const row of rows) {
             for (const action of row) {
                 if (action)
@@ -151,7 +154,7 @@ Rectangle {
             }
         }
         // Other equipment keeps its applicable controls after the standard rows.
-        return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] })))
+        return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] && action.key !== "volume_up" && action.key !== "volume_down" })))
     }
 
     function speedActionRows() {
@@ -166,7 +169,8 @@ Rectangle {
         for (const action of cab.speedSoundActionModel.concat(cab.moreActionModel))
             byKey[action.key] = action
         const otherActions = cab.moreActionModel.filter(action =>
-            !root.isDriveUtility(action.key) && !action.key.startsWith("momentum_")
+            !root.isDriveUtility(action.key) && !root.isEngineSpecificControl(action.key)
+                && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
             {key: "STOP_HOLD", label: "Normal Stop", speedPreset: true},

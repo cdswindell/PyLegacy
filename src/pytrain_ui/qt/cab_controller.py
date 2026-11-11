@@ -178,7 +178,9 @@ class CabController(QObject):
         for action in cab_actions(group):
             if not self._command_port.supports_action(action):
                 continue
-            icon_path = find_file(action.icon) if action.icon else None
+            whistle = action.key == "horn" and self.isSteam
+            icon = "whistle.jpg" if whistle else action.icon
+            icon_path = find_file(icon) if icon else None
             hold_enabled = action.hold and not (action.hold_legacy_only and not profile.is_legacy)
             if hold_enabled and action.hold_target == "bell_horn":
                 hold_enabled = profile.is_legacy or bool(getattr(self._command_port.state, "bt_id", None))
@@ -187,7 +189,7 @@ class CabController(QObject):
             model.append(
                 {
                     "key": action.key,
-                    "label": action.label,
+                    "label": "Whistle" if whistle else action.label,
                     "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
                     "hold": hold_enabled,
                     "holdThreshold": action.hold_threshold_ms,
@@ -313,6 +315,11 @@ class CabController(QObject):
     def isSteam(self) -> bool:
         state = self._state_port.state if self._state_port is not None else None
         return bool(getattr(state, "is_steam", False))
+
+    @Property(bool, notify=stateChanged)
+    def isDiesel(self) -> bool:
+        state = self._state_port.state if self._state_port is not None else None
+        return bool(getattr(state, "is_diesel", False))
 
     @Property(str, notify=stateChanged)
     def controlType(self) -> str:

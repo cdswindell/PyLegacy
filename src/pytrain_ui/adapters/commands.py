@@ -371,7 +371,9 @@ class PyTrainCabCommandAdapter:
             sequence = SequenceCommandEnum.by_name(name)
             if sequence in _TMCC1_TONE_COMMANDS:
                 return sequence
-        return TMCC1EngineCommandEnum.by_name(name)
+        # Match legacy PyCab's numeric fallbacks for TMCC1 steam effects.
+        steam_fallbacks = {"LET_OFF_LONG": "NUMBER_6", "WATER_INJECTOR": "NUMBER_5"}
+        return TMCC1EngineCommandEnum.by_name(steam_fallbacks.get(name, name))
 
     def supports_panel_command(self, name: str) -> bool:
         return self._panel_command(name) is not None
