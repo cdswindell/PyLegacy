@@ -22,13 +22,14 @@ Rectangle {
     readonly property int choiceHeight: 74
     readonly property int choiceSpacing: 18
     readonly property int sectionHeadingHeight: 26
+    readonly property var speedOrder: ["STOP_HOLD", "RESTRICTED", "SLOW", "MEDIUM", "LIMITED", "NORMAL", "HIGHBALL"]
     readonly property var inlineSections: {
         if (category)
             return []
 
         const candidates = panelKey === "lights"
             ? ["Rule 17", "Marker Lights", "Tender Lights", "Ditch Lights"]
-            : ["General"]
+            : panelKey === "tower" ? ["General", "Speed"] : ["General"]
         const sections = []
         let sectionsHeight = 0
         for (const name of candidates) {
@@ -58,9 +59,16 @@ Rectangle {
         : categories.filter(name => !inlineSections.some(section => section.name === name))
             .map(name => ({label: name, command: ""}))
 
+    function speedRank(command) {
+        const match = /^(TOWER|ENGINEER)_SPEED_(.+)$/.exec(command)
+        return match ? speedOrder.indexOf(match[2]) : -1
+    }
+
     function sortedActions(section) {
-        return actions.filter(action => action.section === section)
-            .sort((first, second) => first.label.localeCompare(second.label))
+        const commands = actions.filter(action => action.section === section)
+        if (panelKey === "tower" && section === "Speed")
+            return commands.sort((first, second) => speedRank(first.command) - speedRank(second.command))
+        return commands.sort((first, second) => first.label.localeCompare(second.label))
     }
 
     onCategoryChanged: choicesView.contentItem.contentY = 0
@@ -133,12 +141,7 @@ Rectangle {
         id: choice
         required property var modelData
         readonly property bool opensCategory: !modelData.command
-        readonly property int speedChevrons: {
-            const match = /^(TOWER|ENGINEER)_SPEED_(.+)$/.exec(modelData.command)
-            return match
-                ? ["RESTRICTED", "SLOW", "MEDIUM", "LIMITED", "NORMAL", "HIGHBALL"].indexOf(match[2]) + 1
-                : 0
-        }
+        readonly property int speedChevrons: Math.max(0, root.speedRank(modelData.command))
         topPadding: speedChevrons > 0 ? 32 : padding
 
         Canvas {
