@@ -110,6 +110,7 @@ Control {
 
         LevelGauge {
             visible: root.showGauge
+            opacity: root.enabled ? 1 : 0.5
             Layout.alignment: Qt.AlignCenter
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize

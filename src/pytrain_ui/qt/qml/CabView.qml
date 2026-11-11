@@ -174,19 +174,23 @@ Rectangle {
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
             {key: "STOP_HOLD", label: "Normal", speedPreset: true, hold: true},
-            {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true},
             {
                 key: "ROLL",
                 label: "Roll",
                 speedPreset: true,
                 iconSource: Qt.resolvedUrl("../../../pytrain/gui/images/engine_gui/roll-speed.jpg")
-            }
+            },
+            {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true}
         ]
-        const auxiliaryRow = cab.secondaryActionModel.slice()
+        const auxiliary = cab.secondaryActionModel
+        const canLoadWater = cab.isLegacy && cab.isSteam
+        const auxiliaryRow = [
+            auxiliary.find(action => action.key === "sequence" || action.key.endsWith("_aux1")),
+            byKey.set_address,
+            {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
+        ]
         if (cab.isLegacy && (cab.isDiesel || cab.isSteam))
             auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: true}
-        if (cab.isLegacy && cab.isSteam)
-            auxiliaryRow[2] = {key: "water", label: "Water", gauge: "WATER", hold: true}
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
             [byKey.master_volume_up, byKey.blend_up, byKey.labor_up],
@@ -246,14 +250,15 @@ Rectangle {
         labelChevron: text === "< Smoke" ? -1 : text === "Smoke >" ? 1 : 0
         displayLabel: showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
         gaugeLabel: action.gauge ? action.label : ""
-        gaugeLevel: action.gauge === "FUEL" ? cab.fuelLevel : action.gauge === "WATER" ? cab.waterLevel : -1
+        gaugeLevel: action.gauge === "FUEL" ? cab.fuelLevel
+                    : action.gauge === "WATER" && !action.disabled ? cab.waterLevel : -1
         holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         Accessible.name: stopSign ? text + " Stop" : text
-        enabled: !action.speedPreset || cab.hasThrottle
+        enabled: !action.disabled && (!action.speedPreset || cab.hasThrottle)
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         font.bold: emergencyStop
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"

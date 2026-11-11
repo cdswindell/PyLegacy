@@ -81,11 +81,17 @@ class PyTrainCabCommandAdapter:
         if not state.has_throttle:
             return
         if name == "EMERGENCY_STOP":
+            emergency_dialog = None
+            if state.is_legacy:
+                # RailSounds uses the same contextual packet for the call and response.
+                emergency_dialog = CommandReq.build(
+                    TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, state.tmcc_id, scope=state.scope
+                )
+                emergency_dialog.send()
             state.cancel_ramps(0, reason="Emergency stop", hard_stop=True, yield_speed=0)
             CommandReq.build(self._enum_type.ABSOLUTE_SPEED, state.tmcc_id, data=0, scope=state.scope).send()
-            CommandReq.build(
-                TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, state.tmcc_id, scope=state.scope
-            ).send(delay=0.2)
+            if emergency_dialog is not None:
+                emergency_dialog.send(delay=0.2)
             return
         if state.is_remote_ramping:
             return

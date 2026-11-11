@@ -158,9 +158,7 @@ def test_speed_dialog_sends_only_the_sound_command(
 
 @pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
-def test_emergency_stop_sends_zero_and_only_the_emergency_dialog(
-    monkeypatch, legacy: bool, scope: CommandScope
-) -> None:
+def test_emergency_stop_orders_protocol_specific_commands(monkeypatch, legacy: bool, scope: CommandScope) -> None:
     build = Mock()
     monkeypatch.setattr(CommandReq, "build", build)
     state = SimpleNamespace(
@@ -177,12 +175,15 @@ def test_emergency_stop_sends_zero_and_only_the_emergency_dialog(
 
     state.cancel_ramps.assert_called_once_with(0, reason="Emergency stop", hard_stop=True, yield_speed=0)
     speed_command = TMCC2EngineCommandEnum.ABSOLUTE_SPEED if legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
-    assert build.mock_calls == [
-        call(speed_command, 31, data=0, scope=scope),
-        call().send(),
-        call(TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, 31, scope=scope),
-        call().send(delay=0.2),
-    ]
+    expected_calls = [call(speed_command, 31, data=0, scope=scope), call().send()]
+    if legacy:
+        expected_calls = [
+            call(TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, 31, scope=scope),
+            call().send(),
+            *expected_calls,
+            call().send(delay=0.2),
+        ]
+    assert build.mock_calls == expected_calls
 
 
 @pytest.mark.parametrize("with_dialog", [False, True])
@@ -204,3 +205,17 @@ def test_normal_stop_uses_the_zero_speed_ramp(monkeypatch, with_dialog: bool) ->
     else:
         assert ramp.mock_calls == [call(31, 0, CommandScope.ENGINE), call().send()]
         dialog_ramp.assert_not_called()
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
+def test_speed_tab_set_sends_the_selected_address(monkeypatch, legacy: bool, scope: CommandScope) -> None:
+    build = Mock()
+    monkeypatch.setattr(CommandReq, "build", build)
+    state = SimpleNamespace(is_legacy=legacy, scope=scope, tmcc_id=31)
+    adapter = PyTrainCabCommandAdapter(Mock(spec=PyTrainCabStateAdapter, state=state))
+
+    assert adapter.perform("set_address")
+
+    command = TMCC2EngineCommandEnum.SET_ADDRESS if legacy else TMCC1EngineCommandEnum.SET_ADDRESS
+    assert build.mock_calls == [call(command, 31, scope=scope), call().send()]

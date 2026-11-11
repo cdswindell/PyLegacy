@@ -140,6 +140,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     CabAction("smoke_up", "Smoke +", "SMOKE_ON", "smoke-up.jpg", "sm", command_kind="smoke"),
     CabAction("volume_down", "Volume −", "VOLUME_DOWN", "vol-down.jpg", "vo"),
     CabAction("volume_up", "Volume +", "VOLUME_UP", "vol-up.jpg", "vo"),
+    CabAction("set_address", "Set", "SET_ADDRESS", scope_tag="*", group="speed"),
     CabAction("master_volume_up", "Master Vol +", "VOLUME_UP", "master-up.jpg", "vo", group="speed"),
     CabAction("master_volume_down", "Master Vol −", "VOLUME_DOWN", "master-down.jpg", "vo", group="speed"),
     CabAction("blend_up", "Blend +", "AUX_NUMBER_1", "blend-up.jpg", "e", group="speed"),
