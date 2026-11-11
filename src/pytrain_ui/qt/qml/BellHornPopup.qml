@@ -30,9 +30,10 @@ Popup {
         id: button
         property url artwork: ""
         property int buttonHeight: root.operatingButtonHeight
-        Layout.preferredWidth: root.buttonWidth
-        Layout.minimumWidth: root.buttonWidth
-        Layout.maximumWidth: root.buttonWidth
+        property real faceWidth: root.buttonWidth
+        Layout.preferredWidth: faceWidth
+        Layout.minimumWidth: faceWidth
+        Layout.maximumWidth: faceWidth
         Layout.preferredHeight: buttonHeight
         Layout.minimumHeight: buttonHeight
         Layout.maximumHeight: buttonHeight
@@ -138,8 +139,9 @@ Popup {
         }
         OptionButton {
             Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 26
-            buttonHeight: 48
+            Layout.topMargin: 36
+            faceWidth: root.buttonWidth + 16
+            buttonHeight: 56
             text: "Close"
             onClicked: root.close()
         }
