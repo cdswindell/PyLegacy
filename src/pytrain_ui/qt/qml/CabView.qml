@@ -15,6 +15,7 @@ Rectangle {
     signal stateInfoClosed()
     property bool effectsVisible: false
     property string selectedAnalogMode: "Horn"
+    readonly property bool dialogPanelOpen: dialogPanel.visible
     readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible || bellHornPanel.visible
     property string requestedDirection: ""
     readonly property string reportedDirection: cab.direction
@@ -34,6 +35,8 @@ Rectangle {
             stateValueDialog.close()
         if (bellHornPanel)
             bellHornPanel.close()
+        if (dialogPanel)
+            dialogPanel.close()
     }
 
     function syncAnalogMode() {
@@ -78,6 +81,8 @@ Rectangle {
         if (action.holdKind === "panel") {
             if (action.holdTarget === "bell_horn")
                 bellHornPanel.openOptions()
+            else if (action.holdTarget === "crew" || action.holdTarget === "tower")
+                dialogPanel.openFor(action.holdTarget)
             else
                 commandPanel.openFor(action.holdTarget)
         } else if (action.holdKind === "analog") {
@@ -893,6 +898,21 @@ Rectangle {
         visible: bellHornPanel.visible
         onClicked: root.closeBellHornOptions()
         onWheel: function(event) { event.accepted = true }
+    }
+
+    function closeDialogPanel() {
+        dialogPanel.close()
+    }
+
+    CabDialogPanel {
+        id: dialogPanel
+        z: 2
+        cab: root.cab
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: root.compact ? 8 : 12
+        y: cabLayout.y + drivingArea.y + artwork.y + artwork.height + root.gap
+        height: Math.max(0, root.height - y)
     }
 
     BellHornPopup {

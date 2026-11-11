@@ -32,6 +32,7 @@ ApplicationWindow {
     property bool stateInfoFromRoster: false
 
     function openStateInfo(scope, tmccId, fromRoster) {
+        operatingCabView.closeDialogPanel()
         stateInfoScope = scope
         stateInfoId = tmccId
         stateInfoFromRoster = fromRoster
@@ -209,7 +210,7 @@ ApplicationWindow {
                 color: "#0d1f58"
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? (operatingCabView.compact ? 74 : 86) : 0
-                visible: !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
+                visible: !operatingCabView.dialogPanelOpen && !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
                 selection: selectedEngineController
             }
 
@@ -222,6 +223,7 @@ ApplicationWindow {
                 currentScope: window.activeScope
                 onScopePressed: function(scope) {
                     operatingCabView.closeBellHornOptions()
+                    operatingCabView.closeDialogPanel()
                     if (window.stateInfoVisible)
                         window.closeStateInfo()
                     switchOpsView.cancelTransientPanels()
