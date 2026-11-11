@@ -15,7 +15,7 @@ Rectangle {
     signal stateInfoClosed()
     property bool effectsVisible: false
     property string selectedAnalogMode: "Horn"
-    readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible
+    readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible || bellHornPanel.visible
     property string requestedDirection: ""
     readonly property string reportedDirection: cab.direction
     readonly property string targetKey: cab.scope + ":" + cab.tmccId
@@ -32,6 +32,8 @@ Rectangle {
             speedLimitDialog.close()
         if (stateValueDialog)
             stateValueDialog.close()
+        if (bellHornPanel)
+            bellHornPanel.close()
     }
 
     function syncAnalogMode() {
@@ -74,7 +76,10 @@ Rectangle {
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
-            commandPanel.openFor(action.holdTarget)
+            if (action.holdTarget === "bell_horn")
+                bellHornPanel.openBelow(artwork)
+            else
+                commandPanel.openFor(action.holdTarget)
         } else if (action.holdKind === "analog") {
             const index = analogMode.find(action.holdTarget)
             if (index >= 0) {
@@ -869,6 +874,14 @@ Rectangle {
                 }
             }
         }
+    }
+
+    BellHornPopup {
+        id: bellHornPanel
+        parent: Overlay.overlay
+        cab: root.cab
+        operatingButtonWidth: (operatingColumns.width - 2 * root.gap) / 3
+        operatingButtonHeight: root.tileHeight
     }
 
     CommandPanelPopup {

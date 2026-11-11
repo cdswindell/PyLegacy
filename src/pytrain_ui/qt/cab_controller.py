@@ -462,11 +462,13 @@ class CabController(QObject):
             hold_command = item.hold_command
             if hold_command and not self._command_port.supports_panel_command(hold_command):
                 hold_command = ""
+            icon_path = find_file("rail_crossing.jpg") if item.command == "GRADE_CROSSING_SEQ" else None
             model.append(
                 {
                     "section": item.section,
                     "label": item.label,
                     "command": item.command,
+                    "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
                     "holdCommand": hold_command,
                     "holdThreshold": item.hold_threshold_ms,
                 }
