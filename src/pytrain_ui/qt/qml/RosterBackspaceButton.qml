@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Button {
     id: root
     required property var field
+    Timer { id: holdFlash; interval: 250 }
     objectName: "rosterBackspaceButton"
     Layout.preferredWidth: 84
     Layout.minimumWidth: 84
@@ -19,6 +20,7 @@ Button {
         field.forceActiveFocus()
     }
     onPressAndHold: {
+        holdFlash.restart()
         field.clear()
         finishEdit()
     }
@@ -33,7 +35,7 @@ Button {
     contentItem: BackspaceIcon { opacity: root.enabled ? 1 : 0.45 }
     background: Rectangle {
         radius: 8
-        color: root.down ? "#68a9d0" : "#343a44"
+        color: holdFlash.running ? Qt.darker("#68a9d0", 1.45) : root.down ? "#68a9d0" : "#343a44"
         border.color: "#626b78"
     }
 }
