@@ -200,11 +200,14 @@ class SelectedEngineController(QObject):
             "active": active,
         }
 
-    def _display_ids(self) -> list[int]:
+    def _working_ids(self) -> list[int]:
         selected = self._dedupe_physical(self._selected_ids)
         selected_keys = {self._physical_key(tmcc_id) for tmcc_id in selected}
         active_only = [tmcc_id for tmcc_id in self._active_ids if self._physical_key(tmcc_id) not in selected_keys]
-        display_ids = selected + self._dedupe_physical(active_only)
+        return selected + self._dedupe_physical(active_only)
+
+    def _display_ids(self) -> list[int]:
+        display_ids = self._working_ids()
         if self._cab.scope == CommandScope.ENGINE.name:
             current_key = self._physical_key(self._cab.tmccId)
             display_ids = [tmcc_id for tmcc_id in display_ids if self._physical_key(tmcc_id) != current_key]
@@ -262,17 +265,20 @@ class SelectedEngineController(QObject):
 
     @Slot(int)
     def selectRelative(self, delta: int) -> None:
-        # Artwork swiping intentionally traverses explicit selections, not engines
-        # that merely appeared because command or Sensor Track activity was observed.
-        ids = self._dedupe_physical(self._selected_ids)
-        if len(ids) < 2 or self._cab.scope != CommandScope.ENGINE.name:
+        if not delta or self._cab.scope != CommandScope.ENGINE.name:
             return
-        current_key = self._physical_key(self._cab.tmccId)
-        try:
-            index = next(i for i, tmcc_id in enumerate(ids) if self._physical_key(tmcc_id) == current_key)
-        except StopIteration:
+        ids = self._working_ids()
+        if not ids:
             return
-        tmcc_id = ids[(index + delta) % len(ids)]
-        state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
-        if state is not None:
-            self._cab._switch_target(CommandScope.ENGINE, tmcc_id)
+
+        current_id = self._cab.tmccId
+        current_key = self._physical_key(current_id)
+        index = next((i for i, tmcc_id in enumerate(ids) if self._physical_key(tmcc_id) == current_key), None)
+        if index is None:
+            # Keep a restored cab target available for the reverse swipe.
+            self._selected_ids.insert(0, current_id)
+            self._watch_engine(current_id)
+            ids.insert(0, current_id)
+            index = 0
+        if len(ids) > 1:
+            self._cab.selectAddress(CommandScope.ENGINE.name, ids[(index + delta) % len(ids)])

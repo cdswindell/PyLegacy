@@ -380,9 +380,14 @@ Rectangle {
                         target: null
                         xAxis.enabled: true
                         yAxis.enabled: false
-                        onActiveChanged: {
-                            if (!active && Math.abs(translation.x) >= 48 && root.selection)
-                                root.selection.selectRelative(translation.x < 0 ? 1 : -1)
+                        enabled: cab.scope === "ENGINE" && root.selection && root.selection.count > 0
+                        onGrabChanged: function(transition, point) {
+                            if (transition !== PointerDevice.UngrabExclusive)
+                                return
+                            const distance = point.scenePosition.x - point.scenePressPosition.x
+                            const vertical = point.scenePosition.y - point.scenePressPosition.y
+                            if (Math.abs(distance) >= 48 && Math.abs(distance) > Math.abs(vertical))
+                                root.selection.selectRelative(distance < 0 ? 1 : -1)
                         }
                     }
                 }
