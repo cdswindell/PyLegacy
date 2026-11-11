@@ -37,7 +37,7 @@ Control {
 
     background: Rectangle {
         radius: 10
-        color: !root.enabled ? "#242930" : root.visualPressed ? Qt.darker(root.pressedColor, 1.45) : (root.selected ? root.selectedColor : root.normalColor)
+        color: !root.enabled ? "#242930" : root.visualPressed ? (root.repeatWhileHeld ? root.pressedColor : Qt.darker(root.pressedColor, 1.45)) : (root.selected ? root.selectedColor : root.normalColor)
         border.width: root.selected ? 2 : 1
         border.color: !root.enabled ? "#39414b" : root.selected ? "#78bff0" : "#626b78"
     }

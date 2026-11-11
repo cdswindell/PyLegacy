@@ -80,7 +80,7 @@ Control {
     background: Rectangle {
         radius: root.compact ? 7 : 9
         color: !root.enabled ? "#242930"
-            : root.visualPressed ? (root.deferForHold ? root.pressedColor : Qt.darker(root.pressedColor, 1.45))
+            : root.visualPressed ? ((root.deferForHold || root.repeatWhileHeld) ? root.pressedColor : Qt.darker(root.pressedColor, 1.45))
             : root.selected ? root.selectedColor : root.normalColor
         border.width: 1
         border.color: root.selected ? "#78c9ff" : "#626b78"
