@@ -331,11 +331,16 @@ class PyTrainCabCommandAdapter:
             return True
         return self.send_named(action.hold_command)
 
+    def _panel_command(self, name: str):
+        state = self.state
+        if state.is_legacy:
+            return TMCC2EngineOpsEnum.look_up(name) or SequenceCommandEnum.by_name(name)
+        if name in {"CYCLE_BELL_TONE", "CYCLE_HORN_TONE"} and getattr(state, "bt_id", None):
+            return SequenceCommandEnum.by_name(name)
+        return TMCC1EngineCommandEnum.by_name(name)
+
     def supports_panel_command(self, name: str) -> bool:
-        """Return whether a panel command resolves like EngineGui.on_engine_command()."""
-        if not self.state.is_legacy:
-            return self.supports_named(name)
-        return TMCC2EngineOpsEnum.look_up(name) is not None or SequenceCommandEnum.by_name(name) is not None
+        return self._panel_command(name) is not None
 
     def play_dialog(self, name: str) -> bool:
         """Send a RailSounds dialog packet without a speed command or sequence."""
@@ -349,12 +354,8 @@ class PyTrainCabCommandAdapter:
         return True
 
     def send_panel_command(self, name: str) -> bool:
-        """Resolve a panel command through the same Legacy lookup path as EngineGui."""
-        if not self.state.is_legacy:
-            return self.send_named(name)
-        command = TMCC2EngineOpsEnum.look_up(name)
-        if command is None:
-            command = SequenceCommandEnum.by_name(name)
+        """Send a command supported by the selected engine's panel."""
+        command = self._panel_command(name)
         if command is None:
             return False
         CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
