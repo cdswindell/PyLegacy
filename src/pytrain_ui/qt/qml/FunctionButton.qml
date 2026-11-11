@@ -8,7 +8,8 @@ Control {
     property string text: ""
     property string displayLabel: text
     property int labelChevron: 0
-    property bool showGauge: false
+    property string gaugeLabel: ""
+    readonly property bool showGauge: gaugeLabel.length > 0
     property int gaugeLevel: -1
     property url iconSource: ""
     property int speedChevrons: 0
@@ -113,6 +114,7 @@ Control {
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
             level: root.gaugeLevel
+            label: root.gaugeLabel
         }
 
         SpeedChevrons {

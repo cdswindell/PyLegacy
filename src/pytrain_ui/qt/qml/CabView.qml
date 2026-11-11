@@ -244,8 +244,8 @@ Rectangle {
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
               : auxiliary ? action.label.replace(" · ", "\n") : action.label
         labelChevron: text === "< Smoke" ? -1 : text === "Smoke >" ? 1 : 0
-        displayLabel: labelChevron ? "Smoke" : text
-        showGauge: !!action.gauge
+        displayLabel: showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
+        gaugeLabel: action.gauge ? action.label : ""
         gaugeLevel: action.gauge === "FUEL" ? cab.fuelLevel : action.gauge === "WATER" ? cab.waterLevel : -1
         holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
