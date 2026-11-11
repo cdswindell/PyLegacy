@@ -222,7 +222,14 @@ Rectangle {
                             wrapMode: Text.WordWrap
                             maximumLineCount: 2
                         }
-                        Label { Layout.fillWidth: true; text: row.modelData.engineTypeLabel; color: "#a9b2bd"; font.pixelSize: 20; elide: Text.ElideRight }
+                        Label {
+                            Layout.fillWidth: true
+                            text: row.modelData.engineTypeLabel +
+                                  (row.modelData.controlTypeLabel ? " · " + row.modelData.controlTypeLabel : "")
+                            color: "#a9b2bd"
+                            font.pixelSize: 20
+                            elide: Text.ElideRight
+                        }
                     }
                     Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 28 }
                 }

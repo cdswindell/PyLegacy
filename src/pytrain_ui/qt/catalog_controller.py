@@ -82,6 +82,7 @@ class EngineCatalogController(QObject):
             road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
             road_number = str(getattr(state, "road_number", "") or "").strip()
             type_key, type_label = self._engine_type(state)
+            control_type = getattr(state, "control_type_label", None)
             type_labels[type_key] = type_label
             rows.append(
                 {
@@ -91,6 +92,7 @@ class EngineCatalogController(QObject):
                     "roadNumber": road_number,
                     "engineType": type_key,
                     "engineTypeLabel": type_label,
+                    "controlTypeLabel": control_type if control_type and control_type != "NA" else "",
                 }
             )
         self._engines = [row for row in rows if row["scope"] == CommandScope.ENGINE.name]
