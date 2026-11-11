@@ -6,6 +6,7 @@ Control {
     id: root
 
     property string text: ""
+    property string labelMarkup: ""
     property url iconSource: ""
     property int speedChevrons: 0
     property bool selected: false
@@ -74,7 +75,8 @@ Control {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignCenter
-            text: root.text
+            text: root.labelMarkup || root.text
+            textFormat: root.labelMarkup ? Text.RichText : Text.AutoText
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
             color: root.enabled ? root.textColor : "#858c96"
             font: root.font

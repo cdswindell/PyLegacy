@@ -237,6 +237,13 @@ Rectangle {
         iconSize: root.compact ? 40 : 72
         compact: auxiliary
         text: auxiliary ? action.label.replace(" · ", "\n") : action.label
+        labelMarkup: {
+            if (text !== "< Smoke" && text !== "Smoke >")
+                return ""
+            const size = Math.round(font.pixelSize * 1.5)
+            const style = '<span style="font-size:' + size + 'px; font-weight:bold">'
+            return text === "< Smoke" ? style + "‹</span> Smoke" : "Smoke " + style + "›</span>"
+        }
         holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
