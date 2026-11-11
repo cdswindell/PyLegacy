@@ -265,7 +265,7 @@ Rectangle {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: (row.modelData.roadNumber ? "Road # " + row.modelData.roadNumber : "") +
+                                text: (row.modelData.roadNumber ? "Road #" + row.modelData.roadNumber : "") +
                                       (row.modelData.lcsAssociations ? " · " + row.modelData.lcsAssociations : "")
                                 color: "#b8c0ca"
                                 font.pixelSize: 20

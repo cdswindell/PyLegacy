@@ -248,19 +248,26 @@ class StateInfoController(QObject):
         self.refresh(True)
         return True
 
+    @Slot(int, result=str)
+    def programEngineAddress(self, tmcc_id: int) -> str:
+        if not 1 <= tmcc_id <= 9999 or tmcc_id == 99:
+            return "Enter an engine address from 1 to 9999, excluding 99."
+        scope = CommandScope.ENGINE
+        state = ComponentStateStore.get_state(scope, tmcc_id, create=False)
+        try:
+            command = TMCC2EngineCommandEnum.SET_ADDRESS if tmcc_id > 99 else TMCC1EngineCommandEnum.SET_ADDRESS
+            CommandReq.build(command, address=tmcc_id, scope=scope).send()
+            if tmcc_id < 99 or (state is not None and state.record_no is not None and 0 <= state.record_no < 0xFFFF):
+                BaseReq.create_base_query_request(state or ComponentStateDict(scope)[tmcc_id]).send()
+        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+            return str(exc) or "Unable to set the engine address."
+        return ""
+
     @Slot()
     def setAddress(self) -> None:
-        draft = self._draft
-        if draft is None or self._pending is not None:
+        if self._draft is None or self._pending is not None:
             return
-        try:
-            command = TMCC2EngineCommandEnum.SET_ADDRESS if self._id > 99 else TMCC1EngineCommandEnum.SET_ADDRESS
-            CommandReq.build(command, address=self._id, scope=self._scope).send()
-            if draft.can_create:
-                BaseReq.create_base_query_request(draft.state).send()
-            self._error = ""
-        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
-            self._error = str(exc)
+        self._error = self.programEngineAddress(self._id)
         self.refresh(True)
 
     @Slot()

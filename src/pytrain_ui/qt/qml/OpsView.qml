@@ -442,7 +442,7 @@ Rectangle {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: (rowData.roadNumber ? "Road # " + rowData.roadNumber : "TMCC ID " + rowData.tmccId) +
+                                text: (rowData.roadNumber ? "Road #" + rowData.roadNumber : "TMCC ID " + rowData.tmccId) +
                                       (rowData.lcsAssociations ? " · " + rowData.lcsAssociations : "")
                                 color: "#aeb5bf"
                                 font.pixelSize: 20
@@ -935,7 +935,7 @@ Rectangle {
                             Label {
                                 Layout.fillWidth: true
                                 text: modelData.scope === "ROUTE" ? "Route" :
-                                      (modelData.roadNumber ? "Switch · Road # " + modelData.roadNumber : "Switch")
+                                      (modelData.roadNumber ? "Switch · Road #" + modelData.roadNumber : "Switch")
                                 color: "#aeb5bf"
                                 font.pixelSize: 12
                             }

@@ -222,7 +222,7 @@ Rectangle {
                         spacing: 2
                         Label {
                             Layout.fillWidth: true
-                            text: (row.modelData.roadName || (root.scope === "TRAIN" ? "Train" : "Engine")) + (row.modelData.roadNumber ? "  " + row.modelData.roadNumber : "")
+                            text: (row.modelData.roadName || (root.scope === "TRAIN" ? "Train" : "Engine")) + (row.modelData.roadNumber ? "  #" + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
                             font.pixelSize: 28
                             font.bold: true
@@ -255,6 +255,16 @@ Rectangle {
         id: tmccKeypad
         title: (root.scope === "TRAIN" ? "Train" : "Engine") + " TMCC ID"
         maximumId: 9999
+        showSetAddress: root.scope === "ENGINE" && !!root.infoController
+        onSetAddressRequested: function(tmccId) {
+            const error = root.infoController.programEngineAddress(tmccId)
+            if (error) {
+                errorText = error
+                return
+            }
+            close()
+            root.requestAddress(tmccId)
+        }
         onSubmitted: function(tmccId) {
             close()
             root.requestAddress(tmccId)

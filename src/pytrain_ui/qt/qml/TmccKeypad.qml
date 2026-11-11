@@ -10,7 +10,9 @@ Popup {
     property alias entryText: tmccIdEntry.text
     property alias errorText: tmccKeypadError.text
     readonly property bool acceptableInput: tmccIdEntry.acceptableInput
+    property bool showSetAddress: false
     signal submitted(int tmccId)
+    signal setAddressRequested(int tmccId)
 
     function openFor(value) {
         tmccIdEntry.text = /^[0-9]+$/.test(value) && value.length <= String(maximumId).length ? value : ""
@@ -147,6 +149,31 @@ Popup {
                             root.enterTmccDigit(modelData)
                     }
                 }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 18
+            Item { Layout.fillWidth: true; visible: !root.showSetAddress }
+            KeyButton {
+                Layout.fillWidth: root.showSetAddress
+                Layout.preferredWidth: root.showSetAddress ? 0 : 150
+                Layout.preferredHeight: 58
+                text: "Close"
+                font.pixelSize: 22
+                onClicked: root.close()
+            }
+            Item { Layout.fillWidth: true; visible: !root.showSetAddress }
+            KeyButton {
+                visible: root.showSetAddress
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                Layout.preferredHeight: 58
+                text: "Set Address"
+                font.pixelSize: 22
+                highlighted: true
+                enabled: root.acceptableInput && Number(root.entryText) !== 99
+                onClicked: root.setAddressRequested(Number(root.entryText))
             }
         }
         Label {
