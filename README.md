@@ -35,7 +35,7 @@ Minimum requirements to use **PyTrain** are:
 * A Lionel Base 3 running the most current Lionel firmware
 * One or more Raspberry Pi 4 or 5 Wi-Fi-equipped computers with at least 2 GB of RAM running
   Raspberry PI OS 64-bit Bookworm or Trixie (released October 2025)
-* A Mac or Windows computer to set up the Raspberry Pi(s)
+* A Mac or Windows computer to set up the Raspberry Pi (s)
 * All hardware connected to the same Wi-Fi network
 * Python 3.11 – 3.13 installed (Python 3.11 is standard with the Bookworm release of Raspberry Pi OS; Python 3.13 is
   standard with the new
@@ -46,8 +46,10 @@ Notes:
 
 * It is recommended to have a Lionel LCS Ser2 module connected to your **PyTrain** server, as
   the Lionel Base 3 **_does not_** broadcast all layout activity
-* **PyTrain** is a command-line tool. It must be run from a Terminal window (macOS/Linux/Pi) or a Cmd
-  shell (Windows). **PyTrain** does _not_ have a GUI nor run as a native app.
+* The **PyTrain** server and CLI are command-line tools, run from a Terminal window (macOS/Linux/Pi)
+  or a Cmd shell (Windows). **PyTrain** also includes several graphical apps, including: **PyCab**, a touch-screen
+  controller for Raspberry Pi touch displays and the Steam Deck, and **PyRoutes**, a standalone route builder
+  that saves routes directly to the Base 3.
 * **PyTrain** _may_ work with an LCS Wi-Fi module, but this configuration hasn't been tested
 * The **PyTrain** CLI can be run on a Mac or Windows system. It allows complete control of _all_ TMCC or
   Legacy-equipped devices as well as allows you to monitor all TMCC and Legacy commands
@@ -140,8 +142,7 @@ Disabling and removing the unneeded software means there will be more of your Pi
 **PiConfig** is a program that automatically disables and removes software
 not needed to support **PyTrain**.It also can configure the hardware interfaces appropriately. Your
 Pi will boot faster and use less memory if you remove all the suggested software. If you change
-your mind, deleted packages can be reinstalled at any time.
-**PiConfig** is installed alongside **PyTrain**.
+your mind, deleted packages can be reinstalled at any time. **PiConfig** is installed alongside **PyTrain**.
 
 To run PiConfig:
 
@@ -232,8 +233,8 @@ directly to a Base 3, respectively. From a source checkout, use
 `python cli/pyroutes.py` with the same options.
 
 The front page lists routes after synchronization. Select a route and click **Edit**,
-or click **New**, enter an unused TMCC ID from 1 to 99, and click **Create**.
-**Save Route** writes the route to the Base 3 and returns to the list; **Cancel**
+or click **New**, enter an unused TMCC ID from 1 to 99, and click **Create**. **Save Route** writes the route to the
+Base 3 and returns to the list; **Cancel**
 returns without saving and asks before discarding changes. Hold **Clear** for three
 seconds to delete an existing route from the Base 3. Editing does not fire a route.
 
@@ -414,7 +415,7 @@ An entire world of inexpensive hardware is available from Amazon and other onlin
 train enthusiast who is handy with a soldering iron build control interfaces limited only by their
 imagination (and budget).
 
-Rather than running wires from each control panel to the component(s) you want to control, you connect your
+Rather than running wires from each control panel to the component (s) you want to control, you connect your
 buttons, switches, LEDs, etc., to a Pi that you mount within your panel. The Raspberry Pi communicates with
 your layout via Wi-Fi to a Lionel Base 3 or LCS Wi-Fi module. The only wire you need to connect to your panel
 is power for the Pi itself!
@@ -427,12 +428,12 @@ communicate directly with the server over Wi-Fi.
 
 PyTrain provides many tools to fire routes and operate turnouts, accessories, and even engines
 right out of the box. All you need is to specify the TMCC ID of the component you want to operate and the
-[pin(s)](https://gpiozero.readthedocs.io/en/latest/recipes.html#pin-numbering) on the Pi that the
+[pin (s)](https://gpiozero.readthedocs.io/en/latest/recipes.html#pin-numbering) on the Pi that the
 physical buttons, LEDs, etc. connect to. **PyTrain** does the rest.
 
 Let's say you want to control Lionel Turnout 12 (TMCC ID is 12).
 The turnout can be a TMCC Command Controlled model or one that is wired to an LCS ASC2.
-In this example, our panel would consist of a momentary (on)-off-(on) toggle switch and two bi-color red/green
+In this example, our panel would consist of a momentary (on)-off- (on) toggle switch and two bi-color red/green
 LEDs. The LEDs show the active path a train would take when traversing the turnout from right to left. In the
 panel below, the _through_ position is set, so the _through_ LED is green, and the _out_ LED is red. If we pull
 down and release the toggle switch, the turnout changes to the _out_ position, and its LED lights green,
