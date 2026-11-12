@@ -26,6 +26,7 @@ Rectangle {
 
     // A button reflects the operator's request immediately. Delayed snapshots
     // with the old direction must not undo it; fresh direction feedback wins.
+    onVisibleChanged: if (!visible) cab.cancelRelativeThrottle()
     onReportedDirectionChanged: requestedDirection = ""
     onTargetKeyChanged: {
         requestedDirection = ""
@@ -58,15 +59,13 @@ Rectangle {
         enabled: cab.isCab1 || (!root.standaloneCar && !cab.isCrane && !cab.rampActive)
         repeatWhileHeld: !cab.isCab1
         onClicked: {
-            if (!cab.isCab1) {
+            if (cab.isCab1)
+                cab.pressRelativeStep(step, delta, step.isPointerPressed())
+            else
                 cab.stepSpeed(delta)
-            } else if (cab.beginRelativeThrottle(step)) {
-                cab.moveRelativeThrottle(step, delta)
-                if (!step.isPointerPressed())
-                    cab.endRelativeThrottle(step)
-            }
         }
-        onReleased: cab.endRelativeThrottle(step)
+        onReleased: cab.releaseRelativeStep(step)
+        onPressCanceled: if (cab.isCab1) cab.cancelRelativeThrottle()
         onEnabledChanged: if (!enabled) cab.endRelativeThrottle(step)
         onVisibleChanged: if (!visible) cab.endRelativeThrottle(step)
     }

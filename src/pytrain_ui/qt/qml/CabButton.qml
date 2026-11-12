@@ -27,6 +27,7 @@ Control {
 
     signal clicked()
     signal released()
+    signal pressCanceled()
     signal doubleClicked()
     signal gestureHeld()
 
@@ -79,6 +80,7 @@ Control {
                 root.released()
             }
         }
+        onCanceled: root.pressCanceled()
         onDoubleTapped: if (!holdTriggered) root.doubleClicked()
     }
 

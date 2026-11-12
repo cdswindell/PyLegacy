@@ -4,20 +4,27 @@ from __future__ import annotations
 
 import json
 from pathlib import Path, PurePosixPath
+from time import monotonic
 from urllib.parse import urlparse
 
-from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, Qt, QTimer, QUrl, Signal, Slot
 
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
 from pytrain.protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, CommandScope
 from pytrain.utils.path_utils import find_file
 
-from ..actions import CAB1_THROTTLE_REPEAT_MS, CRANE_BOOST_BRAKE_REPEAT_MS, cab_action, cab_actions
+from ..actions import (
+    CAB1_STEP_HOLD_MS,
+    CAB1_STEP_TAP_GAP_MS,
+    CAB1_THROTTLE_REPEAT_MS,
+    CRANE_BOOST_BRAKE_REPEAT_MS,
+    cab_action,
+    cab_actions,
+)
 from ..adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from ..contracts import EngineViewState
 from ..panels import panel_actions, panel_title
-
 from .artwork import ArtworkLoader
 
 _QUICK_ACTION_KEYS = frozenset(
@@ -58,6 +65,14 @@ class CabController(QObject):
         self._relative_throttle_timer = QTimer(self)
         self._relative_throttle_timer.setInterval(CAB1_THROTTLE_REPEAT_MS)
         self._relative_throttle_timer.timeout.connect(self._send_relative_speed)
+        self._relative_step_count = 0
+        self._relative_step_direction = 0
+        self._relative_step_deadline = 0.0
+        self._relative_step_hold = QTimer(self)
+        self._relative_step_hold.setSingleShot(True)
+        self._relative_step_hold.setTimerType(Qt.TimerType.PreciseTimer)
+        self._relative_step_hold.setInterval(CAB1_STEP_HOLD_MS)
+        self._relative_step_hold.timeout.connect(self._hold_relative_step)
         self._unsubscribe = None
         self._snapshot = EngineViewState(scope=scope.name, tmcc_id=tmcc_id)
         self._targets: list[tuple[CommandScope, int, str]] = []
@@ -78,7 +93,7 @@ class CabController(QObject):
             self.stateChanged.emit()
 
     def _release_target(self) -> None:
-        self._end_relative_throttle()
+        self.cancelRelativeThrottle()
         self._target_generation += 1
         if self._unsubscribe is not None:
             self._unsubscribe()
@@ -610,19 +625,62 @@ class CabController(QObject):
     def relativeThrottleSpeed(self) -> int:
         return self._relative_speed
 
-    @Slot(QObject, result=bool)
-    def beginRelativeThrottle(self, owner: QObject) -> bool:
+    def _claim_relative_throttle(self, owner: QObject) -> bool:
         if not self.isCab1 or self._relative_throttle_owner is not None:
             return False
         self._relative_throttle_owner = owner
         return True
 
+    @Slot(QObject)
+    def beginRelativeThrottle(self, owner: QObject) -> None:
+        if self._claim_relative_throttle(owner):
+            self._relative_step_count = 0
+
+    @Slot(QObject, int, bool)
+    def pressRelativeStep(self, owner: QObject, delta: int, pointer_pressed: bool) -> None:
+        if not self._claim_relative_throttle(owner):
+            return
+        if delta != self._relative_step_direction or monotonic() > self._relative_step_deadline:
+            self._relative_step_count = 0
+        self._relative_step_direction = delta
+        self._set_relative_speed(delta)
+        self._send_relative_speed()
+        if pointer_pressed:
+            self._relative_step_hold.start()
+        else:
+            self.cancelRelativeThrottle()
+
+    def _hold_relative_step(self) -> None:
+        speed = self._relative_step_direction * max(1, self._relative_step_count)
+        self._relative_step_count = 0
+        self._set_relative_speed(speed)
+        self._send_relative_speed()
+        self._relative_throttle_timer.start()
+
+    @Slot(QObject)
+    def releaseRelativeStep(self, owner: QObject) -> None:
+        if self._relative_throttle_owner is not owner:
+            return
+        if self._relative_step_hold.isActive():
+            self._relative_step_count = min(5, self._relative_step_count + 1)
+            self._relative_step_deadline = monotonic() + CAB1_STEP_TAP_GAP_MS / 1000
+        self._end_relative_throttle()
+
+    @Slot()
+    def cancelRelativeThrottle(self) -> None:
+        self._relative_step_count = 0
+        self._end_relative_throttle()
+
+    def _set_relative_speed(self, speed: int) -> None:
+        if self._relative_speed != speed:
+            self._relative_speed = speed
+            self.relativeThrottleChanged.emit()
+
     @Slot(QObject, int)
     def moveRelativeThrottle(self, owner: QObject, speed: int) -> None:
         if self._relative_throttle_owner is not owner or speed == self._relative_speed:
             return
-        self._relative_speed = speed
-        self.relativeThrottleChanged.emit()
+        self._set_relative_speed(speed)
         if not speed:
             self._relative_throttle_timer.stop()
             self._send_relative_speed()
@@ -641,10 +699,9 @@ class CabController(QObject):
     def _end_relative_throttle(self) -> None:
         if self._relative_throttle_owner is not None:
             self._relative_throttle_owner = None
+            self._relative_step_hold.stop()
             self._relative_throttle_timer.stop()
-            if self._relative_speed:
-                self._relative_speed = 0
-                self.relativeThrottleChanged.emit()
+            self._set_relative_speed(0)
             self._send_relative_speed()
 
     @Slot()
@@ -762,13 +819,13 @@ class CabController(QObject):
     @Slot()
     def stop(self) -> None:
         if self._relative_throttle_owner is not None:
-            self._end_relative_throttle()
+            self.cancelRelativeThrottle()
         elif self._command_port is not None:
             self._command_port.stop()
 
     @Slot()
     def halt(self) -> None:
-        self._end_relative_throttle()
+        self.cancelRelativeThrottle()
         if self._command_port is None:
             PyTrainCabCommandAdapter.halt()
         else:
