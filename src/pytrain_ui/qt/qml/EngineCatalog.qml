@@ -186,6 +186,8 @@ RosterPanel {
         ListView {
             id: listView
             objectName: "engineRoster"
+            Layout.leftMargin: -6
+            Layout.rightMargin: Layout.leftMargin
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true

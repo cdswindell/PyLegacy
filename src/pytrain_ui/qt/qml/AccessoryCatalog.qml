@@ -240,6 +240,8 @@ RosterPanel {
             id: listView
             enabled: !lcsConfig.visible
             objectName: "accessoryRoster"
+            Layout.leftMargin: -6
+            Layout.rightMargin: Layout.leftMargin
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
