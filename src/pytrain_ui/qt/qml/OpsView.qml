@@ -355,8 +355,8 @@ RosterPanel {
                         const movesLeft = actionButton.symbol === "left"
                         const movesRight = actionButton.symbol === "right"
                         const moves = movesLeft || movesRight
-                        ctx.strokeRect(movesLeft ? 13 : movesRight ? 2 : 3, moves ? 8 : 3,
-                                       moves ? 8 : 18, moves ? 8 : 18)
+                        ctx.strokeRect(movesLeft ? 13 : movesRight ? 2 : 3, moves ? 6 : 3,
+                                       moves ? 8 : 18, moves ? 12 : 18)
                         ctx.beginPath()
                         if (moves) {
                             const tip = movesLeft ? 2 : 22
