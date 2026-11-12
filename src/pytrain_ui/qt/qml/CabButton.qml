@@ -8,6 +8,7 @@ Control {
     property bool selected: false
     property bool activateOnRelease: false
     property bool distinguishDoubleClick: false
+    property bool touchGesturesOnly: false
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
     property color normalColor: "#343a44"
@@ -50,6 +51,8 @@ Control {
         property bool touchHoldTriggered: false
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
+        gesturePolicy: root.touchGesturesOnly ? TapHandler.DragWithinBounds : TapHandler.DragThreshold
+        longPressThreshold: root.touchGesturesOnly ? 0.55 : undefined
         // Wait for the double-tap interval before dispatching a single tap on these buttons.
         exclusiveSignals: root.distinguishDoubleClick ? TapHandler.SingleTap | TapHandler.DoubleTap : TapHandler.NotExclusive
         onTapped: if (root.activateOnRelease && !root.distinguishDoubleClick) root.clicked()
@@ -72,7 +75,10 @@ Control {
                 root.released()
             }
         }
-        onDoubleTapped: if (!touchHoldTriggered) root.doubleClicked()
+        onDoubleTapped: function(eventPoint, button) {
+            if (!touchHoldTriggered && (!root.touchGesturesOnly || button === Qt.NoButton))
+                root.doubleClicked()
+        }
     }
 
     Timer {

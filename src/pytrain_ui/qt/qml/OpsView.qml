@@ -788,7 +788,7 @@ RosterPanel {
                     Label {
                         Layout.fillWidth: true
                         text: controller && controller.routeComponents.length ?
-                                  "Select an element to edit or reorder it. Double-click, double-tap, or touch and hold Out to flip the turnout left or right." :
+                                  "Select an element to edit or reorder it. Double-tap or touch and hold Out to flip the turnout left or right." :
                                   "No elements yet. Add a switch or nested route."
                         color: "#aeb5bf"
                         font.pixelSize: 15
@@ -905,6 +905,7 @@ RosterPanel {
                             selected: enabled &&
                                       controller.routeComponents[controller.routeComponentIndex].position === "OUT"
                             distinguishDoubleClick: true
+                            touchGesturesOnly: true
                             onDoubleClicked: routeBuilder.toggleOutHandedness()
                             onTouchHeld: routeBuilder.toggleOutHandedness()
                             onClicked: controller.setRouteComponentPosition("OUT")
