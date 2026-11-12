@@ -468,10 +468,20 @@ RosterPanel {
                         elide: Text.ElideRight
                     }
                     Label {
-                        visible: !!rowData.roadNumber
-                        text: "#" + rowData.roadNumber
+                        id: roadNumberLabel
+                        visible: row.isRoute || !!rowData.roadNumber
+                        Layout.preferredWidth: row.isRoute ? Math.ceil(roadNumberMetrics.advanceWidth) : implicitWidth
+                        text: rowData.roadNumber ? "#" + rowData.roadNumber : ""
                         color: "#aeb5bf"
                         font.pixelSize: 17
+                        font.features: row.isRoute ? ({ "tnum": 1 }) : ({})
+                        horizontalAlignment: Text.AlignRight
+
+                        TextMetrics {
+                            id: roadNumberMetrics
+                            font: roadNumberLabel.font
+                            text: "#0000"
+                        }
                     }
                     Label {
                         visible: !row.isRoute && !!rowData.lcsAssociations
@@ -486,7 +496,7 @@ RosterPanel {
                         visible: row.isRoute
                         Layout.preferredWidth: Math.ceil(Math.max(alignedMetrics.advanceWidth, unsetMetrics.advanceWidth))
                                                + leftPadding + rightPadding
-                        leftPadding: text === "Aligned" ? 4 : 0
+                        leftPadding: 6
                         rightPadding: leftPadding
                         TextMetrics {
                             id: alignedMetrics
