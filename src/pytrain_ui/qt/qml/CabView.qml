@@ -987,7 +987,7 @@ Rectangle {
                                 Layout.minimumHeight: 80
                                 minimumValue: cab.isCab1 ? -5 : 0
                                 maximumValue: cab.isCab1 ? 5 : Math.max(1, cab.speedMax)
-                                value: cab.isCab1 ? 0 : cab.targetSpeed
+                                value: cab.isCab1 ? cab.relativeThrottleSpeed : cab.targetSpeed
                                 springReturn: cab.isCab1
                                 onGestureStarted: cab.beginRelativeThrottle(throttle)
                                 onValueMoved: function(v) { if (springReturn) cab.moveRelativeThrottle(throttle, v) }

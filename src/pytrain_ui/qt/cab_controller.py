@@ -40,6 +40,7 @@ _ENGINE_ARTWORK = {
 class CabController(QObject):
     stateChanged = Signal()
     rosterChanged = Signal()
+    relativeThrottleChanged = Signal()
     stateUpdateReceived = Signal(int, object)
 
     def __init__(
@@ -193,6 +194,8 @@ class CabController(QObject):
                 continue
             whistle = action.key == "horn" and self.isSteam
             label = "Whistle" if whistle else action.label
+            if self.isCrane:
+                label = {"boost": "Up", "brake": "Down"}.get(action.key, label)
             if action.command_kind == "smoke":
                 if action.command == "SMOKE_ON":
                     label = "Smoke >" if profile.is_legacy else "Smoke On"
@@ -603,6 +606,10 @@ class CabController(QObject):
         if self._command_port is not None:
             self._command_port.send_panel_command(command)
 
+    @Property(int, notify=relativeThrottleChanged)
+    def relativeThrottleSpeed(self) -> int:
+        return self._relative_speed
+
     @Slot(QObject, result=bool)
     def beginRelativeThrottle(self, owner: QObject) -> bool:
         if not self.isCab1 or self._relative_throttle_owner is not None:
@@ -615,6 +622,7 @@ class CabController(QObject):
         if self._relative_throttle_owner is not owner or speed == self._relative_speed:
             return
         self._relative_speed = speed
+        self.relativeThrottleChanged.emit()
         if not speed:
             self._relative_throttle_timer.stop()
             self._send_relative_speed()
@@ -634,7 +642,9 @@ class CabController(QObject):
         if self._relative_throttle_owner is not None:
             self._relative_throttle_owner = None
             self._relative_throttle_timer.stop()
-            self._relative_speed = 0
+            if self._relative_speed:
+                self._relative_speed = 0
+                self.relativeThrottleChanged.emit()
             self._send_relative_speed()
 
     @Slot()
