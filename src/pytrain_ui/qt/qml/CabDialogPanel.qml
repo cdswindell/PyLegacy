@@ -95,6 +95,8 @@ Rectangle {
             return commands.sort((first, second) => rank(first) - rank(second) ||
                                  first.label.localeCompare(second.label))
         }
+        if (panelKey === "crew" && (section === "Etc" || section === "Station"))
+            return commands
         if (panelKey === "crew" && section === "Status") {
             const order = ["Fuel Level", "Fuel Refilled", "Water Level", "Water Refilled", "Current Speed"]
             return commands.sort((first, second) => order.indexOf(first.label) - order.indexOf(second.label))
@@ -196,7 +198,15 @@ Rectangle {
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
         Layout.preferredHeight: Math.max(root.choiceHeight, implicitHeight)
-        text: modelData.label === "Depart Ok" ? "Depart OK" : modelData.label
+        text: {
+            if (root.cab.isSteam && modelData.section === "Status") {
+                if (modelData.command === "ENGINEER_FUEL_LEVEL")
+                    return "Coal Level"
+                if (modelData.command === "ENGINEER_FUEL_REFILLED")
+                    return "Coal Refilled"
+            }
+            return modelData.label === "Depart Ok" ? "Depart OK" : modelData.label
+        }
         navigates: opensCategory
         onClicked: {
             if (opensCategory) {
