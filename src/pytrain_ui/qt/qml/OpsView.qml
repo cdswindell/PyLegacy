@@ -392,13 +392,15 @@ Rectangle {
                     onClicked: root.sortKey = modelData.key
                 }
             }
-            TouchButton {
+            CheckBox {
                 visible: controller && controller.scope === "SWITCH"
                 Layout.columnSpan: 3
                 Layout.preferredHeight: 76
-                text: root.showInactiveSwitches ? "Hide Unnamed" : "Show Unnamed"
-                selected: true
-                onClicked: root.showInactiveSwitches = !root.showInactiveSwitches
+                Layout.minimumHeight: 76
+                text: "Show Unnamed"
+                font.pixelSize: 22
+                checked: root.showInactiveSwitches
+                onToggled: root.showInactiveSwitches = checked
             }
         }
         ListView {

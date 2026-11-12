@@ -12,6 +12,7 @@ Rectangle {
     property int directTmccId: 0
     property string sortMode: "NAME"
     property string typeFilter: "ALL"
+    property bool showUnnamedAccessories: false
 
     signal accessoryRequested(string key)
     signal addRequested()
@@ -92,6 +93,8 @@ Rectangle {
         var rows = sourceRows.filter(function(row) {
             if (root.directTmccId > 0)
                 return row.primaryTmccId === root.directTmccId || row.tmccIds.indexOf(root.directTmccId) >= 0
+            if (!root.showUnnamedAccessories && !row.userDefined)
+                return false
             if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
                 return false
             if (!needle)
@@ -225,6 +228,14 @@ Rectangle {
                 selected: root.typeFilter === modelData.key
                 onClicked: root.typeFilter = modelData.key
             }
+        }
+        CheckBox {
+            Layout.preferredHeight: 76
+            Layout.minimumHeight: 76
+            text: "Show Unnamed"
+            font.pixelSize: 22
+            checked: root.showUnnamedAccessories
+            onToggled: root.showUnnamedAccessories = checked
         }
         ListView {
             id: listView
