@@ -121,6 +121,7 @@ Rectangle {
 
     function editSwitch(tmccId) {
         editingSwitchId = tmccId
+        switchEditorError.text = ""
         roadNameField.text = controller.switchRoadName(tmccId)
         roadNumberField.text = controller.switchRoadNumber(tmccId)
         editingSwitchOriginalName = roadNameField.text
@@ -299,6 +300,17 @@ Rectangle {
         Layout.preferredWidth: 0
         Layout.preferredHeight: 92
         font.pixelSize: 28
+    }
+
+    component ClearRecordButton: FunctionButton {
+        Layout.fillWidth: true
+        Layout.preferredWidth: 0
+        Layout.preferredHeight: 50
+        text: "Clear"
+        Accessible.name: "Hold for 3 seconds to clear this Base 3 record"
+        deferForHold: true
+        holdThreshold: 3000
+        holdHint: "Hold to clear"
     }
 
     component RosterActionButton: CabButton {
@@ -523,7 +535,7 @@ Rectangle {
         onOpened: routeBuilderScroll.contentItem.contentY = routeBuilderScroll.contentItem.originY
         x: Math.max(0, (root.width - width) / 2)
         y: root.editorTop
-        width: Math.min(root.width - 24, 690)
+        width: Math.min(root.width - 16, 720)
         height: Math.max(0, root.height - y - 8)
         modal: false
         focus: true
@@ -794,12 +806,26 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: 14
+                ClearRecordButton {
+                    enabled: {
+                        root.rosterRows
+                        const id = controller.routeBuilderId
+                        return id === Number(routeIdField.text) && controller.canClearRecord(id)
+                    }
+                    onHeld: {
+                        const error = controller.clearRecord(controller.routeBuilderId)
+                        if (error)
+                            routeBuilderError.text = error
+                        else
+                            routeBuilder.close()
+                    }
+                }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "CANCEL"
+                    text: "Cancel"
                     onClicked: {
                         controller.closeRouteBuilder()
                         routeBuilder.close()
@@ -810,7 +836,7 @@ Rectangle {
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     activateOnRelease: true
-                    text: "SAVE ROUTE"
+                    text: "Save"
                     font.bold: true
                     enabled: controller && controller.routeBuilderOpen &&
                              Number(routeIdField.text) >= 1 && Number(routeIdField.text) <= 98
@@ -1197,7 +1223,7 @@ Rectangle {
         id: switchEditor
         x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
-        width: Math.min(root.width - 40, 620)
+        width: Math.min(root.width - 16, 720)
         modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
@@ -1252,15 +1278,35 @@ Rectangle {
                 selectByMouse: true
             }
 
+            Label {
+                id: switchEditorError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#ff7777"
+                wrapMode: Text.WordWrap
+            }
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: 14
 
+                ClearRecordButton {
+                    enabled: {
+                        root.rosterRows
+                        return controller.canClearRecord(root.editingSwitchId)
+                    }
+                    onHeld: {
+                        const error = controller.clearRecord(root.editingSwitchId)
+                        if (error)
+                            switchEditorError.text = error
+                        else
+                            switchEditor.close()
+                    }
+                }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "CANCEL"
+                    text: "Cancel"
                     onClicked: switchEditor.close()
                 }
                 CabButton {
@@ -1268,7 +1314,7 @@ Rectangle {
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     activateOnRelease: true
-                    text: "SAVE"
+                    text: "Save"
                     font.bold: true
                     enabled: roadNameField.text !== root.editingSwitchOriginalName ||
                              roadNumberField.text !== root.editingSwitchOriginalNumber

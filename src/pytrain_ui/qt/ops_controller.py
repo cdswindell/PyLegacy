@@ -210,6 +210,40 @@ class OpsController(QObject):
             BaseReq.process_sync_reqs([*requests, state], do_async=True)
         self._refresh_row(tmcc_id)
 
+    @Slot(int, result=bool)
+    def canClearRecord(self, tmcc_id: int) -> bool:
+        if not 1 <= tmcc_id <= 98:
+            return False
+        state = ComponentStateStore.get_state(self._scope, tmcc_id, create=False)
+        return bool(
+            isinstance(state, (SwitchState, RouteState))
+            and not state.is_deleted
+            and state.is_deletable
+            and state.is_comp_data_record
+            and state.comp_data is not None
+            and (not state.is_comp_data_empty or state.is_user_defined)
+        )
+
+    @Slot(int, result=str)
+    def clearRecord(self, tmcc_id: int) -> str:
+        if not self.canClearRecord(tmcc_id):
+            return "No clearable Base 3 record at this TMCC ID."
+        state = ComponentStateStore.get_state(self._scope, tmcc_id, create=False)
+        if state is None:
+            return "The record is no longer available."
+        try:
+            if not state.clear(notify=True, clear_db=True):
+                return "The record could not be cleared."
+        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+            self.reload()
+            return str(exc)
+
+        if self._scope == CommandScope.ROUTE:
+            self._route_draft = None
+            self._route_component_index = -1
+        self.reload()
+        return ""
+
     def _provision_switch(self, tmcc_id: int, road_name: str, road_number: str, command_control: bool) -> None:
         """Program the switch, persist its Base record, then request authoritative config."""
         if command_control:
