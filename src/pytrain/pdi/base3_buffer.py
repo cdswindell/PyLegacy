@@ -300,7 +300,8 @@ class Base3Buffer(Thread):
             # to the clients via sync_state and any CommandObservers are run
             self._register_multibyte_command(mbc)
 
-            log.info(f"Enqueuing multibyte command: {mbc}")
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Enqueuing multibyte command: {mbc}")
             mbc.enqueue_packets()
             return None
         else:
