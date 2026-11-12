@@ -148,6 +148,9 @@ def test_diesel_steam_and_electric_match_existing_controller_visibility_rules() 
 def test_secondary_actions_follow_engine_ops_layout() -> None:
     secondary = cab_actions("secondary")
     assert [action.key for action in secondary] == [
+        "transformer_aux1",
+        "transformer_aux2",
+        "transformer_aux3",
         "car_aux1",
         "car_aux2",
         "car_aux3",

@@ -230,10 +230,19 @@ Rectangle {
         if (root.standaloneCar)
             return root.carActionRows()
 
-        if (cab.isCrane || cab.isAcela) {
+        if (cab.isCrane || cab.isAcela || cab.isTransformer) {
             const byKey = {}
             for (const action of cab.primaryActionModel.concat(cab.actionModel))
                 byKey[action.key] = action
+            if (cab.isTransformer) {
+                return [
+                    [byKey.transformer_on, byKey.transformer_off, byKey.boost],
+                    [byKey.transformer_bell, byKey.transformer_horn, byKey.brake],
+                    [undefined, undefined, undefined],
+                    [undefined, undefined, undefined],
+                    [byKey.transformer_rear_coupler, byKey.transformer_front_coupler, undefined]
+                ]
+            }
             if (cab.isAcela) {
                 return [
                     [byKey.acela_startup, byKey.acela_shutdown, byKey.rpm_up],
@@ -299,7 +308,7 @@ Rectangle {
             key: label.toUpperCase(),
             label: label,
             speedPreset: true,
-            hold: true,
+            hold: !cab.isTransformer,
             speedChevrons: index + 1
         }))
         const byKey = {}
@@ -315,7 +324,7 @@ Rectangle {
                 && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
-            {key: "STOP_HOLD", label: "Normal", speedPreset: true, hold: true},
+            {key: "STOP_HOLD", label: "Normal", speedPreset: true, hold: !cab.isTransformer},
             {
                 key: "ROLL",
                 label: "Roll",
@@ -324,6 +333,9 @@ Rectangle {
             },
             {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true}
         ]
+        if (cab.isTransformer)
+            return [presets.slice(0, 3), presets.slice(3), stopAndRoll, [undefined, byKey.set_address, undefined]]
+
         const canLoadWater = !cab.isCab1 && !cab.isCrane && cab.isLegacy && cab.isSteam
         const canRefuel = !cab.isCab1 && !cab.isCrane && cab.isLegacy && (cab.isDiesel || cab.isSteam)
         const gaugesAndSet = [
@@ -563,7 +575,7 @@ Rectangle {
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: ["Controls", cab.isCrane ? "Sound" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
+                        model: ["Controls", cab.isCrane ? "Sound" : cab.isTransformer ? "Speed" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
                         TabButton {
                             id: pageTab
                             required property int index
@@ -824,7 +836,7 @@ Rectangle {
                         }
                     }
                     RowLayout {
-                        visible: !cab.isCab1
+                        visible: !cab.isCab1 && !cab.isTransformer
                         Layout.fillWidth: true
                         spacing: 5
                         CabButton {
@@ -982,7 +994,7 @@ Rectangle {
                             spacing: 6
                             CabButton {
                                 objectName: "toggleDirectionButton"
-                                visible: cab.isCab1
+                                visible: cab.isCab1 || cab.isTransformer
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: root.compact ? 52 : 64
                                 text: "◀ Dir ▶"
@@ -1098,6 +1110,7 @@ Rectangle {
                     id: stateTile
                     required property var modelData
                     readonly property bool editable: !root.standaloneCar && !cab.isCrane && !cab.isCab1 && (
+                        !cab.isTransformer || modelData.label === "Speed Lim") && (
                         (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
                         (modelData.label === "Brake" && cab.supportsTrainBrake) ||

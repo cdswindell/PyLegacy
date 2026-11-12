@@ -39,12 +39,18 @@ class PyTrainCabCommandAdapter:
         return self._state_adapter.state
 
     @property
+    def is_transformer(self) -> bool:
+        return self.controller_type_key == "t"
+
+    @property
     def is_cab1(self) -> bool:
-        return getattr(self.state, "control_type", None) == CAB1_CONTROL_TYPE
+        return not self.is_transformer and getattr(self.state, "control_type", None) == CAB1_CONTROL_TYPE
 
     @property
     def _enum_type(self):
-        return TMCC2EngineCommandEnum if self.state.is_legacy and not self.is_cab1 else TMCC1EngineCommandEnum
+        if self.is_transformer or (self.state.is_legacy and not self.is_cab1):
+            return TMCC2EngineCommandEnum
+        return TMCC1EngineCommandEnum
 
     def _uses_tmcc2_crane_sound(self, name: str) -> bool:
         return name in BELL_HORN_COMMANDS and self.controller_type_key == "r"
@@ -93,9 +99,15 @@ class PyTrainCabCommandAdapter:
         if self.is_cab1:
             self.set_relative_speed(speed)
             return
-        maximum = 199 if self.state.is_legacy else 31
+        state = self.state
+        maximum = 199 if self._enum_type is TMCC2EngineCommandEnum else 31
         speed = max(0, min(maximum, int(speed)))
-        RampSpeedReq(self.state.tmcc_id, speed, self.state.scope).send()
+        if self.is_transformer:
+            if state.is_legacy:
+                speed = min(speed, int(state.speed_max or maximum))
+            CommandReq.build(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, state.tmcc_id, data=speed, scope=state.scope).send()
+        else:
+            RampSpeedReq(state.tmcc_id, speed, state.scope).send()
 
     def set_speed_preset(self, name: str, with_dialog: bool = False) -> None:
         state = self.state
@@ -103,7 +115,7 @@ class PyTrainCabCommandAdapter:
             return
         if name == "EMERGENCY_STOP":
             emergency_dialog = None
-            if state.is_legacy:
+            if state.is_legacy and not self.is_transformer:
                 # RailSounds uses the same contextual packet for the call and response.
                 emergency_dialog = CommandReq.build(
                     TMCC2RailSoundsDialogControl.EMERGENCY_CONTEXT_DEPENDENT, state.tmcc_id, scope=state.scope
@@ -116,11 +128,11 @@ class PyTrainCabCommandAdapter:
             return
         if state.is_remote_ramping:
             return
-        speeds = TMCC2RRSpeedsEnum if state.is_legacy else TMCC1RRSpeedsEnum
+        speeds = TMCC2RRSpeedsEnum if self._enum_type is TMCC2EngineCommandEnum else TMCC1RRSpeedsEnum
         preset = speeds.by_name(name)
         if preset is None:
             return
-        if with_dialog:
+        if with_dialog and not self.is_transformer:
             RampSpeedDialogReq(state.tmcc_id, preset, state.scope).send()
         else:
             self.set_speed(preset.speed)
@@ -133,8 +145,9 @@ class PyTrainCabCommandAdapter:
         state = self.state
         if bool(getattr(state, "is_ramp_active", False)) or state.speed is None:
             return False
-        maximum = 199 if state.is_legacy else 31
-        maximum = min(maximum, int(getattr(state, "speed_max", None) or maximum))
+        maximum = 199 if self._enum_type is TMCC2EngineCommandEnum else 31
+        if not self.is_transformer or state.is_legacy:
+            maximum = min(maximum, int(getattr(state, "speed_max", None) or maximum))
         speed = max(0, min(maximum, int(state.speed) + int(delta)))
         if speed == state.speed:
             return False
@@ -208,7 +221,7 @@ class PyTrainCabCommandAdapter:
         if value is None:
             speed_limit = 255
         else:
-            maximum = 199 if self.state.is_legacy else 31
+            maximum = 199 if self._enum_type is TMCC2EngineCommandEnum else 31
             speed_limit = max(1, min(maximum, int(value)))
         # Queue the readback only after the write has been sent.
         Thread(
@@ -223,11 +236,11 @@ class PyTrainCabCommandAdapter:
         normalized = direction.strip().upper()
         if normalized not in {"FORWARD", "REVERSE"}:
             raise ValueError("direction must be FORWARD or REVERSE")
-        if not self.is_cab1:
+        if not (self.is_cab1 or self.is_transformer):
             self.send_named(f"{normalized}_DIRECTION")
 
     def toggle_direction(self) -> None:
-        if self.is_cab1:
+        if self.is_cab1 or self.is_transformer:
             self.send_named("TOGGLE_DIRECTION")
 
     def bell(self) -> None:

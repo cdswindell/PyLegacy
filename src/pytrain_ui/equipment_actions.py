@@ -92,8 +92,11 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("transformer_front_coupler", "Front Coupler", "FRONT_COUPLER", "front-coupler.jpg", "t"),
     EquipmentAction("transformer_rear_coupler", "Rear Coupler", "REAR_COUPLER", "rear-coupler.jpg", "t"),
     EquipmentAction("transformer_direction", "Direction", "TOGGLE_DIRECTION", "", "t"),
-    EquipmentAction("transformer_on", "Power On", "POWERMASTER_ON", "on_button.jpg", "t"),
-    EquipmentAction("transformer_off", "Power Off", "POWERMASTER_OFF", "off_button.jpg", "t"),
+    EquipmentAction("transformer_on", "Start Up", "BOOST_SPEED", "on_button.jpg", "t"),
+    EquipmentAction("transformer_off", "Shut Down", "POWERMASTER_OFF", "off_button.jpg", "t"),
+    EquipmentAction("transformer_aux1", "Aux 1", "AUX1_OPTION_ONE", "", "t", group="secondary"),
+    EquipmentAction("transformer_aux2", "Aux 2", "AUX2_OPTION_ONE", "", "t", group="secondary"),
+    EquipmentAction("transformer_aux3", "Aux 3", "AUX3_OPTION_ONE", "", "t", group="secondary"),
     # Aux variants that ENGINE_OPS_LAYOUT exposes outside the standard engine
     # layout. These deliberately have no long-hold panel semantics.
     EquipmentAction("car_aux1", "Aux1", "AUX1_OPTION_ONE", "", "pf", group="secondary", repeat_interval_ms=200),

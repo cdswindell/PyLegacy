@@ -446,6 +446,10 @@ class CabController(QObject):
         )
 
     @Property(bool, notify=stateChanged)
+    def isTransformer(self) -> bool:
+        return self._command_port is not None and self._command_port.is_transformer
+
+    @Property(bool, notify=stateChanged)
     def isCab1(self) -> bool:
         return self._command_port is not None and self._command_port.is_cab1
 
@@ -465,7 +469,10 @@ class CabController(QObject):
             return []
         if self.isCab1 or self.isCrane or self.isStandalonePassenger or self.isStandaloneFreight:
             return ["Horn"]
-        return list(self._command_port.control_profile.analog_modes)
+        modes = self._command_port.control_profile.analog_modes
+        if self.isTransformer:
+            return ["Brake"] if "Brake" in modes else []
+        return list(modes)
 
     @Property(list, notify=stateChanged)
     def infoModel(self) -> list[dict]:
@@ -561,12 +568,12 @@ class CabController(QObject):
 
     @Property(int, notify=stateChanged)
     def speedMax(self) -> int:
-        return self._snapshot.speed_max
+        return 199 if self.isTransformer and not self.isLegacy else self._snapshot.speed_max
 
     @Property(int, notify=stateChanged)
     def commandSpeedMax(self) -> int:
         state = self._state_port.state if self._state_port is not None else None
-        return 199 if state is not None and bool(getattr(state, "is_legacy", False)) else 31
+        return 199 if self.isTransformer or (state is not None and state.is_legacy) else 31
 
     @Property(int, notify=stateChanged)
     def speedLimitMax(self) -> int:
