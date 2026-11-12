@@ -28,8 +28,8 @@ RosterPanel {
 
     function compareRows(a, b) {
         if (sortKey === "aligned" || sortKey === "unaligned") {
-            const first = sortKey === "aligned" ? "Aligned" : "Unaligned"
-            const second = sortKey === "aligned" ? "Unaligned" : "Aligned"
+            const first = sortKey === "aligned" ? "Aligned" : "Unset"
+            const second = sortKey === "aligned" ? "Unset" : "Aligned"
             const aRank = a.stateText === first ? 0 : a.stateText === second ? 1 : 2
             const bRank = b.stateText === first ? 0 : b.stateText === second ? 1 : 2
             if (aRank !== bRank)
@@ -394,7 +394,7 @@ RosterPanel {
                     { key: "tmccId", label: "TMCC ID" }
                 ].concat(controller && controller.scope === "ROUTE" ? [
                     { key: "aligned", label: "Aligned" },
-                    { key: "unaligned", label: "Unaligned" }
+                    { key: "unaligned", label: "Unset" }
                 ] : [])
                 TouchButton {
                     required property var modelData
@@ -484,11 +484,16 @@ RosterPanel {
                     Label {
                         id: alignmentLabel
                         visible: row.isRoute
-                        Layout.preferredWidth: Math.ceil(alignmentMetrics.advanceWidth)
+                        Layout.preferredWidth: Math.ceil(Math.max(alignedMetrics.advanceWidth, unsetMetrics.advanceWidth))
                         TextMetrics {
-                            id: alignmentMetrics
+                            id: alignedMetrics
                             font: alignmentLabel.font
-                            text: "Unaligned"
+                            text: "Aligned"
+                        }
+                        TextMetrics {
+                            id: unsetMetrics
+                            font: alignmentLabel.font
+                            text: "Unset"
                         }
                         text: rowData.stateText === "UNKNOWN" ? "" : rowData.stateText
                         color: rowData.stateText === "Aligned" ? "#73d38a" :
