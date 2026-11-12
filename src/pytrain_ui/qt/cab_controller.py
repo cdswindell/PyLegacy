@@ -44,6 +44,7 @@ _ENGINE_ARTWORK = {
     "STEAM": "generic_steam.jpg",
     "STEAM_PULLMOR": "generic_steam_santa.jpg",
     "STEAM_SWITCHER": "generic_steam_switcher.jpg",
+    "TRANSFORMER": "power_master.jpg",
 }
 
 
