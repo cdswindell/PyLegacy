@@ -124,7 +124,7 @@ Rectangle {
     }
 
     function isDriveUtility(key) {
-        return ["startup", "shutdown", "acela_startup", "acela_shutdown", "volume_down", "volume_up", "smoke_down", "smoke_up"].indexOf(key) >= 0
+        return ["startup", "shutdown", "acela_startup", "acela_shutdown", "transformer_on", "transformer_off", "volume_down", "volume_up", "smoke_down", "smoke_up"].indexOf(key) >= 0
     }
 
     function isEngineSpecificControl(key) {
@@ -153,10 +153,10 @@ Rectangle {
             option_two_on: "Grind On", option_two_off: "Grind Off"
         }
         return [
-            ["volume_down", "volume_up", "next_stop"],
-            ["option_one_off", "option_one_on", "conductor"],
-            ["option_two_off", "option_two_on", "steward"],
-            ["car_lights_off", "car_lights_on", "station"],
+            ["startup", "shutdown", "next_stop"],
+            ["option_one_on", "option_one_off", "conductor"],
+            ["option_two_on", "option_two_off", "steward"],
+            ["car_lights_on", "car_lights_off", "station"],
             ["front_coupler", "rear_coupler"]
         ].map(row => row.map(key => {
             const action = byKey[key]
@@ -182,18 +182,22 @@ Rectangle {
         }
         const topControl = cab.isSteam ? byKey.let_off : cab.isDiesel ? byKey.rpm_up : byKey.volume_up
         const secondControl = cab.isSteam ? byKey.water_injector : cab.isDiesel ? byKey.rpm_down : byKey.volume_down
+        const startup = byKey.startup || byKey.acela_startup || byKey.transformer_on
+        const shutdown = byKey.shutdown || byKey.acela_shutdown || byKey.transformer_off
         const rows = cab.isElectric ? [
+            [startup, shutdown, byKey.horn],
             [cab.isLegacy ? byKey.pantograph_front_up : byKey.volume_up,
-             cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.horn],
-            [cab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
-             cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.bell]
+             cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.bell]
         ] : [
-            [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, topControl],
+            [startup, shutdown, topControl],
             [byKey.bell, byKey.horn, secondControl]
         ]
         rows.push(
             [byKey.engineer_chatter, byKey.tower_chatter || byKey.freight_tower],
-            [byKey.electric_smoke_down || byKey.smoke_down, byKey.electric_smoke_up || byKey.smoke_up, byKey.boost],
+            cab.isElectric
+                ? [cab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
+                   cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.boost]
+                : [byKey.smoke_down, byKey.smoke_up, byKey.boost],
             [byKey.rear_coupler || byKey.transformer_rear_coupler,
              byKey.front_coupler || byKey.transformer_front_coupler, byKey.brake]
         )
@@ -205,7 +209,7 @@ Rectangle {
         }
         // Other equipment keeps its applicable controls after the standard rows.
         return rows.concat(root.pairedActionRows(actions.filter(function(action) { return !placed[action.key] && action.key !== "volume_up" && action.key !== "volume_down"
-            && !(cab.isElectric && (action.key === "startup" || action.key === "shutdown")) })))
+            && !["electric_smoke_down", "electric_smoke_up"].includes(action.key) })))
     }
 
     function speedActionRows() {
@@ -220,7 +224,7 @@ Rectangle {
         for (const action of cab.speedSoundActionModel.concat(cab.moreActionModel))
             byKey[action.key] = action
         const otherActions = root.passengerCar ? [] : cab.moreActionModel.filter(action =>
-            (!root.isDriveUtility(action.key) || (cab.isElectric && (action.key === "startup" || action.key === "shutdown")))
+            !root.isDriveUtility(action.key)
                 && !root.isEngineSpecificControl(action.key)
                 && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
@@ -242,8 +246,12 @@ Rectangle {
             byKey.set_address,
             {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
         ]
-        if (canRefuel || cab.isElectric || root.passengerCar)
+        if (canRefuel || root.passengerCar)
             auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
+        if (cab.isElectric) {
+            auxiliaryRow[0] = byKey.electric_smoke_down
+            auxiliaryRow[2] = byKey.electric_smoke_up
+        }
         const volumeUpThird = root.passengerCar && byKey.sound_on
             ? Object.assign({}, byKey.sound_on, {label: "Unmute"})
             : byKey.labor_up || byKey.electric_effort_up
@@ -454,7 +462,7 @@ Rectangle {
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: ["Controls", "Speed/Volume"]
+                        model: ["Controls", cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
                         TabButton {
                             id: pageTab
                             required property int index

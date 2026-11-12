@@ -364,6 +364,8 @@ class PyTrainCabCommandAdapter:
             command = TMCC2EffectsControl.by_name(action.hold_command, raise_exception=True)
             CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()
             return True
+        if action.hold_command in {"START_UP_DELAYED", "SHUTDOWN_DELAYED"} and not self.state.is_legacy:
+            return self.perform(action)
         return self.send_named(action.hold_command)
 
     def _panel_command(self, name: str):
