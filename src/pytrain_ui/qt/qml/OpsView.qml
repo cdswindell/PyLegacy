@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
 
     required property var controller
     property var lcsController: null
@@ -293,6 +294,7 @@ Rectangle {
     }
 
     ColumnLayout {
+        id: pageLayout
         anchors.fill: parent
         anchors.margins: 12
         spacing: 10
@@ -309,7 +311,7 @@ Rectangle {
                 font.bold: true
                 elide: Text.ElideRight
             }
-            AllStopButton { compact: root.height < 850; onClicked: controller.halt() }
+            AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: controller.halt() }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -515,10 +517,12 @@ Rectangle {
 
     Popup {
         id: routeBuilder
-        x: Math.max(0, (Overlay.overlay.width - width) / 2)
-        y: Math.max(76, (Overlay.overlay.height - height) / 2)
+        objectName: "routeBuilder"
+        onOpened: routeBuilderScroll.contentItem.contentY = routeBuilderScroll.contentItem.originY
+        x: Math.max(0, (root.width - width) / 2)
+        y: root.editorTop
         width: Math.min(root.width - 24, 690)
-        height: Math.min(root.height - 64, 1160)
+        height: Math.max(0, root.height - y - 8)
         modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
@@ -549,211 +553,232 @@ Rectangle {
                 }
             }
 
-            Label {
-                text: "TMCC ID (1-98)"
-                color: "#aeb5bf"
-            }
-            TextField {
-                id: routeIdField
+            ScrollView {
+                id: routeBuilderScroll
                 Layout.fillWidth: true
-                Layout.preferredHeight: 46
-                maximumLength: 2
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: IntValidator { bottom: 1; top: 98 }
-                font.pixelSize: 17
-                onEditingFinished: root.routeIdEditingFinished()
-            }
-
-            Label {
-                text: "Route Name"
-                color: "#aeb5bf"
-            }
-            TextField {
-                id: routeNameField
-                Layout.fillWidth: true
-                Layout.preferredHeight: 46
-                maximumLength: 31
-                font.pixelSize: 17
-            }
-
-            Label {
-                text: "Route Number"
-                color: "#aeb5bf"
-            }
-            TextField {
-                id: routeNumberField
-                Layout.fillWidth: true
-                Layout.preferredHeight: 46
-                maximumLength: 4
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: RegularExpressionValidator {
-                    regularExpression: /[0-9]{0,4}/
-                }
-                font.pixelSize: 17
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: controller && controller.routeComponents.length ?
-                          "Select a card to change its position, order, or remove it." :
-                          "No components yet. Add a switch or nested route."
-                color: "#aeb5bf"
-                font.pixelSize: 13
-                wrapMode: Text.WordWrap
-            }
-
-            ListView {
-                id: routeComponentList
-                Layout.fillWidth: true
-                Layout.preferredHeight: 300
-                orientation: ListView.Horizontal
-                spacing: 8
-                clip: true
-                model: controller ? controller.routeComponents : []
-
-                delegate: Rectangle {
-                    required property var modelData
-                    width: 180
-                    height: routeComponentList.height - 4
-                    radius: 8
-                    color: controller && controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
-                    border.width: controller && controller.routeComponentIndex === modelData.index ? 2 : 1
-                    border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
-
-                    TapHandler {
-                        onTapped: controller.selectRouteComponent(modelData.index)
-                    }
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 5
-                        Label {
-                            Layout.fillWidth: true
-                            text: "Card " + (modelData.index + 1)
-                            color: "#aeb5bf"
-                            font.pixelSize: 12
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: modelData.name
-                            color: "#f4f6f8"
-                            font.pixelSize: 16
-                            font.bold: true
-                            wrapMode: Text.WordWrap
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: modelData.scope === "ROUTE" ? "Route " + modelData.tmccId :
-                                                               "Switch " + modelData.tmccId
-                            color: "#aeb5bf"
-                            font.pixelSize: 13
-                        }
-                        Item {
-                            Layout.fillHeight: true
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: modelData.position
-                            color: modelData.position === "THRU" ? "#73d38a" :
-                                   modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
-                            font.pixelSize: 16
-                            font.bold: true
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "THRU"
-                    enabled: controller && controller.routeComponentIndex >= 0 &&
-                             controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
-                    selected: enabled &&
-                              controller.routeComponents[controller.routeComponentIndex].position === "THRU"
-                    onClicked: controller.setRouteComponentPosition("THRU")
-                }
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "OUT"
-                    enabled: controller && controller.routeComponentIndex >= 0 &&
-                             controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
-                    selected: enabled &&
-                              controller.routeComponents[controller.routeComponentIndex].position === "OUT"
-                    onClicked: controller.setRouteComponentPosition("OUT")
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "MOVE LEFT"
-                    enabled: controller && controller.routeComponentIndex > 0
-                    onClicked: controller.moveRouteComponent(-1)
-                }
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "MOVE RIGHT"
-                    enabled: controller && controller.routeComponentIndex >= 0 &&
-                             controller.routeComponentIndex < controller.routeComponents.length - 1
-                    onClicked: controller.moveRouteComponent(1)
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "ADD…"
-                    enabled: controller && controller.routeComponents.length < 16
-                    onClicked: root.openRoutePicker()
-                }
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "REMOVE"
-                    enabled: controller && controller.routeComponentIndex >= 0
-                    onClicked: controller.removeRouteComponent()
-                }
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: 46
-                    text: "CLEAR ALL"
-                    enabled: controller && controller.routeComponents.length > 0
-                    onClicked: controller.clearRouteComponents()
-                }
-            }
-
-            Label {
-                id: routeBuilderError
-                Layout.fillWidth: true
-                visible: text.length > 0
-                color: "#ff7777"
-                font.pixelSize: 13
-                wrapMode: Text.WordWrap
-            }
-
-            Item {
                 Layout.fillHeight: true
+                contentWidth: availableWidth
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                ColumnLayout {
+                    width: routeBuilderScroll.availableWidth
+                    spacing: 10
+                    Label {
+                        text: "TMCC ID (1-98)"
+                        color: "#aeb5bf"
+                    }
+                    TextField {
+                        id: routeIdField
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 46
+                        maximumLength: 2
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        validator: IntValidator { bottom: 1; top: 98 }
+                        font.pixelSize: 17
+                        onEditingFinished: root.routeIdEditingFinished()
+                    }
+
+                    Label {
+                        text: "Route Name"
+                        color: "#aeb5bf"
+                    }
+                    TextField {
+                        id: routeNameField
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 46
+                        maximumLength: 31
+                        font.pixelSize: 17
+                    }
+
+                    Label {
+                        text: "Route Number"
+                        color: "#aeb5bf"
+                    }
+                    TextField {
+                        id: routeNumberField
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 46
+                        maximumLength: 4
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        validator: RegularExpressionValidator {
+                            regularExpression: /[0-9]{0,4}/
+                        }
+                        font.pixelSize: 17
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: controller && controller.routeComponents.length ?
+                                  "Select a card to change its position, order, or remove it." :
+                                  "No components yet. Add a switch or nested route."
+                        color: "#aeb5bf"
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ListView {
+                        id: routeComponentList
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.min(300, Math.max(148, routeBuilder.height * 0.27))
+                        orientation: ListView.Horizontal
+                        spacing: 8
+                        clip: true
+                        model: controller ? controller.routeComponents : []
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: 180
+                            height: routeComponentList.height - 4
+                            radius: 8
+                            color: controller && controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
+                            border.width: controller && controller.routeComponentIndex === modelData.index ? 2 : 1
+                            border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
+
+                            TapHandler {
+                                onTapped: controller.selectRouteComponent(modelData.index)
+                            }
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 5
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: "Card " + (modelData.index + 1)
+                                    color: "#aeb5bf"
+                                    font.pixelSize: 12
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: "#f4f6f8"
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: modelData.scope === "ROUTE" ? "Route " + modelData.tmccId :
+                                                                       "Switch " + modelData.tmccId
+                                    color: "#aeb5bf"
+                                    font.pixelSize: 13
+                                }
+                                TurnoutDiagram {
+                                    objectName: "routeSwitchDiagram"
+                                    visible: modelData.scope === "SWITCH"
+                                    diverging: modelData.position === "OUT"
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    Layout.minimumHeight: visible ? 32 : 0
+                                    Layout.maximumHeight: 104
+                                }
+                                Item {
+                                    visible: modelData.scope !== "SWITCH"
+                                    Layout.fillHeight: true
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: modelData.position
+                                    color: modelData.position === "THRU" ? "#73d38a" :
+                                           modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "THRU"
+                            enabled: controller && controller.routeComponentIndex >= 0 &&
+                                     controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
+                            selected: enabled &&
+                                      controller.routeComponents[controller.routeComponentIndex].position === "THRU"
+                            onClicked: controller.setRouteComponentPosition("THRU")
+                        }
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "OUT"
+                            enabled: controller && controller.routeComponentIndex >= 0 &&
+                                     controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
+                            selected: enabled &&
+                                      controller.routeComponents[controller.routeComponentIndex].position === "OUT"
+                            onClicked: controller.setRouteComponentPosition("OUT")
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "MOVE LEFT"
+                            enabled: controller && controller.routeComponentIndex > 0
+                            onClicked: controller.moveRouteComponent(-1)
+                        }
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "MOVE RIGHT"
+                            enabled: controller && controller.routeComponentIndex >= 0 &&
+                                     controller.routeComponentIndex < controller.routeComponents.length - 1
+                            onClicked: controller.moveRouteComponent(1)
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "ADD…"
+                            enabled: controller && controller.routeComponents.length < 16
+                            onClicked: root.openRoutePicker()
+                        }
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "REMOVE"
+                            enabled: controller && controller.routeComponentIndex >= 0
+                            onClicked: controller.removeRouteComponent()
+                        }
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: 46
+                            text: "CLEAR ALL"
+                            enabled: controller && controller.routeComponents.length > 0
+                            onClicked: controller.clearRouteComponents()
+                        }
+                    }
+
+                    Label {
+                        id: routeBuilderError
+                        Layout.fillWidth: true
+                        visible: text.length > 0
+                        color: "#ff7777"
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                    }
+                }
             }
 
             RowLayout {
@@ -798,10 +823,11 @@ Rectangle {
 
     Popup {
         id: routePicker
-        x: Math.max(0, (Overlay.overlay.width - width) / 2)
-        y: Math.max(76, (Overlay.overlay.height - height) / 2)
-        width: Math.min(root.width - 50, 640)
-        height: Math.min(root.height - 100, 940)
+        objectName: "routePicker"
+        x: Math.max(0, (root.width - width) / 2)
+        y: root.editorTop
+        width: Math.min(root.width - 24, 640)
+        height: Math.max(0, root.height - y - 8)
         modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
@@ -1246,6 +1272,7 @@ Rectangle {
     LcsConfig {
         id: lcsConfig
         controller: root.lcsController
+        editorTop: root.editorTop
     }
 
 }

@@ -22,6 +22,7 @@ ApplicationWindow {
     title: "PyTrain — " + activeScope
     onClosing: Qt.quit()
 
+    property bool manageVisible: false
     property bool engineCatalogVisible: showCatalogAtStartup
     property string activeScope: "ENGINE"
     property var activeAccessory: ({})
@@ -127,7 +128,7 @@ ApplicationWindow {
             StackLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                currentIndex: window.stateInfoVisible ? 0 :
+                currentIndex: window.manageVisible ? 5 : window.stateInfoVisible ? 0 :
                               window.activeScope === "SWITCH" ? 2 :
                               window.activeScope === "ROUTE" ? 3 :
                               window.activeScope === "ACCESSORY" ? 4 :
@@ -143,6 +144,7 @@ ApplicationWindow {
                     stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
                     onStateInfoRequested: window.openStateInfo(cabController.scope, cabController.tmccId, false)
                     onStateInfoClosed: window.closeStateInfo()
+                    onCabMenuRequested: cabMenu.open()
                 }
 
                 EngineCatalog {
@@ -156,6 +158,7 @@ ApplicationWindow {
                         window.engineCatalogVisible = true
                         window.openStateInfo(scope, tmccId, true)
                     }
+                    onCabMenuRequested: cabMenu.open()
                     onEngineSelected: {
                         window.engineCatalogVisible = false
                     }
@@ -204,6 +207,16 @@ ApplicationWindow {
                 }
 
 
+                ManagePanel {
+                    admin: managePyTrainController
+                    cab: cabController
+                    onCloseRequested: window.manageVisible = false
+                    onAccessoriesRequested: accessoryCatalogController.reload()
+                    onImagesRequested: {
+                        cabController.refreshArtwork()
+                        accessoryCatalogController.reload()
+                    }
+                }
             }
 
             SelectedEngineBar {
@@ -211,7 +224,7 @@ ApplicationWindow {
                 color: "#0d1f58"
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? (operatingCabView.compact ? 74 : 86) : 0
-                visible: !operatingCabView.dialogPanelOpen && !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
+                visible: !window.manageVisible && !operatingCabView.dialogPanelOpen && !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
                 selection: selectedEngineController
             }
 
@@ -223,6 +236,7 @@ ApplicationWindow {
                 Layout.maximumHeight: 84
                 currentScope: window.activeScope
                 onScopePressed: function(scope, showKeypad) {
+                    window.manageVisible = false
                     operatingCabView.closeBellHornOptions()
                     operatingCabView.closeDialogPanel()
                     if (window.stateInfoVisible)
@@ -280,6 +294,59 @@ ApplicationWindow {
         }
     }
 
+    Popup {
+        id: cabMenu
+        objectName: "cabNavigationMenu"
+        parent: previewViewport
+        x: (parent.width - width) / 2
+        y: 110
+        width: Math.min(340, parent.width - 24)
+        padding: 10
+        modal: false
+        focus: true
+        background: Rectangle {
+            color: "#102858"
+            radius: 12
+            border.color: "#6385af"
+        }
+        contentItem: ColumnLayout {
+            spacing: 8
+            Repeater {
+                model: ["Roster", "Manage PyTrain", "Route Builder", "LCS Device Manager"]
+                CabButton {
+                    required property int index
+                    required property string modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 54
+                    font.pixelSize: 20
+                    text: modelData
+                    onClicked: {
+                        cabMenu.close()
+                        if (index === 0) {
+                            window.engineCatalogVisible = true
+                        } else if (index === 1) {
+                            window.manageVisible = true
+                        } else if (index === 2) {
+                            window.activeScope = "ROUTE"
+                            routeOpsController.reload()
+                            Qt.callLater(routeOpsView.openAddRoute)
+                        } else {
+                            window.activeScope = "SWITCH"
+                            switchOpsController.reload()
+                            Qt.callLater(switchOpsView.openLcsConfiguration)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Shortcut {
+        sequence: "Escape"
+        enabled: window.manageVisible
+        onActivated: window.manageVisible = false
+    }
+
     Shortcut {
         sequence: "Escape"
         enabled: window.stateInfoVisible && !operatingCabView.stateInfoEditorOpen
@@ -288,7 +355,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible && cabController.tmccId > 0
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible && cabController.tmccId > 0
         onActivated: {
             window.activeScope = cabController.scope
             window.engineCatalogVisible = false
@@ -296,42 +363,42 @@ ApplicationWindow {
     }
     Shortcut {
         sequence: "Up"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.changeSpeed(1)
     }
     Shortcut {
         sequence: "Down"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.changeSpeed(-1)
     }
     Shortcut {
         sequence: "Shift+Up"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.changeSpeed(5)
     }
     Shortcut {
         sequence: "Shift+Down"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.changeSpeed(-5)
     }
     Shortcut {
         sequence: "F"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.setDirection("FORWARD")
     }
     Shortcut {
         sequence: "R"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.setDirection("REVERSE")
     }
     Shortcut {
         sequence: "B"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.bell()
     }
     Shortcut {
         sequence: "Space"
-        enabled: !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && !window.engineCatalogVisible && !operatingCabView.editorOpen
         onActivated: cabController.stop()
     }
 }

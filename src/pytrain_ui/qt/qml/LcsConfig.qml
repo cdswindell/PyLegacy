@@ -5,12 +5,14 @@ import QtQuick.Layouts
 Popup {
     id: root
     required property var controller
+    property real editorTop: 72
+    objectName: "lcsDeviceManager"
 
     // Popup coordinates are relative to the item that owns the popup. Using
     // Overlay.overlay dimensions here mixed coordinate systems when this popup
     // was opened from another page (for example, Accessories).
     x: 16
-    y: 72
+    y: editorTop
     width: Math.max(0, (parent ? parent.width : 720) - 32)
     height: Math.max(0, (parent ? parent.height : 1280) - y - 16)
     modal: false

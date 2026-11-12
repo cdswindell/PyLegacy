@@ -318,6 +318,13 @@ class CabController(QObject):
     def tuningActionModel(self) -> list[dict]:
         return self._action_model("tuning")
 
+    @Slot()
+    def refreshArtwork(self) -> None:
+        from pytrain.utils.path_utils import reset_path_index
+
+        reset_path_index()
+        self.stateChanged.emit()
+
     @Property(str, notify=stateChanged)
     def artworkSource(self) -> str:
         path, _ = self._resolved_artwork(self._artwork_state())

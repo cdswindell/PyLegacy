@@ -11,6 +11,7 @@ Rectangle {
     property bool stateInfoFromRoster: false
     property string stateInfoIdentity: ""
     readonly property bool stateInfoEditorOpen: stateInfo.editorOpen
+    signal cabMenuRequested()
     signal stateInfoRequested()
     signal stateInfoClosed()
     property bool effectsVisible: false
@@ -409,10 +410,20 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 spacing: 2
+                activeFocusOnTab: !root.stateInfoVisible
+                Accessible.role: Accessible.Button
+                Accessible.name: "Cab menu"
+                Accessible.onPressAction: root.cabMenuRequested()
+                Keys.onReturnPressed: root.cabMenuRequested()
+                Keys.onSpacePressed: root.cabMenuRequested()
+                TapHandler {
+                    enabled: !root.stateInfoVisible
+                    onTapped: root.cabMenuRequested()
+                }
                 Label {
                     Layout.fillWidth: true
                     text: root.stateInfoVisible && root.stateInfoFromRoster ? (root.stateInfoIdentity.startsWith("ENGINE") ? "Engine record" : "Train record") :
-                          (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
+                          (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "") + (root.stateInfoVisible ? "" : "  ▾")
                     color: "#f4f6f8"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight

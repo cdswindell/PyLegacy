@@ -25,6 +25,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     from pytrain.utils.host_info import HostInfo, is_linux, is_steam_deck
 
     from .accessory_controller import AccessoryCatalogController
+    from .admin_controller import AdminController
     from .cab_controller import CabController
     from .catalog_controller import EngineCatalogController
     from .gamepad import QtCabInputSink, QtGamepadInput
@@ -72,6 +73,9 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     gamepad = QtGamepadInput(QtCabInputSink(cab), cab)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("cabController", cab)
+    admin = AdminController()
+    admin.exitRequested.connect(app.quit)
+    engine.rootContext().setContextProperty("managePyTrainController", admin)
     state_info = StateInfoController()
     engine.rootContext().setContextProperty("stateInfoController", state_info)
     engine.rootContext().setContextProperty("accessoryCatalogController", accessories)

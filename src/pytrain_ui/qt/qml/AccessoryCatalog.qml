@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
 
     property var controller
     property var lcsController: null
@@ -114,6 +115,7 @@ Rectangle {
     }
 
     ColumnLayout {
+        id: pageLayout
         anchors.fill: parent
         anchors.margins: 12
         spacing: 10
@@ -129,7 +131,7 @@ Rectangle {
                 font.bold: true
                 elide: Text.ElideRight
             }
-            AllStopButton { compact: root.height < 850; onClicked: root.controller.halt() }
+            AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: root.controller.halt() }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -342,6 +344,7 @@ Rectangle {
     LcsConfig {
         id: lcsConfig
         controller: root.lcsController
+        editorTop: root.editorTop
     }
 
     TmccKeypad {

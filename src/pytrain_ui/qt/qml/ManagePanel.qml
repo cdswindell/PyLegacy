@@ -1,0 +1,159 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+Rectangle {
+    id: root
+    required property var admin
+    required property var cab
+    property bool allNodes: false
+    property int revision: 0
+    signal closeRequested()
+    signal accessoriesRequested()
+    signal imagesRequested()
+    color: "#102858"
+    radius: 12
+
+    onVisibleChanged: if (visible) {
+        allNodes = false
+        admin.refresh()
+    }
+    Connections {
+        target: root.admin
+        function onChanged() { root.revision++ }
+    }
+    Timer {
+        running: root.visible
+        interval: 1500
+        repeat: true
+        onTriggered: root.admin.refresh()
+    }
+
+    component SectionLabel: Label {
+        color: "#bad4ea"
+        font.bold: true
+        font.pixelSize: 17
+    }
+
+    component PanelButton: FunctionButton {
+        Layout.fillWidth: true
+        Layout.preferredWidth: 0
+        Layout.preferredHeight: 54
+        font.pixelSize: 19
+        wrapLabel: true
+    }
+
+    component AdminButton: PanelButton {
+        required property string command
+        enabled: {
+            root.revision
+            return root.admin.canRun(command, root.allNodes)
+        }
+        deferForHold: true
+        holdThreshold: 3000
+        onHeld: root.admin.run(command, root.allNodes)
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 12
+        spacing: 12
+
+        RowLayout {
+            Layout.fillWidth: true
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+                Label { text: "Manage PyTrain"; color: "#f4f6f8"; font.pixelSize: 26; font.bold: true }
+                Label { text: root.admin.version; color: "#bad4ea"; font.pixelSize: 16 }
+            }
+            AllStopButton { compact: root.height < 850; onClicked: root.cab.halt() }
+        }
+
+        ScrollView {
+            id: scroll
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentWidth: availableWidth
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            ColumnLayout {
+                width: scroll.availableWidth
+                spacing: 8
+
+                SectionLabel { text: root.admin.layoutName || "Base 3 Database" }
+                Label {
+                    Layout.fillWidth: true
+                    text: "Local IP  " + root.admin.addresses
+                    color: "#f4f6f8"
+                    font.pixelSize: 16
+                    wrapMode: Text.WordWrap
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.admin.synchronized ? "Database loaded" : "Database syncing or unavailable"
+                        color: "#bad4ea"
+                        wrapMode: Text.WordWrap
+                    }
+                    AdminButton { text: "Reload Base 3"; command: "RESYNC" }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    PanelButton { text: "Reload Accessories"; onClicked: root.accessoriesRequested() }
+                    PanelButton { text: "Refresh Images"; onClicked: root.imagesRequested() }
+                }
+
+                SectionLabel { text: "Logging & Debugging"; Layout.topMargin: 8 }
+                RowLayout {
+                    Layout.fillWidth: true
+                    PanelButton {
+                        text: "Logging"
+                        selected: root.admin.logging
+                        onClicked: root.admin.setLogging(!selected)
+                    }
+                    PanelButton {
+                        text: "Debugging"
+                        selected: root.admin.debugging
+                        enabled: root.admin.logging
+                        onClicked: root.admin.setDebugging(!selected)
+                    }
+                }
+
+                SectionLabel { text: "Maintenance Scope"; Layout.topMargin: 8 }
+                RowLayout {
+                    Layout.fillWidth: true
+                    PanelButton { text: "Local"; selected: !root.allNodes; onClicked: root.allNodes = false }
+                    PanelButton { text: "All"; selected: root.allNodes; onClicked: root.allNodes = true }
+                }
+                SectionLabel { text: "Hold for 3 seconds" }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    AdminButton { text: "Restart"; command: "RESTART" }
+                    AdminButton { text: "Reboot"; command: "REBOOT" }
+                    AdminButton { text: "Update PyTrain"; command: "UPDATE" }
+                    AdminButton { text: "Upgrade Pi OS"; command: "UPGRADE" }
+                    AdminButton { text: "Quit"; command: "QUIT" }
+                    AdminButton { text: "Shutdown"; command: "SHUTDOWN" }
+                }
+                Label {
+                    visible: text.length > 0
+                    Layout.fillWidth: true
+                    text: root.admin.status
+                    wrapMode: Text.WordWrap
+                    color: "#f4f6f8"
+                }
+            }
+        }
+        CabButton {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 180
+            Layout.preferredHeight: 52
+            text: "Close"
+            onClicked: root.closeRequested()
+        }
+    }
+}

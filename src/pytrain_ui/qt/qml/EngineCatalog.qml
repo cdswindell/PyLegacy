@@ -9,6 +9,7 @@ Rectangle {
     required property var catalog
     required property var selection
     property var infoController: null
+    signal cabMenuRequested()
     signal engineSelected()
     signal closeRequested()
     signal engineRequested(int tmccId)
@@ -110,7 +111,13 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                Label { text: root.scope === "TRAIN" ? "TRAINS" : "ENGINES"; color: "#f4f6f8"; font.pixelSize: 28; font.bold: true }
+                CabButton {
+                    text: root.scope === "TRAIN" ? "Trains  ▾" : "Engines  ▾"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 52
+                    font.pixelSize: 22
+                    onClicked: root.cabMenuRequested()
+                }
                 Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#aeb7c2"; font.pixelSize: 18 }
             }
             Item { Layout.fillWidth: true }
