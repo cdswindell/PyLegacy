@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Rectangle {
+RosterPanel {
     id: root
     readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
 
@@ -57,7 +57,6 @@ Rectangle {
         lcsConfig.close()
     }
 
-    color: "#15191f"
     radius: 10
 
     function compareRoadNumbers(a, b) {

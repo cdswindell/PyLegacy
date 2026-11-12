@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Rectangle {
+RosterPanel {
     id: root
     readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
 
@@ -24,7 +24,6 @@ Rectangle {
     signal closeRequested()
     signal cabMenuRequested()
 
-    color: "#171a1f"
     radius: 14
 
     function compareRows(a, b) {
@@ -420,6 +419,8 @@ Rectangle {
             objectName: "operationsRoster"
             enabled: !(routeBuilder.visible || routePicker.visible || switchEditor.visible ||
                        addSwitchPopup.visible || overwriteSwitchPopup.visible || lcsConfig.visible)
+            Layout.leftMargin: controller.scope === "SWITCH" ? -6 : 0
+            Layout.rightMargin: Layout.leftMargin
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
