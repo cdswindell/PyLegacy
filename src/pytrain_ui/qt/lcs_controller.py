@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
+from functools import partial
+from typing import Callable
 
-from pytrain.db.component_state_store import ComponentStateStore
-from pytrain.db.state_watcher import StateWatcher
-from pytrain.protocol.constants import CommandScope
+from PySide6.QtCore import Property, QObject, Qt, QTimer, QUrl, Signal, Slot
+
+from pytrain.pdi.lcs_req import LcsReq
+from pytrain.pdi.pdi_listener import PdiDispatcher
 from pytrain.utils.path_utils import find_file
 
 from pytrain.gui.controller.lcs_config_panel import (
@@ -22,8 +24,9 @@ from pytrain.gui.controller.lcs_device_registry import (
     configurable_devices,
     enabled_modes,
     programmed_options,
+    reported_mode,
 )
-from pytrain.gui.controller.lcs_sequence_builder import build_program
+from pytrain.gui.controller.lcs_sequence_builder import LcsProgram, build_program
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of, overlaps, train_overlaps, trains_of
 
 
@@ -31,7 +34,7 @@ class LcsConfigController(QObject):
     """Expose the toolkit-neutral LCS registry to Qt Quick."""
 
     changed = Signal()
-    readbackChanged = Signal(int)
+    readbackReceived = Signal(int, object)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -42,9 +45,9 @@ class LcsConfigController(QObject):
         self._configure_status = ""
         self._configure_state = ""
         self._configure_generation = 0
-        self._readback_watcher: StateWatcher | None = None
-        self._sent_program = None
-        self.readbackChanged.connect(self._on_readback_changed)
+        self._unsubscribe_readback: Callable[[], None] | None = None
+        self._sent_program: LcsProgram | None = None
+        self.readbackReceived.connect(self._on_readback_received, Qt.ConnectionType.QueuedConnection)
 
     @Property("QVariantList", notify=changed)
     def devices(self) -> list[dict]:
@@ -251,7 +254,7 @@ class LcsConfigController(QObject):
     def clearConfigureStatus(self) -> None:
         """Clear feedback from an earlier configuration attempt."""
         self._configure_generation += 1
-        self._stop_readback_watcher()
+        self._stop_readback()
         self._sent_program = None
         self._set_configure_status("", "")
 
@@ -268,51 +271,44 @@ class LcsConfigController(QObject):
         self._configure_status = text
         self.changed.emit()
 
-    def _readback_state(self, program):
-        scope = CommandScope.IRDA if program.device.key == "sensor_track" else program.mode.scope
-        return ComponentStateStore.get_state(scope, program.base_id, create=False)
+    def _stop_readback(self) -> None:
+        unsubscribe, self._unsubscribe_readback = self._unsubscribe_readback, None
+        if unsubscribe is not None:
+            unsubscribe()
 
-    def _stop_readback_watcher(self) -> None:
-        watcher, self._readback_watcher = self._readback_watcher, None
-        if watcher is not None:
-            watcher.shutdown()
-
-    def _watch_readback(self, generation: int) -> None:
-        self._stop_readback_watcher()
-        state = self._readback_state(self._sent_program)
-        if state is None:
+    def _listen_for_readback(self, program: LcsProgram, generation: int) -> None:
+        if not PdiDispatcher.is_built():
             return
-        self._readback_watcher = StateWatcher(state, lambda: self.readbackChanged.emit(generation))
+        dispatcher = PdiDispatcher.get()
+        command = program.device.pdi_device.value.rx
+        action = program.verify[0].action
 
-    @Slot(int)
-    def _on_readback_changed(self, generation: int) -> None:
-        if generation != self._configure_generation or self._sent_program is None:
-            return
-        self._verify_readback(generation)
+        def receive(reply: LcsReq) -> None:
+            if reply.tmcc_id == program.base_id and not reply.is_error:
+                self.readbackReceived.emit(generation, reply)
 
-    def _verify_readback(self, generation: int) -> None:
-        if generation != self._configure_generation or self._sent_program is None:
+        dispatcher.subscribe(receive, command, action=action)
+        self._unsubscribe_readback = partial(dispatcher.unsubscribe, receive, command, command=action)
+
+    @Slot(int, object)
+    def _on_readback_received(self, generation: int, reply: LcsReq) -> None:
+        if generation != self._configure_generation or self._configure_state != "polling":
             return
         program = self._sent_program
-        occupant = next(
-            (
-                item
-                for item in occupants_of(program.base_id, scope=program.mode.scope)
-                if item.device is program.device and item.base_id == program.base_id
-            ),
-            None,
-        )
-        if occupant is None:
+        if program is None:
+            return
+        mode = program.device.mode_for_pdi_mode(reported_mode(program.device, reply))
+        if mode is None or mode.scope != program.mode.scope:
             return
         differs = []
-        if occupant.mode is not None and occupant.mode is not program.mode:
+        if mode is not program.mode:
             differs.append("Mode")
         for option in programmed_options(program.device, program.mode):
-            reported = option.reported_by(occupant.config)
+            reported = option.reported_by(reply)
             expected = program.options.get(option.key)
             if reported is not None and reported != expected:
                 differs.append(option.label)
-        self._stop_readback_watcher()
+        self._stop_readback()
         if differs:
             detail = ", ".join(dict.fromkeys(differs))
             self._set_configure_status(
@@ -326,21 +322,15 @@ class LcsConfigController(QObject):
     def _readback_timeout(self, generation: int) -> None:
         if generation != self._configure_generation or self._configure_state != "polling":
             return
-        self._stop_readback_watcher()
+        self._stop_readback()
         program = self._sent_program
+        if program is None:
+            return
         self._set_configure_status(
             "error",
             f"Unsuccessful - no configuration reported. "
             f"Hold the {program.device.label}'s {program.device.program_button} button and try again.",
         )
-
-    def _ensure_readback_watcher(self, generation: int) -> None:
-        if generation != self._configure_generation or self._configure_state != "polling":
-            return
-        if self._readback_watcher is None:
-            self._watch_readback(generation)
-        if self._readback_watcher is None:
-            QTimer.singleShot(250, lambda: self._ensure_readback_watcher(generation))
 
     @Slot(result=str)
     def configure(self) -> str:
@@ -355,13 +345,14 @@ class LcsConfigController(QObject):
 
         self._configure_generation += 1
         generation = self._configure_generation
+        self._stop_readback()
         self._sent_program = program
+        self._listen_for_readback(program, generation)
         self._set_configure_status(
             "polling",
             f"Configuration request sent. Polling the {device.label} to verify its configuration "
             "matches what was sent...",
         )
-        self._watch_readback(generation)
 
         for index, request in enumerate(program.presses):
             request.send(delay=index * PRESS_DELAY)
@@ -369,7 +360,6 @@ class LcsConfigController(QObject):
             for index, request in enumerate(program.verify):
                 request.send(delay=at + index * PRESS_DELAY)
 
-        self._ensure_readback_watcher(generation)
         QTimer.singleShot(READBACK_TIMEOUT_MSEC, lambda: self._readback_timeout(generation))
         return ""
 

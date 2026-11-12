@@ -123,6 +123,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         cleanup = [
             ("session preferences", remember_current_engine),
             ("gamepad", gamepad.close),
+            ("LCS readback", lcs.clearConfigureStatus),
             ("accessories", accessories.close),
             ("routes", routes.close),
             ("switches", switches.close),
