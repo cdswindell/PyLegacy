@@ -79,7 +79,11 @@ Rectangle {
     readonly property bool passengerCar: cab.isStandalonePassenger
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
-    readonly property int tileHeight: compact ? 72 : 112
+    readonly property int preferredTileHeight: compact ? 72 : 112
+    readonly property int tileHeight: {
+        const heightForSixRows = operatingColumns.height - artwork.y - artwork.height - 6 * gap
+        return Math.max(compact ? 52 : 96, Math.min(preferredTileHeight, Math.floor(heightForSixRows / 6)))
+    }
     readonly property int sliderButtonHeight: compact ? 52 : 60
 
     function handleModelHold(action) {
@@ -144,7 +148,7 @@ Rectangle {
         return ["car_aux1", "car_aux2", "car_aux3"].map((key, index) => {
             const action = actions.find(item => item.key === key)
             return action ? Object.assign({}, action, {label: "Aux " + (index + 1), repeat: false}) : undefined
-        })
+        }).filter(action => action !== undefined)
     }
 
     function passengerActionRows() {
@@ -167,7 +171,7 @@ Rectangle {
             if (action && labels[key])
                 return Object.assign({}, action, {label: labels[key]})
             return action
-        })).concat([root.passengerAuxActions()])
+        }))
     }
 
     function driveActionRows() {
@@ -315,7 +319,7 @@ Rectangle {
         wrapLabel: !fitLabelWidth
         fitLabelWidth: action.key.endsWith("_coupler")
         padding: root.compact ? 4 : 6
-        iconSize: root.compact ? 40 : 72
+        iconSize: (root.compact ? 40 : 72) - (root.preferredTileHeight - root.tileHeight)
         compact: auxiliary
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
               : auxiliary ? action.label.replace(" · ", "\n") : action.label
@@ -658,13 +662,15 @@ Rectangle {
                     objectName: "auxiliaryGrid"
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    visible: !root.effectsVisible && !root.passengerCar
+                    visible: !root.effectsVisible
                     height: root.tileHeight
-                    y: visible ? parent.height - height : parent.height
+                    y: visible
+                        ? Math.min(parent.height - height, actionScroll.y + 5 * (height + root.gap))
+                        : parent.height
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
-                        model: cab.secondaryActionModel
+                        model: root.passengerCar ? root.passengerAuxActions() : cab.secondaryActionModel
                         ActionTile {
                             required property var modelData
                             action: modelData
