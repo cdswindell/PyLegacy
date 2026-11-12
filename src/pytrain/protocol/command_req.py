@@ -256,9 +256,8 @@ class CommandReq:
                 )
             else:
                 raise ValueError(f"Invalid scope: {request.scope}")
-            # prefix command is sent twice
             prefix = CommandReq(cmd_enum, address=request.address, scope=request.scope).as_bytes
-            prefix_bytes = [prefix] * 2
+            prefix_bytes = [prefix]
             repeat = 1
         else:
             prefix_bytes = []

@@ -46,7 +46,7 @@ class TestAccAuxNumbers:
         req.send()
         prefix = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, address=5, scope=CommandScope.ACC).as_bytes
         as_bytes = [cmd if isinstance(cmd, bytes) else cmd.as_bytes for cmd in sent]
-        assert as_bytes == [prefix, prefix, req.as_bytes]
+        assert as_bytes == [prefix, req.as_bytes]
 
     def test_alias_map_untouched(self):
         # the alias map is built from the engine enum only; the new ACC members must not appear in it
