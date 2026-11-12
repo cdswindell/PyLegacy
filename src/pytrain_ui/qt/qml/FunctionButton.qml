@@ -46,6 +46,8 @@ Control {
     font.pixelSize: compact ? 12 : 14
     focusPolicy: Qt.StrongFocus
 
+    readonly property real iconOpacity: enabled ? 1 : 0.5
+
     contentItem: GridLayout {
         columns: root.stacked ? 1 : 2
         rowSpacing: 4
@@ -56,6 +58,7 @@ Control {
             Layout.preferredHeight: root.iconSize
             Layout.alignment: Qt.AlignCenter
             visible: root.iconSource.toString().length > 0
+            opacity: root.iconOpacity
             radius: root.compact ? 4 : 6
             color: "#e8ebef"
             border.width: 1
@@ -73,6 +76,7 @@ Control {
 
         Canvas {
             visible: root.stopSign
+            opacity: root.iconOpacity
             Layout.alignment: Qt.AlignCenter
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
@@ -110,7 +114,7 @@ Control {
 
         LevelGauge {
             visible: root.showGauge
-            opacity: root.enabled ? 1 : 0.5
+            opacity: root.iconOpacity
             Layout.alignment: Qt.AlignCenter
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
@@ -121,6 +125,7 @@ Control {
         SpeedChevrons {
             Layout.alignment: Qt.AlignCenter
             count: root.speedChevrons
+            opacity: root.iconOpacity
         }
 
         Text {

@@ -201,6 +201,15 @@ Rectangle {
             && !(cab.isElectric && (action.key === "startup" || action.key === "shutdown")) })))
     }
 
+    function unavailableSpeedAction(key, label, icon) {
+        return {
+            key: key,
+            label: label,
+            iconSource: Qt.resolvedUrl("../../../pytrain/gui/images/engine_gui/" + icon),
+            disabled: true
+        }
+    }
+
     function speedActionRows() {
         const presets = ["Restricted", "Slow", "Medium", "Limited", "Normal", "Highball"].map((label, index) => ({
             key: label.toUpperCase(),
@@ -237,10 +246,17 @@ Rectangle {
         ]
         if (canRefuel || cab.isElectric || root.passengerCar)
             auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
+        const volumeUp = [byKey.master_volume_up, byKey.blend_up, byKey.labor_up || byKey.electric_effort_up]
+        const volumeDown = [byKey.master_volume_down, byKey.blend_down, byKey.labor_down || byKey.electric_effort_down]
+        if (root.passengerCar) {
+            volumeUp[1] = unavailableSpeedAction("blend_up", "Blend +", "blend-up.jpg")
+            volumeDown[1] = unavailableSpeedAction("blend_down", "Blend −", "blend-down.jpg")
+            volumeUp[2] = unavailableSpeedAction("labor_up", "Effort +", "effort-up.jpg")
+            volumeDown[2] = unavailableSpeedAction("labor_down", "Effort −", "effort-down.jpg")
+        }
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
-            [byKey.master_volume_up, byKey.blend_up, byKey.labor_up || byKey.electric_effort_up],
-            [byKey.master_volume_down, byKey.blend_down, byKey.labor_down || byKey.electric_effort_down]
+            volumeUp, volumeDown
         ]
         return rows.concat(root.pairedActionRows(otherActions))
     }
@@ -963,12 +979,13 @@ Rectangle {
                 Rectangle {
                     id: stateTile
                     required property var modelData
-                    readonly property bool editable: (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
+                    readonly property bool editable: !root.passengerCar && (
+                        (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
                         (modelData.label === "Brake" && cab.supportsTrainBrake) ||
                         (modelData.label === "Smoke" && cab.supportsSmoke) ||
                         (modelData.label === "Effort" && cab.supportsLabor) ||
-                        (modelData.label === "RPM" && cab.supportsRpm)
+                        (modelData.label === "RPM" && cab.supportsRpm))
                     objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : ""
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
