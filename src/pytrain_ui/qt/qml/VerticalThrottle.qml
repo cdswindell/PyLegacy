@@ -11,7 +11,7 @@ Item {
     property int pendingValue: value
     property bool awaitingConfirmation: false
     property bool largeTouch: false
-    readonly property bool dragging: dragHandler.active
+    readonly property bool dragging: pointer.pressed
     readonly property real activeHeight: Math.max(1, height)
     signal valueCommitted(int value)
 
@@ -23,7 +23,7 @@ Item {
     }
 
     function displayValue() {
-        return (dragHandler.active || awaitingConfirmation) ? pendingValue : value
+        return (pointer.pressed || awaitingConfirmation) ? pendingValue : value
     }
 
     function commit(v) {
@@ -46,7 +46,7 @@ Item {
     }
 
     onValueChanged: {
-        if (dragHandler.active)
+        if (pointer.pressed)
             return
         if (awaitingConfirmation) {
             if (value === pendingValue) {
@@ -114,13 +114,13 @@ Item {
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
         gradient: Gradient {
-            GradientStop { position: 0; color: dragHandler.active ? "#f2f9ff" : "#d3dce5" }
+            GradientStop { position: 0; color: pointer.pressed ? "#f2f9ff" : "#d3dce5" }
             GradientStop { position: 0.45; color: "#aab8c6" }
             GradientStop { position: 0.5; color: "#7c8fa1" }
             GradientStop { position: 1; color: "#43576a" }
         }
         border.width: 2
-        border.color: dragHandler.active ? "#5fb7f2" : "#9aa2ad"
+        border.color: pointer.pressed ? "#5fb7f2" : "#9aa2ad"
 
         Rectangle {
             anchors.fill: parent
@@ -169,35 +169,30 @@ Item {
             }
         }
 
-        DragHandler {
-            id: dragHandler
-            target: null
-            xAxis.enabled: false
-            yAxis.enabled: true
-            property real startY: 0
-
-            onActiveChanged: {
-                if (active) {
-                    confirmationTimer.stop()
-                    root.awaitingConfirmation = false
-                    root.pendingValue = root.value
-                    startY = root.valueToY(root.value)
-                } else {
-                    root.commit(root.pendingValue)
-                }
-            }
-
-            onTranslationChanged: {
-                if (active)
-                    root.pendingValue = root.yToValue(startY + translation.y)
-            }
-        }
     }
 
-    TapHandler {
+    MouseArea {
+        id: pointer
+        anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        onTapped: function(eventPoint) {
-            root.commit(root.yToValue(eventPoint.position.y - handle.height / 2))
+        property real grabOffset: 0
+
+        onPressed: function(event) {
+            const thumbY = root.valueToY(root.awaitingConfirmation ? root.pendingValue : root.value)
+            const onThumb = event.x >= handle.x && event.x <= handle.x + handle.width
+                && event.y >= thumbY && event.y <= thumbY + handle.height
+            grabOffset = onThumb ? event.y - thumbY : handle.height / 2
+            confirmationTimer.stop()
+            root.awaitingConfirmation = false
+            root.pendingValue = root.yToValue(event.y - grabOffset)
         }
+        onPositionChanged: function(event) {
+            if (pressed)
+                root.pendingValue = root.yToValue(event.y - grabOffset)
+        }
+        onReleased: function(event) {
+            root.commit(root.yToValue(event.y - grabOffset))
+        }
+        onCanceled: root.pendingValue = root.value
     }
 }

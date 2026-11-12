@@ -8,9 +8,10 @@ Item {
     property int maximumValue: 7
     property int value: 0
     property int pendingValue: value
+    property bool awaitingConfirmation: false
     property bool springReturn: false
     property bool largeTouch: false
-    readonly property bool dragging: dragHandler.active
+    readonly property bool dragging: pointer.pressed
     readonly property int tickCount: maximumValue <= 7 ? maximumValue + 1 : 5
     readonly property real activeHeight: Math.max(1, height)
 
@@ -26,7 +27,7 @@ Item {
     }
 
     function displayValue() {
-        return dragHandler.active ? pendingValue : (springReturn ? 0 : value)
+        return pointer.pressed || awaitingConfirmation ? pendingValue : (springReturn ? 0 : value)
     }
 
     function valueToY(v) {
@@ -42,12 +43,28 @@ Item {
     }
 
     onValueChanged: {
-        if (!dragHandler.active && !springReturn)
+        if (awaitingConfirmation && value === pendingValue) {
+            awaitingConfirmation = false
+            confirmationTimer.stop()
+        }
+        if (!pointer.pressed && !springReturn && !awaitingConfirmation)
             pendingValue = clamp(value)
     }
 
     onMaximumValueChanged: {
         pendingValue = clamp(pendingValue)
+    }
+
+    onSpringReturnChanged: {
+        awaitingConfirmation = false
+        confirmationTimer.stop()
+        pendingValue = springReturn ? 0 : clamp(value)
+    }
+
+    Timer {
+        id: confirmationTimer
+        interval: 900
+        onTriggered: root.awaitingConfirmation = false
     }
 
     Rectangle {
@@ -91,9 +108,9 @@ Item {
         radius: 9
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
-        color: dragHandler.active ? "#f7f9fb" : "#e1e5ea"
+        color: pointer.pressed ? "#f7f9fb" : "#e1e5ea"
         border.width: 2
-        border.color: dragHandler.active ? "#5fb7f2" : "#9aa2ad"
+        border.color: pointer.pressed ? "#5fb7f2" : "#9aa2ad"
 
         Text {
             anchors.centerIn: parent
@@ -103,47 +120,51 @@ Item {
             color: "#171a1f"
         }
 
-        DragHandler {
-            id: dragHandler
-            target: null
-            xAxis.enabled: false
-            yAxis.enabled: true
-            property real startY: 0
-
-            onActiveChanged: {
-                if (active) {
-                    root.pendingValue = root.springReturn ? 0 : root.value
-                    startY = root.valueToY(root.pendingValue)
-                } else {
-                    root.valueCommitted(root.pendingValue)
-                    root.released()
-                    if (root.springReturn)
-                        root.pendingValue = 0
-                }
-            }
-
-            onTranslationChanged: {
-                if (!active)
-                    return
-                const nextValue = root.yToValue(startY + translation.y)
-                if (nextValue !== root.pendingValue) {
-                    root.pendingValue = nextValue
-                    root.valueMoved(nextValue)
-                }
-            }
-        }
     }
 
-    TapHandler {
+    MouseArea {
+        id: pointer
+        anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        onTapped: function(eventPoint) {
-            const nextValue = root.yToValue(eventPoint.position.y - handle.height / 2)
-            root.pendingValue = nextValue
-            root.valueMoved(nextValue)
-            root.valueCommitted(nextValue)
-            root.released()
-            if (root.springReturn)
+        property real grabOffset: 0
+
+        function moveTo(y) {
+            const nextValue = root.yToValue(y - grabOffset)
+            if (nextValue !== root.pendingValue) {
+                root.pendingValue = nextValue
+                root.valueMoved(nextValue)
+            }
+        }
+
+        onPressed: function(event) {
+            const currentValue = root.awaitingConfirmation ? root.pendingValue : (root.springReturn ? 0 : root.value)
+            const thumbY = root.valueToY(currentValue)
+            const onThumb = event.x >= handle.x && event.x <= handle.x + handle.width
+                && event.y >= thumbY && event.y <= thumbY + handle.height
+            grabOffset = onThumb ? event.y - thumbY : handle.height / 2
+            confirmationTimer.stop()
+            root.awaitingConfirmation = false
+            root.pendingValue = currentValue
+            moveTo(event.y)
+        }
+        onPositionChanged: function(event) {
+            if (pressed)
+                moveTo(event.y)
+        }
+        onReleased: {
+            if (root.springReturn) {
                 root.pendingValue = 0
+            } else {
+                root.awaitingConfirmation = root.pendingValue !== root.value
+                if (root.awaitingConfirmation)
+                    confirmationTimer.restart()
+                root.valueCommitted(root.pendingValue)
+            }
+            root.released()
+        }
+        onCanceled: {
+            root.pendingValue = root.springReturn ? 0 : root.value
+            root.released()
         }
     }
 }

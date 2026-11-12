@@ -160,8 +160,7 @@ Rectangle {
             byKey[action.key] = action
         const labels = {
             option_one_on: "Clack On", option_one_off: "Clack Off",
-            option_two_on: "Grind On", option_two_off: "Grind Off",
-            bell: "Ring Bell"
+            option_two_on: "Grind On", option_two_off: "Grind Off"
         }
         const rows = root.freightCar ? [
             ["startup", "shutdown", "freight_load"],
@@ -855,8 +854,6 @@ Rectangle {
                                 }
                                 onValueCommitted: function(v) {
                                     if (analogMode.currentText === "Momentum") cab.setMomentum(v)
-                                    else if (analogMode.currentText === "Brake") cab.setTrainBrake(v)
-                                    else if (analogMode.currentText === "Horn") cab.setQuillingHorn(v)
                                 }
                             }
                             Label {
