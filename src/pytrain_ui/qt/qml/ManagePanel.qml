@@ -8,6 +8,9 @@ Rectangle {
     required property var cab
     property bool allNodes: false
     property int revision: 0
+    readonly property bool compact: height < 850
+    readonly property int buttonGap: compact ? 10 : 14
+    readonly property int sectionGap: compact ? 12 : 18
     signal closeRequested()
     signal accessoriesRequested()
     signal imagesRequested()
@@ -56,14 +59,15 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 12
+        anchors.margins: root.compact ? 14 : 18
+        spacing: root.buttonGap
 
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: adminStop.height
+            Layout.preferredHeight: Math.max(adminStop.height, adminTitle.implicitHeight)
 
             ColumnLayout {
+                id: adminTitle
                 anchors.left: parent.left
                 anchors.right: adminStop.left
                 anchors.rightMargin: 8
@@ -84,6 +88,14 @@ Rectangle {
                     font.pixelSize: 16
                     elide: Text.ElideRight
                 }
+                Label {
+                    visible: text.length > 0
+                    Layout.fillWidth: true
+                    text: root.admin.serverVersion
+                    color: "#bad4ea"
+                    font.pixelSize: 16
+                    elide: Text.ElideRight
+                }
             }
             AllStopButton {
                 id: adminStop
@@ -91,7 +103,7 @@ Rectangle {
                 anchors.top: parent.top
                 width: Layout.preferredWidth
                 height: Layout.preferredHeight
-                compact: root.height < 850
+                compact: root.compact
                 onClicked: root.cab.halt()
             }
         }
@@ -106,7 +118,7 @@ Rectangle {
 
             ColumnLayout {
                 width: scroll.availableWidth
-                spacing: 8
+                spacing: root.buttonGap
 
                 SectionLabel {
                     visible: text.length > 0
@@ -119,9 +131,10 @@ Rectangle {
                     font.pixelSize: 16
                     wrapMode: Text.WordWrap
                 }
-                SectionLabel { text: "Base 3 Database"; Layout.topMargin: 8 }
+                SectionLabel { text: "Base 3 Database"; Layout.topMargin: root.sectionGap }
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: root.buttonGap
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
@@ -150,13 +163,15 @@ Rectangle {
                 }
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: root.buttonGap
                     PanelButton { text: "Reload Accessories"; onClicked: root.accessoriesRequested() }
                     PanelButton { text: "Refresh Images"; onClicked: root.imagesRequested() }
                 }
 
-                SectionLabel { text: "Logging & Debugging"; Layout.topMargin: 8 }
+                SectionLabel { text: "Logging & Debugging"; Layout.topMargin: root.sectionGap }
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: root.buttonGap
                     PanelButton {
                         text: "Logging"
                         selected: root.admin.logging
@@ -170,16 +185,19 @@ Rectangle {
                     }
                 }
 
-                SectionLabel { text: "Maintenance Scope"; Layout.topMargin: 8 }
+                SectionLabel { text: "Maintenance Scope"; Layout.topMargin: root.sectionGap }
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: root.buttonGap
                     PanelButton { text: "Local"; selected: !root.allNodes; onClicked: root.allNodes = false }
                     PanelButton { text: "All"; selected: root.allNodes; onClicked: root.allNodes = true }
                 }
-                SectionLabel { text: "Hold for 3 seconds" }
+                SectionLabel { text: "Hold for 3 seconds"; Layout.topMargin: root.sectionGap }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2
+                    rowSpacing: root.buttonGap
+                    columnSpacing: root.buttonGap
                     AdminButton { text: "Restart"; command: "RESTART" }
                     AdminButton { text: "Reboot"; command: "REBOOT" }
                     AdminButton { text: "Update PyTrain"; command: "UPDATE" }

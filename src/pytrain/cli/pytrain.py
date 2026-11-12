@@ -884,6 +884,11 @@ class PyTrain:
         return not self.is_server
 
     @property
+    def server_version(self) -> tuple[int, int, int] | None:
+        """Return the version announced by the connected server."""
+        return self._tmcc_buffer.server_version if self.is_client else None
+
+    @property
     def is_api(self) -> bool:
         return self._api
 

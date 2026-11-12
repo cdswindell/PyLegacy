@@ -37,8 +37,13 @@ class AdminController(QObject):
     @Property(str, constant=True)
     def version(self) -> str:
         role = "Server" if self._runtime and self._runtime.is_server else "Client"
-        version = self._flatpak_tag or f"v{get_version()}"
+        version = self._flatpak_tag or get_version()
         return f"PyTrain {role} {version}"
+
+    @Property(str, notify=changed)
+    def serverVersion(self) -> str:
+        version = self._runtime.server_version if self._runtime is not None else None
+        return "PyTrain Server v" + ".".join(map(str, version)) if version else ""
 
     @Property(str, notify=changed)
     def layoutName(self) -> str:
