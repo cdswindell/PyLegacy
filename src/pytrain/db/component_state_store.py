@@ -289,9 +289,12 @@ class ComponentStateStore:
                 if pri_state:
                     pri_tmcc_id = pri_state.address
                     for offset in range(1, config.num_addressable_ports):
-                        slave_state = ComponentStateStore.get_state(config.scope, pri_tmcc_id + offset, True)
+                        port_address = pri_tmcc_id + offset
+                        slave_state = ComponentStateStore.get_state(config.scope, port_address, True)
                         if slave_state:
                             slave_state._parent = pri_state
+                            # The module's configuration confirms this port exists.
+                            ComponentStateStore.set_state(config.scope, port_address, slave_state)
             elif config.scope == CommandScope.IRDA:
                 pri_state = ComponentStateStore.get_state(CommandScope.IRDA, config.address, False)
                 slave_state = ComponentStateStore.get_state(CommandScope.ACC, config.address)
