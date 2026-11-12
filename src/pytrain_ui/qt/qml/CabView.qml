@@ -45,6 +45,32 @@ Rectangle {
             dialogPanel.close()
     }
 
+    component SpeedStepButton: CabButton {
+        id: step
+        required property int delta
+
+        Layout.fillWidth: true
+        Layout.minimumHeight: root.sliderButtonHeight
+        Layout.maximumHeight: root.sliderButtonHeight
+        Layout.preferredHeight: root.sliderButtonHeight
+        text: delta > 0 ? "+" : "−"
+        font.pixelSize: root.compact ? 32 : 38
+        enabled: cab.isCab1 || (!root.standaloneCar && !cab.isCrane && !cab.rampActive)
+        repeatWhileHeld: !cab.isCab1
+        onClicked: {
+            if (!cab.isCab1) {
+                cab.stepSpeed(delta)
+            } else if (cab.beginRelativeThrottle(step)) {
+                cab.moveRelativeThrottle(step, delta)
+                if (!step.isPointerPressed())
+                    cab.endRelativeThrottle(step)
+            }
+        }
+        onReleased: cab.endRelativeThrottle(step)
+        onEnabledChanged: if (!enabled) cab.endRelativeThrottle(step)
+        onVisibleChanged: if (!visible) cab.endRelativeThrottle(step)
+    }
+
     function analogModeLabel(mode) {
         return mode === "Horn" && cab.isSteam ? "Whistle" : mode
     }
@@ -201,9 +227,9 @@ Rectangle {
             for (const action of cab.primaryActionModel.concat(cab.actionModel))
                 byKey[action.key] = action
             return [
-                [byKey.startup, byKey.shutdown, byKey.crane_outriggers],
+                [byKey.startup, byKey.shutdown, byKey.crane_radio],
                 [byKey.crane_boom, byKey.crane_main_hook, byKey.crane_aux_hook],
-                [byKey.bell, byKey.horn, byKey.crane_radio],
+                [byKey.bell, byKey.horn, byKey.crane_outriggers],
                 [byKey.crane_rear_lamp, byKey.crane_front_lamp, byKey.boost],
                 [byKey.rear_coupler, byKey.front_coupler, byKey.brake]
             ]
@@ -781,6 +807,7 @@ Rectangle {
                         }
                     }
                     RowLayout {
+                        visible: !cab.isCab1
                         Layout.fillWidth: true
                         spacing: 5
                         CabButton {
@@ -789,7 +816,6 @@ Rectangle {
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: reverseButton
-                            visible: !cab.isCab1
                             objectName: "reverseDirectionButton"
                             text: "◀ Rev" + (root.requestedDirection === "REVERSE" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
@@ -803,23 +829,12 @@ Rectangle {
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: forwardButton
-                            visible: !cab.isCab1
                             objectName: "forwardDirectionButton"
                             text: "Fwd ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
                             enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
-                        }
-                        CabButton {
-                            objectName: "toggleDirectionButton"
-                            visible: cab.isCab1
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.compact ? 52 : 64
-                            text: "◀ Dir ▶"
-                            Accessible.name: "Toggle Direction"
-                            font.pixelSize: root.compact ? 17 : 22
-                            onClicked: cab.toggleDirection()
                         }
                     }
                     Item {
@@ -949,16 +964,18 @@ Rectangle {
                             width: cab.analogModes.length > 0 ? sliderColumns.laneWidth * 2 : sliderColumns.width
                             spacing: 6
                             CabButton {
+                                objectName: "toggleDirectionButton"
+                                visible: cab.isCab1
                                 Layout.fillWidth: true
-                                Layout.minimumHeight: root.sliderButtonHeight
-                                Layout.maximumHeight: root.sliderButtonHeight
-                                Layout.preferredHeight: root.sliderButtonHeight
+                                Layout.preferredHeight: root.compact ? 52 : 64
+                                text: "◀ Dir ▶"
+                                Accessible.name: "Toggle Direction"
+                                font.pixelSize: root.compact ? 17 : 22
+                                onClicked: cab.toggleDirection()
+                            }
+                            SpeedStepButton {
                                 objectName: "speedStepUp"
-                                text: "+"
-                                font.pixelSize: root.compact ? 32 : 38
-                                enabled: !root.standaloneCar && !cab.isCab1 && !cab.isCrane && !cab.rampActive
-                                repeatWhileHeld: true
-                                onClicked: cab.stepSpeed(1)
+                                delta: 1
                             }
                             VerticalThrottle {
                                 id: throttle
@@ -972,22 +989,14 @@ Rectangle {
                                 maximumValue: cab.isCab1 ? 5 : Math.max(1, cab.speedMax)
                                 value: cab.isCab1 ? 0 : cab.targetSpeed
                                 springReturn: cab.isCab1
-                                onGestureStarted: cab.beginRelativeThrottle()
-                                onValueMoved: function(v) { if (springReturn) cab.moveRelativeThrottle(v) }
-                                onGestureFinished: cab.endRelativeThrottle()
+                                onGestureStarted: cab.beginRelativeThrottle(throttle)
+                                onValueMoved: function(v) { if (springReturn) cab.moveRelativeThrottle(throttle, v) }
+                                onGestureFinished: cab.endRelativeThrottle(throttle)
                                 onValueCommitted: function(v) { cab.setSpeed(v) }
                             }
-                            CabButton {
-                                Layout.fillWidth: true
-                                Layout.minimumHeight: root.sliderButtonHeight
-                                Layout.maximumHeight: root.sliderButtonHeight
-                                Layout.preferredHeight: root.sliderButtonHeight
+                            SpeedStepButton {
                                 objectName: "speedStepDown"
-                                text: "−"
-                                font.pixelSize: root.compact ? 32 : 38
-                                enabled: !root.standaloneCar && !cab.isCab1 && !cab.isCrane && !cab.rampActive
-                                repeatWhileHeld: true
-                                onClicked: cab.stepSpeed(-1)
+                                delta: -1
                             }
                         }
                     }

@@ -15,7 +15,11 @@ Control {
     property color normalColor: "#343a44"
     property color selectedColor: "#246aa0"
     property color pressedColor: "#5c9fc6"
-    readonly property bool pressed: tapHandler.pressed || touchHandler.pressed
+    readonly property bool pressed: isPointerPressed()
+
+    function isPointerPressed() {
+        return tapHandler.pressed || touchHandler.pressed
+    }
     readonly property bool visualPressed: pressed || pressFlash.running
 
     Timer { id: pressFlash; interval: 140 }

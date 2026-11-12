@@ -77,7 +77,7 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     # Crane operations.
     EquipmentAction("crane_sound_on", "Unmute", "NUMBER_9", "sound-on.jpg", "r"),
     EquipmentAction("crane_sound_off", "Mute", "NUMBER_8", "sound-off.jpg", "r"),
-    EquipmentAction("crane_radio", "Crew Talk", "NUMBER_7", "walkie_talkie.jpg", "r"),
+    EquipmentAction("crane_radio", "Crew", "NUMBER_7", "walkie_talkie.jpg", "r"),
     EquipmentAction("crane_boom", "Boom/Cab", "NUMBER_1", "boom.jpg", "r"),
     EquipmentAction("crane_outriggers", "Outriggers", "NUMBER_6", "outriggers.jpg", "r"),
     EquipmentAction("crane_main_hook", "Main/Roll", "NUMBER_2", "main-hook.jpg", "r"),

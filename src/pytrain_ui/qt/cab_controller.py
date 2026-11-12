@@ -52,7 +52,7 @@ class CabController(QObject):
         self.stateUpdateReceived.connect(self._on_state)
         self._state_port = None
         self._command_port = None
-        self._relative_throttle_active = False
+        self._relative_throttle_owner: QObject | None = None
         self._relative_speed = 0
         self._relative_throttle_timer = QTimer(self)
         self._relative_throttle_timer.setInterval(CAB1_THROTTLE_REPEAT_MS)
@@ -77,7 +77,7 @@ class CabController(QObject):
             self.stateChanged.emit()
 
     def _release_target(self) -> None:
-        self.endRelativeThrottle()
+        self._end_relative_throttle()
         self._target_generation += 1
         if self._unsubscribe is not None:
             self._unsubscribe()
@@ -603,13 +603,16 @@ class CabController(QObject):
         if self._command_port is not None:
             self._command_port.send_panel_command(command)
 
-    @Slot()
-    def beginRelativeThrottle(self) -> None:
-        self._relative_throttle_active = self.isCab1
+    @Slot(QObject, result=bool)
+    def beginRelativeThrottle(self, owner: QObject) -> bool:
+        if not self.isCab1 or self._relative_throttle_owner is not None:
+            return False
+        self._relative_throttle_owner = owner
+        return True
 
-    @Slot(int)
-    def moveRelativeThrottle(self, speed: int) -> None:
-        if not self._relative_throttle_active or speed == self._relative_speed:
+    @Slot(QObject, int)
+    def moveRelativeThrottle(self, owner: QObject, speed: int) -> None:
+        if self._relative_throttle_owner is not owner or speed == self._relative_speed:
             return
         self._relative_speed = speed
         if not speed:
@@ -622,10 +625,14 @@ class CabController(QObject):
     def _send_relative_speed(self) -> None:
         self._command_port.set_relative_speed(self._relative_speed)
 
-    @Slot()
-    def endRelativeThrottle(self) -> None:
-        if self._relative_throttle_active:
-            self._relative_throttle_active = False
+    @Slot(QObject)
+    def endRelativeThrottle(self, owner: QObject) -> None:
+        if self._relative_throttle_owner is owner:
+            self._end_relative_throttle()
+
+    def _end_relative_throttle(self) -> None:
+        if self._relative_throttle_owner is not None:
+            self._relative_throttle_owner = None
             self._relative_throttle_timer.stop()
             self._relative_speed = 0
             self._send_relative_speed()
@@ -744,14 +751,14 @@ class CabController(QObject):
 
     @Slot()
     def stop(self) -> None:
-        if self._relative_throttle_active:
-            self.endRelativeThrottle()
+        if self._relative_throttle_owner is not None:
+            self._end_relative_throttle()
         elif self._command_port is not None:
             self._command_port.stop()
 
     @Slot()
     def halt(self) -> None:
-        self.endRelativeThrottle()
+        self._end_relative_throttle()
         if self._command_port is None:
             PyTrainCabCommandAdapter.halt()
         else:
