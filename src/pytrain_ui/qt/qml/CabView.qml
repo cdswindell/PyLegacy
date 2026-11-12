@@ -153,10 +153,11 @@ Rectangle {
             option_two_on: "Grind On", option_two_off: "Grind Off"
         }
         return [
-            [null, null, "conductor", "next_stop"],
-            [null, null, "station", "steward"],
-            ["front_coupler", "option_one_on", "option_two_on", "car_lights_on"],
-            ["rear_coupler", "option_one_off", "option_two_off", "car_lights_off"]
+            ["volume_down", "volume_up", "next_stop"],
+            ["option_one_off", "option_one_on", "conductor"],
+            ["option_two_off", "option_two_on", "steward"],
+            ["car_lights_off", "car_lights_on", "station"],
+            ["front_coupler", "rear_coupler"]
         ].map(row => row.map(key => {
             const action = byKey[key]
             if (action && labels[key])
@@ -258,8 +259,6 @@ Rectangle {
     }
 
     component PairedActions: ColumnLayout {
-        id: actionRows
-        property int columns: 3
         property var actions: []
         property var rows: root.pairedActionRows(actions)
         Layout.fillWidth: true
@@ -272,7 +271,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: root.gap
                 Repeater {
-                    model: actionRows.columns
+                    model: 3
                     Loader {
                         id: actionCell
                         required property int index
@@ -638,7 +637,6 @@ Rectangle {
                         spacing: root.gap
                         PairedActions {
                             visible: !root.effectsVisible
-                            columns: root.passengerCar ? 4 : 3
                             rows: root.driveActionRows()
                         }
                         PairedActions {
