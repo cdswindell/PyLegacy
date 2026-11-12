@@ -246,20 +246,15 @@ Rectangle {
             },
             {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true}
         ]
-        const auxiliary = cab.secondaryActionModel
         const canLoadWater = cab.isLegacy && cab.isSteam
         const canRefuel = cab.isLegacy && (cab.isDiesel || cab.isSteam)
-        const auxiliaryRow = [
-            auxiliary.find(action => action.key === "sequence" || action.key.endsWith("_aux1")),
+        const gaugesAndSet = [
+            cab.isElectric ? byKey.electric_smoke_down
+                : {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel},
             byKey.set_address,
-            {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
+            cab.isElectric ? byKey.electric_smoke_up
+                : {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
         ]
-        if (canRefuel || root.passengerCar)
-            auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
-        if (cab.isElectric) {
-            auxiliaryRow[0] = byKey.electric_smoke_down
-            auxiliaryRow[2] = byKey.electric_smoke_up
-        }
         const volumeUpThird = root.passengerCar && byKey.sound_on
             ? Object.assign({}, byKey.sound_on, {label: "Unmute"})
             : byKey.labor_up || byKey.electric_effort_up
@@ -267,7 +262,7 @@ Rectangle {
             ? Object.assign({}, byKey.sound_off, {label: "Mute"})
             : byKey.labor_down || byKey.electric_effort_down
         const rows = [
-            presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
+            presets.slice(0, 3), presets.slice(3), stopAndRoll, gaugesAndSet,
             [byKey.master_volume_up, byKey.blend_up, volumeUpThird],
             [byKey.master_volume_down, byKey.blend_down, volumeDownThird]
         ]
