@@ -134,6 +134,7 @@ Rectangle {
     function isEngineSpecificControl(key) {
         return (cab.isDiesel && (key === "rpm_up" || key === "rpm_down"))
             || (cab.isSteam && (key === "let_off" || key === "water_injector"))
+            || ["transformer_rear_coupler", "transformer_front_coupler", "freight_tower"].includes(key)
             || (cab.isElectric && ["pantograph_front_up", "pantograph_front_down",
                 "pantograph_rear_up", "pantograph_rear_down", "electric_smoke_up", "electric_smoke_down"].includes(key))
     }
@@ -190,17 +191,17 @@ Rectangle {
             [cab.isLegacy ? byKey.pantograph_front_up : byKey.volume_up,
              cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.horn],
             [cab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
-             cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.bell],
-            [byKey.electric_smoke_down, byKey.electric_smoke_up],
-            [byKey.rear_coupler, byKey.front_coupler, byKey.boost],
-            [byKey.engineer_chatter, byKey.tower_chatter, byKey.brake]
+             cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.bell]
         ] : [
             [byKey.startup || byKey.acela_startup, byKey.shutdown || byKey.acela_shutdown, topControl],
-            [byKey.bell, byKey.horn, secondControl],
-            [byKey.smoke_down, byKey.smoke_up],
-            [byKey.rear_coupler, byKey.front_coupler, byKey.boost],
-            [byKey.engineer_chatter, byKey.tower_chatter, byKey.brake]
+            [byKey.bell, byKey.horn, secondControl]
         ]
+        rows.push(
+            [byKey.engineer_chatter, byKey.tower_chatter || byKey.freight_tower],
+            [byKey.electric_smoke_down || byKey.smoke_down, byKey.electric_smoke_up || byKey.smoke_up, byKey.boost],
+            [byKey.rear_coupler || byKey.transformer_rear_coupler,
+             byKey.front_coupler || byKey.transformer_front_coupler, byKey.brake]
+        )
         for (const row of rows) {
             for (const action of row) {
                 if (action)
