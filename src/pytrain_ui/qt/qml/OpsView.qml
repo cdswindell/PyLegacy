@@ -665,6 +665,13 @@ RosterPanel {
         id: routeBuilder
         objectName: "routeBuilder"
         readonly property int minimumButtonHeight: 58
+
+        function toggleOutHandedness() {
+            const index = controller.routeComponentIndex
+            if (controller.routeComponents[index].position !== "OUT")
+                controller.setRouteComponentPosition("OUT")
+            controller.toggleRouteComponentDirection(index)
+        }
         onClosed: {
             routeIdKeypad.close()
             routeNumberKeypad.close()
@@ -897,6 +904,9 @@ RosterPanel {
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                             selected: enabled &&
                                       controller.routeComponents[controller.routeComponentIndex].position === "OUT"
+                            distinguishDoubleClick: true
+                            onDoubleClicked: routeBuilder.toggleOutHandedness()
+                            onTouchHeld: routeBuilder.toggleOutHandedness()
                             onClicked: controller.setRouteComponentPosition("OUT")
                         }
                     }
