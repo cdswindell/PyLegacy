@@ -355,8 +355,8 @@ RosterPanel {
                         const movesLeft = actionButton.symbol === "left"
                         const movesRight = actionButton.symbol === "right"
                         const moves = movesLeft || movesRight
-                        ctx.strokeRect(movesLeft ? 13 : movesRight ? 2 : 3, moves ? 6 : 3,
-                                       moves ? 8 : 18, moves ? 12 : 18)
+                        ctx.strokeRect(movesLeft ? 13 : movesRight ? 2 : 5, moves ? 6 : 2,
+                                       moves ? 8 : 14, moves ? 12 : 20)
                         ctx.beginPath()
                         if (moves) {
                             const tip = movesLeft ? 2 : 22
@@ -815,7 +815,16 @@ RosterPanel {
                         model: controller ? controller.routeComponents : []
 
                         delegate: Rectangle {
+                            id: routeElement
                             required property var modelData
+
+                            function flipOutTurnout() {
+                                if (modelData.scope === "SWITCH" && modelData.position === "OUT")
+                                    controller.toggleRouteComponentDirection(modelData.index)
+                                else
+                                    controller.selectRouteComponent(modelData.index)
+                            }
+
                             width: modelData.scope === "SWITCH" ? 132 : 180
                             height: routeComponentList.height - 4
                             radius: 8
@@ -827,12 +836,14 @@ RosterPanel {
                                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                                 exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
                                 onSingleTapped: controller.selectRouteComponent(modelData.index)
-                                onDoubleTapped: controller.toggleRouteComponentDirection(modelData.index)
+                                onDoubleTapped: routeElement.flipOutTurnout()
                             }
                             TapHandler {
                                 acceptedDevices: PointerDevice.TouchScreen
-                                onTapped: controller.selectRouteComponent(modelData.index)
-                                onLongPressed: controller.toggleRouteComponentDirection(modelData.index)
+                                exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
+                                onSingleTapped: controller.selectRouteComponent(modelData.index)
+                                onDoubleTapped: routeElement.flipOutTurnout()
+                                onLongPressed: routeElement.flipOutTurnout()
                             }
 
                             ColumnLayout {
