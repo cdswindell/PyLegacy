@@ -632,7 +632,7 @@ RosterPanel {
                             selected: row.rowData.stateText === "OUT"
                             distinguishDoubleClick: true
                             onDoubleClicked: root.toggleSwitchHandedness(row.rowData.tmccId)
-                            onTouchHeld: root.toggleSwitchHandedness(row.rowData.tmccId)
+                            onGestureHeld: root.toggleSwitchHandedness(row.rowData.tmccId)
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
                         }
                         RosterActionButton {
@@ -905,9 +905,10 @@ RosterPanel {
                             selected: enabled &&
                                       controller.routeComponents[controller.routeComponentIndex].position === "OUT"
                             distinguishDoubleClick: true
-                            touchGesturesOnly: true
+                            holdWithinBounds: true
+                            mouseHoldEnabled: Qt.platform.os === "osx"
                             onDoubleClicked: routeBuilder.toggleOutHandedness()
-                            onTouchHeld: routeBuilder.toggleOutHandedness()
+                            onGestureHeld: routeBuilder.toggleOutHandedness()
                             onClicked: controller.setRouteComponentPosition("OUT")
                         }
                     }

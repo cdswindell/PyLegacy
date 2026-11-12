@@ -8,13 +8,14 @@ Control {
     property bool selected: false
     property bool activateOnRelease: false
     property bool distinguishDoubleClick: false
-    property bool touchGesturesOnly: false
+    property bool holdWithinBounds: false
+    property bool mouseHoldEnabled: false
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
     property color normalColor: "#343a44"
     property color selectedColor: "#246aa0"
     property color pressedColor: "#5c9fc6"
-    readonly property bool pressed: tapHandler.pressed
+    readonly property bool pressed: tapHandler.pressed || touchHandler.pressed
     readonly property bool visualPressed: pressed || pressFlash.running
 
     Timer { id: pressFlash; interval: 140 }
@@ -23,7 +24,7 @@ Control {
     signal clicked()
     signal released()
     signal doubleClicked()
-    signal touchHeld()
+    signal gestureHeld()
 
     implicitHeight: 62
     font.pixelSize: 20
@@ -46,39 +47,48 @@ Control {
         border.color: !root.enabled ? "#39414b" : root.selected ? "#78bff0" : "#626b78"
     }
 
-    TapHandler {
-        id: tapHandler
-        property bool touchHoldTriggered: false
+    component ButtonTapHandler: TapHandler {
+        property bool holdTriggered: false
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
-        gesturePolicy: root.touchGesturesOnly ? TapHandler.DragWithinBounds : TapHandler.DragThreshold
-        longPressThreshold: root.touchGesturesOnly ? 0.55 : undefined
+        longPressThreshold: root.holdWithinBounds ? 0.55 : undefined
         // Wait for the double-tap interval before dispatching a single tap on these buttons.
         exclusiveSignals: root.distinguishDoubleClick ? TapHandler.SingleTap | TapHandler.DoubleTap : TapHandler.NotExclusive
         onTapped: if (root.activateOnRelease && !root.distinguishDoubleClick) root.clicked()
         onSingleTapped: {
-            if (root.distinguishDoubleClick && !touchHoldTriggered)
+            if (root.distinguishDoubleClick && !holdTriggered)
                 root.clicked()
         }
         onLongPressed: {
-            if (root.distinguishDoubleClick && point.device.type === PointerDevice.TouchScreen) {
-                touchHoldTriggered = true
-                root.touchHeld()
+            if (root.distinguishDoubleClick &&
+                (root.mouseHoldEnabled || point.device.type === PointerDevice.TouchScreen)) {
+                holdTriggered = true
+                root.gestureHeld()
             }
         }
         onPressedChanged: {
             if (pressed) {
-                touchHoldTriggered = false
+                holdTriggered = false
                 if (!root.activateOnRelease && !root.distinguishDoubleClick)
                     root.clicked()
             } else {
                 root.released()
             }
         }
-        onDoubleTapped: function(eventPoint, button) {
-            if (!touchHoldTriggered && (!root.touchGesturesOnly || button === Qt.NoButton))
-                root.doubleClicked()
-        }
+        onDoubleTapped: if (!holdTriggered) root.doubleClicked()
+    }
+
+    ButtonTapHandler {
+        id: tapHandler
+        acceptedDevices: root.holdWithinBounds
+            ? PointerDevice.AllDevices & ~PointerDevice.TouchScreen : PointerDevice.AllDevices
+    }
+
+    ButtonTapHandler {
+        id: touchHandler
+        enabled: root.enabled && root.holdWithinBounds
+        acceptedDevices: PointerDevice.TouchScreen
+        gesturePolicy: TapHandler.DragWithinBounds
     }
 
     Timer {
