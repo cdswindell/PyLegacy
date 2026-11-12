@@ -46,6 +46,56 @@ ApplicationWindow {
         stateInfoController.close()
     }
 
+    function requestEditorExit(action) {
+        if (discardChanges.pendingAction)
+            return
+        if (routeOpsView.hasUnsavedRouteChanges ||
+            (stateInfoVisible && operatingCabView.stateInfoHasUnsavedChanges)) {
+            discardChanges.pendingAction = action
+            discardChanges.open()
+        } else {
+            action()
+        }
+    }
+
+    function changeScope(scope, showKeypad) {
+        window.manageVisible = false
+        operatingCabView.closeBellHornOptions()
+        operatingCabView.closeDialogPanel()
+        if (window.stateInfoVisible)
+            window.closeStateInfo()
+        switchOpsView.cancelTransientPanels()
+        routeOpsView.cancelTransientPanels()
+        accessoryCatalog.cancelTransientPanels()
+        if (scope === "SWITCH") {
+            switchOpsController.reload()
+            window.activeScope = "SWITCH"
+            window.engineCatalogVisible = false
+        } else if (scope === "ROUTE") {
+            routeOpsController.reload()
+            window.activeScope = "ROUTE"
+            window.engineCatalogVisible = false
+        } else if (scope === "ACCESSORY") {
+            accessoryCatalogController.reload()
+            window.activeScope = "ACCESSORY"
+            window.accessoryOperatingVisible = false
+            window.engineCatalogVisible = false
+        } else if (scope === "ENGINE" || scope === "TRAIN") {
+            if (showKeypad || (window.activeScope === scope && !window.engineCatalogVisible))
+                window.engineCatalogVisible = true
+            else
+                window.engineCatalogVisible = !cabController.restoreScope(scope)
+            window.activeScope = scope
+        }
+
+        if (showKeypad) {
+            const roster = scope === "SWITCH" ? switchOpsView :
+                           scope === "ROUTE" ? routeOpsView :
+                           scope === "ACCESSORY" ? accessoryCatalog : engineCatalog
+            Qt.callLater(roster.openTmccKeypad)
+        }
+    }
+
     Connections {
         target: stateInfoController
         function onRecordReady(scope, tmccId) {
@@ -143,7 +193,7 @@ ApplicationWindow {
                     stateInfoFromRoster: window.stateInfoFromRoster
                     stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
                     onStateInfoRequested: window.openStateInfo(cabController.scope, cabController.tmccId, false)
-                    onStateInfoClosed: window.closeStateInfo()
+                    onStateInfoClosed: window.requestEditorExit(window.closeStateInfo)
                     onCabMenuRequested: cabMenu.open()
                 }
 
@@ -179,6 +229,8 @@ ApplicationWindow {
                 OpsView {
                     id: routeOpsView
                     controller: routeOpsController
+                    editorNavigationPending: !!discardChanges.pendingAction
+                    onRouteCloseRequested: window.requestEditorExit(routeOpsView.discardRouteBuilder)
                     onCabMenuRequested: cabMenu.open()
                 }
 
@@ -243,43 +295,8 @@ ApplicationWindow {
                 Layout.minimumHeight: 84
                 Layout.maximumHeight: 84
                 currentScope: window.activeScope
-                onScopePressed: function(scope, showKeypad) {
-                    window.manageVisible = false
-                    operatingCabView.closeBellHornOptions()
-                    operatingCabView.closeDialogPanel()
-                    if (window.stateInfoVisible)
-                        window.closeStateInfo()
-                    switchOpsView.cancelTransientPanels()
-                    routeOpsView.cancelTransientPanels()
-                    accessoryCatalog.cancelTransientPanels()
-                    if (scope === "SWITCH") {
-                        switchOpsController.reload()
-                        window.activeScope = "SWITCH"
-                        window.engineCatalogVisible = false
-                    } else if (scope === "ROUTE") {
-                        routeOpsController.reload()
-                        window.activeScope = "ROUTE"
-                        window.engineCatalogVisible = false
-                    } else if (scope === "ACCESSORY") {
-                        accessoryCatalogController.reload()
-                        window.activeScope = "ACCESSORY"
-                        window.accessoryOperatingVisible = false
-                        window.engineCatalogVisible = false
-                    } else if (scope === "ENGINE" || scope === "TRAIN") {
-                        if (showKeypad || (window.activeScope === scope && !window.engineCatalogVisible))
-                            window.engineCatalogVisible = true
-                        else
-                            window.engineCatalogVisible = !cabController.restoreScope(scope)
-                        window.activeScope = scope
-                    }
-
-                    if (showKeypad) {
-                        const roster = scope === "SWITCH" ? switchOpsView :
-                                       scope === "ROUTE" ? routeOpsView :
-                                       scope === "ACCESSORY" ? accessoryCatalog : engineCatalog
-                        Qt.callLater(roster.openTmccKeypad)
-                    }
-                }
+                onScopePressed: (scope, showKeypad) =>
+                    window.requestEditorExit(() => window.changeScope(scope, showKeypad))
             }
         }
     }
@@ -357,6 +374,66 @@ ApplicationWindow {
         }
     }
 
+    Popup {
+        id: discardChanges
+        objectName: "discardChangesConfirmation"
+        property var pendingAction: null
+
+        parent: Overlay.overlay
+        width: Math.min(parent.width - 24, 520)
+        x: (parent.width - width) / 2
+        y: Math.max(0, (parent.height - height) / 2)
+        padding: 16
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+        onClosed: pendingAction = null
+        background: Rectangle { color: "#102858"; radius: 12; border.color: "#7094c0" }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            Label {
+                Layout.fillWidth: true
+                text: "Discard Changes?"
+                color: "#f4f6f8"
+                font.pixelSize: 24
+                font.bold: true
+            }
+            Label {
+                Layout.fillWidth: true
+                text: "You have unsaved edits."
+                color: "#e2edf9"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 12
+                spacing: 12
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    text: "Keep Editing"
+                    activateOnRelease: true
+                    onClicked: discardChanges.close()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    text: "Discard"
+                    normalColor: "#8d313d"
+                    activateOnRelease: true
+                    onClicked: {
+                        const action = discardChanges.pendingAction
+                        if (action)
+                            action()
+                        discardChanges.close()
+                    }
+                }
+            }
+        }
+    }
+
     Shortcut {
         sequence: "Escape"
         enabled: window.manageVisible
@@ -365,8 +442,8 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: window.stateInfoVisible && !operatingCabView.stateInfoEditorOpen
-        onActivated: window.closeStateInfo()
+        enabled: window.stateInfoVisible && !operatingCabView.stateInfoEditorOpen && !discardChanges.visible
+        onActivated: window.requestEditorExit(window.closeStateInfo)
     }
 
     Shortcut {

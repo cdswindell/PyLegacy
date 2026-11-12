@@ -473,6 +473,10 @@ class OpsController(QObject):
     def routeBuilderOpen(self) -> bool:
         return self._route_draft is not None
 
+    @Property(bool, notify=changed)
+    def routeBuilderDirty(self) -> bool:
+        return self._route_draft is not None and self._route_draft.dirty
+
     @Property(int, notify=changed)
     def routeBuilderId(self) -> int:
         return self._route_draft.tmcc_id if self._route_draft is not None else 0

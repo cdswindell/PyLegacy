@@ -188,6 +188,7 @@ class StateInfoController(QObject):
         model = {
             "scopeTitle": self._scope.title,
             "creating": draft is not None,
+            "unsaved": bool(draft and draft.edited and self._pending is None),
             "canCreate": bool(draft and draft.can_create and self._pending is None),
             "canClear": bool(not draft and state and state.is_deletable),
             "editable": bool(self._pending is None and (draft or (state and state.comp_data))),
@@ -230,7 +231,11 @@ class StateInfoController(QObject):
                 value = value.zfill(4)
 
             if self._draft:
-                self._draft.edit(key, value)
+                current = self._draft.values[key]
+                if key == "number":
+                    current = str(current).zfill(4)
+                if value != current:
+                    self._draft.edit(key, value)
             elif state is not None and state.comp_data is not None and value != getattr(state, attribute):
                 if command:
                     BaseReq.do_update_field(command, value, state, do_async=False)

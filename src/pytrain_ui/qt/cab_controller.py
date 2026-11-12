@@ -502,6 +502,13 @@ class CabController(QObject):
         return 199 if state is not None and bool(getattr(state, "is_legacy", False)) else 31
 
     @Property(int, notify=stateChanged)
+    def speedLimitMax(self) -> int:
+        state = self._state_port.state if self._state_port is not None else None
+        maximum = getattr(state, "max_speed", None)
+        protocol_maximum = self.commandSpeedMax
+        return min(maximum, protocol_maximum) if maximum and maximum != 255 else protocol_maximum
+
+    @Property(int, notify=stateChanged)
     def speedLimit(self) -> int:
         state = self._state_port.state if self._state_port is not None else None
         value = getattr(state, "speed_limit", None) if state is not None else None

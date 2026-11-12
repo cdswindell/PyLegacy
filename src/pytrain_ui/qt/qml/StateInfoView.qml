@@ -9,6 +9,7 @@ Rectangle {
     required property var controller
     signal closeRequested()
     readonly property bool editorOpen: fieldEditor.visible
+    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges
     readonly property var record: controller ? controller.model : ({})
     color: "#102858"
     radius: 10
@@ -260,6 +261,12 @@ Rectangle {
         }
     }
 
+    MouseArea {
+        anchors.fill: parent
+        visible: fieldEditor.visible
+        onWheel: event => event.accepted = true
+    }
+
     Popup {
         id: fieldEditor
         property var field: ({})
@@ -268,6 +275,10 @@ Rectangle {
         readonly property bool choice: !!field.options && field.options.length > 0
         readonly property bool engineTypeList: choice && field.key === "type"
         readonly property bool shortList: choice && !engineTypeList && field.options.length <= 6
+        readonly property string originalValue: field.value === undefined || field.value === null ? "" : String(field.value)
+        readonly property bool hasUnsavedChanges: visible && (choice
+            ? picker.currentIndex >= 0 && String(picker.currentValue) !== originalValue
+            : entry.text.trim() !== originalValue.trim())
 
         Timer {
             id: revealEngineType
@@ -318,7 +329,7 @@ Rectangle {
         x: (parent.width - width) / 2
         y: Math.max(12, (parent.height - height) / 2)
         padding: 16
-        modal: true
+        modal: false
         focus: true
         closePolicy: Popup.CloseOnEscape
         background: Rectangle { color: "#102858"; radius: 12; border.color: "#7094c0" }
@@ -374,6 +385,11 @@ Rectangle {
                     id: entry
                     touchKeyboardEnabled: fieldEditor.field.key === "name"
                     keyboardTitle: fieldEditor.field.label || ""
+                    keyboardModal: false
+                    keyboardBottomMargin: {
+                        const overlay = root.Overlay.overlay
+                        return overlay ? Math.max(8, overlay.height - root.mapToItem(overlay, 0, root.height).y + 8) : 8
+                    }
                     Layout.fillWidth: true
                     Layout.preferredHeight: fieldEditor.numeric ? 68 : 52
                     maximumLength: fieldEditor.numeric ? 4 : 31

@@ -11,6 +11,7 @@ Rectangle {
     property bool stateInfoFromRoster: false
     property string stateInfoIdentity: ""
     readonly property bool stateInfoEditorOpen: stateInfo.editorOpen
+    readonly property bool stateInfoHasUnsavedChanges: stateInfo.hasUnsavedChanges
     signal cabMenuRequested()
     signal stateInfoRequested()
     signal stateInfoClosed()
@@ -57,7 +58,8 @@ Rectangle {
 
     function editSpeedLimit() {
         if (cab.supportsSpeedLimit)
-            speedLimitDialog.openFor(cab.speedLimit, cab.commandSpeedMax, cab.scope + " " + cab.tmccId)
+            speedLimitDialog.openFor(cab.speedLimit, cab.commandSpeedMax, cab.scope + " " + cab.tmccId,
+                                     cab.speedLimitMax)
     }
 
     function editState(label) {

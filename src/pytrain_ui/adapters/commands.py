@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from threading import Thread
+
 from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import TMCC_CONTROL_TYPE, CommandScope
@@ -186,7 +188,14 @@ class PyTrainCabCommandAdapter:
         else:
             maximum = 199 if self.state.is_legacy else 31
             speed_limit = max(1, min(maximum, int(value)))
-        BaseReq.do_update_field("SPEED_LIMIT", speed_limit, self.state, True)
+        # Queue the readback only after the write has been sent.
+        Thread(
+            target=BaseReq.do_update_field,
+            args=("SPEED_LIMIT", speed_limit, self.state),
+            kwargs={"do_async": False},
+            name="PyCabSpeedLimit",
+            daemon=True,
+        ).start()
 
     def set_direction(self, direction: str) -> None:
         normalized = direction.strip().upper()

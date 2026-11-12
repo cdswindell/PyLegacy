@@ -9,6 +9,7 @@ Popup {
     objectName: "speedLimitDialog"
 
     property int maximumSpeed: 199
+    property string protocol: "Legacy"
     property bool hasExistingLimit: false
     property string targetText: ""
     property alias entryText: speedEntry.text
@@ -16,11 +17,12 @@ Popup {
     signal limitSubmitted(int value)
     signal limitCleared()
 
-    function openFor(currentLimit, maximum, target) {
-        maximumSpeed = Math.max(1, maximum)
+    function openFor(currentLimit, protocolMaximum, target, engineMaximum) {
+        protocol = protocolMaximum === 31 ? "TMCC" : "Legacy"
+        maximumSpeed = Math.min(protocolMaximum, engineMaximum ?? protocolMaximum)
         targetText = target
         hasExistingLimit = currentLimit > 0 && currentLimit !== 255
-        speedEntry.text = hasExistingLimit ? String(Math.min(maximumSpeed, currentLimit)) : ""
+        speedEntry.text = hasExistingLimit ? String(currentLimit) : ""
         limitSlider.value = hasExistingLimit ? Number(speedEntry.text) : maximumSpeed
         open()
         speedEntry.forceActiveFocus()
@@ -128,7 +130,7 @@ Popup {
         Label {
             objectName: "speedLimitRange"
             Layout.fillWidth: true
-            text: (root.maximumSpeed === 31 ? "TMCC" : "Legacy") + " speed limit: 1–" + root.maximumSpeed
+            text: root.protocol + " speed limit: 1–" + root.maximumSpeed
             color: "#b5bfcb"
             font.pixelSize: 18
         }
@@ -140,7 +142,7 @@ Popup {
             placeholderText: !root.hasExistingLimit ? "No limit" : "1–" + root.maximumSpeed
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 30
-            maximumLength: String(root.maximumSpeed).length
+            maximumLength: Math.max(String(root.maximumSpeed).length, 3)
             inputMethodHints: Qt.ImhDigitsOnly
             validator: IntValidator { bottom: 1; top: root.maximumSpeed }
             selectByMouse: true

@@ -8,6 +8,7 @@ Popup {
     property string title: "Search"
     property var targetField: null
     property bool upperCase: false
+    property real keyboardInset: 8
 
     function openFor(field) {
         targetField = field
@@ -44,7 +45,7 @@ Popup {
     parent: Overlay.overlay
     width: Math.min(parent.width - 16, 760)
     x: (parent.width - width) / 2
-    y: parent.height - height - 8
+    y: Math.max(0, parent.height - height - keyboardInset)
     modal: true
     focus: true
     padding: 12

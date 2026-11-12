@@ -10,6 +10,14 @@ RosterPanel {
 
     required property var controller
     property var lcsController: null
+    property bool editorNavigationPending: false
+    readonly property bool hasUnsavedRouteChanges: routeBuilder.visible && controller.routeBuilderOpen &&
+        (controller.routeBuilderDirty ||
+         routeIdField.text.trim() !== (controller.routeBuilderId ? String(controller.routeBuilderId) : "") ||
+         routeNameField.text.trim() !== controller.routeBuilderName ||
+         routeNumberField.text.trim() !== controller.routeBuilderNumber)
+    signal routeCloseRequested()
+
     property string sortKey: "roadName"
     property int directTmccId: 0
     property var rightHandSwitches: ({})
@@ -208,6 +216,8 @@ RosterPanel {
     }
 
     function routeIdEditingFinished() {
+        if (root.editorNavigationPending)
+            return
         const text = routeIdField.text.trim()
         if (!text.length)
             return
@@ -267,16 +277,20 @@ RosterPanel {
         roster.positionViewAtBeginning()
     }
 
-    function cancelTransientPanels() {
-        tmccKeypad.close()
+    function discardRouteBuilder() {
         routePicker.close()
         routeBuilder.close()
+        if (controller && controller.scope === "ROUTE" && controller.routeBuilderOpen)
+            controller.closeRouteBuilder()
+    }
+
+    function cancelTransientPanels() {
+        tmccKeypad.close()
+        discardRouteBuilder()
         addSwitchPopup.close()
         overwriteSwitchPopup.close()
         switchEditor.close()
         lcsConfig.close()
-        if (controller && controller.scope === "ROUTE")
-            controller.closeRouteBuilder()
     }
 
     function submitAddSwitch(overwrite) {
@@ -1025,10 +1039,7 @@ RosterPanel {
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     text: "Cancel"
                     font.pixelSize: metrics.editorButtonFontSize
-                    onClicked: {
-                        controller.closeRouteBuilder()
-                        routeBuilder.close()
-                    }
+                    onClicked: root.routeCloseRequested()
                 }
                 CabButton {
                     Layout.fillWidth: true
