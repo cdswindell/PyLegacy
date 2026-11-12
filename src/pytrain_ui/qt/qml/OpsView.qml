@@ -788,10 +788,10 @@ RosterPanel {
                     Label {
                         Layout.fillWidth: true
                         text: controller && controller.routeComponents.length ?
-                                  "Select an element to change its position, order, or remove it." :
+                                  "Select an element to edit or reorder it. Double-click, double-tap, or touch and hold Out to flip the turnout left or right." :
                                   "No elements yet. Add a switch or nested route."
                         color: "#aeb5bf"
-                        font.pixelSize: 13
+                        font.pixelSize: 15
                         wrapMode: Text.WordWrap
                     }
 
