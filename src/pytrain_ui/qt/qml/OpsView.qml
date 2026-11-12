@@ -620,7 +620,7 @@ Rectangle {
                     ListView {
                         id: routeComponentList
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Math.min(300, Math.max(148, routeBuilder.height * 0.27))
+                        Layout.preferredHeight: Math.min(300, Math.max(182, routeBuilder.height * 0.27))
                         orientation: ListView.Horizontal
                         spacing: 8
                         clip: true
@@ -628,7 +628,7 @@ Rectangle {
 
                         delegate: Rectangle {
                             required property var modelData
-                            width: 180
+                            width: modelData.scope === "SWITCH" ? 132 : 180
                             height: routeComponentList.height - 4
                             radius: 8
                             color: controller && controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
@@ -673,7 +673,7 @@ Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     Layout.minimumHeight: visible ? 32 : 0
-                                    Layout.maximumHeight: 104
+                                    Layout.maximumHeight: 156
                                 }
                                 Item {
                                     visible: modelData.scope !== "SWITCH"

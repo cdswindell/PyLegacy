@@ -14,9 +14,11 @@ Canvas {
         const ctx = getContext("2d")
         ctx.reset()
         ctx.clearRect(0, 0, width, height)
-        const scale = Math.min(width / 156, height / 70)
-        ctx.translate((width - 156 * scale) / 2, (height - 70 * scale) / 2)
+        const scale = Math.min(width / 70, height / 156)
+        ctx.translate(width / 2, height / 2)
         ctx.scale(scale, scale)
+        ctx.rotate(-Math.PI / 2)
+        ctx.translate(-78, -35)
         ctx.lineCap = "round"
         ctx.lineJoin = "round"
 
