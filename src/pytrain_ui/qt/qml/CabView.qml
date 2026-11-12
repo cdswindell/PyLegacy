@@ -73,6 +73,10 @@ Rectangle {
         }
     }
     readonly property bool passengerCar: cab.isStandalonePassenger
+    onPassengerCarChanged: {
+        if (passengerCar)
+            effectsVisible = false
+    }
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
     readonly property int tileHeight: compact ? 72 : 112
@@ -134,29 +138,36 @@ Rectangle {
                 "pantograph_rear_up", "pantograph_rear_down", "electric_smoke_up", "electric_smoke_down"].includes(key))
     }
 
+    function passengerAuxActions() {
+        const actions = cab.secondaryActionModel
+        return ["car_aux1", "car_aux2", "car_aux3"].map((key, index) => {
+            const action = actions.find(item => item.key === key)
+            return action ? Object.assign({}, action, {label: "Aux " + (index + 1), repeat: false}) : undefined
+        })
+    }
+
     function passengerActionRows() {
-        const actions = cab.primaryActionModel.concat(cab.actionModel, cab.secondaryActionModel)
+        const actions = cab.primaryActionModel.concat(cab.actionModel, cab.speedSoundActionModel)
         const byKey = {}
         for (const action of actions)
             byKey[action.key] = action
         const labels = {
             sound_on: "Unmute", sound_off: "Mute",
             option_one_on: "Clack On", option_one_off: "Clack Off",
-            option_two_on: "Grind On", option_two_off: "Grind Off",
-            car_aux1: "Aux 1", car_aux2: "Aux 2", car_aux3: "Aux 3"
+            option_two_on: "Grind On", option_two_off: "Grind Off"
         }
         return [
             ["volume_up", "sound_on", "conductor", "next_stop"],
             ["volume_down", "sound_off", "station", "steward"],
             ["front_coupler", "option_one_on", "option_two_on", "car_lights_on"],
             ["rear_coupler", "option_one_off", "option_two_off", "car_lights_off"],
-            ["car_aux1", "car_aux2", "car_aux3"]
+            ["blend_up", "blend_down"]
         ].map(row => row.map(key => {
             const action = byKey[key]
             if (action && labels[key])
-                return Object.assign({}, action, {label: labels[key], repeat: false})
+                return Object.assign({}, action, {label: labels[key]})
             return action
-        }))
+        })).concat([root.passengerAuxActions()])
     }
 
     function driveActionRows() {
@@ -201,15 +212,6 @@ Rectangle {
             && !(cab.isElectric && (action.key === "startup" || action.key === "shutdown")) })))
     }
 
-    function unavailableSpeedAction(key, label, icon) {
-        return {
-            key: key,
-            label: label,
-            iconSource: Qt.resolvedUrl("../../../pytrain/gui/images/engine_gui/" + icon),
-            disabled: true
-        }
-    }
-
     function speedActionRows() {
         const presets = ["Restricted", "Slow", "Medium", "Limited", "Normal", "Highball"].map((label, index) => ({
             key: label.toUpperCase(),
@@ -246,17 +248,10 @@ Rectangle {
         ]
         if (canRefuel || cab.isElectric || root.passengerCar)
             auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
-        const volumeUp = [byKey.master_volume_up, byKey.blend_up, byKey.labor_up || byKey.electric_effort_up]
-        const volumeDown = [byKey.master_volume_down, byKey.blend_down, byKey.labor_down || byKey.electric_effort_down]
-        if (root.passengerCar) {
-            volumeUp[1] = unavailableSpeedAction("blend_up", "Blend +", "blend-up.jpg")
-            volumeDown[1] = unavailableSpeedAction("blend_down", "Blend −", "blend-down.jpg")
-            volumeUp[2] = unavailableSpeedAction("labor_up", "Effort +", "effort-up.jpg")
-            volumeDown[2] = unavailableSpeedAction("labor_down", "Effort −", "effort-down.jpg")
-        }
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
-            volumeUp, volumeDown
+            [byKey.master_volume_up, byKey.blend_up, byKey.labor_up || byKey.electric_effort_up],
+            [byKey.master_volume_down, byKey.blend_down, byKey.labor_down || byKey.electric_effort_down]
         ]
         return rows.concat(root.pairedActionRows(otherActions))
     }
@@ -305,7 +300,8 @@ Rectangle {
         Layout.preferredWidth: 0
         Layout.preferredHeight: root.tileHeight
         stacked: true
-        wrapLabel: true
+        wrapLabel: !fitLabelWidth
+        fitLabelWidth: action.key.endsWith("_coupler")
         padding: root.compact ? 4 : 6
         iconSize: root.compact ? 40 : 72
         compact: auxiliary
@@ -464,6 +460,7 @@ Rectangle {
                             required property int index
                             required property string modelData
                             objectName: index === 0 ? "driveTab" : "speedTab"
+                            enabled: index === 0 || !root.passengerCar
                             implicitWidth: 100
                             width: (pageTabs.availableWidth - pageTabs.spacing) / 2
                             height: pageTabs.height
@@ -478,7 +475,7 @@ Rectangle {
                             }
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.checked ? "#ffffff" : "#aeb7c2"
+                                color: !pageTab.enabled ? "#758292" : pageTab.checked ? "#ffffff" : "#aeb7c2"
                                 font.pixelSize: 18
                                 font.bold: parent.checked
                                 horizontalAlignment: Text.AlignHCenter

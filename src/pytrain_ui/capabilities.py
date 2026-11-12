@@ -24,12 +24,12 @@ class EquipmentCapabilities:
 
 
 _EQUIPMENT_CAPABILITIES: dict[str, EquipmentCapabilities] = {
-    "a": EquipmentCapabilities("a", frozenset({"vo", "e", "bs", "d", "a"})),
-    "d": EquipmentCapabilities("d", frozenset({"c", "vo", "cp", "e", "bs", "sm", "d"})),
+    "a": EquipmentCapabilities("a", frozenset({"vo", "e", "blend", "bs", "d", "a"})),
+    "d": EquipmentCapabilities("d", frozenset({"c", "vo", "cp", "e", "blend", "bs", "sm", "d"})),
     "f": EquipmentCapabilities("f", frozenset({"c", "vo", "cp", "pf", "f"})),
-    "l": EquipmentCapabilities("l", frozenset({"c", "vo", "cp", "e", "l"})),
-    "p": EquipmentCapabilities("p", frozenset({"c", "vo", "cp", "pf", "p"})),
-    "s": EquipmentCapabilities("s", frozenset({"c", "vo", "cp", "e", "bs", "sm", "s"})),
+    "l": EquipmentCapabilities("l", frozenset({"c", "vo", "cp", "e", "blend", "l"})),
+    "p": EquipmentCapabilities("p", frozenset({"c", "vo", "cp", "pf", "p", "blend"})),
+    "s": EquipmentCapabilities("s", frozenset({"c", "vo", "cp", "e", "blend", "bs", "sm", "s"})),
     "r": EquipmentCapabilities("r", frozenset({"c", "vo", "cp", "r"})),
     "t": EquipmentCapabilities("t", frozenset({"t"})),
 }

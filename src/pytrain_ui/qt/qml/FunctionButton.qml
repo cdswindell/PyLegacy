@@ -18,6 +18,7 @@ Control {
     property bool compact: false
     property bool stacked: false
     property bool wrapLabel: false
+    property bool fitLabelWidth: false
     property int iconSize: compact ? 30 : 42
     property bool deferForHold: false
     property string holdHint: ""
@@ -135,6 +136,8 @@ Control {
             visible: root.labelChevron === 0
             text: root.displayLabel
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
+            fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
+            minimumPixelSize: 10
             color: root.enabled ? root.textColor : "#858c96"
             font: root.font
             horizontalAlignment: Text.AlignHCenter
