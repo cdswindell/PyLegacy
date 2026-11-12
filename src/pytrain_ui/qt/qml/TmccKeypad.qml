@@ -161,6 +161,8 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
+            // Review this gap when standardizing keypad action-row spacing.
+            Layout.topMargin: 12
             spacing: 18
             Item { Layout.fillWidth: true; visible: !root.showSetAddress }
             KeyButton {
