@@ -448,7 +448,7 @@ RosterPanel {
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 6
-                    spacing: 8
+                    spacing: row.isRoute ? 5 : 8
 
                     Label {
                         Layout.preferredWidth: 42
@@ -482,8 +482,14 @@ RosterPanel {
                         elide: Text.ElideRight
                     }
                     Label {
+                        id: alignmentLabel
                         visible: row.isRoute
-                        Layout.preferredWidth: 118
+                        Layout.preferredWidth: Math.ceil(alignmentMetrics.advanceWidth)
+                        TextMetrics {
+                            id: alignmentMetrics
+                            font: alignmentLabel.font
+                            text: "Unaligned"
+                        }
                         text: rowData.stateText === "UNKNOWN" ? "" : rowData.stateText
                         color: rowData.stateText === "Aligned" ? "#73d38a" :
                                rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
