@@ -44,6 +44,10 @@ Rectangle {
             dialogPanel.close()
     }
 
+    function analogModeLabel(mode) {
+        return mode === "Horn" && cab.isSteam ? "Whistle" : mode
+    }
+
     function syncAnalogMode() {
         const modes = cab.analogModes
         const preferred = modes.indexOf(selectedAnalogMode)
@@ -264,7 +268,7 @@ Rectangle {
         const canRefuel = cab.isLegacy && (cab.isDiesel || cab.isSteam)
         const gaugesAndSet = [
             cab.isElectric ? byKey.electric_smoke_down
-                : {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel},
+                : {key: "fuel", label: cab.isSteam ? "Coal" : "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel},
             byKey.set_address,
             cab.isElectric ? byKey.electric_smoke_up
                 : {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
@@ -801,7 +805,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 Layout.preferredHeight: root.sliderButtonHeight
-                                text: cab.analogModes.length === 1 ? cab.analogModes[0] : ""
+                                text: cab.analogModes.length === 1 ? root.analogModeLabel(cab.analogModes[0]) : ""
                                 color: "#e9edf2"
                                 font.pixelSize: root.compact ? 11 : 18
                                 minimumPixelSize: 10
@@ -836,15 +840,25 @@ Rectangle {
                                 popup.width: root.compact ? 150 : 220
                                 popup.background: Rectangle { color: "#102858"; radius: 8; border.color: "#6385af" }
                                 ToolTip.visible: hovered
-                                ToolTip.text: currentText + (currentText === "Horn" ? " · 0–15" : " · 0–7")
+                                delegate: ItemDelegate {
+                                    required property int index
+                                    required property string modelData
+                                    width: analogMode.width
+                                    text: root.analogModeLabel(modelData)
+                                    font: analogMode.font
+                                    highlighted: analogMode.highlightedIndex === index
+                                }
+                                ToolTip.text: root.analogModeLabel(currentText) + (currentText === "Horn" ? " · 0–15" : " · 0–7")
                                 contentItem: Text {
                                     leftPadding: 2
                                     rightPadding: 0
-                                    text: analogMode.currentText === "Momentum" ? "Mom." : analogMode.displayText
+                                    text: analogMode.currentText === "Momentum" ? "Mom." : root.analogModeLabel(analogMode.displayText)
                                     color: "#e9edf2"
                                     font: analogMode.font
                                     verticalAlignment: Text.AlignVCenter
                                     elide: Text.ElideRight
+                                    minimumPixelSize: 10
+                                    fontSizeMode: Text.HorizontalFit
                                 }
                                 background: Rectangle {
                                     color: analogMode.down ? Qt.darker("#5597bf", 1.45) : "#303945"

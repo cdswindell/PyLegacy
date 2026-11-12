@@ -93,7 +93,7 @@ class StateInfoController(QObject):
                 ("Train brake", state.train_brake_label),
                 ("Labor", state.labor_label),
                 ("RPM", state.rpm_label),
-                ("Fuel level", f"{state.fuel_level_pct}%"),
+                ("Coal level" if state.is_steam else "Fuel level", f"{state.fuel_level_pct}%"),
                 ("Water level", f"{state.water_level_pct}%"),
             )
         )

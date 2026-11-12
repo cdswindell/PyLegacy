@@ -32,6 +32,8 @@ _ENGINE_ARTWORK = {
     "DIESEL_SWITCHER": "generic_diesel_switcher.jpg",
     "ELECTRIC": "generic_electric.jpg",
     "STEAM": "generic_steam.jpg",
+    "STEAM_PULLMOR": "generic_steam_santa.jpg",
+    "STEAM_SWITCHER": "generic_steam_switcher.jpg",
 }
 
 
