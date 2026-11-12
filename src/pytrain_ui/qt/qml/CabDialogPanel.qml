@@ -9,6 +9,7 @@ Rectangle {
     property string title: ""
     property string category: ""
     property var actions: []
+    readonly property bool passengerPanel: ["conductor", "station", "steward"].includes(panelKey)
     readonly property var categories: {
         if (panelKey === "lights")
             return Array.from(new Set(actions.map(action => action.section)))
@@ -24,7 +25,7 @@ Rectangle {
     readonly property int sectionHeadingHeight: 26
     readonly property var speedOrder: ["STOP_HOLD", "RESTRICTED", "SLOW", "MEDIUM", "LIMITED", "NORMAL", "HIGHBALL"]
     readonly property var inlineSections: {
-        if (category)
+        if (category || passengerPanel)
             return []
 
         const candidates = panelKey === "lights"
@@ -54,8 +55,9 @@ Rectangle {
         return sections
     }
 
-    readonly property var choices: category
-        ? sortedActions(category)
+    readonly property var choices: passengerPanel
+        ? sortedActions()
+        : category ? sortedActions(category)
         : categories.filter(name => !inlineSections.some(section => section.name === name))
             .map(name => ({label: name, command: ""}))
 
@@ -65,7 +67,7 @@ Rectangle {
     }
 
     function sortedActions(section) {
-        const commands = actions.filter(action => action.section === section)
+        const commands = actions.filter(action => !section || action.section === section)
         if (panelKey === "tower" && section === "Speed")
             return commands.sort((first, second) => speedRank(first.command) - speedRank(second.command))
         return commands.sort((first, second) => first.label.localeCompare(second.label))
@@ -78,6 +80,7 @@ Rectangle {
         actions = cab.panelModel(key)
         category = ""
         panelKey = key
+        choicesView.contentItem.contentY = 0
     }
 
     function close() {
@@ -161,7 +164,7 @@ Rectangle {
         onClicked: {
             if (opensCategory) {
                 root.category = modelData.label
-            } else if (root.panelKey === "lights") {
+            } else if (root.panelKey === "lights" || root.passengerPanel) {
                 root.cab.triggerPanelCommand(modelData.command)
             } else {
                 root.cab.playDialog(modelData.command)

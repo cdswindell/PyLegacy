@@ -216,6 +216,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold=True,
         hold_kind="panel",
         hold_target="conductor",
+        hold_legacy_only=True,
     ),
     CabAction(
         "station",
@@ -226,6 +227,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold=True,
         hold_kind="panel",
         hold_target="station",
+        hold_legacy_only=True,
     ),
     CabAction(
         "steward",
@@ -237,6 +239,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         hold=True,
         hold_kind="panel",
         hold_target="steward",
+        hold_legacy_only=True,
     ),
     CabAction(
         "pantograph_front_down",

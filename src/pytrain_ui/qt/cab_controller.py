@@ -364,6 +364,12 @@ class CabController(QObject):
     def isElectric(self) -> bool:
         return self._command_port is not None and self._command_port.controller_type_key == "l"
 
+    @Property(bool, notify=stateChanged)
+    def isStandalonePassenger(self) -> bool:
+        return (
+            self.scope == "ENGINE" and self._command_port is not None and self._command_port.controller_type_key == "p"
+        )
+
     @Property(str, notify=stateChanged)
     def controlType(self) -> str:
         if self._command_port is None:
@@ -374,6 +380,8 @@ class CabController(QObject):
     def analogModes(self) -> list[str]:
         if self._command_port is None:
             return []
+        if self.isStandalonePassenger:
+            return ["Horn"]
         return list(self._command_port.control_profile.analog_modes)
 
     @Property(list, notify=stateChanged)
@@ -551,20 +559,23 @@ class CabController(QObject):
 
     @Slot(int)
     def setSpeed(self, speed: int) -> None:
-        self._command_port.set_speed(speed)
+        if self._command_port is not None and not self.isStandalonePassenger:
+            self._command_port.set_speed(speed)
 
     @Slot(str, bool)
     def setSpeedPreset(self, name: str, with_dialog: bool) -> None:
-        if self._command_port is not None:
+        if self._command_port is not None and not self.isStandalonePassenger:
             self._command_port.set_speed_preset(name, with_dialog)
 
     @Slot(int, result=bool)
     def stepSpeed(self, delta: int) -> bool:
-        return self._command_port.step_speed(delta)
+        return bool(
+            self._command_port is not None and not self.isStandalonePassenger and self._command_port.step_speed(delta)
+        )
 
     @Slot(int)
     def changeSpeed(self, delta: int) -> None:
-        if self._command_port is not None:
+        if self._command_port is not None and not self.isStandalonePassenger:
             self._command_port.change_speed(delta)
 
     def _medium_momentum_key(self) -> str:
