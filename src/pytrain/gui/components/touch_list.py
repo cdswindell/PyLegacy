@@ -11,7 +11,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from pytrain.gui.components.scroll_input import precise_scroll_deltas, wheel_scroll_pixels
+from .scroll_input import precise_scroll_deltas, wheel_scroll_pixels
 
 
 class TouchList(tk.Frame):
