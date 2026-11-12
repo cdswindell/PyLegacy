@@ -16,6 +16,7 @@ from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RRSpeedsEnum
 
 from ..actions import CabAction, action_applies_to_type, cab_action
+from ..panels import BELL_HORN_COMMANDS
 from ..profiles import EngineControlProfile, resolve_engine_control_profile
 
 from .state import PyTrainCabStateAdapter
@@ -44,6 +45,12 @@ class PyTrainCabCommandAdapter:
     @property
     def _enum_type(self):
         return TMCC2EngineCommandEnum if self.state.is_legacy and not self.is_cab1 else TMCC1EngineCommandEnum
+
+    def _uses_tmcc2_crane_sound(self, name: str) -> bool:
+        return name in BELL_HORN_COMMANDS and self.controller_type_key == "r"
+
+    def _command_enum_for(self, name: str):
+        return TMCC2EngineCommandEnum if self._uses_tmcc2_crane_sound(name) else self._enum_type
 
     @property
     def controller_type_key(self) -> str:
@@ -187,7 +194,7 @@ class PyTrainCabCommandAdapter:
         if value <= 0:
             return
         if self.supports_named("QUILLING_HORN"):
-            command = self._enum_type.by_name("QUILLING_HORN", raise_exception=True)
+            command = self._command_enum_for("QUILLING_HORN").by_name("QUILLING_HORN", raise_exception=True)
             CommandReq.build(
                 command,
                 self.state.tmcc_id,
@@ -290,7 +297,7 @@ class PyTrainCabCommandAdapter:
 
     def supports_named(self, name: str) -> bool:
         try:
-            self._enum_type.by_name(name, raise_exception=True)
+            self._command_enum_for(name).by_name(name, raise_exception=True)
         except (KeyError, ValueError):
             return False
         return True
@@ -402,7 +409,7 @@ class PyTrainCabCommandAdapter:
 
     def _panel_command(self, name: str):
         state = self.state
-        if state.is_legacy:
+        if state.is_legacy or self._uses_tmcc2_crane_sound(name):
             return TMCC2EngineOpsEnum.look_up(name) or SequenceCommandEnum.by_name(name)
         if getattr(state, "bt_id", None):
             sequence = SequenceCommandEnum.by_name(name)
@@ -433,7 +440,7 @@ class PyTrainCabCommandAdapter:
             return False
 
         state = self.state
-        if not state.is_legacy and command in _TMCC1_TONE_COMMANDS:
+        if not state.is_legacy and not self._uses_tmcc2_crane_sound(name) and command in _TMCC1_TONE_COMMANDS:
             request = SequenceReq(command, state.tmcc_id, scope=state.scope)
             request.add(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, state.tmcc_id, scope=state.scope)
             request.add(_TMCC1_TONE_COMMANDS[command], state.tmcc_id, scope=state.scope, delay=0.2)
@@ -444,7 +451,7 @@ class PyTrainCabCommandAdapter:
 
     def send_named(self, name: str) -> bool:
         try:
-            command = self._enum_type.by_name(name, raise_exception=True)
+            command = self._command_enum_for(name).by_name(name, raise_exception=True)
         except (KeyError, ValueError):
             return False
         CommandReq.build(command, self.state.tmcc_id, scope=self.state.scope).send()

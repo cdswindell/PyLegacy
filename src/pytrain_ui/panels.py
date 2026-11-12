@@ -44,6 +44,8 @@ _BELL_HORN = (
     PanelAction("Horn", "Grade Crossing", "GRADE_CROSSING_SEQ"),
 )
 
+BELL_HORN_COMMANDS = frozenset(action.command for action in _BELL_HORN) | {"QUILLING_HORN"}
+
 _DIESEL_LIGHT_TYPES = frozenset({"a", "d", "l"})
 _STEAM_LIGHT_TYPES = frozenset({"s"})
 _FUEL_TYPES = frozenset({"d", "s"})
