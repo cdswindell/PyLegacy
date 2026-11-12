@@ -557,14 +557,29 @@ RosterPanel {
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
                     }
-                    Label {
+                    ColumnLayout {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
-                        text: rowData.roadName || (row.isRoute ? "Route" : "Switch")
-                        color: "#f4f6f8"
-                        font.pixelSize: 22
-                        font.bold: true
-                        elide: Text.ElideRight
+                        spacing: 2
+
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            text: rowData.roadName || (row.isRoute ? "Route" : "Switch")
+                            color: "#f4f6f8"
+                            font.pixelSize: 22
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+                        Label {
+                            visible: !row.isRoute && !!rowData.lcsAssociations
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            text: rowData.lcsAssociations
+                            color: "#aeb5bf"
+                            font.pixelSize: 14
+                            elide: Text.ElideRight
+                        }
                     }
                     Label {
                         id: roadNumberLabel
@@ -581,14 +596,6 @@ RosterPanel {
                             font: roadNumberLabel.font
                             text: "#0000"
                         }
-                    }
-                    Label {
-                        visible: !row.isRoute && !!rowData.lcsAssociations
-                        Layout.maximumWidth: Math.max(0, (row.width - 400) / 3)
-                        text: rowData.lcsAssociations
-                        color: "#aeb5bf"
-                        font.pixelSize: 16
-                        elide: Text.ElideRight
                     }
                     Label {
                         id: alignmentLabel
