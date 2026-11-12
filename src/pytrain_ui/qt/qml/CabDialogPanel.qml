@@ -25,6 +25,11 @@ Rectangle {
     readonly property int sectionHeadingHeight: 26
     readonly property var speedOrder: ["STOP_HOLD", "RESTRICTED", "SLOW", "MEDIUM", "LIMITED", "NORMAL", "HIGHBALL"]
     readonly property var inlineSections: {
+        if (panelKey === "conductor") {
+            return ["Dialogs", "Actions"].map(name => ({
+                name, commands: sortedActions(name), columns: 2, buttonHeight: choiceHeight
+            })).filter(section => section.commands.length > 0)
+        }
         if (category || passengerPanel)
             return []
 
@@ -55,7 +60,8 @@ Rectangle {
         return sections
     }
 
-    readonly property var choices: passengerPanel
+    readonly property var choices: panelKey === "conductor" ? []
+        : passengerPanel
         ? sortedActions()
         : category ? sortedActions(category)
         : categories.filter(name => !inlineSections.some(section => section.name === name))
