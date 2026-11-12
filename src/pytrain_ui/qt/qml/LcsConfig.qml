@@ -26,6 +26,12 @@ Popup {
     property string configureError: ""
     property alias baseIdText: baseIdField.text
 
+    function showDeviceDetails() {
+        showingModules = false
+        page = 1
+        baseIdText = String(controller.baseId)
+    }
+
     onOpened: {
         showingModules = false
         page = 0
@@ -73,8 +79,7 @@ Popup {
                 onClicked: root.controller.selectDevice(modelData.key)
                 onDoubleClicked: {
                     root.controller.selectDevice(modelData.key)
-                    root.page = 1
-                    root.baseIdText = String(root.controller.baseId)
+                    root.showDeviceDetails()
                 }
             }
         }
@@ -625,9 +630,7 @@ Popup {
                 TapHandler {
                     onTapped: {
                         root.controller.selectConfiguredModule(modelData.deviceKey, modelData.tmccId, modelData.scope)
-                        root.showingModules = false
-                        root.page = 1
-                        root.baseIdText = String(root.controller.baseId)
+                        root.showDeviceDetails()
                     }
                 }
             }
@@ -704,8 +707,7 @@ Popup {
                     if (root.showingModules) {
                         root.close()
                     } else if (root.page === 0) {
-                        root.page = 1
-                        root.baseIdText = String(root.controller.baseId)
+                        root.showDeviceDetails()
                     } else if (root.page === 1) {
                         if (root.controller.options.length > 2) {
                             root.page = 2
