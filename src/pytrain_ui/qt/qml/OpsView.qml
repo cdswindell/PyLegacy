@@ -396,7 +396,7 @@ Rectangle {
                 visible: controller && controller.scope === "SWITCH"
                 Layout.columnSpan: 3
                 Layout.preferredHeight: 76
-                text: root.showInactiveSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
+                text: root.showInactiveSwitches ? "Hide Unnamed" : "Show Unnamed"
                 selected: true
                 onClicked: root.showInactiveSwitches = !root.showInactiveSwitches
             }
@@ -906,7 +906,7 @@ Rectangle {
                     visible: root.routeCandidateScope === "SWITCH"
                     Layout.preferredWidth: 180
                     Layout.preferredHeight: 38
-                    text: root.showUnnamedRouteSwitches ? "HIDE UNNAMED" : "SHOW UNNAMED"
+                    text: root.showUnnamedRouteSwitches ? "Hide Unnamed" : "Show Unnamed"
                     selected: true
                     onClicked: root.showUnnamedRouteSwitches = !root.showUnnamedRouteSwitches
                 }
