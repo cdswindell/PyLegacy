@@ -148,9 +148,9 @@ Rectangle {
         const secondControl = cab.isSteam ? byKey.water_injector : cab.isDiesel ? byKey.rpm_down : byKey.volume_down
         const rows = cab.isElectric ? [
             [cab.isLegacy ? byKey.pantograph_front_up : byKey.volume_up,
-             cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.bell],
+             cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.horn],
             [cab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
-             cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.horn],
+             cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.bell],
             [byKey.electric_smoke_down, byKey.electric_smoke_up],
             [byKey.rear_coupler, byKey.front_coupler, byKey.boost],
             [byKey.engineer_chatter, byKey.tower_chatter, byKey.brake]
