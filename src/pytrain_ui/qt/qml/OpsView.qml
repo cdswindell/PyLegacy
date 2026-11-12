@@ -302,6 +302,7 @@ RosterPanel {
     }
 
     component ClearRecordButton: FunctionButton {
+        font.pixelSize: 20
         Layout.fillWidth: true
         Layout.preferredWidth: 0
         Layout.preferredHeight: 50
