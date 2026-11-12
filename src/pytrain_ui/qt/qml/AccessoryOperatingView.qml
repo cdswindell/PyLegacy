@@ -24,6 +24,8 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
+        anchors.leftMargin: 6
+        anchors.rightMargin: anchors.leftMargin
         spacing: 10
 
         RowLayout {

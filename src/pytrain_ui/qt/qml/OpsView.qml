@@ -420,7 +420,7 @@ RosterPanel {
             objectName: "operationsRoster"
             enabled: !(routeBuilder.visible || routePicker.visible || switchEditor.visible ||
                        addSwitchPopup.visible || overwriteSwitchPopup.visible || lcsConfig.visible)
-            Layout.leftMargin: controller.scope === "SWITCH" ? -6 : 0
+            Layout.leftMargin: -6
             Layout.rightMargin: Layout.leftMargin
             Layout.fillWidth: true
             Layout.fillHeight: true

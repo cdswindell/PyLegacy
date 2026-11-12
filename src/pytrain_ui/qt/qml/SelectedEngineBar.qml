@@ -50,7 +50,7 @@ Rectangle {
             id: card
             required property var modelData
 
-            width: root.compactTiles ? 200 : 240
+            width: root.compactTiles ? 204 : 244
             height: selectedList.height - 2
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
             radius: 7

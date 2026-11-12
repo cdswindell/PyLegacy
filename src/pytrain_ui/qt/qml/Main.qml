@@ -227,6 +227,8 @@ ApplicationWindow {
                 Layout.topMargin: -4
                 color: "#0d1f58"
                 Layout.fillWidth: true
+                Layout.leftMargin: -6
+                Layout.rightMargin: -6
                 Layout.preferredHeight: visible ? (operatingCabView.compact ? 74 : 86) : 0
                 visible: !window.manageVisible && !operatingCabView.dialogPanelOpen && !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
                 selection: selectedEngineController
@@ -235,6 +237,8 @@ ApplicationWindow {
             ScopeBar {
                 color: window.engineScope ? "#102858" : "#20242a"
                 Layout.fillWidth: true
+                Layout.leftMargin: -6
+                Layout.rightMargin: -6
                 Layout.preferredHeight: 84
                 Layout.minimumHeight: 84
                 Layout.maximumHeight: 84

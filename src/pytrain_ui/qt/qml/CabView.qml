@@ -385,8 +385,11 @@ Rectangle {
 
     ColumnLayout {
         id: cabLayout
+        readonly property int extraOperatingWidth: 12
         anchors.fill: parent
         anchors.margins: root.compact ? 8 : 12
+        anchors.leftMargin: anchors.margins - extraOperatingWidth / 2
+        anchors.rightMargin: anchors.leftMargin
         anchors.bottomMargin: 4
         spacing: root.gap
 
@@ -464,7 +467,7 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                width: (drivingArea.width - root.gap) * 3 / 5
+                width: drivingArea.width - root.gap - drivingSliders.width
 
                 Rectangle {
                     anchors.fill: parent
@@ -701,12 +704,13 @@ Rectangle {
             }
 
             Rectangle {
+                id: drivingSliders
                 objectName: "drivingSliders"
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.topMargin: -16
                 anchors.bottom: parent.bottom
-                width: (drivingArea.width - root.gap) * 2 / 5
+                width: (drivingArea.width - root.gap - cabLayout.extraOperatingWidth) * 2 / 5
                 radius: 10
                 color: "#102858"
                 border.color: "#496b9d"
@@ -1083,7 +1087,8 @@ Rectangle {
         cab: root.cab
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: root.compact ? 8 : 12
+        anchors.leftMargin: cabLayout.anchors.leftMargin
+        anchors.rightMargin: cabLayout.anchors.rightMargin
         y: cabLayout.y + drivingArea.y + artwork.y + artwork.height + root.gap
         height: Math.max(0, root.height - y)
     }
