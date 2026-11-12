@@ -4,6 +4,9 @@ Canvas {
     id: root
     required property bool diverging
     property bool rightHand: false
+    property bool compact: false
+    Accessible.ignored: compact
+    onCompactChanged: requestPaint()
     Accessible.role: Accessible.Graphic
     Accessible.name: diverging
         ? (rightHand ? "Three-rail turnout set to Out Right" : "Three-rail turnout set to Out Left")
@@ -45,36 +48,40 @@ Canvas {
             ctx.stroke()
         }
 
-        for (let x = 10; x <= 145; x += 10)
-            segment(x, 38, x, 64, "#526175", 4)
+        if (!root.compact) {
+            for (let x = 10; x <= 145; x += 10)
+                segment(x, 38, x, 64, "#526175", 4)
 
-        // The branch ties rotate with the track as it diverges from the straight leg.
-        for (let step = 3; step <= 10; step++) {
-            const t = step / 10
-            const u = 1 - t
-            const x = u * u * u * 35 + 3 * u * u * t * 77 + 3 * u * t * t * 90 + t * t * t * 145
-            const y = u * u * u * 51 + 3 * u * u * t * 51 + 3 * u * t * t * 27 + t * t * t * 14
-            const dx = 3 * u * u * 42 + 6 * u * t * 13 + 3 * t * t * 55
-            const dy = -6 * u * t * 24 - 3 * t * t * 13
-            const span = Math.hypot(dx, dy)
-            const nx = -dy / span * 12
-            const ny = dx / span * 12
-            segment(x - nx, y - ny, x + nx, y + ny, "#526175", 4)
+            // The branch ties rotate with the track as it diverges from the straight leg.
+            for (let step = 3; step <= 10; step++) {
+                const t = step / 10
+                const u = 1 - t
+                const x = u * u * u * 35 + 3 * u * u * t * 77 + 3 * u * t * t * 90 + t * t * t * 145
+                const y = u * u * u * 51 + 3 * u * u * t * 51 + 3 * u * t * t * 27 + t * t * t * 14
+                const dx = 3 * u * u * 42 + 6 * u * t * 13 + 3 * t * t * 55
+                const dy = -6 * u * t * 24 - 3 * t * t * 13
+                const span = Math.hypot(dx, dy)
+                const nx = -dy / span * 12
+                const ny = dx / span * 12
+                segment(x - nx, y - ny, x + nx, y + ny, "#526175", 4)
+            }
         }
 
         const inactive = "#8999ad"
-        const active = root.diverging ? "#ffbe80" : "#81e5a0"
+        const active = root.compact ? "#eaf7ff" : root.diverging ? "#ffbe80" : "#81e5a0"
+        const activeWeight = root.compact ? 4 : 2.25
+        const inactiveWeight = root.compact ? 2.5 : 1.5
         for (const offset of [-8, 0, 8]) {
             if (root.diverging)
-                segment(10, 51 + offset, 145, 51 + offset, inactive, 1.5)
+                segment(10, 51 + offset, 145, 51 + offset, inactive, inactiveWeight)
             else
-                branchRail(offset, inactive, 1.5)
+                branchRail(offset, inactive, inactiveWeight)
         }
         for (const offset of [-8, 0, 8]) {
             if (root.diverging)
-                branchRail(offset, active, 2.25)
+                branchRail(offset, active, activeWeight)
             else
-                segment(10, 51 + offset, 145, 51 + offset, active, 2.25)
+                segment(10, 51 + offset, 145, 51 + offset, active, activeWeight)
         }
     }
 }

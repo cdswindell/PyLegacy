@@ -304,6 +304,89 @@ RosterPanel {
         font.pixelSize: 28
     }
 
+    component RouteActionButton: CabButton {
+        id: actionButton
+        required property string symbol
+        property bool rightHand: false
+        readonly property bool turnout: symbol === "thru" || symbol === "out"
+
+        Accessible.role: Accessible.Button
+        Accessible.name: text
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.preferredWidth: 0
+
+        contentItem: Item {
+            RowLayout {
+                anchors.centerIn: parent
+                width: Math.min(implicitWidth, parent.width)
+                spacing: 8
+
+                TurnoutDiagram {
+                    visible: actionButton.turnout
+                    compact: true
+                    rightHand: actionButton.rightHand
+                    diverging: actionButton.symbol === "out"
+                    opacity: actionButton.enabled ? 1 : 0.55
+                    Layout.preferredWidth: 23
+                    Layout.preferredHeight: 34
+                }
+
+                Canvas {
+                    visible: !actionButton.turnout
+                    Accessible.ignored: true
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    readonly property color ink: actionButton.enabled ? "#ffffff" : "#7d8591"
+                    onInkChanged: requestPaint()
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.strokeStyle = ink
+                        ctx.lineWidth = 1.6
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+
+                        const movesLeft = actionButton.symbol === "left"
+                        const movesRight = actionButton.symbol === "right"
+                        const moves = movesLeft || movesRight
+                        ctx.strokeRect(movesLeft ? 13 : movesRight ? 2 : 3, moves ? 8 : 3,
+                                       moves ? 8 : 18, moves ? 8 : 18)
+                        ctx.beginPath()
+                        if (moves) {
+                            const tip = movesLeft ? 2 : 22
+                            const head = movesLeft ? 6 : 18
+                            ctx.moveTo(movesLeft ? 10 : 14, 12)
+                            ctx.lineTo(tip, 12)
+                            ctx.moveTo(head, 8)
+                            ctx.lineTo(tip, 12)
+                            ctx.lineTo(head, 16)
+                        } else {
+                            ctx.moveTo(8, 12)
+                            ctx.lineTo(16, 12)
+                            if (actionButton.symbol === "add") {
+                                ctx.moveTo(12, 8)
+                                ctx.lineTo(12, 16)
+                            }
+                        }
+                        ctx.stroke()
+                    }
+                }
+
+                Label {
+                    Layout.minimumWidth: 0
+                    Layout.fillWidth: true
+                    text: actionButton.text
+                    font: actionButton.font
+                    color: actionButton.enabled ? "#ffffff" : "#7d8591"
+                    elide: Text.ElideRight
+                    horizontalAlignment: Text.AlignHCenter
+                    Accessible.ignored: true
+                }
+            }
+        }
+    }
+
     component ClearRecordButton: FunctionButton {
         font.pixelSize: metrics.editorButtonFontSize
         Layout.fillWidth: true
@@ -772,22 +855,24 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
+                        RouteActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                            symbol: "thru"
                             text: "Thru"
+                            rightHand: enabled &&
+                                       controller.routeComponents[controller.routeComponentIndex].turnoutDirection === "RIGHT"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                             selected: enabled &&
                                       controller.routeComponents[controller.routeComponentIndex].position === "THRU"
                             onClicked: controller.setRouteComponentPosition("THRU")
                         }
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
+                        RouteActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                            symbol: "out"
                             text: "Out"
+                            rightHand: enabled &&
+                                       controller.routeComponents[controller.routeComponentIndex].turnoutDirection === "RIGHT"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                             selected: enabled &&
@@ -799,18 +884,16 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
+                        RouteActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                            symbol: "left"
                             text: "Move Left"
                             enabled: controller && controller.routeComponentIndex > 0
                             onClicked: controller.moveRouteComponent(-1)
                         }
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
+                        RouteActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                            symbol: "right"
                             text: "Move Right"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponentIndex < controller.routeComponents.length - 1
@@ -821,18 +904,16 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
+                        RouteActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                            symbol: "add"
                             text: "Add…"
                             enabled: controller && controller.routeComponents.length < 16
                             onClicked: root.openRoutePicker()
                         }
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
+                        RouteActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                            symbol: "remove"
                             text: "Remove"
                             enabled: controller && controller.routeComponentIndex >= 0
                             onClicked: controller.removeRouteComponent()
