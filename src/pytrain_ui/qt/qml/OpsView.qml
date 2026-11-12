@@ -28,8 +28,8 @@ RosterPanel {
 
     function compareRows(a, b) {
         if (sortKey === "aligned" || sortKey === "unaligned") {
-            const first = sortKey === "aligned" ? "ALIGNED" : "NOT ALIGNED"
-            const second = sortKey === "aligned" ? "NOT ALIGNED" : "ALIGNED"
+            const first = sortKey === "aligned" ? "Aligned" : "Unaligned"
+            const second = sortKey === "aligned" ? "Unaligned" : "Aligned"
             const aRank = a.stateText === first ? 0 : a.stateText === second ? 1 : 2
             const bRank = b.stateText === first ? 0 : b.stateText === second ? 1 : 2
             if (aRank !== bRank)
@@ -484,8 +484,8 @@ RosterPanel {
                     Label {
                         visible: row.isRoute
                         Layout.preferredWidth: 118
-                        text: rowData.stateText
-                        color: rowData.stateText === "ALIGNED" ? "#73d38a" :
+                        text: rowData.stateText === "UNKNOWN" ? "" : rowData.stateText
+                        color: rowData.stateText === "Aligned" ? "#73d38a" :
                                rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
                         font.pixelSize: 16
                         font.bold: true

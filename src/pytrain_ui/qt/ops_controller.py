@@ -72,7 +72,7 @@ class OpsController(QObject):
         if isinstance(state, SwitchState):
             return "THRU" if state.is_thru else "OUT" if state.is_out else "UNKNOWN"
         if isinstance(state, RouteState):
-            return "ALIGNED" if state.is_aligned else "UNKNOWN" if state.is_unknown else "NOT ALIGNED"
+            return "Aligned" if state.is_aligned else "UNKNOWN" if state.is_unknown else "Unaligned"
         return "UNKNOWN"
 
     @staticmethod
