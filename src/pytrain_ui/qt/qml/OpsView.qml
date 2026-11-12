@@ -406,8 +406,9 @@ Rectangle {
             delegate: Rectangle {
                 id: row
                 required property var rowData
+                readonly property bool isRoute: root.controller.scope === "ROUTE"
                 width: roster.width
-                height: 138
+                height: isRoute ? 76 : 138
                 radius: 8
                 color: "#262b32"
                 border.width: 1
@@ -419,55 +420,61 @@ Rectangle {
                         else root.controller.toggleSwitch(row.rowData.tmccId)
                     }
                 }
-                ColumnLayout {
+                GridLayout {
                     anchors.fill: parent
                     anchors.margins: 6
-                    spacing: 4
+                    columns: row.isRoute ? 2 : 1
+                    columnSpacing: 8
+                    rowSpacing: 4
                     RowLayout {
                         Layout.fillWidth: true
                         Label {
-                            Layout.preferredWidth: 70
+                            Layout.preferredWidth: row.isRoute ? 42 : 70
                             text: rowData.tmccId
                             color: "#f4f6f8"
-                            font.pixelSize: 36
+                            font.pixelSize: row.isRoute ? 26 : 36
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
                         }
-                        ColumnLayout {
+                        GridLayout {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
-                            spacing: 2
+                            columns: row.isRoute ? 2 : 1
+                            columnSpacing: 8
+                            rowSpacing: 2
                             Label {
                                 Layout.fillWidth: true
                                 text: rowData.roadName || (controller.scope === "SWITCH" ? "Switch" : "Route")
                                 color: "#f4f6f8"
-                                font.pixelSize: 28
+                                font.pixelSize: row.isRoute ? 22 : 28
                                 font.bold: true
                                 elide: Text.ElideRight
                             }
                             Label {
-                                Layout.fillWidth: true
-                                text: (rowData.roadNumber ? "Road #" + rowData.roadNumber : "TMCC ID " + rowData.tmccId) +
+                                visible: !row.isRoute || !!rowData.roadNumber
+                                Layout.fillWidth: !row.isRoute
+                                text: row.isRoute ? "#" + rowData.roadNumber :
+                                      (rowData.roadNumber ? "Road #" + rowData.roadNumber : "TMCC ID " + rowData.tmccId) +
                                       (rowData.lcsAssociations ? " · " + rowData.lcsAssociations : "")
                                 color: "#aeb5bf"
-                                font.pixelSize: 20
+                                font.pixelSize: row.isRoute ? 17 : 20
                                 elide: Text.ElideRight
                             }
                         }
                         Label {
-                            Layout.preferredWidth: 152
+                            Layout.preferredWidth: row.isRoute ? 118 : 152
                             text: rowData.stateText
                             color: rowData.stateText === "ALIGNED" || rowData.stateText === "THRU" ? "#73d38a" :
                                    rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
-                            font.pixelSize: 20
+                            font.pixelSize: row.isRoute ? 16 : 20
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                         }
                     }
                     RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
+                        Layout.fillWidth: !row.isRoute
+                        spacing: row.isRoute ? 6 : 4
                         TouchButton {
                             Layout.preferredHeight: 60
                             Layout.minimumHeight: 60
@@ -491,6 +498,9 @@ Rectangle {
                             Layout.minimumHeight: 60
                             Layout.maximumHeight: 60
                             visible: controller.scope === "ROUTE"
+                            Layout.fillWidth: !row.isRoute
+                            Layout.preferredWidth: row.isRoute ? 88 : 0
+                            font.pixelSize: row.isRoute ? 22 : 28
                             text: "FIRE"
                             normalColor: "#a84418"
                             pressedColor: "#d65a20"
@@ -500,6 +510,9 @@ Rectangle {
                             Layout.preferredHeight: 60
                             Layout.minimumHeight: 60
                             Layout.maximumHeight: 60
+                            Layout.fillWidth: !row.isRoute
+                            Layout.preferredWidth: row.isRoute ? 88 : 0
+                            font.pixelSize: row.isRoute ? 22 : 28
                             text: "EDIT…"
                             onClicked: {
                                 if (controller.scope === "SWITCH") root.editSwitch(row.rowData.tmccId)
