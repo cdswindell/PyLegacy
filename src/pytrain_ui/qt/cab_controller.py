@@ -702,7 +702,6 @@ class CabController(QObject):
             self._relative_step_hold.stop()
             self._relative_throttle_timer.stop()
             self._set_relative_speed(0)
-            self._send_relative_speed()
 
     @Slot()
     def toggleDirection(self) -> None:
@@ -818,9 +817,8 @@ class CabController(QObject):
 
     @Slot()
     def stop(self) -> None:
-        if self._relative_throttle_owner is not None:
-            self.cancelRelativeThrottle()
-        elif self._command_port is not None:
+        self.cancelRelativeThrottle()
+        if self._command_port is not None:
             self._command_port.stop()
 
     @Slot()
