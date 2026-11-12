@@ -17,6 +17,9 @@ from ..protocol.multibyte.multibyte_constants import UnitAssignment
 from ..protocol.constants import Mixins
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
+LEFT_OUT_SWITCH: int = 0x01
+RIGHT_OUT_SWITCH: int = 0x02
+
 
 @unique
 class UnitBits(Mixins, IntEnum):
@@ -222,6 +225,14 @@ class RouteComponent:
     @property
     def is_out(self) -> bool:
         return 0x03 & self.flags in {1, 2}
+
+    @property
+    def is_left(self) -> bool:
+        return 0x03 & self.flags == LEFT_OUT_SWITCH
+
+    @property
+    def is_right(self) -> bool:
+        return 0x03 & self.flags == RIGHT_OUT_SWITCH
 
     @property
     def is_route(self) -> bool:
