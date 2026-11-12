@@ -60,6 +60,9 @@ class OpsController(QObject):
 
     @staticmethod
     def _identity(state) -> tuple[str, str]:
+        if isinstance(state, SwitchState) and (data := state.comp_data) is not None:
+            # The write helpers update CompData before the Base refresh updates ComponentState.
+            return (data.road_name or "").strip(), (data.road_number or "").strip()
         road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
         road_number = str(getattr(state, "road_number", "") or "").strip()
         return road_name, road_number
@@ -197,11 +200,12 @@ class OpsController(QObject):
             return
         road_name = road_name.strip()
         road_number = road_number.strip().zfill(4) if road_number.strip() else ""
+        current_name, current_number = self._identity(state)
         requests = []
-        if road_name != str(state.road_name or "").strip():
+        if road_name != current_name:
             requests.append(state.comp_data.set_road_name_req(road_name))
-        if road_number != str(state.road_number or "").strip():
-            requests.append(state.comp_data.set_road_number_req(road_number))
+        if road_number != current_number:
+            requests.append(state.comp_data.set_road_number_req(int(road_number) if road_number else None))
         if requests:
             BaseReq.process_sync_reqs([*requests, state], do_async=True)
         self._refresh_row(tmcc_id)
