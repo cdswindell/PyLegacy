@@ -133,7 +133,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             y: root.largeTouch ? 6 : 3
-            text: "TARGET"
+            text: "Target"
             font.pixelSize: root.largeTouch ? 12 : 8
             font.bold: true
             color: "#263c50"

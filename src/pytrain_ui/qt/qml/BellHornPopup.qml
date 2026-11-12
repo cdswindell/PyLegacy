@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var cab
     required property real operatingButtonWidth
     required property int operatingButtonHeight
@@ -107,6 +109,7 @@ Popup {
                 readonly property var commands: root.actions.filter(action => action.section === modelData)
                 visible: commands.length > 0
                 Layout.fillWidth: true
+                Layout.topMargin: modelData === "Horn" && root.actions.some(action => action.section === "Bell") ? metrics.sectionGap : 0
                 spacing: 7
                 readonly property string rowTitle: modelData === "Horn" && root.cab.isSteam ? "Whistle" : modelData
                 Label {

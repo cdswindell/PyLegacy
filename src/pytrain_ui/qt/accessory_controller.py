@@ -241,7 +241,7 @@ class AccessoryCatalogController(QObject):
             enabled = not requires_power or power_on
             if operation.behavior == PortBehavior.LATCH:
                 if operation.key.strip().lower() == "power":
-                    on_label, off_label = "ON", "OFF"
+                    on_label, off_label = "On", "Off"
                 else:
                     on_label = registry.get_operation_label_for_state(
                         spec,
@@ -270,9 +270,9 @@ class AccessoryCatalogController(QObject):
                     },
                 ]
             elif operation.behavior == PortBehavior.MOMENTARY_HOLD:
-                actions = [{"key": "HOLD", "label": "HOLD", "selected": False, "enabled": enabled}]
+                actions = [{"key": "HOLD", "label": "Hold", "selected": False, "enabled": enabled}]
             else:
-                actions = [{"key": "PULSE", "label": "PULSE", "selected": False, "enabled": enabled}]
+                actions = [{"key": "PULSE", "label": "Pulse", "selected": False, "enabled": enabled}]
             behavior_label = {
                 PortBehavior.LATCH: "ON/OFF",
                 PortBehavior.MOMENTARY_HOLD: "HOLD",
@@ -300,15 +300,15 @@ class AccessoryCatalogController(QObject):
         lcs_types = {label.split(" ", 1)[0] for label in descriptor.lcs_labels}
         if "BPC2" in lcs_types:
             return [
-                {"key": "ON", "label": "ON", "selected": state.is_aux_on},
-                {"key": "OFF", "label": "OFF", "selected": state.is_aux_off},
+                {"key": "ON", "label": "On", "selected": state.is_aux_on},
+                {"key": "OFF", "label": "Off", "selected": state.is_aux_off},
             ]
         if "ASC2" in lcs_types:
             momentary = not state.is_aux_on and not state.is_aux_off
             return [
-                {"key": "ON", "label": "ON", "selected": state.is_aux_on},
-                {"key": "OFF", "label": "OFF", "selected": state.is_aux_off},
-                {"key": "MOMENTARY", "label": "MOMENTARY", "selected": momentary},
+                {"key": "ON", "label": "On", "selected": state.is_aux_on},
+                {"key": "OFF", "label": "Off", "selected": state.is_aux_off},
+                {"key": "MOMENTARY", "label": "Momentary", "selected": momentary},
             ]
         return []
 

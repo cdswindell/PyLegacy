@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var controller
     property real editorTop: 72
     objectName: "lcsDeviceManager"
@@ -138,6 +140,7 @@ Popup {
             }
 
             Label {
+                Layout.topMargin: metrics.sectionGap
                 text: "Mode"
                 color: "#f4f6f8"
                 font.pixelSize: 18
@@ -172,6 +175,7 @@ Popup {
 
             Label {
                 Layout.fillWidth: true
+                Layout.topMargin: metrics.sectionGap
                 text: "Current Device Configuration"
                 color: "#f4f6f8"
                 font.pixelSize: 16
@@ -196,6 +200,7 @@ Popup {
                 spacing: 8
 
                 Label {
+                    Layout.topMargin: metrics.sectionGap
                     text: "Options"
                     color: "#f4f6f8"
                     font.pixelSize: 18
@@ -316,6 +321,7 @@ Popup {
             spacing: 10
 
             Label {
+                Layout.topMargin: metrics.sectionGap
                 text: "Options"
                 color: "#f4f6f8"
                 font.pixelSize: 20
@@ -420,6 +426,7 @@ Popup {
                     anchors.leftMargin: 14
                     anchors.top: parent.top
                     anchors.topMargin: -11
+                    Layout.topMargin: metrics.sectionGap
                     text: "Manual Configuration"
                     color: "#f4f6f8"
                     font.pixelSize: 16
@@ -441,7 +448,7 @@ Popup {
 
                     Label {
                         Layout.fillWidth: true
-                        text: "These are the Cab-remote steps you would perform manually. CONFIGURE sends them automatically."
+                        text: "These are the Cab-remote steps you would perform manually. Configure sends them automatically."
                         color: "#aeb5bf"
                         font.pixelSize: 14
                         wrapMode: Text.WordWrap
@@ -526,7 +533,7 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 42
-                text: "MODULE TYPE"
+                text: "Module Type"
                 selected: root.moduleSortKey === "module"
                 onClicked: root.moduleSortKey = "module"
             }
@@ -535,7 +542,7 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 42
-                text: "SCOPE"
+                text: "Scope"
                 selected: root.moduleSortKey === "scope"
                 onClicked: root.moduleSortKey = "scope"
             }
@@ -643,11 +650,12 @@ Popup {
         }
 
         RowLayout {
+            Layout.topMargin: metrics.footerGap
             CabButton {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
-                text: "CANCEL"
+                text: "Cancel"
                 onClicked: root.close()
             }
 
@@ -656,7 +664,7 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
-                text: "BACK"
+                text: "Back"
                 onClicked: {
                     if (root.page === 3 && root.controller && root.controller.options.length <= 2)
                         root.page = 1
@@ -673,7 +681,7 @@ Popup {
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
                 visible: root.showingModules || root.page === 0
-                text: root.showingModules ? "BACK" : "MY MODULES"
+                text: root.showingModules ? "Back" : "My Modules"
                 onClicked: {
                     if (root.showingModules) {
                         root.showingModules = false
@@ -689,7 +697,7 @@ Popup {
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
                 activateOnRelease: true
-                text: root.showingModules ? "CLOSE" : (root.page === 3 ? "CONFIGURE" : "NEXT")
+                text: root.showingModules ? "Close" : (root.page === 3 ? "Configure" : "Next")
                 font.bold: !root.showingModules
                 enabled: root.showingModules || (root.controller && root.controller.deviceKey.length > 0)
                 onClicked: {

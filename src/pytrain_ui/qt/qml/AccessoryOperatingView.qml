@@ -34,7 +34,7 @@ Rectangle {
             CabButton {
                 Layout.preferredWidth: 96
                 Layout.preferredHeight: 46
-                text: "BACK"
+                text: "Back"
                 onClicked: root.closeRequested()
             }
 
@@ -176,7 +176,7 @@ Rectangle {
                                 visible: operationRow.modelData.behavior === "LATCH"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
-                                text: "ON"
+                                text: "On"
                                 selected: operationRow.modelData.state === "ON"
                                 onClicked: root.controller.quickAction("ON", operationRow.modelData.tmccId)
                             }
@@ -184,7 +184,7 @@ Rectangle {
                                 visible: operationRow.modelData.behavior === "LATCH"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
-                                text: "OFF"
+                                text: "Off"
                                 selected: operationRow.modelData.state === "OFF"
                                 onClicked: root.controller.quickAction("OFF", operationRow.modelData.tmccId)
                             }
@@ -193,7 +193,7 @@ Rectangle {
                                          operationRow.modelData.behavior === "MOMENTARY_PULSE"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
-                                text: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "HOLD" : "PULSE"
+                                text: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "Hold" : "Pulse"
                                 onClicked: root.controller.holdQuickAction(operationRow.modelData.tmccId, true)
                                 onReleased: root.controller.holdQuickAction(operationRow.modelData.tmccId, false)
                             }

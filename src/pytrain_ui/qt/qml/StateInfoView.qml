@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var controller
     signal closeRequested()
     readonly property bool editorOpen: fieldEditor.visible
@@ -180,6 +182,7 @@ Rectangle {
 
                 Label {
                     visible: live.rows.length > 0
+                    Layout.topMargin: metrics.sectionGap
                     text: "Real Time Status"
                     color: "white"
                     font.pixelSize: 19
@@ -193,6 +196,7 @@ Rectangle {
                 }
                 Label {
                     visible: membership.rows.length > 0
+                    Layout.topMargin: metrics.sectionGap
                     text: "Consist Details"
                     color: "white"
                     font.pixelSize: 19
@@ -209,6 +213,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.topMargin: metrics.footerGap
             spacing: 18
             DelayButton {
                 id: clearButton
@@ -422,6 +427,7 @@ Rectangle {
             }
             RowLayout {
                 Layout.fillWidth: true
+                Layout.topMargin: metrics.footerGap
                 spacing: 18
                 FooterButton { text: fieldEditor.choice ? "Cancel" : "Close"; onClicked: fieldEditor.close() }
                 FooterButton {

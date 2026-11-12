@@ -5,6 +5,8 @@ import QtQuick.Layouts
 Popup {
     id: root
 
+    PanelMetrics { id: metrics }
+
     property string title: "TMCC ID"
     property int minimumId: 1
     property int maximumId: 98
@@ -161,8 +163,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
-            // Review this gap when standardizing keypad action-row spacing.
-            Layout.topMargin: 12
+            Layout.topMargin: metrics.footerGap
             spacing: 18
             Item { Layout.fillWidth: true; visible: !root.showSetAddress }
             KeyButton {

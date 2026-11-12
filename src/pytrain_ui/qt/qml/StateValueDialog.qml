@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+
+    PanelMetrics { id: metrics }
     objectName: "stateValueDialog"
     property string kind: "Mom"
     property bool legacy: true
@@ -165,7 +167,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 12
+            Layout.topMargin: metrics.footerGap
             spacing: 24
             EditorButton {
                 visible: root.hasSetButton

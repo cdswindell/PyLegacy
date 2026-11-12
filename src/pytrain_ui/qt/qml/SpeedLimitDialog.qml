@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+
+    PanelMetrics { id: metrics }
     objectName: "speedLimitDialog"
 
     property int maximumSpeed: 199
@@ -194,6 +196,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
+            Layout.topMargin: metrics.footerGap
             spacing: 24
             EditorButton {
                 Layout.fillWidth: true
@@ -201,7 +204,7 @@ Popup {
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 54
                 text: "Clear"
-                font.pixelSize: 20
+                font.pixelSize: metrics.editorButtonFontSize
                 enabled: root.hasExistingLimit
                 onClicked: {
                     root.limitCleared()
@@ -214,7 +217,7 @@ Popup {
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 54
                 text: "Close"
-                font.pixelSize: 20
+                font.pixelSize: metrics.editorButtonFontSize
                 onClicked: root.close()
             }
         }

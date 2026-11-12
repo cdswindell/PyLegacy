@@ -737,7 +737,7 @@ Rectangle {
                             spacing: 0
                             Label {
                                 Layout.fillWidth: true
-                                text: "CURRENT SPEED"
+                                text: "Current Speed"
                                 color: "#9aabba"
                                 horizontalAlignment: Text.AlignHCenter
                                 font.pixelSize: root.compact ? 10 : 15
@@ -764,7 +764,7 @@ Rectangle {
                             Layout.minimumWidth: 0
                             id: reverseButton
                             objectName: "reverseDirectionButton"
-                            text: "◀ REV" + (root.requestedDirection === "REVERSE" ? " …" : "")
+                            text: "◀ Rev" + (root.requestedDirection === "REVERSE" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
                             enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("REVERSE") >= 0
@@ -777,7 +777,7 @@ Rectangle {
                             Layout.minimumWidth: 0
                             id: forwardButton
                             objectName: "forwardDirectionButton"
-                            text: "FWD ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
+                            text: "Fwd ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
                             enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
@@ -981,7 +981,7 @@ Rectangle {
                 spacing: 0
                 Label {
                     Layout.fillWidth: true
-                    text: "CURRENT SPEED"
+                    text: "Current Speed"
                     color: "#9aabba"
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: 15

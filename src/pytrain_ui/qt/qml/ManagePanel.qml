@@ -4,13 +4,15 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var admin
     required property var cab
     property bool allNodes: false
     property int revision: 0
     readonly property bool compact: height < 850
     readonly property int buttonGap: compact ? 10 : 14
-    readonly property int sectionGap: compact ? 12 : 18
+    readonly property int sectionGap: compact ? metrics.sectionGap : metrics.sectionGap + 6
     signal closeRequested()
     signal accessoriesRequested()
     signal imagesRequested()
@@ -195,7 +197,7 @@ Rectangle {
                     PanelButton { text: "Local"; selected: !root.allNodes; onClicked: root.allNodes = false }
                     PanelButton { text: "All"; selected: root.allNodes; onClicked: root.allNodes = true }
                 }
-                SectionLabel { text: "Hold for 3 seconds"; Layout.topMargin: root.sectionGap }
+                SectionLabel { text: "Hold for 3 Seconds"; Layout.topMargin: root.sectionGap }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2
@@ -217,7 +219,9 @@ Rectangle {
                 }
             }
         }
-        CabButton {
+        PanelButton {
+            Layout.topMargin: metrics.footerGap
+            Layout.fillWidth: false
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 180
             Layout.preferredHeight: 52

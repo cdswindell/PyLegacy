@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var cab
     property string panelKey: ""
     property string title: ""
@@ -52,8 +54,9 @@ Rectangle {
             const columns = centered ? 2 : ditchLights ? 4 : 3
             const buttonHeight = ditchLights ? 86 : choiceHeight
             const rows = Math.ceil(commands.length / columns)
-            const sectionHeight = sectionHeadingHeight + rows * (buttonHeight + choiceSpacing)
             const categoryRows = Math.ceil((categories.length - sections.length - 1) / 2)
+            const sectionGap = categoryRows || sections.length ? metrics.sectionGap : 0
+            const sectionHeight = sectionHeadingHeight + rows * (buttonHeight + choiceSpacing) + sectionGap
             const categoriesHeight = categoryRows * (choiceHeight + choiceSpacing)
             if (categoriesHeight + sectionsHeight + sectionHeight <= choicesView.availableHeight) {
                 sections.push({name, commands, columns, buttonHeight, centered})
@@ -286,7 +289,9 @@ Rectangle {
                     model: root.inlineSections
                     ColumnLayout {
                         id: inlineSection
+                        required property int index
                         required property var modelData
+                        Layout.topMargin: index > 0 || root.choices.length > 0 ? metrics.sectionGap : 0
                         Layout.columnSpan: choicesGrid.columns
                         Layout.fillWidth: true
                         spacing: root.choiceSpacing
@@ -294,7 +299,7 @@ Rectangle {
                         Label {
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.sectionHeadingHeight
-                            text: inlineSection.modelData.name === "General" ? "General dialogs" : inlineSection.modelData.name
+                            text: inlineSection.modelData.name === "General" ? "General Dialogs" : inlineSection.modelData.name
                             font.pixelSize: 20
                             font.bold: true
                             color: "#bad4ea"
@@ -328,6 +333,7 @@ Rectangle {
 
         RowLayout {
             id: footer
+            Layout.topMargin: metrics.footerGap
             readonly property bool lightsPanel: root.panelKey === "lights"
             readonly property int buttonHeight: lightsPanel ? 60 : 52
             Layout.alignment: Qt.AlignHCenter

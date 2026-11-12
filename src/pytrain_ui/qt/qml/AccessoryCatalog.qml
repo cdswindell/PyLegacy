@@ -147,7 +147,7 @@ RosterPanel {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 92
-                text: "ADD…"
+                text: "Add…"
                 enabled: !lcsConfig.visible
                 onClicked: root.addRequested()
             }

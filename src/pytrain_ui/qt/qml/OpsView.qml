@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 RosterPanel {
     id: root
+
+    PanelMetrics { id: metrics }
     readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
 
     required property var controller
@@ -303,7 +305,7 @@ RosterPanel {
     }
 
     component ClearRecordButton: FunctionButton {
-        font.pixelSize: 20
+        font.pixelSize: metrics.editorButtonFontSize
         Layout.fillWidth: true
         Layout.preferredWidth: 0
         Layout.preferredHeight: 50
@@ -340,7 +342,7 @@ RosterPanel {
             Layout.fillWidth: true
             spacing: 10
             TouchButton {
-                text: "ADD…"
+                text: "Add…"
                 enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
                 onClicked: {
                     if (controller.scope === "SWITCH") root.openAddSwitch()
@@ -520,25 +522,25 @@ RosterPanel {
                         spacing: 6
                         RosterActionButton {
                             visible: !row.isRoute
-                            text: "THRU"
+                            text: "Thru"
                             selected: row.rowData.stateText === "THRU"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
                         }
                         RosterActionButton {
                             visible: !row.isRoute
-                            text: "OUT"
+                            text: "Out"
                             selected: row.rowData.stateText === "OUT"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
                         }
                         RosterActionButton {
                             visible: row.isRoute
-                            text: "FIRE"
+                            text: "Fire"
                             normalColor: "#a84418"
                             pressedColor: "#d65a20"
                             onClicked: controller.fireRoute(row.rowData.tmccId)
                         }
                         RosterActionButton {
-                            text: "EDIT…"
+                            text: "Edit…"
                             onClicked: {
                                 if (row.isRoute) root.editRoute(row.rowData.tmccId)
                                 else root.editSwitch(row.rowData.tmccId)
@@ -595,7 +597,7 @@ RosterPanel {
                     font.bold: true
                 }
                 Label {
-                    text: (controller ? controller.routeComponents.length : 0) + " of 16"
+                    text: (controller ? controller.routeComponents.length : 0) + " of 16 Elements"
                     color: "#aeb5bf"
                     font.pixelSize: 14
                 }
@@ -676,8 +678,8 @@ RosterPanel {
                     Label {
                         Layout.fillWidth: true
                         text: controller && controller.routeComponents.length ?
-                                  "Select a card to change its position, order, or remove it." :
-                                  "No components yet. Add a switch or nested route."
+                                  "Select an element to change its position, order, or remove it." :
+                                  "No elements yet. Add a switch or nested route."
                         color: "#aeb5bf"
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap
@@ -719,7 +721,7 @@ RosterPanel {
                                 spacing: 5
                                 Label {
                                     Layout.fillWidth: true
-                                    text: "Card " + (modelData.index + 1)
+                                    text: "Element " + (modelData.index + 1)
                                     color: "#aeb5bf"
                                     font.pixelSize: 12
                                 }
@@ -774,7 +776,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "THRU"
+                            text: "Thru"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                             selected: enabled &&
@@ -785,7 +787,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "OUT"
+                            text: "Out"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
                             selected: enabled &&
@@ -801,7 +803,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "MOVE LEFT"
+                            text: "Move Left"
                             enabled: controller && controller.routeComponentIndex > 0
                             onClicked: controller.moveRouteComponent(-1)
                         }
@@ -809,7 +811,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "MOVE RIGHT"
+                            text: "Move Right"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponentIndex < controller.routeComponents.length - 1
                             onClicked: controller.moveRouteComponent(1)
@@ -823,7 +825,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "ADD…"
+                            text: "Add…"
                             enabled: controller && controller.routeComponents.length < 16
                             onClicked: root.openRoutePicker()
                         }
@@ -831,7 +833,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "REMOVE"
+                            text: "Remove"
                             enabled: controller && controller.routeComponentIndex >= 0
                             onClicked: controller.removeRouteComponent()
                         }
@@ -839,7 +841,7 @@ RosterPanel {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "CLEAR ALL"
+                            text: "Clear All"
                             enabled: controller && controller.routeComponents.length > 0
                             onClicked: controller.clearRouteComponents()
                         }
@@ -881,6 +883,7 @@ RosterPanel {
                     Layout.preferredHeight: 63
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     text: "Cancel"
+                    font.pixelSize: metrics.editorButtonFontSize
                     onClicked: {
                         controller.closeRouteBuilder()
                         routeBuilder.close()
@@ -893,6 +896,7 @@ RosterPanel {
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     activateOnRelease: true
                     text: "Save"
+                    font.pixelSize: metrics.editorButtonFontSize
                     font.bold: true
                     enabled: controller && controller.routeBuilderOpen &&
                              Number(routeIdField.text) >= 1 && Number(routeIdField.text) <= 98
@@ -976,7 +980,7 @@ RosterPanel {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 42
-                    text: "SWITCHES"
+                    text: "Switches"
                     selected: root.routeCandidateScope === "SWITCH"
                     onClicked: root.routeCandidateScope = "SWITCH"
                 }
@@ -984,7 +988,7 @@ RosterPanel {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 42
-                    text: "ROUTES"
+                    text: "Routes"
                     selected: root.routeCandidateScope === "ROUTE"
                     onClicked: root.routeCandidateScope = "ROUTE"
                 }
@@ -1090,7 +1094,7 @@ RosterPanel {
                         CabButton {
                             Layout.preferredWidth: 74
                             Layout.preferredHeight: 42
-                            text: "ADD"
+                            text: "Add"
                             onClicked: {
                                 const error = controller.addRouteComponent(modelData.scope, modelData.tmccId)
                                 if (error.length > 0)
@@ -1113,7 +1117,7 @@ RosterPanel {
             CabButton {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
-                text: "CANCEL"
+                text: "Cancel"
                 onClicked: routePicker.close()
             }
         }
@@ -1168,7 +1172,7 @@ RosterPanel {
             Label {
                 Layout.fillWidth: true
                 visible: commandControlSwitch.checked
-                text: "Put the Command Control switch into PROGRAM mode before pressing ADD SWITCH."
+                text: "Put the Command Control switch into PROGRAM mode before pressing Add Switch."
                 color: "#f0c36a"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
@@ -1228,14 +1232,15 @@ RosterPanel {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "CANCEL"
+                    text: "Cancel"
+                    font.pixelSize: metrics.editorButtonFontSize
                     onClicked: addSwitchPopup.close()
                 }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "ADD SWITCH"
+                    text: "Add Switch"
                     font.bold: true
                     enabled: addSwitchId.acceptableInput &&
                              addRoadName.text.trim().length > 0 &&
@@ -1287,14 +1292,15 @@ RosterPanel {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "CANCEL"
+                    text: "Cancel"
+                    font.pixelSize: metrics.editorButtonFontSize
                     onClicked: overwriteSwitchPopup.close()
                 }
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "REPLACE SWITCH"
+                    text: "Replace Switch"
                     font.bold: true
                     onClicked: root.submitAddSwitch(true)
                 }
@@ -1390,6 +1396,7 @@ RosterPanel {
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
                     text: "Cancel"
+                    font.pixelSize: metrics.editorButtonFontSize
                     onClicked: switchEditor.close()
                 }
                 CabButton {
@@ -1398,6 +1405,7 @@ RosterPanel {
                     Layout.preferredHeight: 50
                     activateOnRelease: true
                     text: "Save"
+                    font.pixelSize: metrics.editorButtonFontSize
                     font.bold: true
                     enabled: roadNameField.text !== root.editingSwitchOriginalName ||
                              roadNumberField.text !== root.editingSwitchOriginalNumber
