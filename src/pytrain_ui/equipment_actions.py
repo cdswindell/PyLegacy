@@ -93,7 +93,7 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("transformer_rear_coupler", "Rear Coupler", "REAR_COUPLER", "rear-coupler.jpg", "t"),
     EquipmentAction("transformer_direction", "Direction", "TOGGLE_DIRECTION", "", "t"),
     EquipmentAction("transformer_on", "Start Up", "BOOST_SPEED", "on_button.jpg", "t"),
-    EquipmentAction("transformer_off", "Shut Down", "POWERMASTER_OFF", "off_button.jpg", "t"),
+    EquipmentAction("transformer_off", "Shut Down", "AUX_NUMBER_0", "off_button.jpg", "t"),
     EquipmentAction("transformer_aux1", "Aux 1", "AUX1_OPTION_ONE", "", "t", group="secondary"),
     EquipmentAction("transformer_aux2", "Aux 2", "AUX2_OPTION_ONE", "", "t", group="secondary"),
     EquipmentAction("transformer_aux3", "Aux 3", "AUX3_OPTION_ONE", "", "t", group="secondary"),

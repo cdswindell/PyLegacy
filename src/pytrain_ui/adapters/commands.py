@@ -397,6 +397,13 @@ class PyTrainCabCommandAdapter:
             return True
         if action.command_kind == "smoke":
             return self._step_smoke(1 if action.command == "SMOKE_ON" else -1)
+        if action.key == "transformer_off":
+            state = self.state
+            command = TMCC2EngineCommandEnum.by_name(action.command, raise_exception=True)
+            request = CommandReq.build(command, state.tmcc_id, scope=state.scope)
+            # Numeric zero means track power off here, so skip locomotive reset effects.
+            request.as_action()(trigger_effects=False)
+            return True
         return self.send_named(action.command)
 
     def perform_hold(self, action: CabAction | str) -> bool:
