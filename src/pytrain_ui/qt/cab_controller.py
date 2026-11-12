@@ -420,6 +420,10 @@ class CabController(QObject):
         return bool(getattr(state, "is_diesel", False))
 
     @Property(bool, notify=stateChanged)
+    def isAcela(self) -> bool:
+        return self._command_port is not None and self._command_port.controller_type_key == "a"
+
+    @Property(bool, notify=stateChanged)
     def isElectric(self) -> bool:
         return self._command_port is not None and self._command_port.controller_type_key == "l"
 
@@ -483,14 +487,13 @@ class CabController(QObject):
             brake = "NA"
             smoke = str(getattr(state, "smoke_text", "") or "")
 
-        rpm = getattr(state, "rpm", None) if bool(getattr(state, "is_rpm", False)) else None
         return [
             {"label": "Mom", "value": momentum},
             {"label": "Brake", "value": brake},
             {"label": "Smoke", "value": smoke},
             {"label": "Speed Lim", "value": "" if speed_limit is None else str(speed_limit)},
             {"label": "Effort", "value": "" if labor is None else str(labor)},
-            {"label": "RPM", "value": "NA" if rpm is None else str(rpm)},
+            {"label": "RPM", "value": self._snapshot.rpm_text},
         ]
 
     @Property("QVariantMap", notify=stateChanged)
@@ -504,7 +507,7 @@ class CabController(QObject):
             "Brake": getattr(state, "train_brake", None),
             "Smoke": smoke_values.get(smoke_name),
             "Effort": getattr(state, "labor", None),
-            "RPM": getattr(state, "rpm", None) if self.supportsRpm else None,
+            "RPM": self._snapshot.rpm if self.supportsRpm and self._snapshot.rpm_text != "NA" else None,
         }
 
     @Property(bool, notify=stateChanged)
@@ -517,7 +520,7 @@ class CabController(QObject):
 
     @Property(bool, notify=stateChanged)
     def supportsSmoke(self) -> bool:
-        return bool(self._command_port is not None and self._command_port.supports_smoke())
+        return self._command_port is not None and not self.isAcela and self._command_port.supports_smoke()
 
     @Property(bool, notify=stateChanged)
     def supportsMomentum(self) -> bool:

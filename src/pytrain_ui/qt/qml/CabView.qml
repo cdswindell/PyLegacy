@@ -179,6 +179,15 @@ Rectangle {
                 "pantograph_rear_up", "pantograph_rear_down", "electric_smoke_up", "electric_smoke_down"].includes(key))
     }
 
+    function auxActions() {
+        if (root.passengerCar)
+            return root.passengerAuxActions()
+        const actions = cab.secondaryActionModel
+        if (cab.isAcela)
+            return ["sequence", "acela_aux2", "acela_aux3"].map(key => actions.find(action => action.key === key))
+        return actions
+    }
+
     function passengerAuxActions() {
         const actions = cab.secondaryActionModel
         return ["car_aux1", "car_aux2", "car_aux3"].map((key, index) => {
@@ -221,10 +230,19 @@ Rectangle {
         if (root.standaloneCar)
             return root.carActionRows()
 
-        if (cab.isCrane) {
+        if (cab.isCrane || cab.isAcela) {
             const byKey = {}
             for (const action of cab.primaryActionModel.concat(cab.actionModel))
                 byKey[action.key] = action
+            if (cab.isAcela) {
+                return [
+                    [byKey.acela_startup, byKey.acela_shutdown, byKey.rpm_up],
+                    [byKey.bell, byKey.horn, byKey.rpm_down],
+                    [byKey.engineer_chatter, byKey.tower_chatter, undefined],
+                    [byKey.pantograph_both_down, byKey.pantograph_both_up, byKey.boost],
+                    [byKey.volume_down, byKey.volume_up, byKey.brake]
+                ]
+            }
             return [
                 [byKey.startup, byKey.shutdown, byKey.crane_radio],
                 [byKey.crane_boom, byKey.crane_main_hook, byKey.crane_aux_hook],
@@ -333,7 +351,7 @@ Rectangle {
             [byKey.master_volume_up, byKey.blend_up, volumeUpThird],
             [byKey.master_volume_down, byKey.blend_down, volumeDownThird]
         ]
-        return rows.concat(root.pairedActionRows(otherActions))
+        return cab.isAcela ? rows : rows.concat(root.pairedActionRows(otherActions))
     }
 
     component PairedActions: ColumnLayout {
@@ -745,7 +763,7 @@ Rectangle {
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
-                        model: root.passengerCar ? root.passengerAuxActions() : cab.secondaryActionModel
+                        model: root.auxActions()
                         ActionTile {
                             required property var modelData
                             action: modelData

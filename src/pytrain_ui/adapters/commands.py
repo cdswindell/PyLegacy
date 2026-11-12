@@ -177,7 +177,7 @@ class PyTrainCabCommandAdapter:
         )
 
     def supports_rpm(self) -> bool:
-        return self.supports_labor() and bool(getattr(self.state, "is_rpm", False))
+        return self.supports_labor() and (self.controller_type_key == "a" or bool(getattr(self.state, "is_rpm", False)))
 
     def set_labor(self, value: int) -> None:
         state = self.state

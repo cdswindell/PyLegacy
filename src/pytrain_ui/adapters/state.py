@@ -50,8 +50,11 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
     train_brake = _int_value(getattr(state, "train_brake", 0))
     smoke = _int_value(getattr(state, "smoke", 0))
     labor_value = getattr(state, "labor", None)
-    rpm_value = getattr(state, "rpm", None)
-    is_rpm = bool(getattr(state, "is_rpm", False))
+    is_acela = bool(getattr(state, "is_acela", False))
+    is_rpm = is_acela or bool(getattr(state, "is_rpm", False))
+    rpm_value = (
+        getattr(getattr(state, "comp_data", None), "rpm_tmcc", None) if is_acela else getattr(state, "rpm", None)
+    )
 
     if state.is_legacy:
         brake_text = str(train_brake) if train_brake else "Off"

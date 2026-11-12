@@ -288,7 +288,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     CabAction("electric_smoke_up", "Smoke +", "SMOKE_ON", "smoke-up.jpg", "l", command_kind="smoke"),
     CabAction(
         "pantograph_both_down",
-        "Pantographs Down",
+        "Panto Down",
         "PANTO_BOTH_DOWN",
         "panto-down-a.jpg",
         "a",
@@ -297,7 +297,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
     ),
     CabAction(
         "pantograph_both_up",
-        "Pantographs Up",
+        "Panto Up",
         "PANTO_BOTH_UP",
         "panto-up-a.jpg",
         "a",
