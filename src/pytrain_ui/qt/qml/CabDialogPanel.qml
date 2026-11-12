@@ -9,6 +9,8 @@ Rectangle {
     property string title: ""
     property string category: ""
     property var actions: []
+    readonly property bool threeColumnChoices: category === "Arrive/Depart" ||
+        (panelKey === "crew" && category === "Acknowledge")
     readonly property bool passengerPanel: ["conductor", "station", "steward"].includes(panelKey)
     readonly property var categories: {
         if (panelKey === "lights")
@@ -81,6 +83,26 @@ Rectangle {
                 const secondRank = speedRank(second.command) || speedOrder.length
                 return firstRank - secondRank
             })
+        if (panelKey === "crew" && section === "Acknowledge") {
+            const rank = action => {
+                if (action.command.startsWith("ENGINEER_ACK_CLEAR"))
+                    return 0
+                const speed = speedRank(action.command)
+                if (speed > 0)
+                    return speed
+                return speed === 0 ? speedOrder.length + 1 : speedOrder.length
+            }
+            return commands.sort((first, second) => rank(first) - rank(second) ||
+                                 first.label.localeCompare(second.label))
+        }
+        if (panelKey === "crew" && section === "Status") {
+            const order = ["Fuel Level", "Fuel Refilled", "Water Level", "Water Refilled", "Current Speed"]
+            return commands.sort((first, second) => order.indexOf(first.label) - order.indexOf(second.label))
+        }
+        if (section === "Arrive/Depart") {
+            const order = ["All Clear", "Arriving", "Arrived", "Depart Ok", "Depart Denied", "Departed"]
+            return commands.sort((first, second) => order.indexOf(first.label) - order.indexOf(second.label))
+        }
         if (panelKey === "tower" && section === "General") {
             const order = ["Start Up", "Shut Down", "Contextual", "Emergency"]
             return commands.sort((first, second) => order.indexOf(first.label) - order.indexOf(second.label))
@@ -174,7 +196,7 @@ Rectangle {
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
         Layout.preferredHeight: Math.max(root.choiceHeight, implicitHeight)
-        text: modelData.label
+        text: modelData.label === "Depart Ok" ? "Depart OK" : modelData.label
         navigates: opensCategory
         onClicked: {
             if (opensCategory) {
@@ -223,13 +245,14 @@ Rectangle {
 
             GridLayout {
                 width: choicesView.availableWidth
-                columns: 2
+                id: choicesGrid
+                columns: root.threeColumnChoices ? 3 : 2
                 rowSpacing: root.choiceSpacing
                 columnSpacing: root.choiceSpacing
 
                 Label {
                     visible: root.actions.length === 0
-                    Layout.columnSpan: 2
+                    Layout.columnSpan: choicesGrid.columns
                     Layout.fillWidth: true
                     text: root.panelKey === "lights" ? "No lighting commands available" : "No dialogs available"
                     font.pixelSize: 20
@@ -239,7 +262,14 @@ Rectangle {
 
                 Repeater {
                     model: root.choices
-                    ChoiceButton {}
+                    ChoiceButton {
+                        readonly property bool centeredStatus: root.category === "Status" &&
+                                                               modelData.command === "ENGINEER_SPEED"
+                        Layout.fillHeight: root.threeColumnChoices
+                        Layout.columnSpan: centeredStatus ? 2 : 1
+                        Layout.alignment: centeredStatus ? Qt.AlignHCenter : Qt.AlignVCenter
+                        Layout.maximumWidth: centeredStatus ? (choicesGrid.width - root.choiceSpacing) / 2 : -1
+                    }
                 }
 
                 Repeater {
@@ -247,7 +277,7 @@ Rectangle {
                     ColumnLayout {
                         id: inlineSection
                         required property var modelData
-                        Layout.columnSpan: 2
+                        Layout.columnSpan: choicesGrid.columns
                         Layout.fillWidth: true
                         spacing: root.choiceSpacing
 
