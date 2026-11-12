@@ -17,7 +17,7 @@ from pytrain.protocol.command_req import CommandReq
 def lcs_readback(monkeypatch):
     module = pytest.importorskip("pytrain_ui.qt.lcs_controller")
     # The Qt extra is optional, and the imported class name is part of its API.
-    # noinspection PyPackageRequirementsInspection,SpellCheckingInspection
+    # noinspection PyPackageRequirements,SpellCheckingInspection
     from PySide6.QtCore import QCoreApplication, QTimer as Timer
 
     app = QCoreApplication.instance() or QCoreApplication([])
