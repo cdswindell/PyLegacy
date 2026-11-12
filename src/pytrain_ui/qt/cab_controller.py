@@ -689,7 +689,7 @@ class CabController(QObject):
             self.cancelRelativeThrottle()
 
     def _hold_relative_step(self) -> None:
-        speed = self._relative_step_direction * max(1, self._relative_step_count)
+        speed = self._relative_step_direction * min(5, self._relative_step_count + 1)
         self._relative_step_count = 0
         self._set_relative_speed(speed)
         self._send_relative_speed()
