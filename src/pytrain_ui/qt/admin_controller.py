@@ -68,12 +68,16 @@ class AdminController(QObject):
     def synchronized(self) -> bool:
         return bool(self._runtime and self._runtime.is_synchronized())
 
+    @Property(bool, notify=changed)
+    def databaseLoading(self) -> bool:
+        state = ComponentStateStore.get_state(CommandScope.SYNC, 99, create=False)
+        return state is not None and state.is_synchronizing()
+
     @Property(str, notify=changed)
     def databaseStatus(self) -> str:
-        if self.synchronized:
-            return "Loaded"
-        state = ComponentStateStore.get_state(CommandScope.SYNC, 99, create=False)
-        return "Reloading…" if state is not None and state.is_synchronizing() else "Unavailable"
+        if self.databaseLoading:
+            return "Loading…"
+        return "Loaded" if self.synchronized else "Unavailable"
 
     @Property(bool, notify=changed)
     def logging(self) -> bool:

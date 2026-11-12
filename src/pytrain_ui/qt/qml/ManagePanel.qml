@@ -29,7 +29,7 @@ Rectangle {
     }
     Timer {
         running: root.visible
-        interval: 1500
+        interval: 500
         repeat: true
         onTriggered: root.admin.refresh()
     }
@@ -148,9 +148,19 @@ Rectangle {
                         color: "#16376b"
                         border.color: "#5275a4"
                         Label {
+                            id: databaseStatus
                             anchors.fill: parent
                             anchors.margins: 6
                             text: root.admin.databaseStatus
+
+                            SequentialAnimation on opacity {
+                                running: databaseStatus.visible && root.admin.databaseLoading
+                                loops: Animation.Infinite
+                                NumberAnimation { from: 1; to: 0.35; duration: 350 }
+                                NumberAnimation { from: 0.35; to: 1; duration: 350 }
+                                onStopped: databaseStatus.opacity = 1
+                            }
+
                             color: "#e2edf9"
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
