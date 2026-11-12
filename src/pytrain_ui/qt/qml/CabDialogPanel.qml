@@ -46,14 +46,15 @@ Rectangle {
             const ditchLights = name === "Ditch Lights"
             if (ditchLights && choicesView.availableWidth < 540)
                 continue
-            const columns = ditchLights ? 4 : 3
+            const centered = panelKey === "tower" && name === "General"
+            const columns = centered ? 2 : ditchLights ? 4 : 3
             const buttonHeight = ditchLights ? 86 : choiceHeight
             const rows = Math.ceil(commands.length / columns)
             const sectionHeight = sectionHeadingHeight + rows * (buttonHeight + choiceSpacing)
             const categoryRows = Math.ceil((categories.length - sections.length - 1) / 2)
             const categoriesHeight = categoryRows * (choiceHeight + choiceSpacing)
             if (categoriesHeight + sectionsHeight + sectionHeight <= choicesView.availableHeight) {
-                sections.push({name, commands, columns, buttonHeight})
+                sections.push({name, commands, columns, buttonHeight, centered})
                 sectionsHeight += sectionHeight + choiceSpacing
             }
         }
@@ -75,7 +76,15 @@ Rectangle {
     function sortedActions(section) {
         const commands = actions.filter(action => !section || action.section === section)
         if (panelKey === "tower" && section === "Speed")
-            return commands.sort((first, second) => speedRank(first.command) - speedRank(second.command))
+            return commands.sort((first, second) => {
+                const firstRank = speedRank(first.command) || speedOrder.length
+                const secondRank = speedRank(second.command) || speedOrder.length
+                return firstRank - secondRank
+            })
+        if (panelKey === "tower" && section === "General") {
+            const order = ["Start Up", "Shut Down", "Contextual", "Emergency"]
+            return commands.sort((first, second) => order.indexOf(first.label) - order.indexOf(second.label))
+        }
         return commands.sort((first, second) => first.label.localeCompare(second.label))
     }
 
@@ -252,7 +261,10 @@ Rectangle {
                         }
 
                         GridLayout {
-                            Layout.fillWidth: true
+                            Layout.fillWidth: !inlineSection.modelData.centered
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: inlineSection.modelData.centered
+                                ? (2 * inlineSection.width - root.choiceSpacing) / 3 : -1
                             columns: inlineSection.modelData.columns
                             rowSpacing: root.choiceSpacing
                             columnSpacing: root.choiceSpacing
@@ -262,7 +274,9 @@ Rectangle {
                                 ChoiceButton {
                                     required property int index
                                     Layout.row: Math.floor(index / inlineSection.modelData.columns)
-                                    Layout.column: index % inlineSection.modelData.columns
+                                    Layout.column: inlineSection.modelData.name === "Speed" &&
+                                                   speedChevrons === 0 && modelData.command.endsWith("_STOP_HOLD")
+                                                   ? 1 : index % inlineSection.modelData.columns
                                     Layout.preferredHeight: Math.max(inlineSection.modelData.buttonHeight, implicitHeight)
                                 }
                             }
