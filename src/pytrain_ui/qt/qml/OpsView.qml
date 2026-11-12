@@ -485,6 +485,9 @@ RosterPanel {
                         id: alignmentLabel
                         visible: row.isRoute
                         Layout.preferredWidth: Math.ceil(Math.max(alignedMetrics.advanceWidth, unsetMetrics.advanceWidth))
+                                               + leftPadding + rightPadding
+                        leftPadding: text === "Aligned" ? 4 : 0
+                        rightPadding: leftPadding
                         TextMetrics {
                             id: alignedMetrics
                             font: alignmentLabel.font
