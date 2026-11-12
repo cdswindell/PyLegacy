@@ -86,6 +86,8 @@ Rectangle {
     readonly property bool passengerCar: cab.isStandalonePassenger
     readonly property bool freightCar: cab.isStandaloneFreight
     readonly property bool standaloneCar: passengerCar || freightCar
+    readonly property bool speedPresetsEnabled: cab.hasThrottle && !standaloneCar && !cab.isCrane && !cab.isCab1
+    readonly property string analogControlMode: cab.analogModes.length === 1 ? cab.analogModes[0] : analogMode.currentText
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
     readonly property int preferredTileHeight: compact ? 72 : 112
@@ -194,6 +196,19 @@ Rectangle {
         if (root.standaloneCar)
             return root.carActionRows()
 
+        if (cab.isCrane) {
+            const byKey = {}
+            for (const action of cab.primaryActionModel.concat(cab.actionModel))
+                byKey[action.key] = action
+            return [
+                [byKey.startup, byKey.shutdown, byKey.crane_outriggers],
+                [byKey.crane_boom, byKey.crane_main_hook, byKey.crane_aux_hook],
+                [byKey.bell, byKey.horn, byKey.crane_radio],
+                [byKey.crane_rear_lamp, byKey.crane_front_lamp, byKey.boost],
+                [byKey.rear_coupler, byKey.front_coupler, byKey.brake]
+            ]
+        }
+
         const actions = cab.primaryActionModel.concat(cab.quickActionModel,
             cab.moreActionModel.filter(action => root.isDriveUtility(action.key) || root.isEngineSpecificControl(action.key)))
         const byKey = {}
@@ -266,8 +281,8 @@ Rectangle {
             },
             {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true}
         ]
-        const canLoadWater = cab.isLegacy && cab.isSteam
-        const canRefuel = cab.isLegacy && (cab.isDiesel || cab.isSteam)
+        const canLoadWater = !cab.isCab1 && !cab.isCrane && cab.isLegacy && cab.isSteam
+        const canRefuel = !cab.isCab1 && !cab.isCrane && cab.isLegacy && (cab.isDiesel || cab.isSteam)
         const gaugesAndSet = [
             cab.isElectric ? byKey.electric_smoke_down
                 : {key: "fuel", label: cab.isSteam ? "Coal" : "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel},
@@ -275,6 +290,13 @@ Rectangle {
             cab.isElectric ? byKey.electric_smoke_up
                 : {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
         ]
+        if (cab.isCrane) {
+            return [
+                presets.slice(0, 3), presets.slice(3), stopAndRoll, gaugesAndSet,
+                [byKey.volume_up, undefined, byKey.crane_sound_on],
+                [byKey.volume_down, undefined, byKey.crane_sound_off]
+            ]
+        }
         const volumeUpThird = root.passengerCar && byKey.sound_on
             ? Object.assign({}, byKey.sound_on, {label: "Unmute"})
             : byKey.labor_up || byKey.electric_effort_up
@@ -349,7 +371,7 @@ Rectangle {
         speedChevrons: action.speedChevrons || 0
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         Accessible.name: stopSign ? text + " Stop" : text
-        enabled: !action.disabled && (!action.speedPreset || (cab.hasThrottle && !root.standaloneCar))
+        enabled: !action.disabled && (!action.speedPreset || root.speedPresetsEnabled)
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         font.bold: emergencyStop
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
@@ -498,7 +520,7 @@ Rectangle {
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: ["Controls", cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
+                        model: ["Controls", cab.isCrane ? "Sound" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
                         TabButton {
                             id: pageTab
                             required property int index
@@ -747,7 +769,9 @@ Rectangle {
                             Label {
                                 objectName: "currentSpeedReadout"
                                 Layout.fillWidth: true
-                                text: ("000" + Math.max(0, Math.min(199, Math.round(cab.speed)))).slice(-3)
+                                text: cab.isCab1
+                                    ? (throttle.displayValue() > 0 ? "+" : "") + throttle.displayValue()
+                                    : ("000" + Math.max(0, Math.min(199, Math.round(cab.speed)))).slice(-3)
                                 font.family: speedFont.status === FontLoader.Ready ? speedFont.name : "monospace"
                                 color: "#e4f6ff"
                                 horizontalAlignment: Text.AlignHCenter
@@ -765,6 +789,7 @@ Rectangle {
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: reverseButton
+                            visible: !cab.isCab1
                             objectName: "reverseDirectionButton"
                             text: "◀ Rev" + (root.requestedDirection === "REVERSE" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
@@ -778,12 +803,23 @@ Rectangle {
                             Layout.preferredWidth: 0
                             Layout.minimumWidth: 0
                             id: forwardButton
+                            visible: !cab.isCab1
                             objectName: "forwardDirectionButton"
                             text: "Fwd ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
                             enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
+                        }
+                        CabButton {
+                            objectName: "toggleDirectionButton"
+                            visible: cab.isCab1
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: root.compact ? 52 : 64
+                            text: "◀ Dir ▶"
+                            Accessible.name: "Toggle Direction"
+                            font.pixelSize: root.compact ? 17 : 22
+                            onClicked: cab.toggleDirection()
                         }
                     }
                     Item {
@@ -876,15 +912,15 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
-                                maximumValue: analogMode.currentText === "Horn" ? 15 : 7
-                                springReturn: analogMode.currentText === "Horn"
-                                value: analogMode.currentText === "Brake" ? cab.trainBrake : analogMode.currentText === "Momentum" ? cab.momentum : 0
+                                maximumValue: root.analogControlMode === "Horn" ? 15 : 7
+                                springReturn: root.analogControlMode === "Horn"
+                                value: root.analogControlMode === "Brake" ? cab.trainBrake : root.analogControlMode === "Momentum" ? cab.momentum : 0
                                 onValueMoved: function(v) {
-                                    if (analogMode.currentText === "Brake") cab.setTrainBrake(v)
-                                    else if (analogMode.currentText === "Horn") cab.setQuillingHorn(v)
+                                    if (root.analogControlMode === "Brake") cab.setTrainBrake(v)
+                                    else if (root.analogControlMode === "Horn") cab.setQuillingHorn(v)
                                 }
                                 onValueCommitted: function(v) {
-                                    if (analogMode.currentText === "Momentum") cab.setMomentum(v)
+                                    if (root.analogControlMode === "Momentum") cab.setMomentum(v)
                                 }
                             }
                             Label {
@@ -894,14 +930,14 @@ Rectangle {
                                 Layout.maximumHeight: 20
                                 Layout.preferredHeight: 20
                                 horizontalAlignment: Text.AlignHCenter
-                                text: analogMode.currentText === "Horn" ? "0–15" : "0–7"
+                                text: root.analogControlMode === "Horn" ? "0–15" : "0–7"
                                 color: "#bdcfe5"
                                 font.pixelSize: root.compact ? 12 : 15
                             }
                             Timer {
-                                interval: 500
+                                interval: cab.isCab1 || cab.isCrane ? cab.hornRepeatInterval : 500
                                 repeat: true
-                                running: analogMode.currentText === "Horn" && analogControl.dragging && analogControl.pendingValue > 0
+                                running: root.analogControlMode === "Horn" && analogControl.dragging && analogControl.pendingValue > 0
                                 onTriggered: cab.setQuillingHorn(analogControl.pendingValue)
                             }
                         }
@@ -920,20 +956,25 @@ Rectangle {
                                 objectName: "speedStepUp"
                                 text: "+"
                                 font.pixelSize: root.compact ? 32 : 38
-                                enabled: !root.standaloneCar && !cab.rampActive
+                                enabled: !root.standaloneCar && !cab.isCab1 && !cab.isCrane && !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(1)
                             }
                             VerticalThrottle {
                                 id: throttle
                                 objectName: "targetSpeedThrottle"
-                                enabled: !root.standaloneCar
+                                enabled: cab.isCab1 || !root.standaloneCar
                                 largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
-                                maximumValue: Math.max(1, cab.speedMax)
-                                value: cab.targetSpeed
+                                minimumValue: cab.isCab1 ? -5 : 0
+                                maximumValue: cab.isCab1 ? 5 : Math.max(1, cab.speedMax)
+                                value: cab.isCab1 ? 0 : cab.targetSpeed
+                                springReturn: cab.isCab1
+                                onGestureStarted: cab.beginRelativeThrottle()
+                                onValueMoved: function(v) { if (springReturn) cab.moveRelativeThrottle(v) }
+                                onGestureFinished: cab.endRelativeThrottle()
                                 onValueCommitted: function(v) { cab.setSpeed(v) }
                             }
                             CabButton {
@@ -944,7 +985,7 @@ Rectangle {
                                 objectName: "speedStepDown"
                                 text: "−"
                                 font.pixelSize: root.compact ? 32 : 38
-                                enabled: !root.standaloneCar && !cab.rampActive
+                                enabled: !root.standaloneCar && !cab.isCab1 && !cab.isCrane && !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(-1)
                             }
@@ -1030,7 +1071,7 @@ Rectangle {
                 Rectangle {
                     id: stateTile
                     required property var modelData
-                    readonly property bool editable: !root.standaloneCar && (
+                    readonly property bool editable: !root.standaloneCar && !cab.isCrane && !cab.isCab1 && (
                         (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
                         (modelData.label === "Brake" && cab.supportsTrainBrake) ||

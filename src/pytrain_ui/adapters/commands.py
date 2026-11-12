@@ -6,7 +6,7 @@ from threading import Thread
 
 from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
-from pytrain.protocol.constants import TMCC_CONTROL_TYPE, CommandScope
+from pytrain.protocol.constants import CAB1_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedDialogReq, RampSpeedReq
@@ -38,8 +38,12 @@ class PyTrainCabCommandAdapter:
         return self._state_adapter.state
 
     @property
+    def is_cab1(self) -> bool:
+        return getattr(self.state, "control_type", None) == CAB1_CONTROL_TYPE
+
+    @property
     def _enum_type(self):
-        return TMCC2EngineCommandEnum if self.state.is_legacy else TMCC1EngineCommandEnum
+        return TMCC2EngineCommandEnum if self.state.is_legacy and not self.is_cab1 else TMCC1EngineCommandEnum
 
     @property
     def controller_type_key(self) -> str:
@@ -73,14 +77,22 @@ class PyTrainCabCommandAdapter:
             momentum_supported=momentum_supported,
         )
 
+    def set_relative_speed(self, speed: int) -> None:
+        speed = max(-5, min(5, int(speed)))
+        state = self.state
+        CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, state.tmcc_id, data=speed, scope=state.scope).send()
+
     def set_speed(self, speed: int) -> None:
+        if self.is_cab1:
+            self.set_relative_speed(speed)
+            return
         maximum = 199 if self.state.is_legacy else 31
         speed = max(0, min(maximum, int(speed)))
         RampSpeedReq(self.state.tmcc_id, speed, self.state.scope).send()
 
     def set_speed_preset(self, name: str, with_dialog: bool = False) -> None:
         state = self.state
-        if not state.has_throttle:
+        if self.is_cab1 or not state.has_throttle:
             return
         if name == "EMERGENCY_STOP":
             emergency_dialog = None
@@ -108,6 +120,9 @@ class PyTrainCabCommandAdapter:
 
     def step_speed(self, delta: int) -> bool:
         """Send a direct speed nudge only while no local or remote ramp is active."""
+        if self.is_cab1:
+            self.set_relative_speed(delta)
+            return True
         state = self.state
         if bool(getattr(state, "is_ramp_active", False)) or state.speed is None:
             return False
@@ -120,7 +135,7 @@ class PyTrainCabCommandAdapter:
         return True
 
     def change_speed(self, delta: int) -> None:
-        self.set_speed(self._state_adapter.current().target_speed + int(delta))
+        self.set_speed(delta if self.is_cab1 else self._state_adapter.current().target_speed + int(delta))
 
     def set_momentum(self, value: int) -> None:
         value = max(0, min(7, int(value)))
@@ -201,7 +216,12 @@ class PyTrainCabCommandAdapter:
         normalized = direction.strip().upper()
         if normalized not in {"FORWARD", "REVERSE"}:
             raise ValueError("direction must be FORWARD or REVERSE")
-        self.send_named(f"{normalized}_DIRECTION")
+        if not self.is_cab1:
+            self.send_named(f"{normalized}_DIRECTION")
+
+    def toggle_direction(self) -> None:
+        if self.is_cab1:
+            self.send_named("TOGGLE_DIRECTION")
 
     def bell(self) -> None:
         self.send_named("RING_BELL")
@@ -219,7 +239,10 @@ class PyTrainCabCommandAdapter:
             self.send_named("BRAKE_SPEED")
 
     def stop(self) -> None:
-        self.send_named("STOP_IMMEDIATE")
+        if self.is_cab1:
+            self.set_relative_speed(0)
+        else:
+            self.send_named("STOP_IMMEDIATE")
 
     @staticmethod
     def halt() -> None:

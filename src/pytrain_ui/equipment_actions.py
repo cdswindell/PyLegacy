@@ -75,15 +75,15 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
         hold_command="SHUTDOWN_DELAYED",
     ),
     # Crane operations.
-    EquipmentAction("crane_sound_on", "Sounds On", "NUMBER_9", "sound-on.jpg", "r"),
-    EquipmentAction("crane_sound_off", "Sounds Off", "NUMBER_8", "sound-off.jpg", "r"),
-    EquipmentAction("crane_radio", "Radio", "NUMBER_7", "walkie_talkie.jpg", "r"),
+    EquipmentAction("crane_sound_on", "Unmute", "NUMBER_9", "sound-on.jpg", "r"),
+    EquipmentAction("crane_sound_off", "Mute", "NUMBER_8", "sound-off.jpg", "r"),
+    EquipmentAction("crane_radio", "Crew Talk", "NUMBER_7", "walkie_talkie.jpg", "r"),
     EquipmentAction("crane_boom", "Boom/Cab", "NUMBER_1", "boom.jpg", "r"),
     EquipmentAction("crane_outriggers", "Outriggers", "NUMBER_6", "outriggers.jpg", "r"),
     EquipmentAction("crane_main_hook", "Main/Roll", "NUMBER_2", "main-hook.jpg", "r"),
-    EquipmentAction("crane_front_lamp", "Front Lamp", "NUMBER_4", "front-lamp.jpg", "r"),
-    EquipmentAction("crane_aux_hook", "Aux/Hook", "NUMBER_3", "aux-hook.jpg", "r"),
-    EquipmentAction("crane_rear_lamp", "Rear Lamp", "NUMBER_5", "rear-lamp.jpg", "r"),
+    EquipmentAction("crane_front_lamp", "Front Lights", "NUMBER_4", "front-lamp.jpg", "r"),
+    EquipmentAction("crane_aux_hook", "Aux Hook", "NUMBER_3", "aux-hook.jpg", "r"),
+    EquipmentAction("crane_rear_lamp", "Rear Lights", "NUMBER_5", "rear-lamp.jpg", "r"),
     EquipmentAction("crane_toggle", "Direction", "TOGGLE_DIRECTION", "toggle.jpg", "r"),
     # Transformer/PowerMaster operations. Brake/boost are already represented by
     # the primary cab controls, so only transformer-specific operation keys live here.

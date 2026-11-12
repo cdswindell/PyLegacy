@@ -6,14 +6,14 @@ import json
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
-from PySide6.QtCore import Property, QObject, QSettings, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, Slot
 
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
-from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, CommandScope
 from pytrain.utils.path_utils import find_file
 
-from ..actions import cab_action, cab_actions
+from ..actions import CAB1_THROTTLE_REPEAT_MS, CRANE_BOOST_BRAKE_REPEAT_MS, cab_action, cab_actions
 from ..adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from ..contracts import EngineViewState
 from ..panels import panel_actions, panel_title
@@ -52,6 +52,11 @@ class CabController(QObject):
         self.stateUpdateReceived.connect(self._on_state)
         self._state_port = None
         self._command_port = None
+        self._relative_throttle_active = False
+        self._relative_speed = 0
+        self._relative_throttle_timer = QTimer(self)
+        self._relative_throttle_timer.setInterval(CAB1_THROTTLE_REPEAT_MS)
+        self._relative_throttle_timer.timeout.connect(self._send_relative_speed)
         self._unsubscribe = None
         self._snapshot = EngineViewState(scope=scope.name, tmcc_id=tmcc_id)
         self._targets: list[tuple[CommandScope, int, str]] = []
@@ -72,6 +77,7 @@ class CabController(QObject):
             self.stateChanged.emit()
 
     def _release_target(self) -> None:
+        self.endRelativeThrottle()
         self._target_generation += 1
         if self._unsubscribe is not None:
             self._unsubscribe()
@@ -196,7 +202,9 @@ class CabController(QObject):
             icon_path = find_file(icon) if icon else None
             hold_enabled = action.hold and not (action.hold_legacy_only and not profile.is_legacy)
             if hold_enabled and action.hold_target == "bell_horn":
-                hold_enabled = profile.is_legacy or bool(getattr(self._command_port.state, "bt_id", None))
+                hold_enabled = (
+                    self.isCrane or profile.is_legacy or bool(getattr(self._command_port.state, "bt_id", None))
+                )
             if hold_enabled and action.hold_kind == "analog":
                 hold_enabled = action.hold_target in profile.analog_modes
             model.append(
@@ -209,7 +217,9 @@ class CabController(QObject):
                     "holdKind": action.hold_kind if hold_enabled else "",
                     "holdTarget": action.hold_target if hold_enabled else "",
                     "repeat": action.repeat,
-                    "repeatInterval": action.repeat_interval_ms,
+                    "repeatInterval": CRANE_BOOST_BRAKE_REPEAT_MS
+                    if self.isCrane and action.key in {"boost", "brake"}
+                    else action.repeat_interval_ms,
                     "group": action.group,
                 }
             )
@@ -385,6 +395,20 @@ class CabController(QObject):
             self.scope == "ENGINE" and self._command_port is not None and self._command_port.controller_type_key == "f"
         )
 
+    @Property(bool, notify=stateChanged)
+    def isCrane(self) -> bool:
+        return (
+            self.scope == "ENGINE" and self._command_port is not None and self._command_port.controller_type_key == "r"
+        )
+
+    @Property(bool, notify=stateChanged)
+    def isCab1(self) -> bool:
+        return self._command_port is not None and self._command_port.is_cab1
+
+    @Property(int, constant=True)
+    def hornRepeatInterval(self) -> int:
+        return DEFAULT_DURATION_INTERVAL_MSEC
+
     @Property(str, notify=stateChanged)
     def controlType(self) -> str:
         if self._command_port is None:
@@ -395,7 +419,7 @@ class CabController(QObject):
     def analogModes(self) -> list[str]:
         if self._command_port is None:
             return []
-        if self.isStandalonePassenger or self.isStandaloneFreight:
+        if self.isCab1 or self.isCrane or self.isStandalonePassenger or self.isStandaloneFreight:
             return ["Horn"]
         return list(self._command_port.control_profile.analog_modes)
 
@@ -579,6 +603,38 @@ class CabController(QObject):
         if self._command_port is not None:
             self._command_port.send_panel_command(command)
 
+    @Slot()
+    def beginRelativeThrottle(self) -> None:
+        self._relative_throttle_active = self.isCab1
+
+    @Slot(int)
+    def moveRelativeThrottle(self, speed: int) -> None:
+        if not self._relative_throttle_active or speed == self._relative_speed:
+            return
+        self._relative_speed = speed
+        if not speed:
+            self._relative_throttle_timer.stop()
+            self._send_relative_speed()
+        elif not self._relative_throttle_timer.isActive():
+            self._send_relative_speed()
+            self._relative_throttle_timer.start()
+
+    def _send_relative_speed(self) -> None:
+        self._command_port.set_relative_speed(self._relative_speed)
+
+    @Slot()
+    def endRelativeThrottle(self) -> None:
+        if self._relative_throttle_active:
+            self._relative_throttle_active = False
+            self._relative_throttle_timer.stop()
+            self._relative_speed = 0
+            self._send_relative_speed()
+
+    @Slot()
+    def toggleDirection(self) -> None:
+        if self._command_port is not None:
+            self._command_port.toggle_direction()
+
     @Slot(int)
     def setSpeed(self, speed: int) -> None:
         if self._command_port is not None and not (self.isStandalonePassenger or self.isStandaloneFreight):
@@ -688,10 +744,14 @@ class CabController(QObject):
 
     @Slot()
     def stop(self) -> None:
-        self._command_port.stop()
+        if self._relative_throttle_active:
+            self.endRelativeThrottle()
+        elif self._command_port is not None:
+            self._command_port.stop()
 
     @Slot()
     def halt(self) -> None:
+        self.endRelativeThrottle()
         if self._command_port is None:
             PyTrainCabCommandAdapter.halt()
         else:

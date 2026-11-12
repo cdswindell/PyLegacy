@@ -8,6 +8,10 @@ from .capabilities import operation_tag_applies
 from .equipment_actions import EQUIPMENT_ACTIONS, EquipmentAction
 
 
+CAB1_THROTTLE_REPEAT_MS = 100
+CRANE_BOOST_BRAKE_REPEAT_MS = 200
+
+
 @dataclass(frozen=True, slots=True)
 class CabAction:
     key: str

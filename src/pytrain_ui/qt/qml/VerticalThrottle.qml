@@ -11,9 +11,17 @@ Item {
     property int pendingValue: value
     property bool awaitingConfirmation: false
     property bool largeTouch: false
+    property bool springReturn: false
     readonly property bool dragging: pointer.pressed
     readonly property real activeHeight: Math.max(1, height)
     signal valueCommitted(int value)
+    signal gestureStarted()
+    signal valueMoved(int value)
+    signal gestureFinished()
+
+    onVisibleChanged: if (!visible && springReturn) gestureFinished()
+    onEnabledChanged: if (!enabled && springReturn) gestureFinished()
+    onSpringReturnChanged: gestureFinished()
 
     implicitWidth: 112
     implicitHeight: 520
@@ -133,7 +141,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             y: root.largeTouch ? 6 : 3
-            text: "Target"
+            text: root.springReturn ? "Relative" : "Target"
             font.pixelSize: root.largeTouch ? 12 : 8
             font.bold: true
             color: "#263c50"
@@ -177,6 +185,14 @@ Item {
         acceptedButtons: Qt.LeftButton
         property real grabOffset: 0
 
+        function moveTo(y) {
+            const nextValue = root.yToValue(y - grabOffset)
+            if (root.pendingValue !== nextValue) {
+                root.pendingValue = nextValue
+                root.valueMoved(nextValue)
+            }
+        }
+
         onPressed: function(event) {
             const thumbY = root.valueToY(root.awaitingConfirmation ? root.pendingValue : root.value)
             const onThumb = event.x >= handle.x && event.x <= handle.x + handle.width
@@ -184,15 +200,27 @@ Item {
             grabOffset = onThumb ? event.y - thumbY : handle.height / 2
             confirmationTimer.stop()
             root.awaitingConfirmation = false
-            root.pendingValue = root.yToValue(event.y - grabOffset)
+            root.pendingValue = root.value
+            if (root.springReturn)
+                root.gestureStarted()
+            moveTo(event.y)
         }
         onPositionChanged: function(event) {
             if (pressed)
-                root.pendingValue = root.yToValue(event.y - grabOffset)
+                moveTo(event.y)
         }
         onReleased: function(event) {
-            root.commit(root.yToValue(event.y - grabOffset))
+            if (root.springReturn) {
+                root.pendingValue = 0
+                root.gestureFinished()
+            } else {
+                root.commit(root.yToValue(event.y - grabOffset))
+            }
         }
-        onCanceled: root.pendingValue = root.value
+        onCanceled: {
+            root.pendingValue = root.value
+            if (root.springReturn)
+                root.gestureFinished()
+        }
     }
 }
