@@ -715,10 +715,24 @@ Rectangle {
                             anchors.bottom: parent.bottom
                             width: sliderColumns.laneWidth
                             spacing: 6
+                            Label {
+                                objectName: "variableControlLabel"
+                                visible: cab.analogModes.length === 1
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredHeight: root.sliderButtonHeight
+                                text: cab.analogModes.length === 1 ? cab.analogModes[0] : ""
+                                color: "#e9edf2"
+                                font.pixelSize: root.compact ? 11 : 18
+                                minimumPixelSize: 10
+                                fontSizeMode: Text.HorizontalFit
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             ComboBox {
                                 id: analogMode
                                 objectName: "variableControlSelector"
-                                visible: cab.analogModes.length > 0
+                                visible: cab.analogModes.length > 1
                                 Layout.fillWidth: true
                                 Layout.minimumHeight: root.sliderButtonHeight
                                 Layout.maximumHeight: root.sliderButtonHeight
