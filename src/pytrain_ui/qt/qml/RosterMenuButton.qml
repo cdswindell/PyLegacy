@@ -14,23 +14,28 @@ Button {
     font.bold: true
     Accessible.name: root.text + " menu"
 
-    contentItem: RowLayout {
-        spacing: 8
-        Label {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            Layout.maximumWidth: implicitWidth
+    contentItem: Item {
+        readonly property int titleGap: 8
+
+        Text {
+            id: titleLabel
+            width: Math.max(0, parent.width - chevron.width - parent.titleGap)
+            anchors.verticalCenter: parent.verticalCenter
             text: root.text
             font: root.font
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: 20
             color: "#f4f6f8"
             elide: Text.ElideRight
         }
-        Label {
+        Text {
+            id: chevron
+            x: Math.min(titleLabel.paintedWidth, titleLabel.width) + parent.titleGap
+            anchors.verticalCenter: titleLabel.verticalCenter
             text: "▾"
             font.pixelSize: root.font.pixelSize
             color: "#f4f6f8"
         }
-        Item { Layout.fillWidth: true }
     }
 
     background: Rectangle {
