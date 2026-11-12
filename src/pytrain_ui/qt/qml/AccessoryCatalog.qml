@@ -13,6 +13,7 @@ RosterPanel {
     property string sortMode: "NAME"
     property string typeFilter: "ALL"
     property bool showUnnamedAccessories: false
+    property int heldQuickActions: 0
 
     signal accessoryRequested(string key)
     signal addRequested()
@@ -249,7 +250,12 @@ RosterPanel {
             spacing: 10
             boundsBehavior: Flickable.StopAtBounds
             flickDeceleration: 1800
-            model: root.visibleRows()
+            Binding on model {
+                // PDI feedback can rebuild the roster while a momentary port is held.
+                when: root.heldQuickActions === 0
+                value: root.visibleRows()
+                restoreMode: Binding.RestoreNone
+            }
             delegate: Rectangle {
                 id: row
                 required property var modelData
@@ -308,30 +314,27 @@ RosterPanel {
                         Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 42 }
                     }
                     RowLayout {
+                        id: quickActions
                         Layout.fillWidth: true
                         visible: row.modelData.quickActions.length > 0
                         spacing: 8
                         Repeater {
                             model: row.modelData.quickActions
-                            ChoiceButton {
+                            AccessoryActionButton {
                                 required property var modelData
+                                controller: root.controller
+                                tmccId: row.modelData.primaryTmccId
+                                action: modelData.key
+                                onAccessoryHoldChanged: active => root.heldQuickActions += active ? 1 : -1
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
-                                Layout.preferredWidth: (modelData.key === "HOLD" || modelData.key === "PULSE") ? 208 : 116
+                                Layout.preferredWidth: (action === "HOLD" || action === "PULSE") ? 208 : 116
                                 Layout.preferredHeight: 57
                                 text: modelData.label
+                                font.pixelSize: 26
                                 font.bold: modelData.selected
                                 selected: modelData.selected
                                 enabled: modelData.enabled === undefined || modelData.enabled
-                                onClicked: {
-                                    var id = row.modelData.primaryTmccId
-                                    if (modelData.key === "HOLD" || modelData.key === "PULSE") root.controller.holdQuickAction(id, true)
-                                    else root.controller.quickAction(modelData.key, id)
-                                }
-                                onReleased: {
-                                    var id = row.modelData.primaryTmccId
-                                    if (modelData.key === "HOLD" || modelData.key === "PULSE") root.controller.holdQuickAction(id, false)
-                                }
                             }
                         }
                     }
@@ -351,9 +354,12 @@ RosterPanel {
                     function hasAction(key) {
                         return row.modelData.quickActions.some(function(action) { return action.key === key && (action.enabled === undefined || action.enabled) })
                     }
-                    onTapped: root.accessoryRequested(row.modelData.key)
+                    function overQuickActions() {
+                        return quickActions.visible && quickActions.contains(quickActions.mapFromItem(row, point.position))
+                    }
+                    onTapped: if (!overQuickActions()) root.accessoryRequested(row.modelData.key)
                     onDoubleTapped: {
-                        if (hasAction("ON") && hasAction("OFF")) root.controller.toggleQuickAction(row.modelData.primaryTmccId)
+                        if (!overQuickActions() && hasAction("ON") && hasAction("OFF")) root.controller.toggleQuickAction(row.modelData.primaryTmccId)
                     }
                 }
             }

@@ -172,30 +172,35 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 8
 
-                            CabButton {
+                            AccessoryActionButton {
+                                controller: root.controller
+                                tmccId: operationRow.modelData.tmccId
                                 visible: operationRow.modelData.behavior === "LATCH"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
                                 text: "On"
                                 selected: operationRow.modelData.state === "ON"
-                                onClicked: root.controller.quickAction("ON", operationRow.modelData.tmccId)
+                                action: "ON"
                             }
-                            CabButton {
+                            AccessoryActionButton {
+                                controller: root.controller
+                                tmccId: operationRow.modelData.tmccId
                                 visible: operationRow.modelData.behavior === "LATCH"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
                                 text: "Off"
                                 selected: operationRow.modelData.state === "OFF"
-                                onClicked: root.controller.quickAction("OFF", operationRow.modelData.tmccId)
+                                action: "OFF"
                             }
-                            CabButton {
+                            AccessoryActionButton {
+                                controller: root.controller
+                                tmccId: operationRow.modelData.tmccId
                                 visible: operationRow.modelData.behavior === "MOMENTARY_HOLD" ||
                                          operationRow.modelData.behavior === "MOMENTARY_PULSE"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 46
                                 text: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "Hold" : "Pulse"
-                                onClicked: root.controller.holdQuickAction(operationRow.modelData.tmccId, true)
-                                onReleased: root.controller.holdQuickAction(operationRow.modelData.tmccId, false)
+                                action: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "HOLD" : "PULSE"
                             }
                         }
                     }

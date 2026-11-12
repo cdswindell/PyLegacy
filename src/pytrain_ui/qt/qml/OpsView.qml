@@ -419,6 +419,7 @@ RosterPanel {
     }
 
     component RosterActionButton: CabButton {
+        activateOnRelease: true
         Layout.preferredWidth: 88
         Layout.minimumHeight: 60
         Layout.maximumHeight: 60
@@ -426,6 +427,7 @@ RosterPanel {
     }
 
     component RosterTurnoutButton: IconActionButton {
+        activateOnRelease: true
         Layout.fillWidth: false
         Layout.preferredWidth: 88
         Layout.minimumHeight: 60
@@ -554,6 +556,8 @@ RosterPanel {
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
                     onDoubleTapped: {
+                        if (rowActions.contains(rowActions.mapFromItem(row, point.position)))
+                            return
                         if (root.controller.scope === "ROUTE") root.controller.fireRoute(row.rowData.tmccId)
                         else root.controller.toggleSwitch(row.rowData.tmccId)
                     }
@@ -636,6 +640,7 @@ RosterPanel {
                         horizontalAlignment: Text.AlignHCenter
                     }
                     RowLayout {
+                        id: rowActions
                         spacing: 6
                         RosterTurnoutButton {
                             visible: !row.isRoute

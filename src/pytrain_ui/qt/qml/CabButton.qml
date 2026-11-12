@@ -7,6 +7,7 @@ Control {
     property string text: ""
     property bool selected: false
     property bool activateOnRelease: false
+    property bool activateOnHold: false
     property bool distinguishDoubleClick: false
     property bool holdWithinBounds: false
     property bool mouseHoldEnabled: false
@@ -65,8 +66,8 @@ Control {
                 root.clicked()
         }
         onLongPressed: {
-            if (root.distinguishDoubleClick &&
-                (root.mouseHoldEnabled || point.device.type === PointerDevice.TouchScreen)) {
+            if (root.activateOnHold || (root.distinguishDoubleClick &&
+                (root.mouseHoldEnabled || point.device.type === PointerDevice.TouchScreen))) {
                 holdTriggered = true
                 root.gestureHeld()
             }
