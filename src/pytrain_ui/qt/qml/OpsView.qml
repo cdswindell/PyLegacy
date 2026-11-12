@@ -22,6 +22,7 @@ Rectangle {
     property string routeCandidateSortKey: "roadName"
     property bool showUnnamedRouteSwitches: false
     signal closeRequested()
+    signal cabMenuRequested()
 
     color: "#171a1f"
     radius: 14
@@ -251,6 +252,13 @@ Rectangle {
             lcsConfig.open()
     }
 
+    function showRoster() {
+        cancelTransientPanels()
+        directTmccId = 0
+        searchField.clear()
+        roster.positionViewAtBeginning()
+    }
+
     function cancelTransientPanels() {
         tmccKeypad.close()
         routePicker.close()
@@ -302,14 +310,9 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Label {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
+            RosterMenuButton {
                 text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
-                color: "#f4f6f8"
-                font.pixelSize: 30
-                font.bold: true
-                elide: Text.ElideRight
+                onClicked: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: controller.halt() }
         }

@@ -81,6 +81,12 @@ Rectangle {
                     font.bold: true
                     elide: Text.ElideRight
                 }
+                SectionLabel {
+                    visible: text.length > 0
+                    Layout.fillWidth: true
+                    text: root.admin.layoutName
+                    elide: Text.ElideRight
+                }
                 Label {
                     Layout.fillWidth: true
                     text: root.admin.version
@@ -120,10 +126,6 @@ Rectangle {
                 width: scroll.availableWidth
                 spacing: root.buttonGap
 
-                SectionLabel {
-                    visible: text.length > 0
-                    text: root.admin.layoutName
-                }
                 Label {
                     Layout.fillWidth: true
                     text: "Local IP  " + root.admin.addresses

@@ -16,6 +16,7 @@ Rectangle {
     signal accessoryRequested(string key)
     signal addRequested()
     signal lcsRequested()
+    signal cabMenuRequested()
 
     function openTmccKeypad() {
         tmccKeypad.openFor(root.searchText)
@@ -39,6 +40,15 @@ Rectangle {
         root.directTmccId = tmccId
         root.searchText = String(tmccId)
         tmccKeypad.close()
+    }
+
+    function showRoster() {
+        cancelTransientPanels()
+        directTmccId = 0
+        searchText = ""
+        searchField.clear()
+        typeFilter = "ALL"
+        listView.positionViewAtBeginning()
     }
 
     function cancelTransientPanels() {
@@ -122,14 +132,9 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Label {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
+            RosterMenuButton {
                 text: "Operating Accessories"
-                color: "#f4f6f8"
-                font.pixelSize: 30
-                font.bold: true
-                elide: Text.ElideRight
+                onClicked: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: root.controller.halt() }
         }

@@ -172,12 +172,14 @@ ApplicationWindow {
                 OpsView {
                     id: switchOpsView
                     controller: switchOpsController
+                    onCabMenuRequested: cabMenu.open()
                     lcsController: lcsConfigController
                 }
 
                 OpsView {
                     id: routeOpsView
                     controller: routeOpsController
+                    onCabMenuRequested: cabMenu.open()
                 }
 
                 Item {
@@ -185,15 +187,16 @@ ApplicationWindow {
                         id: accessoryCatalog
                         anchors.fill: parent
                         visible: !window.accessoryOperatingVisible
-                    controller: accessoryCatalogController
-                    lcsController: lcsConfigController
-                    onAccessoryRequested: function(key) {
-                        window.activeAccessory = accessoryCatalogController.operatingView(key)
-                        window.accessoryOperatingVisible = true
-                    }
-                    onAddRequested: {
-                        // The add workflow is implemented with the accessory operating layer.
-                    }
+                        controller: accessoryCatalogController
+                        lcsController: lcsConfigController
+                        onCabMenuRequested: cabMenu.open()
+                        onAccessoryRequested: function(key) {
+                            window.activeAccessory = accessoryCatalogController.operatingView(key)
+                            window.accessoryOperatingVisible = true
+                        }
+                        onAddRequested: {
+                            // The add workflow is implemented with the accessory operating layer.
+                        }
                         onLcsRequested: accessoryCatalog.openLcsConfiguration()
                     }
 
@@ -202,6 +205,7 @@ ApplicationWindow {
                         visible: window.accessoryOperatingVisible
                         controller: accessoryCatalogController
                         accessory: window.activeAccessory
+                        onCabMenuRequested: cabMenu.open()
                         onCloseRequested: window.accessoryOperatingVisible = false
                     }
                 }
@@ -323,7 +327,15 @@ ApplicationWindow {
                     onClicked: {
                         cabMenu.close()
                         if (index === 0) {
-                            window.engineCatalogVisible = true
+                            if (window.activeScope === "SWITCH")
+                                switchOpsView.showRoster()
+                            else if (window.activeScope === "ROUTE")
+                                routeOpsView.showRoster()
+                            else if (window.activeScope === "ACCESSORY") {
+                                window.accessoryOperatingVisible = false
+                                accessoryCatalog.showRoster()
+                            } else
+                                window.engineCatalogVisible = true
                         } else if (index === 1) {
                             window.manageVisible = true
                         } else if (index === 2) {

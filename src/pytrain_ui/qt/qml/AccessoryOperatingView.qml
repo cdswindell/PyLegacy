@@ -8,6 +8,7 @@ Rectangle {
     property var controller
     property var accessory: ({})
     signal closeRequested()
+    signal cabMenuRequested()
 
     color: "#15191f"
     radius: 10
@@ -35,13 +36,10 @@ Rectangle {
                 onClicked: root.closeRequested()
             }
 
-            Label {
-                Layout.fillWidth: true
+            RosterMenuButton {
                 text: root.accessory.title || "Accessory"
-                color: "#f4f6f8"
                 font.pixelSize: 24
-                font.bold: true
-                elide: Text.ElideRight
+                onClicked: root.cabMenuRequested()
             }
 
             AllStopButton {
