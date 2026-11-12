@@ -677,7 +677,7 @@ RosterPanel {
             routeNumberKeypad.close()
             routeNameKeyboard.close()
         }
-        onOpened: routeBuilderScroll.contentItem.contentY = routeBuilderScroll.contentItem.originY
+        onOpened: routeBuilderScroll.contentY = routeBuilderScroll.originY
         x: Math.max(0, (root.width - width) / 2)
         y: root.editorTop
         width: Math.min(root.width - 16, 720)
@@ -713,16 +713,23 @@ RosterPanel {
                 }
             }
 
-            ScrollView {
+            Flickable {
                 id: routeBuilderScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                contentWidth: availableWidth
+                Layout.preferredHeight: 0
+                contentWidth: width
+                contentHeight: routeBuilderContent.height
+                flickableDirection: Flickable.VerticalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentHeight > height
                 clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                ScrollBar.vertical: ScrollBar {}
 
                 ColumnLayout {
-                    width: routeBuilderScroll.availableWidth
+                    id: routeBuilderContent
+                    width: routeBuilderScroll.width
+                    height: Math.max(implicitHeight, routeBuilderScroll.height)
                     spacing: 14
                     Label {
                         text: "TMCC ID (1-98)"
@@ -788,7 +795,7 @@ RosterPanel {
                     Label {
                         Layout.fillWidth: true
                         text: controller && controller.routeComponents.length ?
-                                  "Select an element to edit or reorder it. Double-tap or touch and hold Out to flip the turnout left or right." :
+                                  "Select an element to edit or reorder. Double-tap or touch/hold Out to flip it left or right." :
                                   "No elements yet. Add a switch or nested route."
                         color: "#aeb5bf"
                         font.pixelSize: 15
@@ -798,7 +805,10 @@ RosterPanel {
                     ListView {
                         id: routeComponentList
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Math.min(300, Math.max(182, routeBuilder.height * 0.27))
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 182
+                        Layout.preferredHeight: 182
+                        Layout.maximumHeight: 300
                         orientation: ListView.Horizontal
                         spacing: 8
                         clip: true
