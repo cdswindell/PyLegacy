@@ -6,10 +6,12 @@ Popup {
     id: root
 
     property string title: "TMCC ID"
+    property int minimumId: 1
     property int maximumId: 98
+    property bool allowEmpty: false
     property alias entryText: tmccIdEntry.text
     property alias errorText: tmccKeypadError.text
-    readonly property bool acceptableInput: tmccIdEntry.acceptableInput
+    readonly property bool acceptableInput: tmccIdEntry.acceptableInput || (allowEmpty && !entryText.length)
     property bool showSetAddress: false
     signal submitted(int tmccId)
     signal setAddressRequested(int tmccId)
@@ -23,7 +25,7 @@ Popup {
     }
 
     function submitTmccId() {
-        if (tmccIdEntry.acceptableInput)
+        if (acceptableInput)
             submitted(Number(tmccIdEntry.text))
     }
 
@@ -111,12 +113,12 @@ Popup {
             id: tmccIdEntry
             Layout.fillWidth: true
             Layout.preferredHeight: 76
-            placeholderText: "1–" + root.maximumId
+            placeholderText: root.minimumId + "–" + root.maximumId
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 28
             maximumLength: String(root.maximumId).length
             inputMethodHints: Qt.ImhDigitsOnly
-            validator: IntValidator { bottom: 1; top: root.maximumId }
+            validator: IntValidator { bottom: root.minimumId; top: root.maximumId }
             onAccepted: root.submitTmccId()
             onTextEdited: tmccKeypadError.text = ""
         }
@@ -139,7 +141,7 @@ Popup {
                     Accessible.name: modelData === "↵" ? "Enter" :
                                      modelData === "Del" ? "Backspace" : modelData
                     highlighted: modelData === "↵"
-                    enabled: modelData !== "↵" || tmccIdEntry.acceptableInput
+                    enabled: modelData !== "↵" || root.acceptableInput
                     onPressAndHold: {
                         if (modelData === "Del") {
                             tmccIdEntry.clear()

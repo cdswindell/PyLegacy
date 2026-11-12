@@ -209,7 +209,8 @@ RosterPanel {
             routeBuilderError.text = "Route ID must be an integer from 1 to 98."
             return
         }
-        root.loadRouteBuilder(tmccId)
+        if (tmccId !== controller.routeBuilderId)
+            root.loadRouteBuilder(tmccId)
     }
 
     function routeCandidateRows() {
@@ -558,11 +559,18 @@ RosterPanel {
     Popup {
         id: routeBuilder
         objectName: "routeBuilder"
+        readonly property int minimumButtonHeight: 58
+        onClosed: {
+            routeIdKeypad.close()
+            routeNumberKeypad.close()
+            routeNameKeyboard.close()
+        }
         onOpened: routeBuilderScroll.contentItem.contentY = routeBuilderScroll.contentItem.originY
         x: Math.max(0, (root.width - width) / 2)
         y: root.editorTop
         width: Math.min(root.width - 16, 720)
         height: Math.max(0, root.height - y - 8)
+        padding: 18
         modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
@@ -575,7 +583,7 @@ RosterPanel {
         }
 
         contentItem: ColumnLayout {
-            spacing: 10
+            spacing: 16
 
             RowLayout {
                 Layout.fillWidth: true
@@ -603,48 +611,66 @@ RosterPanel {
 
                 ColumnLayout {
                     width: routeBuilderScroll.availableWidth
-                    spacing: 10
+                    spacing: 14
                     Label {
                         text: "TMCC ID (1-98)"
+                        font.pixelSize: 19
                         color: "#aeb5bf"
                     }
                     TextField {
                         id: routeIdField
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 46
+                        Layout.preferredHeight: 62
                         maximumLength: 2
                         inputMethodHints: Qt.ImhDigitsOnly
                         validator: IntValidator { bottom: 1; top: 98 }
-                        font.pixelSize: 17
-                        onEditingFinished: root.routeIdEditingFinished()
+                        font.pixelSize: 23
+                        onEditingFinished: if (!routeIdKeypad.visible) root.routeIdEditingFinished()
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: Qt.platform.os === "linux"
+                            onClicked: routeIdKeypad.openFor(routeIdField.text)
+                        }
                     }
 
                     Label {
                         text: "Route Name"
+                        font.pixelSize: 19
                         color: "#aeb5bf"
                     }
                     TextField {
                         id: routeNameField
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: Qt.platform.os === "linux"
+                            onClicked: routeNameKeyboard.openFor(routeNameField)
+                        }
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 46
+                        Layout.preferredHeight: 62
                         maximumLength: 31
-                        font.pixelSize: 17
+                        font.pixelSize: 23
                     }
 
                     Label {
                         text: "Route Number"
+                        font.pixelSize: 19
                         color: "#aeb5bf"
                     }
                     TextField {
                         id: routeNumberField
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: Qt.platform.os === "linux"
+                            onClicked: routeNumberKeypad.openFor(routeNumberField.text)
+                        }
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 46
+                        Layout.preferredHeight: 62
                         maximumLength: 4
                         inputMethodHints: Qt.ImhDigitsOnly
                         validator: RegularExpressionValidator {
                             regularExpression: /[0-9]{0,4}/
                         }
-                        font.pixelSize: 17
+                        font.pixelSize: 23
                     }
 
                     Label {
@@ -743,11 +769,11 @@ RosterPanel {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: 14
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "THRU"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
@@ -758,7 +784,7 @@ RosterPanel {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "OUT"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
@@ -770,11 +796,11 @@ RosterPanel {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: 14
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "MOVE LEFT"
                             enabled: controller && controller.routeComponentIndex > 0
                             onClicked: controller.moveRouteComponent(-1)
@@ -782,7 +808,7 @@ RosterPanel {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "MOVE RIGHT"
                             enabled: controller && controller.routeComponentIndex >= 0 &&
                                      controller.routeComponentIndex < controller.routeComponents.length - 1
@@ -792,11 +818,11 @@ RosterPanel {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: 14
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "ADD…"
                             enabled: controller && controller.routeComponents.length < 16
                             onClicked: root.openRoutePicker()
@@ -804,7 +830,7 @@ RosterPanel {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "REMOVE"
                             enabled: controller && controller.routeComponentIndex >= 0
                             onClicked: controller.removeRouteComponent()
@@ -812,7 +838,7 @@ RosterPanel {
                         CabButton {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
-                            Layout.preferredHeight: 46
+                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             text: "CLEAR ALL"
                             enabled: controller && controller.routeComponents.length > 0
                             onClicked: controller.clearRouteComponents()
@@ -834,6 +860,8 @@ RosterPanel {
                 Layout.fillWidth: true
                 spacing: 14
                 ClearRecordButton {
+                    Layout.preferredHeight: 63
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     enabled: {
                         root.rosterRows
                         const id = controller.routeBuilderId
@@ -850,7 +878,8 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 50
+                    Layout.preferredHeight: 63
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     text: "Cancel"
                     onClicked: {
                         controller.closeRouteBuilder()
@@ -860,7 +889,8 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 50
+                    Layout.preferredHeight: 63
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     activateOnRelease: true
                     text: "Save"
                     font.bold: true
@@ -882,6 +912,33 @@ RosterPanel {
                     }
                 }
             }
+        }
+    }
+
+    SearchKeyboard {
+        id: routeNameKeyboard
+        title: "Route Name"
+    }
+
+    TmccKeypad {
+        id: routeIdKeypad
+        title: "Route TMCC ID"
+        onSubmitted: function(tmccId) {
+            routeIdField.text = String(tmccId)
+            close()
+            root.routeIdEditingFinished()
+        }
+    }
+
+    TmccKeypad {
+        id: routeNumberKeypad
+        title: "Route Number"
+        minimumId: 0
+        maximumId: 9999
+        allowEmpty: true
+        onSubmitted: {
+            routeNumberField.text = entryText
+            close()
         }
     }
 
