@@ -9,12 +9,15 @@ from urllib.parse import urlparse
 
 from PySide6.QtCore import Property, QObject, QSettings, Qt, QTimer, QUrl, Signal, Slot
 
+from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
 from pytrain.protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.utils.path_utils import find_file
 
 from ..actions import (
+    CAB1_FEEDBACK_TIMEOUT_MS,
     CAB1_STEP_HOLD_MS,
     CAB1_STEP_TAP_GAP_MS,
     CAB1_THROTTLE_REPEAT_MS,
@@ -48,6 +51,7 @@ class CabController(QObject):
     stateChanged = Signal()
     rosterChanged = Signal()
     relativeThrottleChanged = Signal()
+    relativeSpeedReceived = Signal(int, int)
     stateUpdateReceived = Signal(int, object)
 
     def __init__(
@@ -65,6 +69,12 @@ class CabController(QObject):
         self._relative_throttle_timer = QTimer(self)
         self._relative_throttle_timer.setInterval(CAB1_THROTTLE_REPEAT_MS)
         self._relative_throttle_timer.timeout.connect(self._send_relative_speed)
+        self._relative_feedback_timer = QTimer(self)
+        self._relative_feedback_timer.setSingleShot(True)
+        self._relative_feedback_timer.setInterval(CAB1_FEEDBACK_TIMEOUT_MS)
+        self._relative_feedback_timer.timeout.connect(self._clear_relative_feedback)
+        self.relativeSpeedReceived.connect(self._on_relative_speed)
+        self._unsubscribe_relative_speed = None
         self._relative_step_count = 0
         self._relative_step_direction = 0
         self._relative_step_deadline = 0.0
@@ -95,6 +105,9 @@ class CabController(QObject):
     def _release_target(self) -> None:
         self.cancelRelativeThrottle()
         self._target_generation += 1
+        if self._unsubscribe_relative_speed is not None:
+            self._unsubscribe_relative_speed()
+            self._unsubscribe_relative_speed = None
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
@@ -128,6 +141,15 @@ class CabController(QObject):
         if remember and tmcc_id > 0:
             self._last_targets[scope] = tmcc_id
         generation = self._target_generation
+        if CommandDispatcher.is_built():
+            dispatcher = CommandDispatcher.get()
+            topic = (scope, tmcc_id, TMCC1EngineCommandEnum.RELATIVE_SPEED)
+
+            def receive_relative_speed(command) -> None:
+                self.relativeSpeedReceived.emit(generation, command.data)
+
+            dispatcher.subscribe(receive_relative_speed, *topic)
+            self._unsubscribe_relative_speed = lambda: dispatcher.unsubscribe(receive_relative_speed, *topic)
         self._unsubscribe = self._state_port.subscribe(
             lambda snapshot: self.stateUpdateReceived.emit(generation, snapshot)
         )
@@ -621,6 +643,21 @@ class CabController(QObject):
         if self._command_port is not None:
             self._command_port.send_panel_command(command)
 
+    @Slot(int, int)
+    def _on_relative_speed(self, generation: int, speed: int) -> None:
+        if generation != self._target_generation or not self.isCab1 or self._relative_throttle_owner is not None:
+            return
+        self._set_relative_speed(speed)
+        if speed:
+            self._relative_feedback_timer.start()
+        else:
+            self._relative_feedback_timer.stop()
+
+    def _clear_relative_feedback(self) -> None:
+        self._relative_feedback_timer.stop()
+        if self._relative_throttle_owner is None:
+            self._set_relative_speed(0)
+
     @Property(int, notify=relativeThrottleChanged)
     def relativeThrottleSpeed(self) -> int:
         return self._relative_speed
@@ -628,6 +665,7 @@ class CabController(QObject):
     def _claim_relative_throttle(self, owner: QObject) -> bool:
         if not self.isCab1 or self._relative_throttle_owner is not None:
             return False
+        self._clear_relative_feedback()
         self._relative_throttle_owner = owner
         return True
 
@@ -670,6 +708,7 @@ class CabController(QObject):
     def cancelRelativeThrottle(self) -> None:
         self._relative_step_count = 0
         self._end_relative_throttle()
+        self._clear_relative_feedback()
 
     def _set_relative_speed(self, speed: int) -> None:
         if self._relative_speed != speed:
