@@ -995,6 +995,13 @@ Rectangle {
             onCloseRequested: root.stateInfoClosed()
         }
 
+        Connections {
+            target: stateInfo.visible && root.infoController ? root.cab : null
+            function onStateChanged() {
+                root.infoController.refresh(stateInfo.editorOpen)
+            }
+        }
+
         GridLayout {
             enabled: !bellHornPanel.visible && !root.dialogPanelOpen
             visible: !root.stateInfoVisible

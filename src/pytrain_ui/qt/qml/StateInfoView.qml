@@ -180,7 +180,7 @@ Rectangle {
 
                 Label {
                     visible: live.rows.length > 0
-                    text: "Live State"
+                    text: "Real Time Status"
                     color: "white"
                     font.pixelSize: 19
                     font.bold: true
@@ -261,7 +261,29 @@ Rectangle {
         property string errorText: ""
         readonly property bool numeric: field.key === "number"
         readonly property bool choice: !!field.options && field.options.length > 0
-        readonly property bool shortList: choice && field.options.length <= 6
+        readonly property bool engineTypeList: choice && field.key === "type"
+        readonly property bool shortList: choice && !engineTypeList && field.options.length <= 6
+
+        Timer {
+            id: revealEngineType
+            interval: 60
+            onTriggered: {
+                if (fieldEditor.visible && picker.currentIndex >= 0) {
+                    engineTypes.forceLayout()
+                    engineTypes.positionViewAtIndex(picker.currentIndex, ListView.Center)
+                }
+            }
+        }
+
+        component FieldChoice: InfoButton {
+            required property int index
+            required property var modelData
+            text: modelData.label
+            selected: picker.currentIndex === index
+            Accessible.checkable: true
+            Accessible.checked: selected
+            onClicked: picker.currentIndex = index
+        }
 
         function openFor(row) {
             field = row
@@ -269,6 +291,8 @@ Rectangle {
             entry.text = row.value === undefined || row.value === null ? "" : String(row.value)
             picker.currentIndex = choice ? picker.indexOfValue(row.value) : -1
             open()
+            if (engineTypeList)
+                revealEngineType.restart()
             if (!choice) {
                 entry.forceActiveFocus()
                 entry.selectAll()
@@ -303,7 +327,7 @@ Rectangle {
             }
             ComboBox {
                 id: picker
-                visible: fieldEditor.choice && !fieldEditor.shortList
+                visible: fieldEditor.choice && !fieldEditor.shortList && !fieldEditor.engineTypeList
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
                 textRole: "label"
@@ -317,17 +341,25 @@ Rectangle {
                 spacing: 6
                 Repeater {
                     model: fieldEditor.shortList ? fieldEditor.field.options : []
-                    InfoButton {
-                        required property int index
-                        required property var modelData
+                    FieldChoice {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 50
-                        text: modelData.label
-                        selected: picker.currentIndex === index
-                        Accessible.checkable: true
-                        Accessible.checked: selected
-                        onClicked: picker.currentIndex = index
                     }
+                }
+            }
+            ListView {
+                id: engineTypes
+                visible: fieldEditor.engineTypeList
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(count, fieldEditor.parent.height < 450 ? 4 : 5) * 56 - (count > 0 ? 6 : 0)
+                clip: true
+                spacing: 6
+                boundsBehavior: Flickable.StopAtBounds
+                model: fieldEditor.engineTypeList ? fieldEditor.field.options : []
+                ScrollBar.vertical: ScrollBar { id: typeScrollBar }
+                delegate: FieldChoice {
+                    width: engineTypes.width - typeScrollBar.width - 4
+                    height: 50
                 }
             }
             RowLayout {
