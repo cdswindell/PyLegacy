@@ -123,7 +123,13 @@ class PyTrain:
             raise RuntimeError(f"{pn}.current() called before {pn} was created")
         return cls._current
 
-    def __init__(self, cmd_line: List[str] | None = None, *, gui_admin_close: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        cmd_line: List[str] | None = None,
+        *,
+        gui_admin_close: Callable[[], None] | None = None,
+        gui_owns_admin_lifecycle: bool = False,
+    ) -> None:
         from .. import get_version
         from ..utils.logging_manager import LoggingManager
 
@@ -160,6 +166,7 @@ class PyTrain:
         self._api = False
         self._api_thread = None
         self._gui_admin_close = gui_admin_close
+        self._gui_owns_admin_lifecycle = gui_owns_admin_lifecycle
         self._zeroconf = None
         self._pytrain_servers: List[ServiceInfo] = []
         self._server_discovered = Event()
@@ -372,6 +379,8 @@ class PyTrain:
                 assert isinstance(self._tmcc_listener, ClientStateListener)
                 if self._tmcc_listener.update_client_if_needed() and not self_update_disabled():
                     self(CommandReq(TMCC1SyncCommandEnum.UPDATE))
+                    if getattr(self, "_gui_owns_admin_lifecycle", False) and self.admin_exit_requested:
+                        return
                     if getattr(self, "_gui_admin_close", None) is not None and self._shutdown_started:
                         return
                 else:
@@ -450,6 +459,17 @@ class PyTrain:
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
 
+        if not getattr(self, "_gui_owns_admin_lifecycle", False):
+            self.perform_deferred_admin_action()
+
+    @property
+    def admin_exit_requested(self) -> bool:
+        with self._admin_state_lock:
+            return self._exit_requested
+
+    def perform_gui_admin_action(self) -> None:
+        """Run the recorded action on the standalone GUI thread after teardown."""
+        self._api = False
         self.perform_deferred_admin_action()
 
     def perform_deferred_admin_action(self) -> None:
@@ -739,9 +759,10 @@ class PyTrain:
             log.info("Client exiting...")
         gui_close = getattr(self, "_gui_admin_close", None)
         if gui_close is not None:
-            # A GUI-hosted PyTrain uses the API worker for its command queue,
-            # but Tk owns the process: do not signal an external API host.
-            self.shutdown()
+            # Qt owns teardown on its event-loop thread. The legacy GUI
+            # callback still expects the runtime to have stopped.
+            if not getattr(self, "_gui_owns_admin_lifecycle", False):
+                self.shutdown()
             gui_close()
             return
         if self._api_thread:
@@ -1178,7 +1199,8 @@ class PyTrain:
             self._exit_status = exit_status
             raise PyTrainExitException(exit_status)
         # are we a service or run from the commandline?
-        if self.is_service:
+        gui_relaunch = getattr(self, "_gui_owns_admin_lifecycle", False)
+        if not gui_relaunch and self.is_service:
             # restart service
             service = f"pytrain_{'server' if self.is_server else 'client'}.service"
             subprocess.run(["sudo", "systemctl", "restart", service], check=False)
@@ -1193,7 +1215,10 @@ class PyTrain:
                 sys.argv.append("-debug")
             elif self._debug is False and "-debug" in sys.argv:
                 sys.argv.remove("-debug")
-            os.execv(sys.argv[0], sys.argv)
+            if gui_relaunch:
+                os.execv(sys.executable, [sys.executable, *sys.argv])
+            else:
+                os.execv(sys.argv[0], sys.argv)
 
     @property
     def is_service(self) -> bool:

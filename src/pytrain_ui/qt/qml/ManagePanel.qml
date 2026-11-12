@@ -59,15 +59,41 @@ Rectangle {
         anchors.margins: 12
         spacing: 12
 
-        RowLayout {
+        Item {
             Layout.fillWidth: true
+            Layout.preferredHeight: adminStop.height
+
             ColumnLayout {
-                Layout.fillWidth: true
+                anchors.left: parent.left
+                anchors.right: adminStop.left
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
                 spacing: 3
-                Label { text: "Manage PyTrain"; color: "#f4f6f8"; font.pixelSize: 26; font.bold: true }
-                Label { text: root.admin.version; color: "#bad4ea"; font.pixelSize: 16 }
+                Label {
+                    Layout.fillWidth: true
+                    text: "Manage PyTrain"
+                    color: "#f4f6f8"
+                    font.pixelSize: 26
+                    font.bold: true
+                    elide: Text.ElideRight
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: root.admin.version
+                    color: "#bad4ea"
+                    font.pixelSize: 16
+                    elide: Text.ElideRight
+                }
             }
-            AllStopButton { compact: root.height < 850; onClicked: root.cab.halt() }
+            AllStopButton {
+                id: adminStop
+                anchors.right: parent.right
+                anchors.top: parent.top
+                width: Layout.preferredWidth
+                height: Layout.preferredHeight
+                compact: root.height < 850
+                onClicked: root.cab.halt()
+            }
         }
 
         ScrollView {
@@ -82,7 +108,10 @@ Rectangle {
                 width: scroll.availableWidth
                 spacing: 8
 
-                SectionLabel { text: root.admin.layoutName || "Base 3 Database" }
+                SectionLabel {
+                    visible: text.length > 0
+                    text: root.admin.layoutName
+                }
                 Label {
                     Layout.fillWidth: true
                     text: "Local IP  " + root.admin.addresses
@@ -90,15 +119,34 @@ Rectangle {
                     font.pixelSize: 16
                     wrapMode: Text.WordWrap
                 }
+                SectionLabel { text: "Base 3 Database"; Layout.topMargin: 8 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Label {
+                    Rectangle {
                         Layout.fillWidth: true
-                        text: root.admin.synchronized ? "Database loaded" : "Database syncing or unavailable"
-                        color: "#bad4ea"
-                        wrapMode: Text.WordWrap
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 0
+                        Layout.preferredHeight: 54
+                        radius: 8
+                        color: "#16376b"
+                        border.color: "#5275a4"
+                        Label {
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            text: root.admin.databaseStatus
+                            color: "#e2edf9"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 19
+                        }
                     }
-                    AdminButton { text: "Reload Base 3"; command: "RESYNC" }
+                    AdminButton {
+                        objectName: "reloadDatabaseButton"
+                        Layout.minimumWidth: 0
+                        text: "Reload Database"
+                        command: "RESYNC"
+                    }
                 }
                 RowLayout {
                     Layout.fillWidth: true

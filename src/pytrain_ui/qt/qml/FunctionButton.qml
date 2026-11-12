@@ -207,7 +207,7 @@ Control {
             visible: root.deferForHold && root.pressed && !root.holdTriggered
             anchors.left: parent.left
             anchors.bottom: parent.bottom
-            height: 3
+            height: 5
             width: parent.width * Math.min(1, holdProgress.elapsed / Math.max(1, root.holdThreshold))
             color: "#78c9ff"
             radius: 2

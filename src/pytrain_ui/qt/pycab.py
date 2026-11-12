@@ -26,8 +26,20 @@ class QtCabCommand(CommandBase):
             client=cli.args.client if "client" in cli.args else False,
             base=cli.args.base if "base" in cli.args else None,
             cache_sync=True,
+            debug=getattr(cli.args, "debug", False),
+            echo=getattr(cli.args, "echo", False),
+            gui_admin_close=self._close_for_admin_action,
+            gui_owns_admin_lifecycle=True,
         )
         self._command = self._build_command()
+
+    def _close_for_admin_action(self) -> None:
+        from PySide6.QtCore import QCoreApplication, QMetaObject, Qt
+
+        self._sc.set()
+        app = QCoreApplication.instance()
+        if app is not None:
+            QMetaObject.invokeMethod(app, "quit", Qt.ConnectionType.QueuedConnection)
 
     def send(
         self,
@@ -42,10 +54,17 @@ class QtCabCommand(CommandBase):
     ):
         try:
             self.wait_for_sync()
+            if self.pytrain is not None and self.pytrain.admin_exit_requested:
+                return 0
             return run_cab(self._cli.scope, self._cli.tmcc_id, [])
         finally:
             if self.pytrain is not None:
+                watcher = getattr(self, "_sync_watcher", None)
+                if watcher is not None:
+                    watcher.shutdown()
                 self.pytrain.shutdown()
+                if self.pytrain.admin_exit_requested:
+                    self.pytrain.perform_gui_admin_action()
 
     def _build_command(self) -> bytes | None:
         return None

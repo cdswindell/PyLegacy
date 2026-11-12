@@ -52,6 +52,7 @@ class CommandBase(ABC):
         echo: bool = False,
         *,
         gui_admin_close: Callable[[], None] | None = None,
+        gui_owns_admin_lifecycle: bool = False,
     ) -> None:
         from ..cli.pytrain import PyTrain
 
@@ -90,7 +91,11 @@ class CommandBase(ABC):
                 pt_args += " -client"
                 log.warning("Assuming client mode...")
 
-            self._pytrain = PyTrain(pt_args.split(), gui_admin_close=gui_admin_close)
+            self._pytrain = PyTrain(
+                pt_args.split(),
+                gui_admin_close=gui_admin_close,
+                gui_owns_admin_lifecycle=gui_owns_admin_lifecycle,
+            )
             if not self._sc.is_set() and not self._pytrain.is_synchronized():
                 self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
                 self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
@@ -98,6 +103,7 @@ class CommandBase(ABC):
             self._pytrain = PyTrain.current()
             if gui_admin_close is not None:
                 self._pytrain._gui_admin_close = gui_admin_close
+                self._pytrain._gui_owns_admin_lifecycle = gui_owns_admin_lifecycle
             self._daemon = True
 
         assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"

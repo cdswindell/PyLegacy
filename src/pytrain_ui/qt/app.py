@@ -21,6 +21,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     except ImportError as exc:
         raise SystemExit("The Qt UI is not installed. Install PyTrain with the 'qt-gui' extra.") from exc
 
+    from pytrain.cli.pytrain import PyTrain
     from pytrain.protocol.constants import CommandScope
     from pytrain.utils.host_info import HostInfo, is_linux, is_steam_deck
 
@@ -111,6 +112,9 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     try:
         if not engine.rootObjects():
             return 1
+        runtime = PyTrain.current(raise_exception=False)
+        if runtime is not None and runtime.admin_exit_requested:
+            return 0
         signal_timer.start(100)
         return app.exec()
     finally:
