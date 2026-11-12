@@ -636,7 +636,15 @@ Rectangle {
                             border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
 
                             TapHandler {
+                                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
+                                onSingleTapped: controller.selectRouteComponent(modelData.index)
+                                onDoubleTapped: controller.toggleRouteComponentDirection(modelData.index)
+                            }
+                            TapHandler {
+                                acceptedDevices: PointerDevice.TouchScreen
                                 onTapped: controller.selectRouteComponent(modelData.index)
+                                onLongPressed: controller.toggleRouteComponentDirection(modelData.index)
                             }
 
                             ColumnLayout {
@@ -670,6 +678,7 @@ Rectangle {
                                     objectName: "routeSwitchDiagram"
                                     visible: modelData.scope === "SWITCH"
                                     diverging: modelData.position === "OUT"
+                                    rightHand: modelData.turnoutDirection === "RIGHT"
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     Layout.minimumHeight: visible ? 32 : 0
@@ -681,7 +690,7 @@ Rectangle {
                                 }
                                 Label {
                                     Layout.fillWidth: true
-                                    text: modelData.position
+                                    text: modelData.turnoutDirection ? "OUT " + modelData.turnoutDirection : modelData.position
                                     color: modelData.position === "THRU" ? "#73d38a" :
                                            modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
                                     font.pixelSize: 16

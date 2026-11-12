@@ -13,7 +13,7 @@ import pytest
 
 from src.pytrain.db.comp_data import RouteData
 from src.pytrain.db.component_state import RouteState, SwitchState
-from src.pytrain.db.components import RouteComponent
+from src.pytrain.db.components import LEFT_OUT_SWITCH, RIGHT_OUT_SWITCH, RouteComponent
 from src.pytrain.gui.controller.route_draft import RouteDraft
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import PdiCommand
@@ -328,6 +328,29 @@ class TestRouteDraft:
         draft = RouteDraft(7, [RouteComponent(8, flags)])
         draft.set_component(0, 8, mode, {}.get)
         assert values(draft) == ((8, (flags & ~0x03) | mode),)
+
+    @pytest.mark.parametrize("extra_flags", [0, 0x80, 0xFC])
+    def test_toggle_out_direction_preserves_other_flags(self, extra_flags):
+        draft = RouteDraft(7, [RouteComponent(8, extra_flags | LEFT_OUT_SWITCH)])
+
+        draft.toggle_switch_direction(0)
+        assert draft.components[0].is_right
+        assert values(draft) == ((8, extra_flags | RIGHT_OUT_SWITCH),)
+        assert draft.dirty
+
+        draft.toggle_switch_direction(0)
+        assert draft.components[0].is_left
+        assert values(draft) == ((8, extra_flags | LEFT_OUT_SWITCH),)
+        assert not draft.dirty
+
+    @pytest.mark.parametrize("flags", [0x80, 0x83])
+    def test_toggle_out_direction_leaves_thru_and_nested_routes_unchanged(self, flags):
+        draft = RouteDraft(7, [RouteComponent(8, flags)])
+
+        draft.toggle_switch_direction(0)
+
+        assert values(draft) == ((8, flags),)
+        assert not draft.dirty
 
     def test_metadata_and_components_share_dirty_baseline(self):
         draft = RouteDraft(7, road_name="Yard", road_number="0007")

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from ...db.comp_data import RouteData
 from ...db.component_state import RouteState
-from ...db.components import RouteComponent
+from ...db.components import LEFT_OUT_SWITCH, RIGHT_OUT_SWITCH, RouteComponent
 
 if TYPE_CHECKING:
     from ...pdi.base_req import BaseReq
@@ -89,6 +89,17 @@ class RouteDraft:
         components = self._copy_components(candidate)
         self._validate_graph(components, lookup)
         self._components = components
+
+    def toggle_switch_direction(self, index: int) -> None:
+        """Swap the OUT encoding while retaining the component's other flags."""
+        self._validate_index(index)
+        component = self._components[index]
+        if not component.is_out:
+            return
+        direction = RIGHT_OUT_SWITCH if component.is_left else LEFT_OUT_SWITCH
+        components = list(self._components)
+        components[index] = RouteComponent(component.tmcc_id, (component.flags & ~0x03) | direction)
+        self._components = tuple(components)
 
     def remove(self, index: int) -> None:
         self._validate_index(index)

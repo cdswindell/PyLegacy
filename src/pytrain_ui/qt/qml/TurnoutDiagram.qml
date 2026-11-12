@@ -3,10 +3,14 @@ import QtQuick
 Canvas {
     id: root
     required property bool diverging
+    property bool rightHand: false
     Accessible.role: Accessible.Graphic
-    Accessible.name: diverging ? "Three-rail turnout set to Out" : "Three-rail turnout set to Thru"
+    Accessible.name: diverging
+        ? (rightHand ? "Three-rail turnout set to Out Right" : "Three-rail turnout set to Out Left")
+        : "Three-rail turnout set to Thru"
 
     onDivergingChanged: requestPaint()
+    onRightHandChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
@@ -16,7 +20,7 @@ Canvas {
         ctx.clearRect(0, 0, width, height)
         const scale = Math.min(width / 70, height / 156)
         ctx.translate(width / 2, height / 2)
-        ctx.scale(scale, scale)
+        ctx.scale(rightHand ? -scale : scale, scale)
         ctx.rotate(-Math.PI / 2)
         ctx.translate(-78, -35)
         ctx.lineCap = "round"

@@ -337,6 +337,13 @@ class OpsController(QObject):
             self.changed.emit()
 
     @Slot(int)
+    def toggleRouteComponentDirection(self, index: int) -> None:
+        if self._route_draft is not None and 0 <= index < len(self._route_draft.components):
+            self._route_component_index = index
+            self._route_draft.toggle_switch_direction(index)
+            self.changed.emit()
+
+    @Slot(int)
     def moveRouteComponent(self, delta: int) -> None:
         if self._route_draft is None or self._route_component_index < 0:
             return
@@ -460,6 +467,7 @@ class OpsController(QObject):
                     "scope": scope.name,
                     "name": name or f"{scope.title} {component.tmcc_id:02d}",
                     "position": ("ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT"),
+                    "turnoutDirection": "LEFT" if component.is_left else "RIGHT" if component.is_right else "",
                 }
             )
         return rows
