@@ -11,11 +11,16 @@ Rectangle {
         id: dial
         anchors.fill: parent
         anchors.margins: 2
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
 
         onPaint: {
+            const size = Math.min(width, height)
+            if (size <= 0)
+                return
+
             const context = getContext("2d")
             context.clearRect(0, 0, width, height)
-            const size = Math.min(width, height)
             const x = width / 2
             const y = height * 0.49
             const start = 5 * Math.PI / 6
