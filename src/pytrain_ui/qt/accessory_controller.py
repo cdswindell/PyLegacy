@@ -23,7 +23,7 @@ from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 from pytrain.utils.path_utils import find_file
 
-from pytrain_ui.accessory_contracts import (
+from ..accessory_contracts import (
     AccessoryOperationViewState,
     AccessoryOperatingViewState,
     AccessoryPowerState,

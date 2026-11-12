@@ -13,8 +13,8 @@ from pytrain.protocol.sequence.sequence_req import SequenceReq
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum, TMCC1RRSpeedsEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2EngineOpsEnum, TMCC2RRSpeedsEnum
 
-from pytrain_ui.actions import CabAction, action_applies_to_type, cab_action
-from pytrain_ui.profiles import EngineControlProfile, resolve_engine_control_profile
+from ..actions import CabAction, action_applies_to_type, cab_action
+from ..profiles import EngineControlProfile, resolve_engine_control_profile
 
 from .state import PyTrainCabStateAdapter
 

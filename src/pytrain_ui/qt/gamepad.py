@@ -8,7 +8,7 @@ import time
 
 from PySide6.QtCore import QObject, QTimer
 
-from pytrain_ui.input import CabInputSink, RateThrottle, RepeatGate
+from ..input import CabInputSink, RateThrottle, RepeatGate
 
 log = logging.getLogger(__name__)
 

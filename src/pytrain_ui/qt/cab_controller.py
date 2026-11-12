@@ -13,10 +13,10 @@ from pytrain.db.prod_info import ENGINE_IMAGES_CACHE_DIR, ENGINE_INFO_CACHE_DIR
 from pytrain.protocol.constants import CommandScope
 from pytrain.utils.path_utils import find_file
 
-from pytrain_ui.actions import cab_action, cab_actions
-from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
-from pytrain_ui.contracts import EngineViewState
-from pytrain_ui.panels import panel_actions, panel_title
+from ..actions import cab_action, cab_actions
+from ..adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
+from ..contracts import EngineViewState
+from ..panels import panel_actions, panel_title
 
 from .artwork import ArtworkLoader
 

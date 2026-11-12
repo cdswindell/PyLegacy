@@ -66,7 +66,7 @@ def main(args: list[str] | None = None) -> int:
         raise SystemExit(str(exc)) from exc
 
     if backend == "qt":
-        from pytrain_ui.qt.pycab import main as qt_main
+        from .qt.pycab import main as qt_main
 
         return qt_main(forwarded)
 

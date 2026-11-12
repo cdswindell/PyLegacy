@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pytrain_ui.capabilities import operation_tag_applies
-from pytrain_ui.equipment_actions import EQUIPMENT_ACTIONS, EquipmentAction
+from .capabilities import operation_tag_applies
+from .equipment_actions import EQUIPMENT_ACTIONS, EquipmentAction
 
 
 @dataclass(frozen=True, slots=True)

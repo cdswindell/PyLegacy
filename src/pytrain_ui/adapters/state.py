@@ -9,7 +9,7 @@ from pytrain.db.engine_state import EngineState, TrainState
 from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.constants import CommandScope
 
-from pytrain_ui.contracts import EngineViewState, StateListener, Unsubscribe
+from ..contracts import EngineViewState, StateListener, Unsubscribe
 
 EngineOrTrainState = EngineState | TrainState
 
