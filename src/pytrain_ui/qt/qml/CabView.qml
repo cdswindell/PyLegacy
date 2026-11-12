@@ -77,6 +77,8 @@ Rectangle {
         }
     }
     readonly property bool passengerCar: cab.isStandalonePassenger
+    readonly property bool freightCar: cab.isStandaloneFreight
+    readonly property bool standaloneCar: passengerCar || freightCar
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
     readonly property int preferredTileHeight: compact ? 72 : 112
@@ -151,22 +153,30 @@ Rectangle {
         }).filter(action => action !== undefined)
     }
 
-    function passengerActionRows() {
+    function carActionRows() {
         const actions = cab.primaryActionModel.concat(cab.actionModel)
         const byKey = {}
         for (const action of actions)
             byKey[action.key] = action
         const labels = {
             option_one_on: "Clack On", option_one_off: "Clack Off",
-            option_two_on: "Grind On", option_two_off: "Grind Off"
+            option_two_on: "Grind On", option_two_off: "Grind Off",
+            bell: "Ring Bell"
         }
-        return [
+        const rows = root.freightCar ? [
+            ["startup", "shutdown", "freight_load"],
+            ["option_one_on", "option_one_off", "freight_unload"],
+            ["option_two_on", "option_two_off", "flat_wheel"],
+            ["freight_lights_on", "freight_lights_off", "bell"],
+            ["front_coupler", "rear_coupler", "freight_special"]
+        ] : [
             ["startup", "shutdown", "next_stop"],
             ["option_one_on", "option_one_off", "conductor"],
             ["option_two_on", "option_two_off", "steward"],
             ["car_lights_on", "car_lights_off", "station"],
             ["front_coupler", "rear_coupler"]
-        ].map(row => row.map(key => {
+        ]
+        return rows.map(row => row.map(key => {
             const action = byKey[key]
             if (action && labels[key])
                 return Object.assign({}, action, {label: labels[key]})
@@ -175,8 +185,8 @@ Rectangle {
     }
 
     function driveActionRows() {
-        if (root.passengerCar)
-            return root.passengerActionRows()
+        if (root.standaloneCar)
+            return root.carActionRows()
 
         const actions = cab.primaryActionModel.concat(cab.quickActionModel,
             cab.moreActionModel.filter(action => root.isDriveUtility(action.key) || root.isEngineSpecificControl(action.key)))
@@ -231,7 +241,11 @@ Rectangle {
         const byKey = {}
         for (const action of cab.speedSoundActionModel.concat(cab.moreActionModel))
             byKey[action.key] = action
+        const carControlKeys = root.freightCar
+            ? [].concat(...root.carActionRows()).filter(action => action).map(action => action.key)
+            : []
         const otherActions = root.passengerCar ? [] : cab.moreActionModel.filter(action =>
+            !carControlKeys.includes(action.key) &&
             !root.isDriveUtility(action.key)
                 && !root.isEngineSpecificControl(action.key)
                 && !action.key.startsWith("momentum_")
@@ -329,7 +343,7 @@ Rectangle {
         speedChevrons: action.speedChevrons || 0
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         Accessible.name: stopSign ? text + " Stop" : text
-        enabled: !action.disabled && (!action.speedPreset || (cab.hasThrottle && !root.passengerCar))
+        enabled: !action.disabled && (!action.speedPreset || (cab.hasThrottle && !root.standaloneCar))
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         font.bold: emergencyStop
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
@@ -734,7 +748,7 @@ Rectangle {
                             objectName: "reverseDirectionButton"
                             text: "◀ REV" + (root.requestedDirection === "REVERSE" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
-                            enabled: !root.passengerCar
+                            enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("REVERSE") >= 0
                             onClicked: root.requestDirection("REVERSE")
                         }
@@ -747,7 +761,7 @@ Rectangle {
                             objectName: "forwardDirectionButton"
                             text: "FWD ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
                             font.pixelSize: root.compact ? 17 : 22
-                            enabled: !root.passengerCar
+                            enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
                         }
@@ -827,7 +841,7 @@ Rectangle {
                             VerticalCabControl {
                                 id: analogControl
                                 objectName: "variableCabControl"
-                                enabled: !root.passengerCar || cab.isLegacy
+                                enabled: !root.standaloneCar || cab.isLegacy
                                 largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -878,14 +892,14 @@ Rectangle {
                                 objectName: "speedStepUp"
                                 text: "+"
                                 font.pixelSize: root.compact ? 32 : 38
-                                enabled: !root.passengerCar && !cab.rampActive
+                                enabled: !root.standaloneCar && !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(1)
                             }
                             VerticalThrottle {
                                 id: throttle
                                 objectName: "targetSpeedThrottle"
-                                enabled: !root.passengerCar
+                                enabled: !root.standaloneCar
                                 largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -902,7 +916,7 @@ Rectangle {
                                 objectName: "speedStepDown"
                                 text: "−"
                                 font.pixelSize: root.compact ? 32 : 38
-                                enabled: !root.passengerCar && !cab.rampActive
+                                enabled: !root.standaloneCar && !cab.rampActive
                                 repeatWhileHeld: true
                                 onClicked: cab.stepSpeed(-1)
                             }
@@ -981,7 +995,7 @@ Rectangle {
                 Rectangle {
                     id: stateTile
                     required property var modelData
-                    readonly property bool editable: !root.passengerCar && (
+                    readonly property bool editable: !root.standaloneCar && (
                         (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
                         (modelData.label === "Brake" && cab.supportsTrainBrake) ||

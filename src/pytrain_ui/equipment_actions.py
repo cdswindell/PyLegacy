@@ -51,9 +51,10 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("freight_load", "Load", "NUMBER_3", "load.jpg", "f"),
     EquipmentAction("freight_unload", "Unload", "NUMBER_6", "unload.jpg", "f"),
     EquipmentAction("freight_tower", "Tower", "TOWER_CHATTER", "tower.jpg", "f"),
-    EquipmentAction("flat_wheel", "Wheel Sounds", "STOCK_WHEEL_ON", "flat-wheel-on.jpg", "f", "effects"),
+    EquipmentAction("flat_wheel", "Flat Wheel", "STOCK_WHEEL_ON", "flat-wheel-on.jpg", "f", "effects"),
     EquipmentAction("freight_lights_on", "Lights On", "NUMBER_9", "lights-on.jpg", "f"),
     EquipmentAction("freight_lights_off", "Lights Off", "NUMBER_8", "lights-off.jpg", "f"),
+    EquipmentAction("freight_special", "Special Function", "NUMBER_7", "freight-special-flag.png", "f"),
     # Acela-specific variants from cells that also contain ordinary engine variants.
     # Acela uses the same immediate/delayed startup and shutdown interaction as other
     # Legacy engines, but keeps its own Aux2/Aux3 behavior.
