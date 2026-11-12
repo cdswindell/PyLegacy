@@ -29,6 +29,10 @@ Rectangle {
         requestedDirection = ""
         selectedAnalogMode = "Horn"
         Qt.callLater(root.syncAnalogMode)
+        if (actionScroll && actionScroll.contentItem) {
+            actionScroll.contentItem.cancelFlick()
+            actionScroll.contentItem.contentY = actionScroll.contentItem.originY
+        }
         if (speedLimitDialog)
             speedLimitDialog.close()
         if (stateValueDialog)
@@ -529,13 +533,7 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.top: pageTabs.bottom
                     anchors.topMargin: -8
-                    height: {
-                        const base = root.compact ? 64 : 96
-                        const rows = root.driveActionRows().length
-                        const controls = rows * root.tileHeight + Math.max(0, rows - 1) * root.gap
-                        const spare = parent.height - y - base - controls - (root.passengerCar ? 0 : auxGrid.height) - root.gap * 2 - 4
-                        return base + Math.min(root.compact ? 16 : 48, Math.max(0, spare))
-                    }
+                    height: root.compact ? 64 : 120
                     radius: 8
                     color: "#e8ebef"
                     clip: true
@@ -628,6 +626,7 @@ Rectangle {
 
                 ScrollView {
                     id: actionScroll
+                    objectName: "cabActionScroll"
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: artwork.bottom
@@ -661,8 +660,7 @@ Rectangle {
                     anchors.right: parent.right
                     visible: !root.effectsVisible && !root.passengerCar
                     height: root.tileHeight
-                    y: root.effectsVisible || root.passengerCar ? parent.height :
-                        Math.min(parent.height - height, artwork.y + artwork.height + root.gap + actionContent.implicitHeight + root.gap)
+                    y: visible ? parent.height - height : parent.height
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
