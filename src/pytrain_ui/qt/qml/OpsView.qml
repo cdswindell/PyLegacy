@@ -12,6 +12,7 @@ RosterPanel {
     property var lcsController: null
     property string sortKey: "roadName"
     property int directTmccId: 0
+    property var rightHandSwitches: ({})
     property int editingSwitchId: 0
     property string editingSwitchOriginalName: ""
     property string editingSwitchOriginalNumber: ""
@@ -27,6 +28,10 @@ RosterPanel {
     signal cabMenuRequested()
 
     radius: 14
+
+    function toggleSwitchHandedness(tmccId) {
+        rightHandSwitches = Object.assign({}, rightHandSwitches, {[tmccId]: !rightHandSwitches[tmccId]})
+    }
 
     function compareRows(a, b) {
         if (sortKey === "aligned" || sortKey === "unaligned") {
@@ -304,7 +309,7 @@ RosterPanel {
         font.pixelSize: 28
     }
 
-    component RouteActionButton: CabButton {
+    component IconActionButton: CabButton {
         id: actionButton
         required property string symbol
         property bool rightHand: false
@@ -400,6 +405,14 @@ RosterPanel {
     }
 
     component RosterActionButton: CabButton {
+        Layout.preferredWidth: 88
+        Layout.minimumHeight: 60
+        Layout.maximumHeight: 60
+        font.pixelSize: 22
+    }
+
+    component RosterTurnoutButton: IconActionButton {
+        Layout.fillWidth: false
         Layout.preferredWidth: 88
         Layout.minimumHeight: 60
         Layout.maximumHeight: 60
@@ -603,16 +616,23 @@ RosterPanel {
                     }
                     RowLayout {
                         spacing: 6
-                        RosterActionButton {
+                        RosterTurnoutButton {
                             visible: !row.isRoute
+                            symbol: "thru"
+                            rightHand: !!root.rightHandSwitches[row.rowData.tmccId]
                             text: "Thru"
                             selected: row.rowData.stateText === "THRU"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
                         }
-                        RosterActionButton {
+                        RosterTurnoutButton {
                             visible: !row.isRoute
+                            symbol: "out"
+                            rightHand: !!root.rightHandSwitches[row.rowData.tmccId]
                             text: "Out"
                             selected: row.rowData.stateText === "OUT"
+                            distinguishDoubleClick: true
+                            onDoubleClicked: root.toggleSwitchHandedness(row.rowData.tmccId)
+                            onTouchHeld: root.toggleSwitchHandedness(row.rowData.tmccId)
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
                         }
                         RosterActionButton {
@@ -855,7 +875,7 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        RouteActionButton {
+                        IconActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             symbol: "thru"
                             text: "Thru"
@@ -867,7 +887,7 @@ RosterPanel {
                                       controller.routeComponents[controller.routeComponentIndex].position === "THRU"
                             onClicked: controller.setRouteComponentPosition("THRU")
                         }
-                        RouteActionButton {
+                        IconActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             symbol: "out"
                             text: "Out"
@@ -884,14 +904,14 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        RouteActionButton {
+                        IconActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             symbol: "left"
                             text: "Move Left"
                             enabled: controller && controller.routeComponentIndex > 0
                             onClicked: controller.moveRouteComponent(-1)
                         }
-                        RouteActionButton {
+                        IconActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             symbol: "right"
                             text: "Move Right"
@@ -904,14 +924,14 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        RouteActionButton {
+                        IconActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             symbol: "add"
                             text: "Add…"
                             enabled: controller && controller.routeComponents.length < 16
                             onClicked: root.openRoutePicker()
                         }
-                        RouteActionButton {
+                        IconActionButton {
                             Layout.minimumHeight: routeBuilder.minimumButtonHeight
                             symbol: "remove"
                             text: "Remove"

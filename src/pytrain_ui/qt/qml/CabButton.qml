@@ -7,6 +7,7 @@ Control {
     property string text: ""
     property bool selected: false
     property bool activateOnRelease: false
+    property bool distinguishDoubleClick: false
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
     property color normalColor: "#343a44"
@@ -21,6 +22,7 @@ Control {
     signal clicked()
     signal released()
     signal doubleClicked()
+    signal touchHeld()
 
     implicitHeight: 62
     font.pixelSize: 20
@@ -45,18 +47,32 @@ Control {
 
     TapHandler {
         id: tapHandler
+        property bool touchHoldTriggered: false
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
-        onTapped: if (root.activateOnRelease) root.clicked()
+        // Wait for the double-tap interval before dispatching a single tap on these buttons.
+        exclusiveSignals: root.distinguishDoubleClick ? TapHandler.SingleTap | TapHandler.DoubleTap : TapHandler.NotExclusive
+        onTapped: if (root.activateOnRelease && !root.distinguishDoubleClick) root.clicked()
+        onSingleTapped: {
+            if (root.distinguishDoubleClick && !touchHoldTriggered)
+                root.clicked()
+        }
+        onLongPressed: {
+            if (root.distinguishDoubleClick && point.device.type === PointerDevice.TouchScreen) {
+                touchHoldTriggered = true
+                root.touchHeld()
+            }
+        }
         onPressedChanged: {
             if (pressed) {
-                if (!root.activateOnRelease)
+                touchHoldTriggered = false
+                if (!root.activateOnRelease && !root.distinguishDoubleClick)
                     root.clicked()
             } else {
                 root.released()
             }
         }
-        onDoubleTapped: root.doubleClicked()
+        onDoubleTapped: if (!touchHoldTriggered) root.doubleClicked()
     }
 
     Timer {
