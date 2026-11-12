@@ -301,6 +301,13 @@ Rectangle {
         font.pixelSize: 28
     }
 
+    component RosterActionButton: CabButton {
+        Layout.preferredWidth: 88
+        Layout.minimumHeight: 60
+        Layout.maximumHeight: 60
+        font.pixelSize: 22
+    }
+
     ColumnLayout {
         id: pageLayout
         anchors.fill: parent
@@ -397,6 +404,8 @@ Rectangle {
         ListView {
             id: roster
             objectName: "operationsRoster"
+            enabled: !(routeBuilder.visible || routePicker.visible || switchEditor.visible ||
+                       addSwitchPopup.visible || overwriteSwitchPopup.visible || lcsConfig.visible)
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
@@ -408,7 +417,7 @@ Rectangle {
                 required property var rowData
                 readonly property bool isRoute: root.controller.scope === "ROUTE"
                 width: roster.width
-                height: isRoute ? 76 : 138
+                height: 76
                 radius: 8
                 color: "#262b32"
                 border.width: 1
@@ -420,103 +429,78 @@ Rectangle {
                         else root.controller.toggleSwitch(row.rowData.tmccId)
                     }
                 }
-                GridLayout {
+                RowLayout {
                     anchors.fill: parent
                     anchors.margins: 6
-                    columns: row.isRoute ? 2 : 1
-                    columnSpacing: 8
-                    rowSpacing: 4
-                    RowLayout {
+                    spacing: 8
+
+                    Label {
+                        Layout.preferredWidth: 42
+                        text: rowData.tmccId
+                        color: "#f4f6f8"
+                        font.pixelSize: 26
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                    Label {
                         Layout.fillWidth: true
-                        Label {
-                            Layout.preferredWidth: row.isRoute ? 42 : 70
-                            text: rowData.tmccId
-                            color: "#f4f6f8"
-                            font.pixelSize: row.isRoute ? 26 : 36
-                            font.bold: true
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-                        GridLayout {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            columns: row.isRoute ? 2 : 1
-                            columnSpacing: 8
-                            rowSpacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: rowData.roadName || (controller.scope === "SWITCH" ? "Switch" : "Route")
-                                color: "#f4f6f8"
-                                font.pixelSize: row.isRoute ? 22 : 28
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                visible: !row.isRoute || !!rowData.roadNumber
-                                Layout.fillWidth: !row.isRoute
-                                text: row.isRoute ? "#" + rowData.roadNumber :
-                                      (rowData.roadNumber ? "Road #" + rowData.roadNumber : "TMCC ID " + rowData.tmccId) +
-                                      (rowData.lcsAssociations ? " · " + rowData.lcsAssociations : "")
-                                color: "#aeb5bf"
-                                font.pixelSize: row.isRoute ? 17 : 20
-                                elide: Text.ElideRight
-                            }
-                        }
-                        Label {
-                            Layout.preferredWidth: row.isRoute ? 118 : 152
-                            text: rowData.stateText
-                            color: rowData.stateText === "ALIGNED" || rowData.stateText === "THRU" ? "#73d38a" :
-                                   rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
-                            font.pixelSize: row.isRoute ? 16 : 20
-                            font.bold: true
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                        }
+                        Layout.minimumWidth: 0
+                        text: rowData.roadName || (row.isRoute ? "Route" : "Switch")
+                        color: "#f4f6f8"
+                        font.pixelSize: 22
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+                    Label {
+                        visible: !!rowData.roadNumber
+                        text: "#" + rowData.roadNumber
+                        color: "#aeb5bf"
+                        font.pixelSize: 17
+                    }
+                    Label {
+                        visible: !row.isRoute && !!rowData.lcsAssociations
+                        Layout.maximumWidth: Math.max(0, (row.width - 400) / 3)
+                        text: rowData.lcsAssociations
+                        color: "#aeb5bf"
+                        font.pixelSize: 16
+                        elide: Text.ElideRight
+                    }
+                    Label {
+                        visible: row.isRoute
+                        Layout.preferredWidth: 118
+                        text: rowData.stateText
+                        color: rowData.stateText === "ALIGNED" ? "#73d38a" :
+                               rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
+                        font.pixelSize: 16
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
                     }
                     RowLayout {
-                        Layout.fillWidth: !row.isRoute
-                        spacing: row.isRoute ? 6 : 4
-                        TouchButton {
-                            Layout.preferredHeight: 60
-                            Layout.minimumHeight: 60
-                            Layout.maximumHeight: 60
-                            visible: controller.scope === "SWITCH"
+                        spacing: 6
+                        RosterActionButton {
+                            visible: !row.isRoute
                             text: "THRU"
                             selected: row.rowData.stateText === "THRU"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "THRU")
                         }
-                        TouchButton {
-                            Layout.preferredHeight: 60
-                            Layout.minimumHeight: 60
-                            Layout.maximumHeight: 60
-                            visible: controller.scope === "SWITCH"
+                        RosterActionButton {
+                            visible: !row.isRoute
                             text: "OUT"
                             selected: row.rowData.stateText === "OUT"
                             onClicked: controller.operateSwitch(row.rowData.tmccId, "OUT")
                         }
-                        TouchButton {
-                            Layout.preferredHeight: 60
-                            Layout.minimumHeight: 60
-                            Layout.maximumHeight: 60
-                            visible: controller.scope === "ROUTE"
-                            Layout.fillWidth: !row.isRoute
-                            Layout.preferredWidth: row.isRoute ? 88 : 0
-                            font.pixelSize: row.isRoute ? 22 : 28
+                        RosterActionButton {
+                            visible: row.isRoute
                             text: "FIRE"
                             normalColor: "#a84418"
                             pressedColor: "#d65a20"
                             onClicked: controller.fireRoute(row.rowData.tmccId)
                         }
-                        TouchButton {
-                            Layout.preferredHeight: 60
-                            Layout.minimumHeight: 60
-                            Layout.maximumHeight: 60
-                            Layout.fillWidth: !row.isRoute
-                            Layout.preferredWidth: row.isRoute ? 88 : 0
-                            font.pixelSize: row.isRoute ? 22 : 28
+                        RosterActionButton {
                             text: "EDIT…"
                             onClicked: {
-                                if (controller.scope === "SWITCH") root.editSwitch(row.rowData.tmccId)
-                                else root.editRoute(row.rowData.tmccId)
+                                if (row.isRoute) root.editRoute(row.rowData.tmccId)
+                                else root.editSwitch(row.rowData.tmccId)
                             }
                         }
                     }
@@ -823,6 +807,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
+                    activateOnRelease: true
                     text: "SAVE ROUTE"
                     font.bold: true
                     enabled: controller && controller.routeBuilderOpen &&
@@ -1280,6 +1265,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
+                    activateOnRelease: true
                     text: "SAVE"
                     font.bold: true
                     enabled: roadNameField.text !== root.editingSwitchOriginalName ||

@@ -6,6 +6,7 @@ Control {
 
     property string text: ""
     property bool selected: false
+    property bool activateOnRelease: false
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
     property color normalColor: "#343a44"
@@ -46,11 +47,14 @@ Control {
         id: tapHandler
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
+        onTapped: if (root.activateOnRelease) root.clicked()
         onPressedChanged: {
-            if (pressed)
-                root.clicked()
-            else
+            if (pressed) {
+                if (!root.activateOnRelease)
+                    root.clicked()
+            } else {
                 root.released()
+            }
         }
         onDoubleTapped: root.doubleClicked()
     }

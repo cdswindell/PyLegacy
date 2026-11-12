@@ -688,6 +688,7 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
+                activateOnRelease: true
                 text: root.showingModules ? "CLOSE" : (root.page === 3 ? "CONFIGURE" : "NEXT")
                 font.bold: !root.showingModules
                 enabled: root.showingModules || (root.controller && root.controller.deviceKey.length > 0)

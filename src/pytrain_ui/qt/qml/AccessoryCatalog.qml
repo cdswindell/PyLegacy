@@ -228,6 +228,7 @@ Rectangle {
         }
         ListView {
             id: listView
+            enabled: !lcsConfig.visible
             objectName: "accessoryRoster"
             Layout.fillWidth: true
             Layout.fillHeight: true
