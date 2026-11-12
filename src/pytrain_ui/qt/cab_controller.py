@@ -62,6 +62,7 @@ class CabController(QObject):
         self._artwork_loader = ArtworkLoader(self)
         self._artwork_loader.artworkReady.connect(self._on_artwork_ready)
         self._target_generation = 0
+        self._transformer_full_on = False
         self.stateUpdateReceived.connect(self._on_state)
         self._state_port = None
         self._command_port = None
@@ -104,6 +105,7 @@ class CabController(QObject):
             self.stateChanged.emit()
 
     def _release_target(self) -> None:
+        self._transformer_full_on = False
         self.cancelRelativeThrottle()
         self._target_generation += 1
         if self._unsubscribe_relative_speed is not None:
@@ -170,6 +172,8 @@ class CabController(QObject):
         state = self._state_port.state
         if (snapshot.scope, snapshot.tmcc_id) != (state.scope.name, state.tmcc_id):
             return
+        if snapshot.target_speed != self._snapshot.target_speed:
+            self._transformer_full_on = False
         self._snapshot = snapshot
         self.stateChanged.emit()
 
@@ -565,7 +569,7 @@ class CabController(QObject):
 
     @Property(int, notify=stateChanged)
     def targetSpeed(self) -> int:
-        return self._snapshot.target_speed
+        return 199 if self._transformer_full_on else self._snapshot.target_speed
 
     @Property(int, notify=stateChanged)
     def speedMax(self) -> int:
@@ -761,20 +765,23 @@ class CabController(QObject):
     @Slot(int)
     def setSpeed(self, speed: int) -> None:
         if self._command_port is not None and not (self.isStandalonePassenger or self.isStandaloneFreight):
+            self._clear_full_on_display()
             self._command_port.set_speed(speed)
 
     @Slot(str, bool)
     def setSpeedPreset(self, name: str, with_dialog: bool) -> None:
         if self._command_port is not None and not (self.isStandalonePassenger or self.isStandaloneFreight):
+            self._clear_full_on_display()
             self._command_port.set_speed_preset(name, with_dialog)
 
     @Slot(int, result=bool)
     def stepSpeed(self, delta: int) -> bool:
-        return bool(
-            self._command_port is not None
-            and not (self.isStandalonePassenger or self.isStandaloneFreight)
-            and self._command_port.step_speed(delta)
-        )
+        if self._command_port is None or self.isStandalonePassenger or self.isStandaloneFreight:
+            return False
+        if self._command_port.step_speed(delta):
+            self._clear_full_on_display()
+            return True
+        return False
 
     @Slot(int)
     def changeSpeed(self, delta: int) -> None:
@@ -837,7 +844,18 @@ class CabController(QObject):
 
     @Slot(str)
     def triggerAction(self, key: str) -> None:
-        self._command_port.perform(key)
+        if self._command_port is None or not self._command_port.perform(key):
+            return
+        if key == "transformer_on":
+            self._transformer_full_on = True
+            self.stateChanged.emit()
+        elif key == "transformer_off":
+            self._clear_full_on_display()
+
+    def _clear_full_on_display(self) -> None:
+        if self._transformer_full_on:
+            self._transformer_full_on = False
+            self.stateChanged.emit()
 
     @Slot(str)
     def triggerHoldAction(self, key: str) -> None:
