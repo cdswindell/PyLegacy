@@ -510,7 +510,7 @@ RosterPanel {
                         }
                         text: rowData.stateText === "UNKNOWN" ? "" : rowData.stateText
                         color: rowData.stateText === "Aligned" ? "#73d38a" :
-                               rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#f0a35a"
+                               rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#b51f2a"
                         font.pixelSize: 16
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
