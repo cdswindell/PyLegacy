@@ -73,10 +73,6 @@ Rectangle {
         }
     }
     readonly property bool passengerCar: cab.isStandalonePassenger
-    onPassengerCarChanged: {
-        if (passengerCar)
-            effectsVisible = false
-    }
     readonly property bool compact: height < 850
     readonly property int gap: compact ? 6 : 8
     readonly property int tileHeight: compact ? 72 : 112
@@ -148,21 +144,19 @@ Rectangle {
     }
 
     function passengerActionRows() {
-        const actions = cab.primaryActionModel.concat(cab.actionModel, cab.speedSoundActionModel)
+        const actions = cab.primaryActionModel.concat(cab.actionModel)
         const byKey = {}
         for (const action of actions)
             byKey[action.key] = action
         const labels = {
-            sound_on: "Unmute", sound_off: "Mute",
             option_one_on: "Clack On", option_one_off: "Clack Off",
             option_two_on: "Grind On", option_two_off: "Grind Off"
         }
         return [
-            ["volume_up", "sound_on", "conductor", "next_stop"],
-            ["volume_down", "sound_off", "station", "steward"],
+            [null, null, "conductor", "next_stop"],
+            [null, null, "station", "steward"],
             ["front_coupler", "option_one_on", "option_two_on", "car_lights_on"],
-            ["rear_coupler", "option_one_off", "option_two_off", "car_lights_off"],
-            ["blend_up", "blend_down"]
+            ["rear_coupler", "option_one_off", "option_two_off", "car_lights_off"]
         ].map(row => row.map(key => {
             const action = byKey[key]
             if (action && labels[key])
@@ -249,10 +243,16 @@ Rectangle {
         ]
         if (canRefuel || cab.isElectric || root.passengerCar)
             auxiliaryRow[0] = {key: "fuel", label: "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel}
+        const volumeUpThird = root.passengerCar && byKey.sound_on
+            ? Object.assign({}, byKey.sound_on, {label: "Unmute"})
+            : byKey.labor_up || byKey.electric_effort_up
+        const volumeDownThird = root.passengerCar && byKey.sound_off
+            ? Object.assign({}, byKey.sound_off, {label: "Mute"})
+            : byKey.labor_down || byKey.electric_effort_down
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, auxiliaryRow,
-            [byKey.master_volume_up, byKey.blend_up, byKey.labor_up || byKey.electric_effort_up],
-            [byKey.master_volume_down, byKey.blend_down, byKey.labor_down || byKey.electric_effort_down]
+            [byKey.master_volume_up, byKey.blend_up, volumeUpThird],
+            [byKey.master_volume_down, byKey.blend_down, volumeDownThird]
         ]
         return rows.concat(root.pairedActionRows(otherActions))
     }
@@ -461,7 +461,6 @@ Rectangle {
                             required property int index
                             required property string modelData
                             objectName: index === 0 ? "driveTab" : "speedTab"
-                            enabled: index === 0 || !root.passengerCar
                             implicitWidth: 100
                             width: (pageTabs.availableWidth - pageTabs.spacing) / 2
                             height: pageTabs.height
@@ -476,7 +475,7 @@ Rectangle {
                             }
                             contentItem: Text {
                                 text: parent.text
-                                color: !pageTab.enabled ? "#758292" : pageTab.checked ? "#ffffff" : "#aeb7c2"
+                                color: pageTab.checked ? "#ffffff" : "#aeb7c2"
                                 font.pixelSize: 18
                                 font.bold: parent.checked
                                 horizontalAlignment: Text.AlignHCenter
