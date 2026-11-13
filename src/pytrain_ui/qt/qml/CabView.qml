@@ -429,6 +429,9 @@ Rectangle {
             smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
             smoke_up: cab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",
             rear_coupler: "coupler-rear", front_coupler: "coupler-front",
+            option_one_on: "car-clack", option_one_off: "car-clack-off",
+            option_two_on: "car-grind", option_two_off: "car-grind-off",
+            flat_wheel: "car-flat-wheel",
             sound_on: "car-sound-on",
             sound_off: "car-sound-off",
             conductor: "car-conductor",
@@ -450,7 +453,7 @@ Rectangle {
         Layout.preferredHeight: root.tileHeight
         stacked: true
         wrapLabel: !fitLabelWidth
-        fitLabelWidth: action.key.endsWith("_coupler")
+        fitLabelWidth: action.key.endsWith("_coupler") || action.key === "water_injector"
         padding: root.compact ? 4 : 6
         iconSize: (root.compact ? 40 : 72) - (root.preferredTileHeight - root.tileHeight)
         compact: auxiliary
