@@ -328,8 +328,7 @@ Rectangle {
             {
                 key: "ROLL",
                 label: "Roll",
-                speedPreset: true,
-                iconSource: Qt.resolvedUrl("../../../pytrain/gui/images/engine_gui/roll-speed.jpg")
+                speedPreset: true
             },
             {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true}
         ]
@@ -405,6 +404,7 @@ Rectangle {
         readonly property bool signedSpeaker: ["volume", "volume-down", "rpm-up", "rpm-down"].includes(trialIcon)
                                              || trialIcon.startsWith("speaker-")
         auxFace: auxiliary && /^Aux ?[123](?:$| · )/.test(action.label)
+        largeLabel: action.key === "set_address"
         subtitle: auxFace ? (action.label.split(" · ")[1] || "") : ""
         trialIcon: ({
             volume_up: "volume", volume_down: "volume-down", bell: "bell", engineer_chatter: "crew",
@@ -421,7 +421,7 @@ Rectangle {
             pantograph_front_up: "panto-up-f", pantograph_front_down: "panto-down-f",
             pantograph_rear_up: "panto-up-r", pantograph_rear_down: "panto-down-r",
             pantograph_both_up: "panto-up-a", pantograph_both_down: "panto-down-a",
-            tower_chatter: "tower",
+            tower_chatter: "tower", ROLL: "roll",
             crane_front_lamp: "crane-front-lamp", crane_rear_lamp: "crane-rear-lamp",
             smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
             smoke_up: cab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",

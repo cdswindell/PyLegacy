@@ -14,10 +14,12 @@ Control {
     property url iconSource: ""
     property string trialIcon: ""
     property bool auxFace: false
+    property bool largeLabel: false
+    readonly property int largeLabelSize: font.pixelSize + 6
     property string subtitle: ""
-    readonly property bool trialFace: auxFace || trialIcon !== "" || speedFace
-    readonly property bool neutralFace: auxFace || /^(power|smoke|coupler|crane|car-(car-lights|freight))-/.test(trialIcon)
-    readonly property string detailedIcon: /^(crane-|speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
+    readonly property bool trialFace: auxFace || largeLabel || trialIcon !== "" || speedFace
+    readonly property bool neutralFace: auxFace || largeLabel || /^(power|smoke|coupler|crane|car-(car-lights|freight))-/.test(trialIcon)
+    readonly property string detailedIcon: /^(roll$|crane-|speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
         ? trialIcon + "-relief.png" : ({
         volume: "speaker-up-relief.png",
         "volume-down": "speaker-down-relief.png",
@@ -347,7 +349,7 @@ Control {
             fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
             minimumPixelSize: 10
             color: root.enabled ? (root.trialFace ? "#ffffff" : root.textColor) : "#858c96"
-            font: root.font
+            font: root.largeLabel ? Qt.font({family: root.font.family, pixelSize: root.largeLabelSize, bold: true}) : root.font
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
@@ -364,7 +366,7 @@ Control {
                 width: parent.width
                 text: root.displayLabel
                 color: root.enabled ? "#ffffff" : "#858c96"
-                font.pixelSize: root.font.pixelSize + 6
+                font.pixelSize: root.largeLabelSize
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
             }
