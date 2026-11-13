@@ -17,7 +17,7 @@ Control {
     property string subtitle: ""
     readonly property bool trialFace: auxFace || trialIcon !== ""
     readonly property bool neutralFace: auxFace || /^(power|smoke|coupler|car-(car-lights|freight))-/.test(trialIcon)
-    readonly property string detailedIcon: /^(car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
+    readonly property string detailedIcon: /^(speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
         ? trialIcon + "-relief.png" : ({
         volume: "speaker-up-relief.png",
         "volume-down": "speaker-down-relief.png",

@@ -403,14 +403,15 @@ Rectangle {
         readonly property bool emergencyStop: action.key === "EMERGENCY_STOP"
         readonly property bool auxiliary: action.group === "secondary"
         readonly property bool signedSpeaker: ["volume", "volume-down", "rpm-up", "rpm-down"].includes(trialIcon)
+                                             || trialIcon.startsWith("speaker-")
         auxFace: auxiliary && /^Aux ?[123](?:$| · )/.test(action.label)
         subtitle: auxFace ? (action.label.split(" · ")[1] || "") : ""
         trialIcon: ({
             volume_up: "volume", volume_down: "volume-down", bell: "bell", engineer_chatter: "crew",
-            master_volume_up: "volume", master_volume_down: "volume-down",
-            blend_up: "volume", blend_down: "volume-down",
-            labor_up: "volume", labor_down: "volume-down",
-            electric_effort_up: "volume", electric_effort_down: "volume-down",
+            master_volume_up: "speaker-master-up", master_volume_down: "speaker-master-down",
+            blend_up: "speaker-blend-up", blend_down: "speaker-blend-down",
+            labor_up: "speaker-effort-up", labor_down: "speaker-effort-down",
+            electric_effort_up: "speaker-effort-up", electric_effort_down: "speaker-effort-down",
             boost: "boost", brake: "brake",
             startup: "power-on", shutdown: "power-off",
             rpm_up: "rpm-up", rpm_down: "rpm-down",
