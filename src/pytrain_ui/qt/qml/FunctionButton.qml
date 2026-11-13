@@ -17,14 +17,14 @@ Control {
     property string subtitle: ""
     readonly property bool trialFace: auxFace || trialIcon !== ""
     readonly property bool neutralFace: auxFace || /^(power|smoke|coupler)-/.test(trialIcon)
-    readonly property bool lightInset: trialIcon === "horn" || trialIcon === "whistle"
-    readonly property string detailedIcon: ({
-        volume: "speaker-up-ivory.png",
-        "volume-down": "speaker-down-ivory.png",
-        "rpm-up": "speaker-up-ivory.png",
-        "rpm-down": "speaker-down-ivory.png",
-        "coupler-front": "front-coupler-ivory.png",
-        "coupler-rear": "rear-coupler-ivory.png"
+    readonly property string detailedIcon: /^(panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
+        ? trialIcon + "-relief.png" : ({
+        volume: "speaker-up-relief.png",
+        "volume-down": "speaker-down-relief.png",
+        "rpm-up": "speaker-up-relief.png",
+        "rpm-down": "speaker-down-relief.png",
+        "coupler-front": "front-coupler-relief.png",
+        "coupler-rear": "rear-coupler-relief.png"
     })[trialIcon] || ""
     readonly property bool speedFace: trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
@@ -73,11 +73,10 @@ Control {
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
             Layout.alignment: Qt.AlignCenter
-            visible: (!root.trialFace || root.lightInset) && root.iconSource.toString().length > 0
+            visible: !root.trialFace && root.iconSource.toString().length > 0
             opacity: root.iconOpacity
             radius: root.compact ? 4 : 6
             color: "#e8ebef"
-            transform: Translate { y: root.lightInset && root.visualPressed ? 2 : 0 }
             border.width: 1
             border.color: "#c6cbd2"
 
@@ -105,9 +104,9 @@ Control {
 
         Canvas {
             id: trialArtwork
-            readonly property bool raisedIvory: root.trialIcon !== "clack"
+            readonly property bool raisedIcon: root.trialIcon !== "clack"
 
-            visible: root.trialIcon !== "" && !root.lightInset && root.detailedIcon === ""
+            visible: root.trialIcon !== "" && root.detailedIcon === ""
             transform: [
                 Scale {
                     origin.x: trialArtwork.width / 2
@@ -115,7 +114,7 @@ Control {
                     xScale: root.trialIcon.startsWith("smoke-diesel-") ? 1.25 : 1
                     yScale: xScale
                 },
-                Translate { y: trialArtwork.raisedIvory && root.visualPressed ? 2 : 0 }
+                Translate { y: trialArtwork.raisedIcon && root.visualPressed ? 2 : 0 }
             ]
             opacity: root.iconOpacity
             Layout.alignment: Qt.AlignCenter
@@ -133,19 +132,19 @@ Control {
                 ctx.reset()
                 ctx.clearRect(0, 0, width, height)
                 ctx.scale(width / 64, height / 64)
-                ctx.fillStyle = "#fff3dc"
+                ctx.fillStyle = "#ffffff"
                 ctx.strokeStyle = ctx.fillStyle
-                if (raisedIvory) {
-                    const ivory = ctx.createLinearGradient(10, 7, 51, 58)
+                if (raisedIcon) {
+                    const relief = ctx.createLinearGradient(10, 7, 51, 58)
                     const on = root.trialIcon === "power-on"
                     const off = root.trialIcon === "power-off"
                     const bell = root.trialIcon === "bell"
-                    ivory.addColorStop(0, on ? "#a2edaa" : off ? "#ffb3af" : "#fffdf6")
-                    ivory.addColorStop(0.37, on ? "#5ed671" : off ? "#f16a64" : "#fff5e2")
-                    ivory.addColorStop(0.75, on ? "#3cc357" : off ? "#dd4946" : bell ? "#efe0c5" : "#e8d6b8")
-                    ivory.addColorStop(1, on ? "#229840" : off ? "#ad302e" : bell ? "#cab796" : "#bba485")
-                    ctx.fillStyle = ivory
-                    ctx.strokeStyle = ivory
+                    relief.addColorStop(0, on ? "#a2edaa" : off ? "#ffb3af" : "#ffffff")
+                    relief.addColorStop(0.37, on ? "#5ed671" : off ? "#f16a64" : "#f7faff")
+                    relief.addColorStop(0.75, on ? "#3cc357" : off ? "#dd4946" : "#e7edf4")
+                    relief.addColorStop(1, on ? "#229840" : off ? "#ad302e" : "#dce4ec")
+                    ctx.fillStyle = relief
+                    ctx.strokeStyle = relief
                     ctx.shadowColor = bell ? "rgba(18, 27, 36, 0.7)" : "rgba(11, 19, 28, 0.85)"
                     ctx.shadowOffsetX = bell ? 1 : 2
                     ctx.shadowOffsetY = bell ? 2 : 3
@@ -345,7 +344,7 @@ Control {
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
             fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
             minimumPixelSize: 10
-            color: root.enabled ? (root.trialFace ? "#fff3dc" : root.textColor) : "#858c96"
+            color: root.enabled ? (root.trialFace ? "#ffffff" : root.textColor) : "#858c96"
             font: root.font
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -362,7 +361,7 @@ Control {
             Text {
                 width: parent.width
                 text: root.displayLabel
-                color: root.enabled ? "#fff3dc" : "#858c96"
+                color: root.enabled ? "#ffffff" : "#858c96"
                 font.pixelSize: root.font.pixelSize + 6
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
@@ -372,7 +371,7 @@ Control {
                 visible: root.subtitle.length > 0
                 width: parent.width
                 text: root.subtitle
-                color: root.enabled ? "#eee3d0" : "#858c96"
+                color: root.enabled ? "#ffffff" : "#858c96"
                 font.pixelSize: Math.max(11, root.font.pixelSize - 2)
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
@@ -422,7 +421,7 @@ Control {
                     id: smokeLabel
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.displayLabel
-                    color: root.enabled ? root.textColor : "#858c96"
+                    color: root.enabled ? (root.trialFace ? "#ffffff" : root.textColor) : "#858c96"
                     font: root.font
                 }
             }
@@ -448,15 +447,15 @@ Control {
             gradient: Gradient {
                 GradientStop {
                     position: 0
-                    color: root.visualPressed ? "#101a25" : root.neutralFace ? "#657e90" : root.speedFace ? "#617b99" : "#5c8a9a"
+                    color: root.visualPressed ? "#101a25" : root.neutralFace ? "#405667" : root.speedFace ? "#405372" : "#365768"
                 }
                 GradientStop {
                     position: 0.22
-                    color: root.neutralFace ? "#40586b" : root.speedFace ? "#3d536f" : "#335b6c"
+                    color: root.neutralFace ? "#2d4152" : root.speedFace ? "#2b3e56" : "#274653"
                 }
                 GradientStop {
                     position: 0.65
-                    color: root.neutralFace ? "#32495b" : root.speedFace ? "#344963" : "#2a4d5d"
+                    color: root.neutralFace ? "#253748" : root.speedFace ? "#23354b" : "#203944"
                 }
                 GradientStop {
                     position: 1
@@ -485,7 +484,7 @@ Control {
                     height: 10
                     radius: 1
                     color: "transparent"
-                    border.color: "#fff3dc"
+                    border.color: "#ffffff"
                     border.width: 1
                 }
             }
@@ -494,7 +493,7 @@ Control {
                 visible: !root.deferForHold
                 anchors.centerIn: parent
                 text: "↻"
-                color: "#fff3dc"
+                color: "#ffffff"
                 font.pixelSize: 18
             }
         }
