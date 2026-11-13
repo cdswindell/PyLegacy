@@ -216,16 +216,16 @@ Control {
                 case "smoke-diesel-up":
                 case "smoke-diesel-down": {
                     const diesel = root.trialIcon.startsWith("smoke-diesel-")
-                    ctx.fillRect(24, 34, 16, 16)
+                    ctx.fillRect(24, 34, 16, diesel ? 20 : 19)
                     ctx.beginPath()
                     ctx.ellipse(19, 29, 26, 10)
                     ctx.fill()
                     if (diesel) {
-                        line([[9, 50], [55, 50]])
+                        line([[9, 54], [55, 54]])
                     } else {
                         ctx.beginPath()
-                        ctx.moveTo(8, 57)
-                        ctx.quadraticCurveTo(32, 41, 56, 57)
+                        ctx.moveTo(8, 60)
+                        ctx.quadraticCurveTo(32, 44, 56, 60)
                         ctx.stroke()
                     }
                     ctx.clearRect(23, 33, 18, 2)
