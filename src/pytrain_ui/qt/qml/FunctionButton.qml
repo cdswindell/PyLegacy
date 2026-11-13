@@ -267,7 +267,7 @@ Control {
                 width: parent.width
                 text: root.displayLabel
                 color: root.enabled ? "#fff3dc" : "#858c96"
-                font.pixelSize: root.font.pixelSize + 2
+                font.pixelSize: root.font.pixelSize + 4
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
             }
