@@ -402,6 +402,8 @@ Rectangle {
         required property var action
         readonly property bool emergencyStop: action.key === "EMERGENCY_STOP"
         readonly property bool auxiliary: action.group === "secondary"
+        auxFace: auxiliary && /^Aux ?[123](?:$| · )/.test(action.label)
+        subtitle: auxFace ? (action.label.split(" · ")[1] || "") : ""
         trialIcon: ({
             volume_up: "volume", bell: "bell", engineer_chatter: "crew",
             option_one_on: "clack", boost: "boost", brake: "brake"
@@ -420,7 +422,8 @@ Rectangle {
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
               : auxiliary ? action.label.replace(" · ", "\n") : action.label
         labelChevron: text === "< Smoke" ? -1 : text === "Smoke >" ? 1 : 0
-        displayLabel: showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
+        displayLabel: auxFace ? action.label.slice(0, 3) + " " + action.label.trim().match(/^Aux ?([123])/)[1]
+                      : showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
         gaugeLabel: action.gauge ? action.label : ""
         gaugeLevel: action.disabled ? -1
                     : action.gauge === "FUEL" ? cab.fuelLevel : action.gauge === "WATER" ? cab.waterLevel : -1

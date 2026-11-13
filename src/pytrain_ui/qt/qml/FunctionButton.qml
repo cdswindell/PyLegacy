@@ -13,7 +13,9 @@ Control {
     property int gaugeLevel: -1
     property url iconSource: ""
     property string trialIcon: ""
-    readonly property bool trialFace: trialIcon !== ""
+    property bool auxFace: false
+    property string subtitle: ""
+    readonly property bool trialFace: auxFace || trialIcon !== ""
     readonly property bool speedFace: trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
@@ -80,9 +82,9 @@ Control {
 
         Canvas {
             id: trialArtwork
-            readonly property bool raisedIvory: ["bell", "crew", "boost"].includes(root.trialIcon)
+            readonly property bool raisedIvory: ["bell", "crew", "boost", "brake"].includes(root.trialIcon)
 
-            visible: root.trialFace
+            visible: root.trialIcon !== ""
             transform: Translate {
                 y: trialArtwork.raisedIvory && root.visualPressed ? 2 : 0
             }
@@ -242,7 +244,7 @@ Control {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignCenter
-            visible: root.labelChevron === 0
+            visible: root.labelChevron === 0 && !root.auxFace
             text: root.displayLabel
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
             fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
@@ -252,6 +254,33 @@ Control {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+        }
+
+        Column {
+            visible: root.auxFace
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignCenter
+            spacing: 2
+            transform: Translate { y: root.visualPressed ? 2 : 0 }
+
+            Text {
+                width: parent.width
+                text: root.displayLabel
+                color: root.enabled ? "#fff3dc" : "#858c96"
+                font.pixelSize: root.font.pixelSize + 2
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Text {
+                visible: root.subtitle.length > 0
+                width: parent.width
+                text: root.subtitle
+                color: root.enabled ? "#eee3d0" : "#858c96"
+                font.pixelSize: Math.max(11, root.font.pixelSize - 2)
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+            }
         }
 
         Item {
@@ -323,15 +352,15 @@ Control {
             gradient: Gradient {
                 GradientStop {
                     position: 0
-                    color: root.visualPressed ? "#101a25" : root.speedFace ? "#617b99" : "#5c8a9a"
+                    color: root.visualPressed ? "#101a25" : root.auxFace ? "#657e90" : root.speedFace ? "#617b99" : "#5c8a9a"
                 }
                 GradientStop {
                     position: 0.22
-                    color: root.speedFace ? "#3d536f" : "#335b6c"
+                    color: root.auxFace ? "#40586b" : root.speedFace ? "#3d536f" : "#335b6c"
                 }
                 GradientStop {
                     position: 0.65
-                    color: root.speedFace ? "#344963" : "#2a4d5d"
+                    color: root.auxFace ? "#32495b" : root.speedFace ? "#344963" : "#2a4d5d"
                 }
                 GradientStop {
                     position: 1
