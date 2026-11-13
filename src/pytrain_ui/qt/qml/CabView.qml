@@ -402,6 +402,10 @@ Rectangle {
         required property var action
         readonly property bool emergencyStop: action.key === "EMERGENCY_STOP"
         readonly property bool auxiliary: action.group === "secondary"
+        trialIcon: ({
+            volume_up: "volume", bell: "bell", engineer_chatter: "crew",
+            option_one_on: "clack", boost: "boost", brake: "brake"
+        })[action.key] || ""
         objectName: auxiliary ? "auxControl_" + action.key : ""
         Layout.fillWidth: true
         Layout.minimumWidth: 0

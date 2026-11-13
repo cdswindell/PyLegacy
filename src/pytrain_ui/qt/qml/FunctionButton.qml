@@ -12,6 +12,9 @@ Control {
     readonly property bool showGauge: gaugeLabel.length > 0
     property int gaugeLevel: -1
     property url iconSource: ""
+    property string trialIcon: ""
+    readonly property bool trialFace: trialIcon !== ""
+    readonly property bool speedFace: trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
     property bool selected: false
@@ -58,7 +61,7 @@ Control {
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
             Layout.alignment: Qt.AlignCenter
-            visible: root.iconSource.toString().length > 0
+            visible: !root.trialFace && root.iconSource.toString().length > 0
             opacity: root.iconOpacity
             radius: root.compact ? 4 : 6
             color: "#e8ebef"
@@ -72,6 +75,97 @@ Control {
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 mipmap: true
+            }
+        }
+
+        Canvas {
+            id: trialArtwork
+            visible: root.trialFace
+            opacity: root.iconOpacity
+            Layout.alignment: Qt.AlignCenter
+            Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
+            Layout.preferredHeight: Layout.preferredWidth
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
+            onVisibleChanged: requestPaint()
+            Connections {
+                target: root
+                function onTrialIconChanged() { trialArtwork.requestPaint() }
+            }
+            onPaint: {
+                const ctx = getContext("2d")
+                ctx.reset()
+                ctx.clearRect(0, 0, width, height)
+                ctx.scale(width / 64, height / 64)
+                ctx.fillStyle = "#fff3dc"
+                ctx.strokeStyle = ctx.fillStyle
+                ctx.lineWidth = 4
+                ctx.lineCap = "round"
+                ctx.lineJoin = "round"
+
+                function polygon(points) {
+                    ctx.beginPath()
+                    ctx.moveTo(points[0][0], points[0][1])
+                    for (const point of points.slice(1))
+                        ctx.lineTo(point[0], point[1])
+                    ctx.closePath()
+                    ctx.fill()
+                }
+
+                switch (root.trialIcon) {
+                case "volume":
+                    polygon([[5, 23], [16, 23], [33, 10], [33, 54], [16, 41], [5, 41]])
+                    ctx.fillRect(41, 29, 18, 6)
+                    ctx.fillRect(47, 23, 6, 18)
+                    break
+                case "bell":
+                    ctx.beginPath()
+                    ctx.moveTo(10, 46)
+                    ctx.bezierCurveTo(20, 37, 16, 20, 25, 15)
+                    ctx.quadraticCurveTo(32, 10, 39, 15)
+                    ctx.bezierCurveTo(48, 20, 44, 37, 54, 46)
+                    ctx.quadraticCurveTo(57, 51, 50, 51)
+                    ctx.lineTo(14, 51)
+                    ctx.quadraticCurveTo(7, 51, 10, 46)
+                    ctx.fill()
+                    ctx.beginPath()
+                    ctx.arc(32, 53, 6, 0, Math.PI)
+                    ctx.fill()
+                    ctx.beginPath()
+                    ctx.arc(32, 12, 5, 0, 2 * Math.PI)
+                    ctx.fill()
+                    break
+                case "crew":
+                    ctx.fillRect(36, 4, 5, 21)
+                    ctx.beginPath()
+                    ctx.roundedRect(18, 21, 28, 38, 5, 5)
+                    ctx.fill()
+                    ctx.globalCompositeOperation = "destination-out"
+                    for (let y = 28; y <= 46; y += 9)
+                        ctx.clearRect(24, y, 16, 4)
+                    break
+                case "clack":
+                    ctx.beginPath()
+                    ctx.arc(32, 29, 20, 0, 2 * Math.PI)
+                    ctx.stroke()
+                    for (let spoke = 0; spoke < 8; ++spoke) {
+                        const angle = spoke * Math.PI / 4
+                        ctx.beginPath()
+                        ctx.moveTo(32, 29)
+                        ctx.lineTo(32 + 19 * Math.cos(angle), 29 + 19 * Math.sin(angle))
+                        ctx.stroke()
+                    }
+                    ctx.fillRect(4, 51, 24, 5)
+                    ctx.fillRect(36, 51, 24, 5)
+                    break
+                case "brake":
+                    ctx.translate(64, 64)
+                    ctx.rotate(Math.PI)
+                    // Fall through to the shared arrow.
+                case "boost":
+                    polygon([[32, 5], [57, 32], [42, 32], [42, 58], [22, 58], [22, 32], [7, 32]])
+                    break
+                }
             }
         }
 
@@ -138,7 +232,7 @@ Control {
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
             fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
             minimumPixelSize: 10
-            color: root.enabled ? root.textColor : "#858c96"
+            color: root.enabled ? (root.trialFace ? "#fff3dc" : root.textColor) : "#858c96"
             font: root.font
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -197,11 +291,73 @@ Control {
 
     background: Rectangle {
         radius: root.compact ? 7 : 9
-        color: !root.enabled ? "#242930"
+        color: root.trialFace ? "#17232d" : !root.enabled ? "#242930"
             : root.visualPressed ? ((root.deferForHold || root.repeatWhileHeld) ? root.pressedColor : Qt.darker(root.pressedColor, 1.45))
             : root.selected ? root.selectedColor : root.normalColor
         border.width: 1
         border.color: root.selected ? "#78c9ff" : "#626b78"
+
+        Rectangle {
+            visible: root.trialFace
+            anchors.fill: parent
+            anchors.margins: 3
+            anchors.topMargin: root.visualPressed ? 5 : 2
+            anchors.bottomMargin: root.visualPressed ? 2 : 5
+            radius: parent.radius - 2
+            border.color: root.visualPressed ? "#121c27" : "#718a9c"
+            gradient: Gradient {
+                GradientStop {
+                    position: 0
+                    color: root.visualPressed ? "#101a25" : root.speedFace ? "#617b99" : "#5c8a9a"
+                }
+                GradientStop {
+                    position: 0.22
+                    color: root.speedFace ? "#3d536f" : "#335b6c"
+                }
+                GradientStop {
+                    position: 0.65
+                    color: root.speedFace ? "#344963" : "#2a4d5d"
+                }
+                GradientStop {
+                    position: 1
+                    color: root.visualPressed ? "#5c8199" : "#263b50"
+                }
+            }
+            opacity: root.enabled ? 1 : 0.45
+        }
+
+        Item {
+            visible: root.trialFace && (root.deferForHold || root.repeatWhileHeld)
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 7
+            width: 17
+            height: 16
+            opacity: root.iconOpacity
+
+            Repeater {
+                model: root.deferForHold ? 2 : 0
+                Rectangle {
+                    required property int index
+                    x: index * 4
+                    y: (1 - index) * 4
+                    width: 12
+                    height: 10
+                    radius: 1
+                    color: "transparent"
+                    border.color: "#fff3dc"
+                    border.width: 1
+                }
+            }
+
+            Text {
+                visible: !root.deferForHold
+                anchors.centerIn: parent
+                text: "↻"
+                color: "#fff3dc"
+                font.pixelSize: 18
+            }
+        }
 
         Rectangle {
             visible: root.deferForHold && root.pressed && !root.holdTriggered
