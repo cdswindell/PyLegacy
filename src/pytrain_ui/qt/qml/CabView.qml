@@ -202,7 +202,7 @@ Rectangle {
         for (const action of actions)
             byKey[action.key] = action
         const labels = {
-            option_one_on: "Clack On", option_one_off: "Clack Off",
+            option_one_on: "Rail Clatter On", option_one_off: "Rail Clatter Off",
             option_two_on: "Grind On", option_two_off: "Grind Off"
         }
         const rows = root.freightCar ? [
@@ -453,7 +453,8 @@ Rectangle {
         Layout.preferredHeight: root.tileHeight
         stacked: true
         wrapLabel: !fitLabelWidth
-        fitLabelWidth: action.key.endsWith("_coupler") || action.key === "water_injector"
+        fitLabelWidth: action.key.endsWith("_coupler")
+                       || ["water_injector", "option_one_on", "option_one_off"].includes(action.key)
         padding: root.compact ? 4 : 6
         iconSize: (root.compact ? 40 : 72) - (root.preferredTileHeight - root.tileHeight)
         compact: auxiliary
