@@ -80,7 +80,12 @@ Control {
 
         Canvas {
             id: trialArtwork
+            readonly property bool raisedIvory: ["bell", "crew", "boost"].includes(root.trialIcon)
+
             visible: root.trialFace
+            transform: Translate {
+                y: trialArtwork.raisedIvory && root.visualPressed ? 2 : 0
+            }
             opacity: root.iconOpacity
             Layout.alignment: Qt.AlignCenter
             Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
@@ -99,6 +104,18 @@ Control {
                 ctx.scale(width / 64, height / 64)
                 ctx.fillStyle = "#fff3dc"
                 ctx.strokeStyle = ctx.fillStyle
+                if (raisedIvory) {
+                    const ivory = ctx.createLinearGradient(10, 7, 51, 58)
+                    ivory.addColorStop(0, "#fffdf6")
+                    ivory.addColorStop(0.37, "#fff5e2")
+                    ivory.addColorStop(0.75, "#efe0c5")
+                    ivory.addColorStop(1, "#cab796")
+                    ctx.fillStyle = ivory
+                    ctx.shadowColor = "rgba(18, 27, 36, 0.7)"
+                    ctx.shadowOffsetX = 1
+                    ctx.shadowOffsetY = 2
+                    ctx.shadowBlur = 2
+                }
                 ctx.lineWidth = 4
                 ctx.lineCap = "round"
                 ctx.lineJoin = "round"
