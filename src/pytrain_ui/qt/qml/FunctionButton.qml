@@ -197,9 +197,15 @@ Control {
                     break
                 case "tower":
                     polygon([[13, 17], [51, 17], [46, 34], [18, 34]])
+                    ctx.save()
+                    ctx.shadowColor = "rgba(11, 19, 28, 0.35)"
+                    ctx.shadowOffsetX = 0
+                    ctx.shadowOffsetY = 1
+                    ctx.shadowBlur = 1
                     line([[24, 34], [17, 57], [47, 57], [40, 34]])
                     line([[23, 36], [45, 56]])
                     line([[41, 36], [19, 56]])
+                    ctx.restore()
                     line([[22, 12], [42, 12]])
                     line([[32, 6], [32, 12]])
                     for (let x = 21; x <= 39; x += 9)
@@ -207,32 +213,26 @@ Control {
                     break
                 case "smoke-steam-up":
                 case "smoke-steam-down":
-                    // Flared round stack on the curve of the boiler.
+                case "smoke-diesel-up":
+                case "smoke-diesel-down": {
+                    const diesel = root.trialIcon.startsWith("smoke-diesel-")
                     ctx.fillRect(24, 34, 16, 16)
                     ctx.beginPath()
                     ctx.ellipse(19, 29, 26, 10)
                     ctx.fill()
-                    ctx.beginPath()
-                    ctx.moveTo(8, 57)
-                    ctx.quadraticCurveTo(32, 41, 56, 57)
-                    ctx.stroke()
+                    if (diesel) {
+                        line([[9, 50], [55, 50]])
+                    } else {
+                        ctx.beginPath()
+                        ctx.moveTo(8, 57)
+                        ctx.quadraticCurveTo(32, 41, 56, 57)
+                        ctx.stroke()
+                    }
                     ctx.clearRect(23, 33, 18, 2)
                     if (root.trialIcon.endsWith("-up"))
                         plume(32, 27, 1)
                     break
-                case "smoke-diesel-up":
-                case "smoke-diesel-down":
-                    // Two low rectangular exhaust stacks on the long hood.
-                    line([[5, 57], [13, 48], [51, 48], [59, 57]])
-                    ctx.fillRect(17, 39, 12, 10)
-                    ctx.fillRect(35, 39, 12, 10)
-                    ctx.clearRect(19, 41, 8, 2)
-                    ctx.clearRect(37, 41, 8, 2)
-                    if (root.trialIcon.endsWith("-up")) {
-                        plume(22, 37, 0.8)
-                        plume(40, 37, 0.8)
-                    }
-                    break
+                }
                 case "bell":
                     ctx.beginPath()
                     ctx.moveTo(10, 46)
@@ -368,9 +368,8 @@ Control {
             }
 
             Text {
-                visible: root.subtitle.length > 0
                 width: parent.width
-                text: root.subtitle
+                text: root.subtitle || " "
                 color: root.enabled ? "#ffffff" : "#858c96"
                 font.pixelSize: Math.max(11, root.font.pixelSize - 2)
                 horizontalAlignment: Text.AlignHCenter
