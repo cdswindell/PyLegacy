@@ -422,6 +422,7 @@ Rectangle {
             pantograph_rear_up: "panto-up-r", pantograph_rear_down: "panto-down-r",
             pantograph_both_up: "panto-up-a", pantograph_both_down: "panto-down-a",
             tower_chatter: "tower",
+            crane_front_lamp: "crane-front-lamp", crane_rear_lamp: "crane-rear-lamp",
             smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
             smoke_up: cab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",
             rear_coupler: "coupler-rear", front_coupler: "coupler-front",
@@ -463,6 +464,8 @@ Rectangle {
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
+        additionalHoldAction: (speedChevrons > 0 && deferForHold)
+                              || (auxiliary && action.key === "sequence" && repeatWhileHeld)
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         Accessible.name: stopSign ? text + " Stop" : text
         enabled: !action.disabled && (!action.speedPreset || root.speedPresetsEnabled)

@@ -15,9 +15,9 @@ Control {
     property string trialIcon: ""
     property bool auxFace: false
     property string subtitle: ""
-    readonly property bool trialFace: auxFace || trialIcon !== ""
-    readonly property bool neutralFace: auxFace || /^(power|smoke|coupler|car-(car-lights|freight))-/.test(trialIcon)
-    readonly property string detailedIcon: /^(speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
+    readonly property bool trialFace: auxFace || trialIcon !== "" || speedFace
+    readonly property bool neutralFace: auxFace || /^(power|smoke|coupler|crane|car-(car-lights|freight))-/.test(trialIcon)
+    readonly property string detailedIcon: /^(crane-|speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
         ? trialIcon + "-relief.png" : ({
         volume: "speaker-up-relief.png",
         "volume-down": "speaker-down-relief.png",
@@ -26,7 +26,7 @@ Control {
         "coupler-front": "front-coupler-relief.png",
         "coupler-rear": "rear-coupler-relief.png"
     })[trialIcon] || ""
-    readonly property bool speedFace: trialIcon === "boost" || trialIcon === "brake"
+    readonly property bool speedFace: speedChevrons > 0 || trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
     property bool selected: false
@@ -36,6 +36,7 @@ Control {
     property bool fitLabelWidth: false
     property int iconSize: compact ? 30 : 42
     property bool deferForHold: false
+    property bool additionalHoldAction: false
     property string holdHint: ""
     property int holdThreshold: 1000
     property bool repeatWhileHeld: false
@@ -332,6 +333,7 @@ Control {
         SpeedChevrons {
             Layout.alignment: Qt.AlignCenter
             count: root.speedChevrons
+            ink: "#ffffff"
             opacity: root.iconOpacity
         }
 
@@ -465,7 +467,7 @@ Control {
         }
 
         Item {
-            visible: root.trialFace && (root.deferForHold || root.repeatWhileHeld)
+            visible: root.trialFace && (root.additionalHoldAction || root.deferForHold || root.repeatWhileHeld)
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 7
@@ -474,7 +476,7 @@ Control {
             opacity: root.iconOpacity
 
             Repeater {
-                model: root.deferForHold ? 2 : 0
+                model: root.deferForHold && !root.additionalHoldAction ? 2 : 0
                 Rectangle {
                     required property int index
                     x: index * 4
@@ -489,9 +491,9 @@ Control {
             }
 
             Text {
-                visible: !root.deferForHold
+                visible: root.additionalHoldAction || !root.deferForHold
                 anchors.centerIn: parent
-                text: "↻"
+                text: root.additionalHoldAction ? "+" : "↻"
                 color: "#ffffff"
                 font.pixelSize: 18
             }

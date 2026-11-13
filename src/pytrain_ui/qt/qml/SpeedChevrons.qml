@@ -3,10 +3,12 @@ import QtQuick
 Canvas {
     id: root
     property int count: 0
+    property color ink: "#f5f7fa"
     implicitWidth: 92
     implicitHeight: 22
     visible: count > 0
     onCountChanged: requestPaint()
+    onInkChanged: requestPaint()
 
     onPaint: {
         const context = getContext("2d")
@@ -14,7 +16,7 @@ Canvas {
         const count = root.count
         const step = 10
         const firstX = (width - (count - 1) * step - 8) / 2
-        context.strokeStyle = "#f5f7fa"
+        context.strokeStyle = root.ink
         context.lineWidth = 4
         context.lineJoin = "miter"
         context.beginPath()
