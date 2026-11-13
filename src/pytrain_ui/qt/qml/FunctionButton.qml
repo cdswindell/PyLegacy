@@ -16,6 +16,7 @@ Control {
     property bool auxFace: false
     property string subtitle: ""
     readonly property bool trialFace: auxFace || trialIcon !== ""
+    readonly property bool neutralFace: auxFace || /^(power|smoke|coupler)-/.test(trialIcon)
     readonly property bool speedFace: trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
@@ -82,7 +83,7 @@ Control {
 
         Canvas {
             id: trialArtwork
-            readonly property bool raisedIvory: ["bell", "crew", "boost", "brake"].includes(root.trialIcon)
+            readonly property bool raisedIvory: root.trialIcon !== "" && !["volume", "clack"].includes(root.trialIcon)
 
             visible: root.trialIcon !== ""
             transform: Translate {
@@ -108,12 +109,15 @@ Control {
                 ctx.strokeStyle = ctx.fillStyle
                 if (raisedIvory) {
                     const ivory = ctx.createLinearGradient(10, 7, 51, 58)
-                    ivory.addColorStop(0, "#fffdf6")
-                    ivory.addColorStop(0.37, "#fff5e2")
+                    const on = root.trialIcon === "power-on"
+                    const off = root.trialIcon === "power-off"
                     const bell = root.trialIcon === "bell"
-                    ivory.addColorStop(0.75, bell ? "#efe0c5" : "#e8d6b8")
-                    ivory.addColorStop(1, bell ? "#cab796" : "#bba485")
+                    ivory.addColorStop(0, on ? "#a2edaa" : off ? "#ffb3af" : "#fffdf6")
+                    ivory.addColorStop(0.37, on ? "#5ed671" : off ? "#f16a64" : "#fff5e2")
+                    ivory.addColorStop(0.75, on ? "#3cc357" : off ? "#dd4946" : bell ? "#efe0c5" : "#e8d6b8")
+                    ivory.addColorStop(1, on ? "#229840" : off ? "#ad302e" : bell ? "#cab796" : "#bba485")
                     ctx.fillStyle = ivory
+                    ctx.strokeStyle = ivory
                     ctx.shadowColor = bell ? "rgba(18, 27, 36, 0.7)" : "rgba(11, 19, 28, 0.85)"
                     ctx.shadowOffsetX = bell ? 1 : 2
                     ctx.shadowOffsetY = bell ? 2 : 3
@@ -132,7 +136,107 @@ Control {
                     ctx.fill()
                 }
 
+                function line(points) {
+                    ctx.beginPath()
+                    ctx.moveTo(points[0][0], points[0][1])
+                    for (const point of points.slice(1))
+                        ctx.lineTo(point[0], point[1])
+                    ctx.stroke()
+                }
+
+                function trumpet(x, y, length) {
+                    ctx.beginPath()
+                    ctx.moveTo(x, y - 3)
+                    ctx.quadraticCurveTo(x + length * 0.72, y - 3, x + length, y - 10)
+                    ctx.lineTo(x + length, y + 10)
+                    ctx.quadraticCurveTo(x + length * 0.72, y + 3, x, y + 3)
+                    ctx.closePath()
+                    ctx.fill()
+                }
+
                 switch (root.trialIcon) {
+                case "power-on":
+                case "power-off":
+                    ctx.lineWidth = 6
+                    ctx.beginPath()
+                    ctx.arc(32, 33, 20, -Math.PI / 3, 4 * Math.PI / 3)
+                    ctx.stroke()
+                    line([[32, 8], [32, 33]])
+                    break
+                case "rpm-up":
+                case "rpm-down":
+                    polygon([[4, 24], [13, 24], [31, 12], [31, 52], [13, 40], [4, 40]])
+                    ctx.clearRect(11, 30, 13, 4)
+                    if (root.trialIcon === "rpm-up")
+                        ctx.clearRect(16, 25, 4, 14)
+                    ctx.font = "bold 13px sans-serif"
+                    ctx.fillText("R", 43, 20)
+                    ctx.fillText("P", 43, 35)
+                    ctx.fillText("M", 42, 50)
+                    break
+                case "horn":
+                    trumpet(19, 20, 37)
+                    trumpet(9, 35, 30)
+                    line([[19, 17], [19, 51], [9, 51], [9, 35]])
+                    ctx.fillRect(5, 51, 26, 5)
+                    break
+                case "whistle":
+                    ctx.beginPath()
+                    ctx.roundedRect(27, 8, 13, 37, 5, 5)
+                    ctx.fill()
+                    line([[33, 43], [33, 53], [48, 53], [48, 37]])
+                    ctx.fillRect(19, 53, 25, 5)
+                    ctx.clearRect(29, 26, 9, 4)
+                    break
+                case "tower":
+                    polygon([[13, 17], [51, 17], [46, 34], [18, 34]])
+                    line([[24, 34], [17, 57], [47, 57], [40, 34]])
+                    line([[23, 36], [45, 56]])
+                    line([[41, 36], [19, 56]])
+                    line([[22, 12], [42, 12]])
+                    line([[32, 6], [32, 12]])
+                    for (let x = 21; x <= 39; x += 9)
+                        ctx.clearRect(x, 22, 5, 5)
+                    break
+                case "smoke-up":
+                case "smoke-down":
+                    polygon([[25, 25], [39, 25], [42, 54], [22, 54]])
+                    ctx.fillRect(14, 54, 36, 5)
+                    if (root.trialIcon === "smoke-up") {
+                        ctx.beginPath()
+                        ctx.arc(31, 18, 5, 0, 2 * Math.PI)
+                        ctx.moveTo(48, 12)
+                        ctx.arc(41, 12, 7, 0, 2 * Math.PI)
+                        ctx.fill()
+                    }
+                    break
+                case "coupler-front":
+                case "coupler-rear": {
+                    const rear = root.trialIcon === "coupler-rear"
+                    ctx.save()
+                    if (rear) {
+                        ctx.translate(64, 0)
+                        ctx.scale(-1, 1)
+                    }
+                    ctx.beginPath()
+                    ctx.moveTo(5, 24)
+                    ctx.lineTo(20, 24)
+                    ctx.bezierCurveTo(27, 13, 37, 10, 48, 14)
+                    ctx.quadraticCurveTo(55, 19, 46, 20)
+                    ctx.bezierCurveTo(34, 22, 35, 41, 46, 44)
+                    ctx.quadraticCurveTo(54, 47, 53, 35)
+                    ctx.quadraticCurveTo(62, 38, 57, 49)
+                    ctx.bezierCurveTo(52, 61, 29, 56, 20, 43)
+                    ctx.lineTo(5, 43)
+                    ctx.closePath()
+                    ctx.fill()
+                    ctx.restore()
+                    ctx.shadowColor = "transparent"
+                    ctx.fillStyle = "#30485a"
+                    ctx.font = "bold 15px sans-serif"
+                    ctx.fillText(rear ? "R" : "F", rear ? 44 : 10, 39)
+                    break
+                }
                 case "volume":
                     polygon([[5, 23], [16, 23], [33, 10], [33, 54], [16, 41], [5, 41]])
                     ctx.fillRect(41, 29, 18, 6)
@@ -352,15 +456,15 @@ Control {
             gradient: Gradient {
                 GradientStop {
                     position: 0
-                    color: root.visualPressed ? "#101a25" : root.auxFace ? "#657e90" : root.speedFace ? "#617b99" : "#5c8a9a"
+                    color: root.visualPressed ? "#101a25" : root.neutralFace ? "#657e90" : root.speedFace ? "#617b99" : "#5c8a9a"
                 }
                 GradientStop {
                     position: 0.22
-                    color: root.auxFace ? "#40586b" : root.speedFace ? "#3d536f" : "#335b6c"
+                    color: root.neutralFace ? "#40586b" : root.speedFace ? "#3d536f" : "#335b6c"
                 }
                 GradientStop {
                     position: 0.65
-                    color: root.auxFace ? "#32495b" : root.speedFace ? "#344963" : "#2a4d5d"
+                    color: root.neutralFace ? "#32495b" : root.speedFace ? "#344963" : "#2a4d5d"
                 }
                 GradientStop {
                     position: 1
