@@ -410,7 +410,9 @@ Rectangle {
             startup: "power-on", shutdown: "power-off",
             rpm_up: "rpm-up", rpm_down: "rpm-down",
             horn: action.label === "Whistle" ? "whistle" : "horn",
-            tower_chatter: "tower", smoke_down: "smoke-down", smoke_up: "smoke-up",
+            tower_chatter: "tower",
+            smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
+            smoke_up: cab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",
             rear_coupler: "coupler-rear", front_coupler: "coupler-front"
         })[action.key] || ""
         objectName: auxiliary ? "auxControl_" + action.key : ""

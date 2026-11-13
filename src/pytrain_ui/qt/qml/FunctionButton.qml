@@ -154,6 +154,21 @@ Control {
                     ctx.fill()
                 }
 
+                function plume(x, y, scale) {
+                    ctx.save()
+                    ctx.translate(x, y)
+                    ctx.scale(scale, scale)
+                    ctx.beginPath()
+                    ctx.moveTo(-2, 0)
+                    ctx.bezierCurveTo(-8, -4, -7, -10, -2, -12)
+                    ctx.bezierCurveTo(-3, -18, 3, -23, 8, -21)
+                    ctx.bezierCurveTo(16, -22, 18, -12, 12, -9)
+                    ctx.bezierCurveTo(10, -5, 6, -4, 3, -5)
+                    ctx.quadraticCurveTo(3, -1, -2, 0)
+                    ctx.fill()
+                    ctx.restore()
+                }
+
                 switch (root.trialIcon) {
                 case "power-on":
                 case "power-off":
@@ -198,16 +213,32 @@ Control {
                     for (let x = 21; x <= 39; x += 9)
                         ctx.clearRect(x, 22, 5, 5)
                     break
-                case "smoke-up":
-                case "smoke-down":
-                    polygon([[25, 25], [39, 25], [42, 54], [22, 54]])
-                    ctx.fillRect(14, 54, 36, 5)
-                    if (root.trialIcon === "smoke-up") {
-                        ctx.beginPath()
-                        ctx.arc(31, 18, 5, 0, 2 * Math.PI)
-                        ctx.moveTo(48, 12)
-                        ctx.arc(41, 12, 7, 0, 2 * Math.PI)
-                        ctx.fill()
+                case "smoke-steam-up":
+                case "smoke-steam-down":
+                    // Flared round stack on the curve of the boiler.
+                    ctx.fillRect(24, 34, 16, 16)
+                    ctx.beginPath()
+                    ctx.ellipse(19, 29, 26, 10)
+                    ctx.fill()
+                    ctx.beginPath()
+                    ctx.moveTo(8, 57)
+                    ctx.quadraticCurveTo(32, 41, 56, 57)
+                    ctx.stroke()
+                    ctx.clearRect(23, 33, 18, 2)
+                    if (root.trialIcon.endsWith("-up"))
+                        plume(32, 27, 1)
+                    break
+                case "smoke-diesel-up":
+                case "smoke-diesel-down":
+                    // Two low rectangular exhaust stacks on the long hood.
+                    line([[5, 57], [13, 48], [51, 48], [59, 57]])
+                    ctx.fillRect(17, 39, 12, 10)
+                    ctx.fillRect(35, 39, 12, 10)
+                    ctx.clearRect(19, 41, 8, 2)
+                    ctx.clearRect(37, 41, 8, 2)
+                    if (root.trialIcon.endsWith("-up")) {
+                        plume(22, 37, 0.8)
+                        plume(40, 37, 0.8)
                     }
                     break
                 case "coupler-front":
