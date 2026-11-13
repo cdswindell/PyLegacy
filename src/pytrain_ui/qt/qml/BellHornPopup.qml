@@ -59,7 +59,6 @@ Popup {
                 source: button.artwork
                 visible: source.toString().length > 0 && status === Image.Ready
                 fillMode: Image.PreserveAspectFit
-                mipmap: true
             }
         }
         background: Item {

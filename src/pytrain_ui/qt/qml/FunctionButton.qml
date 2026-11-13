@@ -89,7 +89,6 @@ Control {
                 source: root.iconSource
                 fillMode: Image.PreserveAspectFit
                 smooth: true
-                mipmap: true
             }
         }
 
@@ -101,7 +100,6 @@ Control {
             Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
             Layout.preferredHeight: Layout.preferredWidth
             fillMode: Image.PreserveAspectFit
-            mipmap: true
             transform: Translate { y: root.visualPressed ? 2 : 0 }
         }
 
