@@ -405,10 +405,11 @@ Rectangle {
         auxFace: auxiliary && /^Aux ?[123](?:$| · )/.test(action.label)
         subtitle: auxFace ? (action.label.split(" · ")[1] || "") : ""
         trialIcon: ({
-            volume_up: "volume", bell: "bell", engineer_chatter: "crew",
+            volume_up: "volume", volume_down: "volume-down", bell: "bell", engineer_chatter: "crew",
             option_one_on: "clack", boost: "boost", brake: "brake",
             startup: "power-on", shutdown: "power-off",
             rpm_up: "rpm-up", rpm_down: "rpm-down",
+            electric_rpm_up: "rpm-up", electric_rpm_down: "rpm-down",
             horn: action.label === "Whistle" ? "whistle" : "horn",
             tower_chatter: "tower",
             smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",

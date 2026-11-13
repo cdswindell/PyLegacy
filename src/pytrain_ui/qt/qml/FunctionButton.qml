@@ -17,6 +17,15 @@ Control {
     property string subtitle: ""
     readonly property bool trialFace: auxFace || trialIcon !== ""
     readonly property bool neutralFace: auxFace || /^(power|smoke|coupler)-/.test(trialIcon)
+    readonly property bool lightInset: trialIcon === "horn" || trialIcon === "whistle"
+    readonly property string detailedIcon: ({
+        volume: "speaker-up-ivory.png",
+        "volume-down": "speaker-down-ivory.png",
+        "rpm-up": "speaker-up-ivory.png",
+        "rpm-down": "speaker-down-ivory.png",
+        "coupler-front": "front-coupler-ivory.png",
+        "coupler-rear": "rear-coupler-ivory.png"
+    })[trialIcon] || ""
     readonly property bool speedFace: trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
@@ -64,10 +73,11 @@ Control {
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
             Layout.alignment: Qt.AlignCenter
-            visible: !root.trialFace && root.iconSource.toString().length > 0
+            visible: (!root.trialFace || root.lightInset) && root.iconSource.toString().length > 0
             opacity: root.iconOpacity
             radius: root.compact ? 4 : 6
             color: "#e8ebef"
+            transform: Translate { y: root.lightInset && root.visualPressed ? 2 : 0 }
             border.width: 1
             border.color: "#c6cbd2"
 
@@ -81,14 +91,32 @@ Control {
             }
         }
 
+        Image {
+            visible: root.detailedIcon !== ""
+            source: visible ? Qt.resolvedUrl(root.detailedIcon) : ""
+            opacity: root.iconOpacity
+            Layout.alignment: Qt.AlignCenter
+            Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
+            Layout.preferredHeight: Layout.preferredWidth
+            fillMode: Image.PreserveAspectFit
+            mipmap: true
+            transform: Translate { y: root.visualPressed ? 2 : 0 }
+        }
+
         Canvas {
             id: trialArtwork
-            readonly property bool raisedIvory: root.trialIcon !== "" && !["volume", "clack"].includes(root.trialIcon)
+            readonly property bool raisedIvory: root.trialIcon !== "clack"
 
-            visible: root.trialIcon !== ""
-            transform: Translate {
-                y: trialArtwork.raisedIvory && root.visualPressed ? 2 : 0
-            }
+            visible: root.trialIcon !== "" && !root.lightInset && root.detailedIcon === ""
+            transform: [
+                Scale {
+                    origin.x: trialArtwork.width / 2
+                    origin.y: trialArtwork.height / 2
+                    xScale: root.trialIcon.startsWith("smoke-diesel-") ? 1.25 : 1
+                    yScale: xScale
+                },
+                Translate { y: trialArtwork.raisedIvory && root.visualPressed ? 2 : 0 }
+            ]
             opacity: root.iconOpacity
             Layout.alignment: Qt.AlignCenter
             Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
@@ -144,16 +172,6 @@ Control {
                     ctx.stroke()
                 }
 
-                function trumpet(x, y, length) {
-                    ctx.beginPath()
-                    ctx.moveTo(x, y - 3)
-                    ctx.quadraticCurveTo(x + length * 0.72, y - 3, x + length, y - 10)
-                    ctx.lineTo(x + length, y + 10)
-                    ctx.quadraticCurveTo(x + length * 0.72, y + 3, x, y + 3)
-                    ctx.closePath()
-                    ctx.fill()
-                }
-
                 function plume(x, y, scale) {
                     ctx.save()
                     ctx.translate(x, y)
@@ -177,31 +195,6 @@ Control {
                     ctx.arc(32, 33, 20, -Math.PI / 3, 4 * Math.PI / 3)
                     ctx.stroke()
                     line([[32, 8], [32, 33]])
-                    break
-                case "rpm-up":
-                case "rpm-down":
-                    polygon([[4, 24], [13, 24], [31, 12], [31, 52], [13, 40], [4, 40]])
-                    ctx.clearRect(11, 30, 13, 4)
-                    if (root.trialIcon === "rpm-up")
-                        ctx.clearRect(16, 25, 4, 14)
-                    ctx.font = "bold 13px sans-serif"
-                    ctx.fillText("R", 43, 20)
-                    ctx.fillText("P", 43, 35)
-                    ctx.fillText("M", 42, 50)
-                    break
-                case "horn":
-                    trumpet(19, 20, 37)
-                    trumpet(9, 35, 30)
-                    line([[19, 17], [19, 51], [9, 51], [9, 35]])
-                    ctx.fillRect(5, 51, 26, 5)
-                    break
-                case "whistle":
-                    ctx.beginPath()
-                    ctx.roundedRect(27, 8, 13, 37, 5, 5)
-                    ctx.fill()
-                    line([[33, 43], [33, 53], [48, 53], [48, 37]])
-                    ctx.fillRect(19, 53, 25, 5)
-                    ctx.clearRect(29, 26, 9, 4)
                     break
                 case "tower":
                     polygon([[13, 17], [51, 17], [46, 34], [18, 34]])
@@ -240,38 +233,6 @@ Control {
                         plume(22, 37, 0.8)
                         plume(40, 37, 0.8)
                     }
-                    break
-                case "coupler-front":
-                case "coupler-rear": {
-                    const rear = root.trialIcon === "coupler-rear"
-                    ctx.save()
-                    if (rear) {
-                        ctx.translate(64, 0)
-                        ctx.scale(-1, 1)
-                    }
-                    ctx.beginPath()
-                    ctx.moveTo(5, 24)
-                    ctx.lineTo(20, 24)
-                    ctx.bezierCurveTo(27, 13, 37, 10, 48, 14)
-                    ctx.quadraticCurveTo(55, 19, 46, 20)
-                    ctx.bezierCurveTo(34, 22, 35, 41, 46, 44)
-                    ctx.quadraticCurveTo(54, 47, 53, 35)
-                    ctx.quadraticCurveTo(62, 38, 57, 49)
-                    ctx.bezierCurveTo(52, 61, 29, 56, 20, 43)
-                    ctx.lineTo(5, 43)
-                    ctx.closePath()
-                    ctx.fill()
-                    ctx.restore()
-                    ctx.shadowColor = "transparent"
-                    ctx.fillStyle = "#30485a"
-                    ctx.font = "bold 15px sans-serif"
-                    ctx.fillText(rear ? "R" : "F", rear ? 44 : 10, 39)
-                    break
-                }
-                case "volume":
-                    polygon([[5, 23], [16, 23], [33, 10], [33, 54], [16, 41], [5, 41]])
-                    ctx.fillRect(41, 29, 18, 6)
-                    ctx.fillRect(47, 23, 6, 18)
                     break
                 case "bell":
                     ctx.beginPath()
