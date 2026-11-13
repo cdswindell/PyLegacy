@@ -514,7 +514,7 @@ Control {
             height: 5
             readonly property real fraction: Math.min(1, holdProgress.elapsed / Math.max(1, root.holdThreshold))
             width: parent.width * fraction
-            color: fraction >= root.holdWarningFraction ? "#e53945" : "#78c9ff"
+            color: root.holdWarningFraction < 1 && fraction >= root.holdWarningFraction ? "#ffc15a" : "#78c9ff"
             radius: 2
         }
     }

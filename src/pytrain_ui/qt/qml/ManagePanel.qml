@@ -243,6 +243,7 @@ Rectangle {
                     AdminButton {
                         objectName: "reloadDatabaseButton"
                         holdThreshold: 1000
+                        holdWarningFraction: 1
                         Layout.minimumWidth: 0
                         text: "Reload Database"
                         command: "RESYNC"
