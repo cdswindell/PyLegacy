@@ -23,9 +23,9 @@ Button {
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }
-    background: Rectangle {
-        radius: 8
-        color: !root.enabled ? "#242930" : root.down ? Qt.darker("#68a9d0", 1.45) : "#246aa0"
-        border.color: root.enabled ? "#78bff0" : "#626b78"
+    background: ButtonFace {
+        depressed: root.down
+        selected: false
+        focused: root.activeFocus
     }
 }

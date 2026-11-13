@@ -190,7 +190,6 @@ Rectangle {
                     Layout.preferredHeight: 44
                     text: "×"
                     font.pixelSize: root.compactTiles ? 14 : 16
-                    normalColor: "#343a44"
                     pressedColor: "#4d7ba0"
                     onClicked: {
                         if (root.selection)

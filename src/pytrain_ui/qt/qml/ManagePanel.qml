@@ -11,17 +11,35 @@ Rectangle {
     property bool allNodes: false
     property int revision: 0
     readonly property bool compact: height < 850
-    readonly property int buttonGap: compact ? 10 : 14
-    readonly property int sectionGap: compact ? metrics.sectionGap : metrics.sectionGap + 6
+    readonly property int buttonGap: compact ? 16 : 22
+    readonly property int buttonHeight: compact ? 64 : 68
+    property string refreshStatus: ""
+    readonly property int sectionGap: compact ? 7 : 11
     signal closeRequested()
     signal accessoriesRequested()
     signal imagesRequested()
     color: "#102858"
     radius: 12
 
-    onVisibleChanged: if (visible) {
-        allNodes = false
-        admin.refresh()
+    onVisibleChanged: {
+        if (visible) {
+            allNodes = false
+            admin.refresh()
+        } else {
+            refreshStatus = ""
+            refreshStatusTimer.stop()
+        }
+    }
+
+    function showRefreshStatus(message) {
+        refreshStatus = message
+        refreshStatusTimer.restart()
+    }
+
+    Timer {
+        id: refreshStatusTimer
+        interval: 2400
+        onTriggered: root.refreshStatus = ""
     }
     Connections {
         target: root.admin
@@ -43,9 +61,61 @@ Rectangle {
     component PanelButton: FunctionButton {
         Layout.fillWidth: true
         Layout.preferredWidth: 0
-        Layout.preferredHeight: 54
-        font.pixelSize: 19
-        wrapLabel: true
+        Layout.preferredHeight: root.buttonHeight
+        steelFace: true
+        font.pixelSize: 20
+        font.bold: true
+        fitLabelWidth: true
+    }
+
+    component SelectionButton: PanelButton {
+        id: selectionButton
+        property bool radio: false
+        Accessible.role: radio ? Accessible.RadioButton : Accessible.CheckBox
+        Accessible.name: text
+        Accessible.checkable: true
+        Accessible.checked: selected
+
+        contentItem: Item {
+            Row {
+                anchors.centerIn: parent
+                spacing: 10
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 20
+                    height: 20
+                    radius: selectionButton.radio ? width / 2 : 3
+                    color: "transparent"
+                    border.color: selectionButton.enabled ? "#ffffff" : "#858c96"
+                    border.width: 2
+
+                    Rectangle {
+                        visible: selectionButton.radio && selectionButton.selected
+                        anchors.centerIn: parent
+                        width: 10
+                        height: 10
+                        radius: width / 2
+                        color: parent.border.color
+                    }
+                    Text {
+                        visible: !selectionButton.radio && selectionButton.selected
+                        anchors.centerIn: parent
+                        text: "✓"
+                        color: parent.border.color
+                        font.pixelSize: 17
+                        font.bold: true
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: selectionButton.text
+                    color: selectionButton.enabled ? "#ffffff" : "#858c96"
+                    font: selectionButton.font
+                }
+            }
+        }
     }
 
     component AdminButton: PanelButton {
@@ -56,6 +126,7 @@ Rectangle {
         }
         deferForHold: true
         holdThreshold: 3000
+        holdWarningFraction: 5 / 6
         onHeld: root.admin.run(command, root.allNodes)
     }
 
@@ -125,8 +196,9 @@ Rectangle {
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             ColumnLayout {
-                width: scroll.availableWidth
-                spacing: root.buttonGap
+                x: Math.min(18, scroll.availableWidth * 0.03)
+                width: scroll.availableWidth - 2 * x
+                spacing: root.compact ? 8 : 10
 
                 Label {
                     Layout.fillWidth: true
@@ -143,7 +215,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         Layout.preferredWidth: 0
-                        Layout.preferredHeight: 54
+                        Layout.preferredHeight: root.buttonHeight
                         radius: 8
                         color: "#16376b"
                         border.color: "#5275a4"
@@ -179,20 +251,43 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: root.buttonGap
-                    PanelButton { text: "Reload Accessories"; onClicked: root.accessoriesRequested() }
-                    PanelButton { text: "Refresh Images"; onClicked: root.imagesRequested() }
+                    PanelButton {
+                        text: "Reload Accessories"
+                        onClicked: {
+                            root.showRefreshStatus("Reloading accessories…")
+                            root.accessoriesRequested()
+                        }
+                    }
+                    PanelButton {
+                        text: "Refresh Images"
+                        onClicked: {
+                            root.showRefreshStatus("Refreshing images…")
+                            root.imagesRequested()
+                        }
+                    }
                 }
 
-                SectionLabel { text: "Logging & Debugging"; Layout.topMargin: root.sectionGap }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: root.sectionGap
+                    SectionLabel { text: "Logging & Debugging" }
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.refreshStatus
+                        color: "#bad4ea"
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
+                    }
+                }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: root.buttonGap
-                    PanelButton {
+                    SelectionButton {
                         text: "Logging"
                         selected: root.admin.logging
                         onClicked: root.admin.setLogging(!selected)
                     }
-                    PanelButton {
+                    SelectionButton {
                         text: "Debugging"
                         selected: root.admin.debugging
                         enabled: root.admin.logging
@@ -204,14 +299,14 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: root.buttonGap
-                    PanelButton { text: "Local"; selected: !root.allNodes; onClicked: root.allNodes = false }
-                    PanelButton { text: "All"; selected: root.allNodes; onClicked: root.allNodes = true }
+                    SelectionButton { text: "Local"; radio: true; selected: !root.allNodes; onClicked: root.allNodes = false }
+                    SelectionButton { text: "All"; radio: true; selected: root.allNodes; onClicked: root.allNodes = true }
                 }
                 SectionLabel { text: "Hold for 3 Seconds"; Layout.topMargin: root.sectionGap }
                 GridLayout {
                     Layout.fillWidth: true
                     columns: 2
-                    rowSpacing: root.buttonGap
+                    rowSpacing: root.compact ? 10 : 12
                     columnSpacing: root.buttonGap
                     AdminButton { text: "Restart"; command: "RESTART" }
                     AdminButton { text: "Reboot"; command: "REBOOT" }
@@ -234,7 +329,6 @@ Rectangle {
             Layout.fillWidth: false
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 180
-            Layout.preferredHeight: 52
             text: "Close"
             onClicked: root.closeRequested()
         }

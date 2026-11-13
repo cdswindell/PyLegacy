@@ -14,12 +14,13 @@ Control {
     property url iconSource: ""
     property string trialIcon: ""
     property bool auxFace: false
+    property bool steelFace: false
     property bool largeLabel: false
     readonly property int largeLabelSize: font.pixelSize + 6
     property string subtitle: ""
-    readonly property bool trialFace: auxFace || largeLabel || trialIcon !== "" || speedFace
-    readonly property bool neutralFace: auxFace || largeLabel || /^(power|smoke|coupler|crane|car-(car-lights|freight))-/.test(trialIcon)
-    readonly property string detailedIcon: /^(roll$|crane-|speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
+    readonly property bool trialFace: steelFace || auxFace || largeLabel || trialIcon !== "" || speedFace
+    readonly property bool neutralFace: steelFace || auxFace || largeLabel || /^(power|smoke|coupler|crane|car-(car-lights|freight))-/.test(trialIcon)
+    readonly property string detailedIcon: /^(crew$|roll$|crane-|speaker-|car-|panto-|horn$|whistle$|let-off$|water-inject$)/.test(trialIcon)
         ? trialIcon + "-relief.png" : ({
         volume: "speaker-up-relief.png",
         "volume-down": "speaker-down-relief.png",
@@ -36,11 +37,13 @@ Control {
     property bool stacked: false
     property bool wrapLabel: false
     property bool fitLabelWidth: false
+    property bool wideArtwork: false
     property int iconSize: compact ? 30 : 42
     property bool deferForHold: false
     property bool additionalHoldAction: false
     property string holdHint: ""
     property int holdThreshold: 1000
+    property real holdWarningFraction: 1
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
     property color normalColor: "#303640"
@@ -63,6 +66,7 @@ Control {
 
     implicitHeight: compact ? 44 : 58
     font.pixelSize: compact ? 12 : 14
+    font.bold: trialIcon === "" && iconSource.toString() === ""
     focusPolicy: Qt.StrongFocus
 
     readonly property real iconOpacity: enabled ? 1 : 0.5
@@ -97,8 +101,12 @@ Control {
             source: visible ? Qt.resolvedUrl(root.detailedIcon) : ""
             opacity: root.iconOpacity
             Layout.alignment: Qt.AlignCenter
-            Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
-            Layout.preferredHeight: Layout.preferredWidth
+            Layout.preferredWidth: root.wideArtwork ? Math.min(root.availableWidth, 112)
+                                                     : Math.min(root.iconSize, root.availableWidth)
+            Layout.preferredHeight: root.wideArtwork
+                                    ? Math.min(Layout.preferredWidth * 80 / 148,
+                                               Math.max(root.iconSize, root.availableHeight - root.font.pixelSize - 5))
+                                    : Layout.preferredWidth
             fillMode: Image.PreserveAspectFit
             transform: Translate { y: root.visualPressed ? 2 : 0 }
         }
@@ -247,15 +255,6 @@ Control {
                     ctx.beginPath()
                     ctx.arc(32, 53, 6, 0, Math.PI)
                     ctx.fill()
-                    break
-                case "crew":
-                    ctx.fillRect(36, 4, 5, 21)
-                    ctx.beginPath()
-                    ctx.roundedRect(18, 21, 28, 38, 5, 5)
-                    ctx.fill()
-                    ctx.globalCompositeOperation = "destination-out"
-                    for (let y = 28; y <= 46; y += 9)
-                        ctx.clearRect(24, y, 16, 4)
                     break
                 case "clack":
                     ctx.beginPath()
@@ -437,6 +436,15 @@ Control {
         border.width: 1
         border.color: root.selected ? "#78c9ff" : "#626b78"
 
+        ButtonFace {
+            anchors.fill: parent
+            visible: !root.trialFace
+            depressed: root.visualPressed
+            selected: root.selected
+            focused: root.activeFocus
+            accent: root.stopSign && root.textColor !== "#f5f7fa" ? "#9d2020" : "transparent"
+        }
+
         Rectangle {
             visible: root.trialFace
             anchors.fill: parent
@@ -467,7 +475,7 @@ Control {
         }
 
         Item {
-            visible: root.trialFace && (root.additionalHoldAction || root.deferForHold || root.repeatWhileHeld)
+            visible: root.trialFace && !root.steelFace && (root.additionalHoldAction || root.deferForHold || root.repeatWhileHeld)
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 7
@@ -504,8 +512,9 @@ Control {
             anchors.left: parent.left
             anchors.bottom: parent.bottom
             height: 5
-            width: parent.width * Math.min(1, holdProgress.elapsed / Math.max(1, root.holdThreshold))
-            color: "#78c9ff"
+            readonly property real fraction: Math.min(1, holdProgress.elapsed / Math.max(1, root.holdThreshold))
+            width: parent.width * fraction
+            color: fraction >= root.holdWarningFraction ? "#e53945" : "#78c9ff"
             radius: 2
         }
     }

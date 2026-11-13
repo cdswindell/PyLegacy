@@ -76,7 +76,7 @@ class AdminController(QObject):
     @Property(str, notify=changed)
     def databaseStatus(self) -> str:
         if self.databaseLoading:
-            return "Loading…"
+            return "Reloading…"
         return "Loaded" if self.synchronized else "Unavailable"
 
     @Property(bool, notify=changed)

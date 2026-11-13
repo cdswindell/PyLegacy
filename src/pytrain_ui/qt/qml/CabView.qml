@@ -375,6 +375,9 @@ Rectangle {
             RowLayout {
                 id: pairedRow
                 required property var modelData
+                readonly property int cellHeight: root.compact && modelData.some(action =>
+                    action && (action.key === "car_lights_on" || action.key === "car_lights_off"))
+                    ? Math.max(68, root.tileHeight) : root.tileHeight
                 Layout.fillWidth: true
                 spacing: root.gap
                 Repeater {
@@ -386,9 +389,9 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         Layout.preferredWidth: 0
-                        Layout.minimumHeight: root.tileHeight
-                        Layout.maximumHeight: root.tileHeight
-                        Layout.preferredHeight: root.tileHeight
+                        Layout.minimumHeight: pairedRow.cellHeight
+                        Layout.maximumHeight: pairedRow.cellHeight
+                        Layout.preferredHeight: pairedRow.cellHeight
                         active: cellAction !== undefined && cellAction !== null
                         sourceComponent: ActionTile { action: actionCell.cellAction }
                     }
@@ -414,6 +417,7 @@ Rectangle {
             electric_effort_up: "speaker-effort-up", electric_effort_down: "speaker-effort-down",
             boost: "boost", brake: "brake",
             startup: "power-on", shutdown: "power-off",
+            acela_startup: "power-on", acela_shutdown: "power-off",
             rpm_up: "rpm-up", rpm_down: "rpm-down",
             electric_rpm_up: "rpm-up", electric_rpm_down: "rpm-down",
             horn: action.label === "Whistle" ? "whistle" : "horn",
@@ -456,6 +460,7 @@ Rectangle {
         fitLabelWidth: action.key.endsWith("_coupler")
                        || ["water_injector", "option_one_on", "option_one_off"].includes(action.key)
         padding: root.compact ? 4 : 6
+        wideArtwork: action.key === "car_lights_on" || action.key === "car_lights_off"
         iconSize: (root.compact ? 40 : 72) - (root.preferredTileHeight - root.tileHeight)
         compact: auxiliary
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
@@ -471,7 +476,8 @@ Rectangle {
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
-        additionalHoldAction: (speedChevrons > 0 && deferForHold)
+        additionalHoldAction: (deferForHold && (speedChevrons > 0
+                               || ["startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
                               || (auxiliary && action.key === "sequence" && repeatWhileHeld)
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         Accessible.name: stopSign ? text + " Stop" : text
@@ -479,7 +485,7 @@ Rectangle {
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         font.bold: emergencyStop
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
-        font.pixelSize: root.compact ? 14 : 18
+        font.pixelSize: root.compact ? (wideArtwork ? 12 : 14) : 18
         deferForHold: action.hold || false
         holdThreshold: action.holdThreshold || 1000
         repeatWhileHeld: action.repeat || false
@@ -655,12 +661,12 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.topMargin: pageTab.checked ? 0 : 5
                                     radius: 10
-                                    color: pageTab.down ? Qt.darker("#4199cd", 1.45) : pageTab.checked ? "#16376b" : "#0a204a"
+                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#263b50" : "#20313e"
                                     border.width: 1
-                                    border.color: pageTab.checked ? "#88b5e1" : "#49668c"
+                                    border.color: pageTab.checked ? "#9ab2c3" : "#718a9c"
                                     gradient: Gradient {
-                                        GradientStop { position: 0; color: pageTab.down ? Qt.darker("#68bce9", 1.45) : pageTab.checked ? "#315c94" : "#162e55" }
-                                        GradientStop { position: 1; color: pageTab.down ? Qt.darker("#4199cd", 1.45) : pageTab.checked ? "#16376b" : "#0a204a" }
+                                        GradientStop { position: 0; color: pageTab.down ? "#101a25" : pageTab.checked ? "#405667" : "#324553" }
+                                        GradientStop { position: 1; color: pageTab.down ? "#263b50" : pageTab.checked ? "#263b50" : "#20313e" }
                                     }
                                 }
                                 Rectangle {
@@ -670,14 +676,14 @@ Rectangle {
                                     anchors.leftMargin: 1
                                     anchors.rightMargin: 1
                                     height: 8
-                                    color: pageTab.down ? Qt.darker("#4199cd", 1.45) : pageTab.checked ? "#16376b" : "#0a204a"
+                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#263b50" : "#20313e"
                                 }
                                 Rectangle {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     anchors.bottom: parent.bottom
                                     height: 1
-                                    color: pageTab.checked ? "#16376b" : "#5275a4"
+                                    color: pageTab.checked ? "#263b50" : "#5275a4"
                                 }
                             }
                         }

@@ -38,9 +38,9 @@ Button {
         }
     }
 
-    background: Rectangle {
-        radius: 8
-        color: root.down ? "#246aa0" : "transparent"
-        border.color: root.activeFocus ? "#78bff0" : "transparent"
+    background: ButtonFace {
+        depressed: root.down
+        selected: false
+        focused: root.activeFocus
     }
 }

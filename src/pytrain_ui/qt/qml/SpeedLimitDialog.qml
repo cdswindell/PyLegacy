@@ -69,6 +69,7 @@ Popup {
     component EditorButton: Button {
         id: button
         focusPolicy: Qt.NoFocus
+        font.bold: true
         font.pixelSize: 22
         contentItem: Item {
             Text {
@@ -86,11 +87,10 @@ Popup {
                 opacity: button.enabled ? 1 : 0.45
             }
         }
-        background: Rectangle {
-            radius: 9
-            color: !button.enabled ? "#242930" : button.down ? "#355775" : button.highlighted ? "#246aa0" : "#343a44"
-            border.width: button.highlighted ? 2 : 1
-            border.color: button.highlighted ? "#78bff0" : "#626b78"
+        background: ButtonFace {
+            depressed: button.down
+            selected: button.highlighted
+            focused: button.activeFocus
         }
     }
 

@@ -39,6 +39,7 @@ Popup {
         Layout.preferredHeight: buttonHeight
         Layout.minimumHeight: buttonHeight
         Layout.maximumHeight: buttonHeight
+        font.bold: true
         font.pixelSize: 24
         contentItem: Item {
             transform: Translate { y: button.down ? 2 : -1 }
@@ -61,32 +62,10 @@ Popup {
                 fillMode: Image.PreserveAspectFit
             }
         }
-        background: Item {
-            Rectangle {
-                anchors.fill: parent
-                radius: 10
-                color: "#07162c"
-                border.color: "#102239"
-            }
-            Rectangle {
-                anchors.fill: parent
-                anchors.topMargin: button.down ? 3 : 0
-                anchors.bottomMargin: button.down ? 0 : 4
-                radius: 10
-                border.color: button.activeFocus ? "#a4d8ff" : button.down ? "#72a3c5" : "#7c8fa7"
-                gradient: Gradient {
-                    GradientStop { position: 0; color: button.down ? "#213953" : "#5c6f86" }
-                    GradientStop { position: 0.18; color: button.down ? "#2e4d69" : "#485a70" }
-                    GradientStop { position: 1; color: button.down ? "#426482" : "#28384e" }
-                }
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 2
-                    radius: 8
-                    color: "transparent"
-                    border.color: button.down ? "#456782" : "#51677e"
-                }
-            }
+        background: ButtonFace {
+            depressed: button.down
+            selected: false
+            focused: button.activeFocus
         }
     }
 

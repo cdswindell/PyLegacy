@@ -13,7 +13,7 @@ Control {
     property bool mouseHoldEnabled: false
     property bool repeatWhileHeld: false
     property int repeatInterval: 250
-    property color normalColor: "#343a44"
+    property color normalColor: "transparent"
     property color selectedColor: "#246aa0"
     property color pressedColor: "#5c9fc6"
     readonly property bool pressed: isPointerPressed()
@@ -34,7 +34,7 @@ Control {
 
     implicitHeight: 62
     font.pixelSize: 20
-    font.bold: selected
+    font.bold: true
     focusPolicy: Qt.StrongFocus
 
     contentItem: Text {
@@ -46,11 +46,11 @@ Control {
         elide: Text.ElideRight
     }
 
-    background: Rectangle {
-        radius: 10
-        color: !root.enabled ? "#242930" : root.visualPressed ? (root.repeatWhileHeld ? root.pressedColor : Qt.darker(root.pressedColor, 1.45)) : (root.selected ? root.selectedColor : root.normalColor)
-        border.width: root.selected ? 2 : 1
-        border.color: !root.enabled ? "#39414b" : root.selected ? "#78bff0" : "#626b78"
+    background: ButtonFace {
+        depressed: root.visualPressed
+        selected: root.selected
+        focused: root.activeFocus
+        accent: root.normalColor
     }
 
     component ButtonTapHandler: TapHandler {

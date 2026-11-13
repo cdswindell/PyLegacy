@@ -31,6 +31,7 @@ RowLayout {
             text: modelData.label
             checkable: true
             checked: root.profile === modelData.key
+            font.bold: true
             font.pixelSize: root.width < 600 ? 11 : 12
             onClicked: root.profileSelected(modelData.key, modelData.width, modelData.height)
             contentItem: Text {
@@ -41,11 +42,10 @@ RowLayout {
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
             }
-            background: Rectangle {
-                radius: 6
-                color: choice.down ? "#355775" : choice.checked ? "#246aa0" : "#303640"
-                border.width: choice.checked ? 2 : 1
-                border.color: choice.checked ? "#78bff0" : "#626b78"
+            background: ButtonFace {
+                depressed: choice.down
+                selected: choice.checked
+                focused: choice.activeFocus
             }
         }
     }

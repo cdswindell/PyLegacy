@@ -59,6 +59,7 @@ Popup {
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
         Layout.preferredHeight: 56
+        font.bold: true
         font.pixelSize: 22
         contentItem: Item {
             Text {
@@ -76,11 +77,10 @@ Popup {
                 opacity: key.enabled ? 1 : 0.45
             }
         }
-        background: Rectangle {
-            radius: 7
-            color: key.down ? (key.text === "⌫" ? "#69b7df" : Qt.darker("#69b7df", 1.45)) : key.highlighted ? "#246aa0" : "#334a6a"
-            border.color: key.down ? "#d2f1ff" : "#718baa"
-            border.width: key.down ? 2 : 1
+        background: ButtonFace {
+            depressed: key.down
+            selected: key.highlighted
+            focused: key.activeFocus
         }
     }
     contentItem: ColumnLayout {

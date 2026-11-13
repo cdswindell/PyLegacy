@@ -58,6 +58,7 @@ Popup {
     component KeyButton: Button {
         id: keyControl
         focusPolicy: Qt.NoFocus
+        font.bold: true
         font.pixelSize: 28
 
         contentItem: Item {
@@ -77,11 +78,10 @@ Popup {
                 opacity: keyControl.enabled ? 1 : 0.45
             }
         }
-        background: Rectangle {
-            radius: 10
-            color: keyControl.down ? (keyControl.text === "⌫" ? "#68a9d0" : "#355775") : (keyControl.highlighted ? "#246aa0" : "#343a44")
-            border.width: keyControl.highlighted ? 2 : 1
-            border.color: keyControl.highlighted ? "#78bff0" : "#626b78"
+        background: ButtonFace {
+            depressed: keyControl.down
+            selected: keyControl.highlighted
+            focused: keyControl.activeFocus
         }
     }
 

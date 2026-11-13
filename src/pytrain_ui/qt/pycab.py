@@ -9,6 +9,7 @@ from pytrain.cli import CliBase
 from pytrain.protocol.command_base import CommandBase
 from pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from pytrain.utils.argument_parser import PyTrainArgumentParser
+from pytrain.utils.ip_tools import find_base_address
 
 from .app import run_cab
 
@@ -16,6 +17,12 @@ from .app import run_cab
 class QtCabCommand(CommandBase):
     def __init__(self, cli: "QtCabCli") -> None:
         self._cli = cli
+        base = cli.args.base
+        if base == "" and not cli.args.client and not cli.args.server:
+            base = find_base_address()
+            if base is None:
+                raise RuntimeError("pycab could not find a Lionel Base on the local network")
+
         CommandBase.__init__(
             self,
             None,
@@ -24,7 +31,7 @@ class QtCabCommand(CommandBase):
             scope=cli.scope,
             server=cli.args.server if "server" in cli.args else None,
             client=cli.args.client if "client" in cli.args else False,
-            base=cli.args.base if "base" in cli.args else None,
+            base=base,
             cache_sync=True,
             debug=getattr(cli.args, "debug", False),
             echo=getattr(cli.args, "echo", False),
@@ -92,7 +99,15 @@ class QtCabCli(CliBase):
             action="store_true",
             help="Start on a train instead of an engine",
         )
-        return PyTrainArgumentParser("Qt cab options", parents=[parser, cls.cli_parser()])
+        parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
+        parser = PyTrainArgumentParser("Qt cab options", parents=[parser, cls.cli_parser()], conflict_handler="resolve")
+        parser.add_argument(
+            "-base",
+            nargs="?",
+            const="",
+            help="IP address of the Lionel Base 3 (discovered on the local network if omitted)",
+        )
+        return parser
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: list[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)

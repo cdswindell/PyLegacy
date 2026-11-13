@@ -172,13 +172,10 @@ Rectangle {
             font.pixelSize: 32
             color: "#a4d8ff"
         }
-        background: Rectangle {
-            radius: 8
-            border.color: button.activeFocus ? "#a4d8ff" : button.navigates ? "#5b9bcb" : "#7287a0"
-            gradient: Gradient {
-                GradientStop { position: 0; color: button.navigates ? (button.down ? "#12365d" : "#245781") : (button.down ? "#28425e" : "#4e647d") }
-                GradientStop { position: 1; color: button.navigates ? (button.down ? "#245781" : "#163658") : (button.down ? "#426482" : "#263950") }
-            }
+        background: ButtonFace {
+            depressed: button.down
+            selected: button.navigates
+            focused: button.activeFocus
         }
     }
 

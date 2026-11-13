@@ -73,6 +73,7 @@ Popup {
     }
     component EditorButton: Button {
         id: button
+        font.bold: true
         font.pixelSize: 24
         focusPolicy: Qt.NoFocus
         implicitHeight: 72
@@ -84,12 +85,10 @@ Popup {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
-        background: Rectangle {
-            radius: 9
-            color: button.down ? Qt.darker("#397bad", 1.45) : button.highlighted ? "#006fa5" : "#303e58"
-            border.color: button.highlighted ? "#78d5ff" : "#667b9c"
-            border.width: button.highlighted ? 2 : 1
-            opacity: button.enabled ? 1 : 0.5
+        background: ButtonFace {
+            depressed: button.down
+            selected: button.highlighted
+            focused: button.activeFocus
         }
     }
     contentItem: ColumnLayout {

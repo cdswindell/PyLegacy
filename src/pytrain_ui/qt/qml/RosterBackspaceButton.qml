@@ -33,9 +33,9 @@ Button {
         finishEdit()
     }
     contentItem: BackspaceIcon { opacity: root.enabled ? 1 : 0.45 }
-    background: Rectangle {
-        radius: 8
-        color: (root.down || holdFlash.running) ? "#68a9d0" : "#343a44"
-        border.color: "#626b78"
+    background: ButtonFace {
+        depressed: root.down || holdFlash.running
+        selected: false
+        focused: root.activeFocus
     }
 }

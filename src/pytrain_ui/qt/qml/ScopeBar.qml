@@ -33,20 +33,28 @@ Rectangle {
                 Layout.maximumHeight: 76
                 Layout.preferredHeight: 76
                 radius: 7
-                color: scopeTap.pressed ? "#3c5265" : (root.currentScope === modelData ? "#246aa0" : "#303640")
-                border.width: root.currentScope === modelData ? 2 : 1
-                border.color: root.currentScope === modelData ? "#78bff0" : "#555e6b"
+                readonly property bool activeScope: root.currentScope === modelData
+                gradient: Gradient {
+                    GradientStop { position: 0; color: scopeTap.pressed ? "#101a25" : "#405667" }
+                    GradientStop { position: 0.22; color: "#2d4152" }
+                    GradientStop { position: 0.65; color: "#253748" }
+                    GradientStop { position: 1; color: scopeTap.pressed ? "#5c8199" : "#263b50" }
+                }
+                border.width: activeScope ? 2 : 1
+                border.color: activeScope ? "#78bff0" : "#718a9c"
 
                 Label {
                     anchors.centerIn: parent
                     width: parent.width - 6
                     text: scopeButton.modelData === "ACCESSORY" ? "Acc" : scopeButton.modelData.charAt(0) + scopeButton.modelData.slice(1).toLowerCase()
-                    color: "#f4f6f8"
+                    color: "#ffffff"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     wrapMode: Text.NoWrap
                     font.pixelSize: 20
-                    font.bold: root.currentScope === scopeButton.modelData
+                    font.bold: true
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: 12
                 }
 
                 TapHandler {
