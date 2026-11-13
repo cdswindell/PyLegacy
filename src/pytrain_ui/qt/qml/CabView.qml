@@ -411,7 +411,7 @@ Rectangle {
             blend_up: "volume", blend_down: "volume-down",
             labor_up: "volume", labor_down: "volume-down",
             electric_effort_up: "volume", electric_effort_down: "volume-down",
-            option_one_on: "clack", boost: "boost", brake: "brake",
+            boost: "boost", brake: "brake",
             startup: "power-on", shutdown: "power-off",
             rpm_up: "rpm-up", rpm_down: "rpm-down",
             electric_rpm_up: "rpm-up", electric_rpm_down: "rpm-down",
@@ -423,7 +423,20 @@ Rectangle {
             tower_chatter: "tower",
             smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
             smoke_up: cab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",
-            rear_coupler: "coupler-rear", front_coupler: "coupler-front"
+            rear_coupler: "coupler-rear", front_coupler: "coupler-front",
+            sound_on: "car-sound-on",
+            sound_off: "car-sound-off",
+            conductor: "car-conductor",
+            station: "car-station",
+            steward: "car-steward",
+            next_stop: "car-next-stop",
+            car_lights_on: "car-car-lights-on",
+            car_lights_off: "car-car-lights-off",
+            freight_load: "car-freight-load",
+            freight_unload: "car-freight-unload",
+            freight_lights_on: "car-freight-lights-on",
+            freight_lights_off: "car-freight-lights-off",
+            freight_special: "car-freight-special"
         })[action.key] || ""
         objectName: auxiliary ? "auxControl_" + action.key : ""
         Layout.fillWidth: true
