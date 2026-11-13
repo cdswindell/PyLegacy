@@ -32,6 +32,7 @@ Control {
     readonly property bool speedFace: speedChevrons > 0 || trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
+    property color faceAccent: "transparent"
     property bool selected: false
     property bool compact: false
     property bool stacked: false
@@ -442,7 +443,7 @@ Control {
             depressed: root.visualPressed
             selected: root.selected
             focused: root.activeFocus
-            accent: root.stopSign && root.textColor !== "#f5f7fa" ? "#9d2020" : "transparent"
+            accent: root.faceAccent
         }
 
         Rectangle {

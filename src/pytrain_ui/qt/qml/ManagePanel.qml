@@ -12,7 +12,8 @@ Rectangle {
     property int revision: 0
     readonly property bool compact: height < 850
     readonly property int buttonGap: compact ? 16 : 22
-    readonly property int buttonHeight: compact ? 64 : 68
+    readonly property int buttonColumnGap: buttonGap + 8
+    readonly property int buttonHeight: compact ? 66 : 70
     property string refreshStatus: ""
     readonly property int sectionGap: compact ? 7 : 11
     signal closeRequested()
@@ -181,7 +182,7 @@ Rectangle {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 width: Layout.preferredWidth
-                height: Layout.preferredHeight
+                height: Layout.preferredHeight + 2
                 compact: root.compact
                 onClicked: root.cab.halt()
             }
@@ -210,7 +211,7 @@ Rectangle {
                 SectionLabel { text: "Base 3 Database"; Layout.topMargin: root.sectionGap }
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: root.buttonGap
+                    spacing: root.buttonColumnGap
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
@@ -251,7 +252,7 @@ Rectangle {
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: root.buttonGap
+                    spacing: root.buttonColumnGap
                     PanelButton {
                         text: "Reload Accessories"
                         onClicked: {
@@ -282,7 +283,7 @@ Rectangle {
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: root.buttonGap
+                    spacing: root.buttonColumnGap
                     SelectionButton {
                         text: "Logging"
                         selected: root.admin.logging
@@ -299,7 +300,7 @@ Rectangle {
                 SectionLabel { text: "Maintenance Scope"; Layout.topMargin: root.sectionGap }
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: root.buttonGap
+                    spacing: root.buttonColumnGap
                     SelectionButton { text: "Local"; radio: true; selected: !root.allNodes; onClicked: root.allNodes = false }
                     SelectionButton { text: "All"; radio: true; selected: root.allNodes; onClicked: root.allNodes = true }
                 }
@@ -308,7 +309,7 @@ Rectangle {
                     Layout.fillWidth: true
                     columns: 2
                     rowSpacing: root.compact ? 10 : 12
-                    columnSpacing: root.buttonGap
+                    columnSpacing: root.buttonColumnGap
                     AdminButton { text: "Restart"; command: "RESTART" }
                     AdminButton { text: "Reboot"; command: "REBOOT" }
                     AdminButton { text: "Update PyTrain"; command: "UPDATE" }

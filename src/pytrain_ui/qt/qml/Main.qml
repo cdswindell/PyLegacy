@@ -325,8 +325,8 @@ ApplicationWindow {
         parent: previewViewport
         x: (parent.width - width) / 2
         y: 110
-        width: Math.min(340, parent.width - 24)
-        padding: 10
+        width: Math.min(420, parent.width - 24)
+        padding: 16
         modal: false
         focus: true
         background: Rectangle {
@@ -335,15 +335,15 @@ ApplicationWindow {
             border.color: "#6385af"
         }
         contentItem: ColumnLayout {
-            spacing: 8
+            spacing: 14
             Repeater {
                 model: ["Roster", "Manage PyTrain", "Route Builder", "LCS Device Manager"]
                 CabButton {
                     required property int index
                     required property string modelData
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 54
-                    font.pixelSize: 20
+                    Layout.preferredHeight: 70
+                    font.pixelSize: 22
                     text: modelData
                     onClicked: {
                         cabMenu.close()
@@ -370,6 +370,15 @@ ApplicationWindow {
                         }
                     }
                 }
+            }
+            CabButton {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 180
+                Layout.preferredHeight: 70
+                Layout.topMargin: 12
+                font.pixelSize: 22
+                text: "Close"
+                onClicked: cabMenu.close()
             }
         }
     }

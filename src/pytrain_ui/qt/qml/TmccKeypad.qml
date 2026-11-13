@@ -47,7 +47,7 @@ Popup {
     }
 
     parent: Overlay.overlay
-    width: Math.min(parent.width - 24, 560)
+    width: Math.min(parent.width - 24, 692)
     x: Math.max(0, (parent.width - width) / 2)
     y: Math.max(0, (parent.height - height) / 2)
     modal: true
@@ -137,9 +137,9 @@ Popup {
                     required property string modelData
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 74
+                    Layout.preferredHeight: 93
                     text: modelData === "Del" ? "⌫" : modelData
-                    font.pixelSize: 28
+                    font.pixelSize: 35
                     Accessible.name: modelData === "↵" ? "Enter" :
                                      modelData === "Del" ? "Backspace" : modelData
                     highlighted: modelData === "↵"

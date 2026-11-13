@@ -480,6 +480,7 @@ Rectangle {
                                || ["startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
                               || (auxiliary && action.key === "sequence" && repeatWhileHeld)
         stopSign: emergencyStop || action.key === "STOP_HOLD"
+        faceAccent: emergencyStop ? "#9d2020" : "transparent"
         Accessible.name: stopSign ? text + " Stop" : text
         enabled: !action.disabled && (!action.speedPreset || root.speedPresetsEnabled)
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
