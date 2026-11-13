@@ -108,12 +108,13 @@ Control {
                     const ivory = ctx.createLinearGradient(10, 7, 51, 58)
                     ivory.addColorStop(0, "#fffdf6")
                     ivory.addColorStop(0.37, "#fff5e2")
-                    ivory.addColorStop(0.75, "#efe0c5")
-                    ivory.addColorStop(1, "#cab796")
+                    const bell = root.trialIcon === "bell"
+                    ivory.addColorStop(0.75, bell ? "#efe0c5" : "#e8d6b8")
+                    ivory.addColorStop(1, bell ? "#cab796" : "#bba485")
                     ctx.fillStyle = ivory
-                    ctx.shadowColor = "rgba(18, 27, 36, 0.7)"
-                    ctx.shadowOffsetX = 1
-                    ctx.shadowOffsetY = 2
+                    ctx.shadowColor = bell ? "rgba(18, 27, 36, 0.7)" : "rgba(11, 19, 28, 0.85)"
+                    ctx.shadowOffsetX = bell ? 1 : 2
+                    ctx.shadowOffsetY = bell ? 2 : 3
                     ctx.shadowBlur = 2
                 }
                 ctx.lineWidth = 4
@@ -147,9 +148,6 @@ Control {
                     ctx.fill()
                     ctx.beginPath()
                     ctx.arc(32, 53, 6, 0, Math.PI)
-                    ctx.fill()
-                    ctx.beginPath()
-                    ctx.arc(32, 12, 5, 0, 2 * Math.PI)
                     ctx.fill()
                     break
                 case "crew":
