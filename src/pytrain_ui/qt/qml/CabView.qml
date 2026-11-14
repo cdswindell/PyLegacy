@@ -516,8 +516,10 @@ Rectangle {
         source: "../../../pytrain/gui/fonts/digital-dream/DIGITALDREAM.ttf"
     }
 
-    color: "#0d1f58"
-    gradient: Gradient {
+    color: root.stateInfoVisible && root.stateInfoFromRoster ? "transparent" : "#0d1f58"
+    gradient: root.stateInfoVisible && root.stateInfoFromRoster ? null : cabGradient
+    Gradient {
+        id: cabGradient
         GradientStop { position: 0; color: "#173775" }
         GradientStop { position: 0.5; color: "#0d1f58" }
         GradientStop { position: 1; color: "#09183f" }
@@ -1174,8 +1176,15 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
+            Layout.maximumHeight: implicitHeight
             controller: root.infoController
             onCloseRequested: root.stateInfoClosed()
+        }
+
+        Item {
+            visible: root.stateInfoVisible
+            Layout.fillHeight: true
+            Layout.preferredHeight: Math.max(0, cabLayout.height - cabHeader.height - stateInfo.implicitHeight - 140)
         }
 
         Connections {

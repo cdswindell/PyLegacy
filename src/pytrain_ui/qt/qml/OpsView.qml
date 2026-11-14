@@ -541,6 +541,7 @@ RosterPanel {
             objectName: "operationsRoster"
             enabled: !(routeBuilder.visible || routePicker.visible || switchEditor.visible ||
                        addSwitchPopup.visible || overwriteSwitchPopup.visible || lcsConfig.visible)
+            opacity: enabled ? 1 : 0.42
             Layout.leftMargin: -6
             Layout.rightMargin: Layout.leftMargin
             Layout.fillWidth: true
@@ -769,13 +770,13 @@ RosterPanel {
                     Layout.fillWidth: true
                     text: "Route Builder"
                     color: "#f4f6f8"
-                    font.pixelSize: 24
+                    font.pixelSize: 29
                     font.bold: true
                 }
                 Label {
                     text: (controller ? controller.routeComponents.length : 0) + " of 16 Elements"
                     color: "#aeb5bf"
-                    font.pixelSize: 14
+                    font.pixelSize: 17
                 }
             }
 
@@ -799,7 +800,7 @@ RosterPanel {
                     spacing: 14
                     Label {
                         text: "TMCC ID (1-98)"
-                        font.pixelSize: 19
+                        font.pixelSize: 23
                         color: "#aeb5bf"
                     }
                     TextField {
@@ -809,7 +810,7 @@ RosterPanel {
                         maximumLength: 2
                         inputMethodHints: Qt.ImhDigitsOnly
                         validator: IntValidator { bottom: 1; top: 98 }
-                        font.pixelSize: 23
+                        font.pixelSize: 28
                         onEditingFinished: if (!routeIdKeypad.visible) root.routeIdEditingFinished()
                         MouseArea {
                             anchors.fill: parent
@@ -820,7 +821,7 @@ RosterPanel {
 
                     Label {
                         text: "Route Name"
-                        font.pixelSize: 19
+                        font.pixelSize: 23
                         color: "#aeb5bf"
                     }
                     TextField {
@@ -833,12 +834,12 @@ RosterPanel {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 62
                         maximumLength: 31
-                        font.pixelSize: 23
+                        font.pixelSize: 28
                     }
 
                     Label {
                         text: "Route Number"
-                        font.pixelSize: 19
+                        font.pixelSize: 23
                         color: "#aeb5bf"
                     }
                     TextField {
@@ -855,7 +856,7 @@ RosterPanel {
                         validator: RegularExpressionValidator {
                             regularExpression: /[0-9]{0,4}/
                         }
-                        font.pixelSize: 23
+                        font.pixelSize: 28
                     }
 
                     Label {
@@ -864,7 +865,7 @@ RosterPanel {
                                   "Select an element to edit or reorder. Double-tap or touch/hold Out to flip turnout left or right." :
                                   "No elements yet. Add a switch or nested route."
                         color: "#aeb5bf"
-                        font.pixelSize: 15
+                        font.pixelSize: 18
                         wrapMode: Text.WordWrap
                     }
 
@@ -920,13 +921,13 @@ RosterPanel {
                                     Layout.fillWidth: true
                                     text: "Element " + (modelData.index + 1)
                                     color: "#aeb5bf"
-                                    font.pixelSize: 12
+                                    font.pixelSize: 14
                                 }
                                 Label {
                                     Layout.fillWidth: true
                                     text: modelData.name
                                     color: "#f4f6f8"
-                                    font.pixelSize: 16
+                                    font.pixelSize: 19
                                     font.bold: true
                                     wrapMode: Text.WordWrap
                                     maximumLineCount: 2
@@ -937,7 +938,7 @@ RosterPanel {
                                     text: modelData.scope === "ROUTE" ? "Route " + modelData.tmccId :
                                                                        "Switch " + modelData.tmccId
                                     color: "#aeb5bf"
-                                    font.pixelSize: 13
+                                    font.pixelSize: 16
                                 }
                                 TurnoutDiagram {
                                     objectName: "routeSwitchDiagram"
@@ -958,7 +959,7 @@ RosterPanel {
                                     text: modelData.turnoutDirection ? "OUT " + modelData.turnoutDirection : modelData.position
                                     color: modelData.position === "THRU" ? "#73d38a" :
                                            modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
-                                    font.pixelSize: 16
+                                    font.pixelSize: 19
                                     font.bold: true
                                     horizontalAlignment: Text.AlignHCenter
                                 }
@@ -1052,7 +1053,7 @@ RosterPanel {
                         Layout.fillWidth: true
                         visible: text.length > 0
                         color: "#ff7777"
-                        font.pixelSize: 13
+                        font.pixelSize: 16
                         wrapMode: Text.WordWrap
                     }
                 }
@@ -1529,20 +1530,20 @@ RosterPanel {
                 Layout.fillWidth: true
                 text: "Edit Switch " + root.editingSwitchId
                 color: "#f4f6f8"
-                font.pixelSize: 24
+                font.pixelSize: 29
                 font.bold: true
             }
 
             Label {
                 text: "Road Name"
                 color: "#aeb5bf"
-                font.pixelSize: 14
+                font.pixelSize: 17
             }
             TextField {
                 id: roadNameField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
-                font.pixelSize: 18
+                font.pixelSize: 22
                 maximumLength: 31
                 selectByMouse: true
             }
@@ -1550,13 +1551,13 @@ RosterPanel {
             Label {
                 text: "Road Number"
                 color: "#aeb5bf"
-                font.pixelSize: 14
+                font.pixelSize: 17
             }
             TextField {
                 id: roadNumberField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
-                font.pixelSize: 18
+                font.pixelSize: 22
                 maximumLength: 4
                 inputMethodHints: Qt.ImhDigitsOnly
                 validator: RegularExpressionValidator {

@@ -178,44 +178,51 @@ ApplicationWindow {
             StackLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                currentIndex: window.manageVisible ? 5 : window.stateInfoVisible ? 0 :
-                              window.activeScope === "SWITCH" ? 2 :
-                              window.activeScope === "ROUTE" ? 3 :
-                              window.activeScope === "ACCESSORY" ? 4 :
-                              window.engineCatalogVisible ? 1 : 0
+                currentIndex: window.manageVisible ? 4 : window.stateInfoVisible ? 0 :
+                              window.activeScope === "SWITCH" ? 1 :
+                              window.activeScope === "ROUTE" ? 2 :
+                              window.activeScope === "ACCESSORY" ? 3 : 0
 
-                CabView {
-                    id: operatingCabView
-                    cab: cabController
-                    selection: selectedEngineController
-                    infoController: stateInfoController
-                    stateInfoVisible: window.stateInfoVisible
-                    stateInfoFromRoster: window.stateInfoFromRoster
-                    stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
-                    onStateInfoRequested: window.openStateInfo(cabController.scope, cabController.tmccId, false)
-                    onStateInfoClosed: window.requestEditorExit(window.closeStateInfo)
-                    onCabMenuRequested: cabMenu.open()
-                }
+                Item {
+                    EngineCatalog {
+                        id: engineCatalog
+                        anchors.fill: parent
+                        visible: window.stateInfoVisible ? window.stateInfoFromRoster : window.engineCatalogVisible
+                        enabled: !window.stateInfoVisible
+                        opacity: enabled ? 1 : 0.42
+                        scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
+                        cab: cabController
+                        catalog: engineCatalogController
+                        infoController: stateInfoController
+                        selection: selectedEngineController
+                        onStateInfoRequested: function(scope, tmccId) {
+                            window.engineCatalogVisible = true
+                            window.openStateInfo(scope, tmccId, true)
+                        }
+                        onCabMenuRequested: cabMenu.open()
+                        onEngineSelected: {
+                            window.engineCatalogVisible = false
+                        }
+                        onVisibleChanged: if (visible && enabled) engineCatalogController.reload()
+                        onCloseRequested: {
+                            window.activeScope = cabController.scope
+                            window.engineCatalogVisible = false
+                        }
+                    }
 
-                EngineCatalog {
-                    id: engineCatalog
-                    scope: window.activeScope === "TRAIN" ? "TRAIN" : "ENGINE"
-                    cab: cabController
-                    catalog: engineCatalogController
-                    infoController: stateInfoController
-                    selection: selectedEngineController
-                    onStateInfoRequested: function(scope, tmccId) {
-                        window.engineCatalogVisible = true
-                        window.openStateInfo(scope, tmccId, true)
-                    }
-                    onCabMenuRequested: cabMenu.open()
-                    onEngineSelected: {
-                        window.engineCatalogVisible = false
-                    }
-                    onVisibleChanged: if (visible) engineCatalogController.reload()
-                    onCloseRequested: {
-                        window.activeScope = cabController.scope
-                        window.engineCatalogVisible = false
+                    CabView {
+                        id: operatingCabView
+                        anchors.fill: parent
+                        visible: window.stateInfoVisible || !window.engineCatalogVisible
+                        cab: cabController
+                        selection: selectedEngineController
+                        infoController: stateInfoController
+                        stateInfoVisible: window.stateInfoVisible
+                        stateInfoFromRoster: window.stateInfoFromRoster
+                        stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
+                        onStateInfoRequested: window.openStateInfo(cabController.scope, cabController.tmccId, false)
+                        onStateInfoClosed: window.requestEditorExit(window.closeStateInfo)
+                        onCabMenuRequested: cabMenu.open()
                     }
                 }
 

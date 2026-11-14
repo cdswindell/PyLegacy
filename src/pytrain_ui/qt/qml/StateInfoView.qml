@@ -13,6 +13,7 @@ Rectangle {
     readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges
     readonly property color fieldLabelColor: "#b5c9e5"
     readonly property var record: controller ? controller.model : ({})
+    implicitHeight: panelLayout.implicitHeight + 20
     color: "#102858"
     radius: 10
     border.color: "#496b9d"
@@ -57,7 +58,7 @@ Rectangle {
         Layout.preferredWidth: 0
         Layout.minimumWidth: 0
         Layout.preferredHeight: 56
-        font.pixelSize: 18
+        font.pixelSize: 22
     }
 
     component DetailGrid: GridLayout {
@@ -87,14 +88,14 @@ Rectangle {
                         Layout.fillWidth: true
                         text: modelData.label
                         color: root.fieldLabelColor
-                        font.pixelSize: 14
+                        font.pixelSize: 17
                         wrapMode: Text.WordWrap
                     }
                     Label {
                         Layout.fillWidth: true
                         text: modelData.value
                         color: "white"
-                        font.pixelSize: 17
+                        font.pixelSize: 20
                         wrapMode: Text.WrapAnywhere
                     }
                 }
@@ -103,6 +104,7 @@ Rectangle {
     }
 
     ColumnLayout {
+        id: panelLayout
         anchors.fill: parent
         anchors.margins: 10
         spacing: 10
@@ -112,7 +114,7 @@ Rectangle {
             Label {
                 text: root.record.creating ? "Create Engine" : (root.record.scopeTitle || "Engine") + " Information"
                 color: "white"
-                font.pixelSize: 22
+                font.pixelSize: 26
                 font.bold: true
             }
             Label {
@@ -120,7 +122,7 @@ Rectangle {
                 visible: !root.record.creating && !!root.record.editable
                 text: root.useTouchKeyboard ? "Tap to edit" : "Click to edit"
                 color: "#b5c9e5"
-                font.pixelSize: 15
+                font.pixelSize: 18
                 wrapMode: Text.WordWrap
             }
             Item { Layout.fillWidth: true; visible: root.record.creating || !root.record.editable }
@@ -140,18 +142,21 @@ Rectangle {
             text: root.record.status || ""
             color: "#d0def2"
             wrapMode: Text.WordWrap
-            font.pixelSize: 16
+            font.pixelSize: 19
         }
 
         ScrollView {
             id: details
             Layout.fillWidth: true
+            Layout.preferredHeight: detailsContent.implicitHeight
             Layout.fillHeight: true
+            Layout.maximumHeight: detailsContent.implicitHeight
             Layout.minimumHeight: 0
             contentWidth: availableWidth
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             ColumnLayout {
+                id: detailsContent
                 width: details.availableWidth
                 spacing: 8
 
@@ -171,7 +176,7 @@ Rectangle {
                             Layout.columnSpan: modelData.key === "name" ? 2 : 1
                             Layout.preferredHeight: 64
                             text: modelData.label + "\n" + modelData.display
-                            font.pixelSize: 17
+                            font.pixelSize: 20
                             enabled: !!root.record.editable
                             contentItem: Item {
                                 ColumnLayout {
@@ -220,7 +225,7 @@ Rectangle {
                     }
                     wrapMode: Text.WordWrap
                     color: "#b5c9e5"
-                    font.pixelSize: 16
+                    font.pixelSize: 19
                 }
 
                 Label {
@@ -228,7 +233,7 @@ Rectangle {
                     Layout.topMargin: metrics.sectionGap
                     text: "Real Time Status"
                     color: "white"
-                    font.pixelSize: 19
+                    font.pixelSize: 23
                     font.bold: true
                 }
                 DetailGrid {
@@ -242,7 +247,7 @@ Rectangle {
                     Layout.topMargin: metrics.sectionGap
                     text: "Consist Details"
                     color: "white"
-                    font.pixelSize: 19
+                    font.pixelSize: 23
                     font.bold: true
                 }
                 DetailGrid {
@@ -256,7 +261,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: metrics.footerGap
+            Layout.topMargin: 4
             spacing: 18
             readonly property int buttonHeight: 70
             id: recordFooter
@@ -277,7 +282,7 @@ Rectangle {
                     text: clearButton.text
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 18
+                    font.pixelSize: 22
                     color: "#ff6666"
                 }
                 background: ButtonFace {
