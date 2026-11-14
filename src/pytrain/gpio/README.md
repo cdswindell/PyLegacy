@@ -231,19 +231,65 @@ to clear entry and `*` to recall recent selections. With cab controls
 configured, press `D` followed by a digit to send a numeric command to
 the selected target.
 
-Choose one display mode:
+### Look up an engine on a 20×4 LCD
 
-- **Character LCD.** Use an HD44780-compatible LCD with a PCF8574 I²C
-  backpack. Connect SDA, SCL, power, and ground as described above.
-  Set `is_lcd=True, is_oled=False`, and match `lcd_address`, `lcd_rows`,
-  and `lcd_cols` to the hardware. The defaults for a character LCD
-  are `0x27`, four rows, and 20 columns. It shows the selected ID and,
-  when space allows, state such as speed, direction, and brake.
-- **OLED.** Use `is_oled=True, is_lcd=False` and set `oled_address` and
-  `oled_device` using the OLED wiring above. The default is an SPI
-  SSD1322 (`oled_address=0`). In this mode `Controller` creates its own
-  `EngineStatus` for the selected target.
-- **No display.** Set `is_lcd=False, is_oled=False`.
+For a read-only keypad and LCD panel, omit the throttle and command
+buttons. This example uses the directly wired 4×4 keypad above and a
+20-column, four-row LCD at `0x27` on I²C bus 1.
+
+```python
+from pytrain import Controller
+
+lookup = Controller.build(
+    row_pins=[5, 6, 12, 13],
+    column_pins=[16, 19, 20, 21],
+    is_lcd=True,
+    is_oled=False,
+    lcd_address=0x27,
+    lcd_rows=4,
+    lcd_cols=20,
+)
+```
+
+After PyTrain synchronizes its roster, press `A`, enter the engine's
+TMCC ID, then press `#`. For engine 12, press `A 1 2 #`. Press `B`
+instead of `A` to look up a train. PyTrain needs an entry for the
+selected ID in its state store. For a known engine, the four LCD rows
+show the road name and number, the ID and control type, speed and
+direction with labor effect, and momentum and train brake with RPM
+where applicable.
+
+### Supported displays and example part numbers
+
+| Display | Example part | PyTrain settings |
+| --- | --- | --- |
+| 20×4 HD44780-compatible character LCD | [Adafruit #198](https://www.adafruit.com/product/198), paired with a compatible PCF8574 I²C backpack | `is_lcd=True, is_oled=False, lcd_rows=4, lcd_cols=20`. Set `lcd_address` to the backpack address, commonly `0x27`. |
+| 128×64 SSD1306 graphic OLED | [Adafruit #326](https://www.adafruit.com/product/326), in I²C mode | `is_lcd=False, is_oled=True, oled_device="ssd1306"`. Set `oled_address` to the detected address. Adafruit's 128×64 example uses `0x3D`. [Adafruit setup guide](https://learn.adafruit.com/monochrome-oled-breakouts/circuitpython-usage) |
+| 256×64 SSD1322 graphic OLED | [EastRising ER-OLEDM027-2W-SPI](https://www.buydisplay.com/spi-white-2-7-inch-oled-display-module-256x64-arduino-raspberry-pi), a 2.7-inch 4-wire SPI breakout | `is_lcd=False, is_oled=True, oled_device="ssd1322", oled_address=0`. These are the controller defaults. |
+
+These examples match the driver and interface specifications. Check the
+exact board revision, interface mode, and pinout before wiring.
+
+- **LCD backpack.** Adafruit #198 is the parallel character display.
+  Add a PCF8574 backpack with the RPLCD layout: P0 = RS, P1 = R/W,
+  P2 = E, P3 = backlight, and P4–P7 = D4–D7. Set `lcd_address` to the
+  actual 7-bit address from an I²C scan. If the backpack uses 5 V
+  pull-ups, use the level shifting described above.
+  [RPLCD I²C driver reference](https://rplcd.readthedocs.io/en/stable/_modules/RPLCD/i2c.html)
+- **OLED size and driver.** PyTrain draws four text rows using a default
+  15-pixel font. A 64-pixel-tall panel fits all four rows. The wider
+  256×64 panel leaves room for additional status details, and a
+  128×32 panel is too short for the four-row view. PyTrain recognizes
+  `ssd1306`, `ssd1309`, `ssd1322`, `ssd1325`, `ssd1362`, `sh1107`,
+  and `sh1122`. Match the chip, interface, and the driver's default
+  geometry because the controller does not pass custom dimensions to
+  the OLED driver. `Controller` creates an `EngineStatus` in OLED mode.
+  For standalone `EngineStatus`, use `device` and `address` in place of
+  `oled_device` and `oled_address`.
+- **No display.** Set `is_lcd=False, is_oled=False` for keypad selection
+  without a screen.
+
+### Add throttle and command buttons
 
 This example combines the directly wired keypad above, a 20×4 LCD
 backpack at `0x27`, and the same throttle encoder and buttons as the
