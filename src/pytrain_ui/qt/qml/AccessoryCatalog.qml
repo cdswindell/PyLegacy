@@ -256,10 +256,12 @@ RosterPanel {
                 value: root.visibleRows()
                 restoreMode: Binding.RestoreNone
             }
+            ScrollBar.vertical: ListScrollBar { id: rosterScrollBar }
+
             delegate: Rectangle {
                 id: row
                 required property var modelData
-                width: ListView.view.width
+                width: listView.width - rosterScrollBar.gutterWidth
                 height: 156
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#23303d"

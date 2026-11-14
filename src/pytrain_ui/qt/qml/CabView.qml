@@ -664,12 +664,19 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.topMargin: pageTab.checked ? 0 : 5
                                     radius: 10
-                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#263b50" : "#20313e"
+                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#397498" : "#20313e"
                                     border.width: 1
                                     border.color: pageTab.checked ? "#9ab2c3" : "#718a9c"
-                                    gradient: Gradient {
-                                        GradientStop { position: 0; color: pageTab.down ? "#101a25" : pageTab.checked ? "#405667" : "#324553" }
-                                        GradientStop { position: 1; color: pageTab.down ? "#263b50" : pageTab.checked ? "#263b50" : "#20313e" }
+                                    gradient: pageTab.checked ? selectedTabGradient : inactiveTabGradient
+                                    SelectionGradient {
+                                        id: selectedTabGradient
+                                        selected: true
+                                        depressed: pageTab.down
+                                    }
+                                    Gradient {
+                                        id: inactiveTabGradient
+                                        GradientStop { position: 0; color: pageTab.down ? "#101a25" : "#324553" }
+                                        GradientStop { position: 1; color: pageTab.down ? "#263b50" : "#20313e" }
                                     }
                                 }
                                 Rectangle {
@@ -679,14 +686,14 @@ Rectangle {
                                     anchors.leftMargin: 1
                                     anchors.rightMargin: 1
                                     height: 8
-                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#263b50" : "#20313e"
+                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#397498" : "#20313e"
                                 }
                                 Rectangle {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     anchors.bottom: parent.bottom
                                     height: 1
-                                    color: pageTab.checked ? "#263b50" : "#5275a4"
+                                    color: pageTab.checked ? "#397498" : "#5275a4"
                                 }
                             }
                         }
@@ -716,6 +723,7 @@ Rectangle {
                         enabled: !!root.infoController && cab.tmccId > 0
                         gesturePolicy: TapHandler.DragThreshold
                         onLongPressed: root.stateInfoRequested()
+                        onDoubleTapped: root.stateInfoRequested()
                     }
                     DragHandler {
                         id: artworkDrag

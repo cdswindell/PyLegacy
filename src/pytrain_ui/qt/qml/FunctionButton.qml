@@ -454,7 +454,14 @@ Control {
             anchors.bottomMargin: root.visualPressed ? 2 : 5
             radius: parent.radius - 2
             border.color: root.visualPressed ? "#121c27" : "#718a9c"
-            gradient: Gradient {
+            gradient: root.selected ? selectedGradient : functionGradient
+            SelectionGradient {
+                id: selectedGradient
+                selected: true
+                depressed: root.visualPressed
+            }
+            Gradient {
+                id: functionGradient
                 GradientStop {
                     position: 0
                     color: root.visualPressed ? "#101a25" : root.neutralFace ? "#405667" : root.speedFace ? "#405372" : "#365768"

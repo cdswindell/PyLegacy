@@ -248,7 +248,7 @@ class StateInfoController(QObject):
                     BaseReq.process_sync_reqs([request, state], deduplicate_writes=True)
             self._error = ""
         except (AssertionError, OSError, RuntimeError, ValueError) as exc:
-            self._error = str(exc)
+            self._error = str(exc) or "Unable to save this field to Base 3."
             self.refresh(True)
             return False
         self.refresh(True)

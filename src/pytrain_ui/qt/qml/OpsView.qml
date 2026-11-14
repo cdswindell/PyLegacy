@@ -543,11 +543,13 @@ RosterPanel {
             clip: true
             spacing: 10
             model: rosterModel
+            ScrollBar.vertical: ListScrollBar { id: rosterScrollBar }
+
             delegate: Rectangle {
                 id: row
                 required property var rowData
                 readonly property bool isRoute: root.controller.scope === "ROUTE"
-                width: roster.width
+                width: roster.width - rosterScrollBar.gutterWidth
                 height: 76
                 radius: 8
                 color: "#23303d"

@@ -196,10 +196,12 @@ RosterPanel {
             flickDeceleration: 1800
             model: root.filteredTargets()
 
+            ScrollBar.vertical: ListScrollBar { id: rosterScrollBar }
+
             delegate: Rectangle {
                 id: row
                 required property var modelData
-                width: ListView.view.width
+                width: listView.width - rosterScrollBar.gutterWidth
                 height: 108
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#23303d"

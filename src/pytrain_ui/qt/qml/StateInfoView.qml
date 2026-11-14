@@ -8,17 +8,19 @@ Rectangle {
     PanelMetrics { id: metrics }
     required property var controller
     signal closeRequested()
-    readonly property bool editorOpen: fieldEditor.visible
-    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges
+    readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
+    readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible
+    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges
     readonly property var record: controller ? controller.model : ({})
     color: "#102858"
     radius: 10
     border.color: "#496b9d"
 
     onVisibleChanged: {
-        if (!visible)
+        if (!visible) {
             fieldEditor.close()
-        else
+            roadNameKeyboard.close()
+        } else
             details.contentItem.contentY = 0
     }
 
@@ -26,7 +28,7 @@ Rectangle {
         interval: 400
         running: root.visible
         repeat: true
-        onTriggered: root.controller.refresh(fieldEditor.visible)
+        onTriggered: root.controller.refresh(root.editorOpen)
     }
 
     component InfoButton: Button {
@@ -107,12 +109,20 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Label {
-                Layout.fillWidth: true
                 text: root.record.creating ? "Create Engine" : (root.record.scopeTitle || "Engine") + " Information"
                 color: "white"
                 font.pixelSize: 22
                 font.bold: true
             }
+            Label {
+                Layout.fillWidth: true
+                visible: !root.record.creating && !!root.record.editable
+                text: root.useTouchKeyboard ? "Tap to edit" : "Click to edit"
+                color: "#b5c9e5"
+                font.pixelSize: 15
+                wrapMode: Text.WordWrap
+            }
+            Item { Layout.fillWidth: true; visible: root.record.creating || !root.record.editable }
             FooterButton {
                 visible: !!root.record.creating
                 Layout.fillWidth: false
@@ -161,7 +171,12 @@ Rectangle {
                             text: modelData.label + "\n" + modelData.display
                             font.pixelSize: 17
                             enabled: !!root.record.editable
-                            onClicked: fieldEditor.openFor(modelData)
+                            onClicked: {
+                                if (modelData.key === "name" && root.useTouchKeyboard)
+                                    roadNameKeyboard.openWithText(modelData.value || "")
+                                else
+                                    fieldEditor.openFor(modelData)
+                            }
                         }
                     }
                 }
@@ -267,10 +282,23 @@ Rectangle {
         onWheel: event => event.accepted = true
     }
 
+    SearchKeyboard {
+        id: roadNameKeyboard
+        title: "Road Name"
+        entryLimit: 31
+        saveEntry: function(text) {
+            if (root.controller.edit("name", text))
+                return true
+            errorText = root.controller.model.status || "Unable to save the road name."
+            return false
+        }
+    }
+
     Popup {
         id: fieldEditor
         property var field: ({})
         property string errorText: ""
+        readonly property bool roadName: field.key === "name"
         readonly property bool numeric: field.key === "number"
         readonly property bool choice: !!field.options && field.options.length > 0
         readonly property bool engineTypeList: choice && field.key === "type"
@@ -311,21 +339,23 @@ Rectangle {
                 revealEngineType.restart()
             if (!choice) {
                 entry.forceActiveFocus()
-                entry.selectAll()
+                entry.cursorPosition = entry.length
             }
         }
 
         function submit() {
             if (choice && picker.currentIndex < 0)
-                return
-            if (root.controller.edit(field.key, choice ? String(picker.currentValue) : entry.text))
+                return false
+            if (root.controller.edit(field.key, choice ? String(picker.currentValue) : entry.text)) {
                 close()
-            else
-                errorText = root.controller.model.status || "Unable to save this field."
+                return true
+            }
+            errorText = root.controller.model.status || "Unable to save this field."
+            return false
         }
 
         parent: Overlay.overlay
-        width: Math.min(parent.width - 24, numeric ? 560 : 480)
+        width: Math.min(parent.width - 24, roadName ? 840 : (numeric ? 560 : 480))
         x: (parent.width - width) / 2
         y: Math.max(12, (parent.height - height) / 2)
         padding: 16
@@ -372,24 +402,17 @@ Rectangle {
                 spacing: 6
                 boundsBehavior: Flickable.StopAtBounds
                 model: fieldEditor.engineTypeList ? fieldEditor.field.options : []
-                ScrollBar.vertical: ScrollBar { id: typeScrollBar }
+                ScrollBar.vertical: ListScrollBar { id: typeScrollBar }
                 delegate: FieldChoice {
-                    width: engineTypes.width - typeScrollBar.width - 4
+                    width: engineTypes.width - typeScrollBar.gutterWidth
                     height: 50
                 }
             }
             RowLayout {
                 visible: !fieldEditor.choice
                 Layout.fillWidth: true
-                TouchSearchField {
+                TextField {
                     id: entry
-                    touchKeyboardEnabled: fieldEditor.field.key === "name"
-                    keyboardTitle: fieldEditor.field.label || ""
-                    keyboardModal: false
-                    keyboardBottomMargin: {
-                        const overlay = root.Overlay.overlay
-                        return overlay ? Math.max(8, overlay.height - root.mapToItem(overlay, 0, root.height).y + 8) : 8
-                    }
                     Layout.fillWidth: true
                     Layout.preferredHeight: fieldEditor.numeric ? 68 : 52
                     maximumLength: fieldEditor.numeric ? 4 : 31
@@ -445,9 +468,9 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: metrics.footerGap
                 spacing: 18
-                FooterButton { text: fieldEditor.choice ? "Cancel" : "Close"; onClicked: fieldEditor.close() }
+                FooterButton { text: fieldEditor.choice || fieldEditor.roadName ? "Cancel" : "Close"; onClicked: fieldEditor.close() }
                 FooterButton {
-                    text: "Apply"
+                    text: fieldEditor.roadName ? "Save" : "Apply"
                     selected: true
                     enabled: fieldEditor.choice ? picker.currentIndex >= 0 :
                              !root.record.creating || entry.text.trim().length > 0

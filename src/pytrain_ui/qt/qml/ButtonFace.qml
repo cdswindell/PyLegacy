@@ -21,7 +21,14 @@ Rectangle {
         radius: Math.max(0, root.radius - 2)
         border.color: root.tinted ? Qt.lighter(root.accent, 1.4) : "#718a9c"
         opacity: root.enabled ? 1 : 0.45
-        gradient: Gradient {
+        gradient: root.selected ? selectionGradient : standardGradient
+        SelectionGradient {
+            id: selectionGradient
+            selected: true
+            depressed: root.depressed
+        }
+        Gradient {
+            id: standardGradient
             GradientStop {
                 position: 0
                 color: root.tinted ? (root.depressed ? Qt.darker(root.accent, 1.8) : Qt.lighter(root.accent, 1.55))

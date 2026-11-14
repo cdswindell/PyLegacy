@@ -6,16 +6,35 @@ Popup {
     id: root
     objectName: "searchKeyboard"
     property string title: "Search"
+    property var saveEntry: null
+    property int entryLimit: targetField ? targetField.maximumLength : 32767
+    property string errorText: ""
+    readonly property alias entryText: entry.text
+    property string originalText: ""
+    readonly property bool hasUnsavedChanges: visible && entry.text.trim() !== originalText.trim()
+
+    function finish() {
+        if (!saveEntry || saveEntry(entry.text))
+            close()
+    }
     property var targetField: null
     property bool upperCase: false
     property real keyboardInset: 8
 
     function openFor(field) {
         targetField = field
-        entry.text = field.text
+        openWithText(field.text)
+    }
+    function openWithText(text) {
+        originalText = text
+        entry.text = text
+        errorText = ""
         open()
         entry.forceActiveFocus()
-        entry.selectAll()
+        if (targetField)
+            entry.selectAll()
+        else
+            entry.cursorPosition = entry.length
     }
     function publish() {
         if (targetField) {
@@ -96,10 +115,17 @@ Popup {
             Layout.preferredHeight: 60
             font.pixelSize: 24
             selectByMouse: true
-            maximumLength: root.targetField ? root.targetField.maximumLength : 32767
+            maximumLength: root.entryLimit
             placeholderText: root.targetField ? root.targetField.placeholderText : ""
             onTextEdited: root.publish()
-            onAccepted: root.close()
+            onAccepted: root.finish()
+        }
+        Label {
+            visible: text.length > 0
+            Layout.fillWidth: true
+            text: root.errorText
+            color: "#ffd4d8"
+            wrapMode: Text.WordWrap
         }
         Repeater {
             model: ["1234567890", "qwertyuiop", "asdfghjkl", "⇧zxcvbnm⌫"]
@@ -125,7 +151,7 @@ Popup {
             KeyboardKey { text: "Clear"; onClicked: root.clearEntry() }
             KeyboardKey { text: "Space"; onClicked: root.typeKey(" ") }
             KeyboardKey { text: "−"; onClicked: root.typeKey("-") }
-            KeyboardKey { text: "Done"; highlighted: true; onClicked: root.close() }
+            KeyboardKey { text: root.saveEntry ? "Save" : "Done"; highlighted: true; onClicked: root.finish() }
         }
     }
 }

@@ -34,23 +34,9 @@ Rectangle {
                 Layout.preferredHeight: 76
                 radius: 7
                 readonly property bool activeScope: root.currentScope === modelData
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: scopeTap.pressed ? "#101a25" : scopeButton.activeScope ? "#122c43" : "#405667"
-                    }
-                    GradientStop {
-                        position: 0.22
-                        color: scopeButton.activeScope ? "#1b4565" : "#2d4152"
-                    }
-                    GradientStop {
-                        position: 0.65
-                        color: scopeButton.activeScope ? "#245a80" : "#253748"
-                    }
-                    GradientStop {
-                        position: 1
-                        color: scopeTap.pressed ? "#5c8199" : scopeButton.activeScope ? "#397498" : "#263b50"
-                    }
+                gradient: SelectionGradient {
+                    selected: scopeButton.activeScope
+                    depressed: scopeTap.pressed
                 }
                 border.width: activeScope ? 2 : 1
                 border.color: activeScope ? "#78bff0" : "#718a9c"
