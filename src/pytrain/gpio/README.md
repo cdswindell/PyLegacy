@@ -299,18 +299,43 @@ exact board revision, interface mode, and pinout before wiring.
   actual 7-bit address from an I²C scan. If the backpack uses 5 V
   pull-ups, use the level shifting described above.
   [RPLCD I²C driver reference](https://rplcd.readthedocs.io/en/stable/_modules/RPLCD/i2c.html)
-- **OLED size and driver.** PyTrain draws four text rows using a default
-  15-pixel font. A 64-pixel-tall panel fits all four rows. The wider
-  256×64 panel leaves room for additional status details, and a
-  128×32 panel is too short for the four-row view. PyTrain recognizes
-  `ssd1306`, `ssd1309`, `ssd1322`, `ssd1325`, `ssd1362`, `sh1107`,
-  and `sh1122`. Match the chip, interface, and the driver's default
-  geometry because the controller does not pass custom dimensions to
-  the OLED driver. `Controller` creates an `EngineStatus` in OLED mode.
-  For standalone `EngineStatus`, use `device` and `address` in place of
-  `oled_device` and `oled_address`.
 - **No display.** Set `is_lcd=False, is_oled=False` for keypad selection
   without a screen.
+
+### Which OLED drivers fit four status lines?
+
+All seven `OledDevice` drivers can fit the four `EngineStatus` lines
+when the panel matches the geometry below. PyTrain uses a 15-pixel
+font and allocates one row per 15 pixels of display height, rounded
+down. `EngineStatus` uses four rows even when the display has room
+for more.
+
+| `OledDevice` | PyTrain geometry (width × height) | Rows available | Differences |
+| --- | --- | ---: | --- |
+| `ssd1306` | 128×64 | 4 | Monochrome. A compact option for I²C, such as Adafruit #326 above. |
+| `ssd1309` | 128×64 | 4 | Monochrome. Same text width as SSD1306. Luma documents SPI as the usual interface. |
+| `ssd1322` | 256×64 | 4 | 16 grayscale levels. Wide format and PyTrain's default SPI driver. |
+| `ssd1325` | 128×64 | 4 | 16 grayscale levels. Same text width as SSD1306, with a different controller. |
+| `ssd1362` | 256×64 | 4 | 16 grayscale levels. Same text area as SSD1322, with its own SPI driver. |
+| `sh1107` | 64×128 | 8 | Monochrome. Luma defaults to portrait orientation and typically uses I²C. The status text has the least horizontal space here. |
+| `sh1122` | 256×64 | 4 | 16 grayscale levels. PyTrain supplies its own driver. The physical panel must use the SH1122 controller. |
+
+The 256×64 panels have room for details that the status view may omit
+on narrower screens, such as the maximum speed and RPM/labor.
+The 64×128 SH1107 has extra vertical room, but PyTrain still uses
+the first four rows. PyTrain leaves display dimensions and rotation
+at the driver defaults. Match those defaults when buying a panel.
+A 128×32 SSD1306 module has room for only two lines at the default
+font size.
+
+Use `oled_address=0` for SPI0 CE0 or the board's nonzero I²C address
+for bus 1. Confirm the module is wired or strapped for that interface.
+With standalone `EngineStatus`, use `device` and `address` in place of
+`oled_device` and `oled_address`.
+
+[Luma.OLED driver API](https://luma-oled.readthedocs.io/en/latest/api-documentation.html) ·
+[Luma.OLED pixel formats](https://luma-oled.readthedocs.io/en/stable/python-usage.html) ·
+[SH1122 controller datasheet](https://orientdisplay.com/wp-content/uploads/2022/08/SH1122_v1.0.pdf)
 
 ### Add throttle and command buttons
 
