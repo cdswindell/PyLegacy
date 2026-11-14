@@ -550,7 +550,7 @@ RosterPanel {
                 width: roster.width
                 height: 76
                 radius: 8
-                color: "#262b32"
+                color: "#23303d"
                 border.width: 1
                 border.color: "#444c57"
                 TapHandler {

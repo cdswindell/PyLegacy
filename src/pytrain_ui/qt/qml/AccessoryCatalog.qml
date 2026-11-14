@@ -262,7 +262,7 @@ RosterPanel {
                 width: ListView.view.width
                 height: 156
                 radius: 8
-                color: tapHandler.pressed ? "#354150" : "#272d35"
+                color: tapHandler.pressed ? "#354150" : "#23303d"
                 opacity: row.modelData.componentEnabled === false ? 0.62 : 1.0
                 border.width: 1
                 border.color: "#4b5664"

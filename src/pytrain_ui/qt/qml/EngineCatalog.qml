@@ -202,7 +202,7 @@ RosterPanel {
                 width: ListView.view.width
                 height: 108
                 radius: 8
-                color: tapHandler.pressed ? "#354150" : "#272d35"
+                color: tapHandler.pressed ? "#354150" : "#23303d"
                 border.width: 1
                 border.color: "#4b5664"
 
@@ -215,7 +215,7 @@ RosterPanel {
                         Layout.preferredWidth: 132
                         Layout.preferredHeight: 92
                         radius: 7
-                        color: "#1c2229"
+                        color: "#18232e"
                         border.width: 1
                         border.color: "#596574"
                         Column {
