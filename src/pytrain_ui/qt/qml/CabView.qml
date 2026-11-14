@@ -464,9 +464,11 @@ Rectangle {
         iconSize: (root.compact ? 40 : 72) - (root.preferredTileHeight - root.tileHeight)
         compact: auxiliary
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
+              : largeLabel ? "Set Address"
               : auxiliary ? action.label.replace(" · ", "\n") : action.label
         labelChevron: text === "< Smoke" ? -1 : text === "Smoke >" ? 1 : 0
         displayLabel: auxFace ? action.label.slice(0, 3) + " " + action.label.trim().match(/^Aux ?([123])/)[1]
+                      : largeLabel ? "Set\nAddress"
                       : signedSpeaker ? text.replace(/ [＋+−-]$/, "")
                       : showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
         gaugeLabel: action.gauge ? action.label : ""
@@ -476,7 +478,7 @@ Rectangle {
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
-        additionalHoldAction: (deferForHold && (speedChevrons > 0
+        additionalHoldAction: (deferForHold && (showGauge || speedChevrons > 0
                                || ["startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
                               || (auxiliary && action.key === "sequence" && repeatWhileHeld)
         stopSign: emergencyStop || action.key === "STOP_HOLD"

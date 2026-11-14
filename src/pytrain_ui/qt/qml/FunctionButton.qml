@@ -476,7 +476,8 @@ Control {
         }
 
         Item {
-            visible: root.trialFace && !root.steelFace && (root.additionalHoldAction || root.deferForHold || root.repeatWhileHeld)
+            visible: !root.steelFace && ((root.showGauge && root.additionalHoldAction)
+                     || (root.trialFace && (root.additionalHoldAction || root.deferForHold || root.repeatWhileHeld)))
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 7

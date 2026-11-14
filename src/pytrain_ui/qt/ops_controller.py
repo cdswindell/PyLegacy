@@ -244,10 +244,24 @@ class OpsController(QObject):
         self.reload()
         return ""
 
+    @staticmethod
+    def _send_switch_set_address(tmcc_id: int) -> None:
+        CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, tmcc_id).send()
+
+    @Slot(int, result=str)
+    def programSwitchAddress(self, tmcc_id: int) -> str:
+        if self._scope != CommandScope.SWITCH or not 1 <= tmcc_id <= 98:
+            return "Enter a switch address from 1 to 98."
+        try:
+            self._send_switch_set_address(tmcc_id)
+        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+            return str(exc) or "Unable to set the switch address."
+        return ""
+
     def _provision_switch(self, tmcc_id: int, road_name: str, road_number: str, command_control: bool) -> None:
         """Program the switch, persist its Base record, then request authoritative config."""
         if command_control:
-            CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, tmcc_id).send()
+            self._send_switch_set_address(tmcc_id)
 
         state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=True)
         if state is None:

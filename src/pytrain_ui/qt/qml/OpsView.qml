@@ -684,6 +684,14 @@ RosterPanel {
     TmccKeypad {
         id: tmccKeypad
         title: (controller && controller.scope === "SWITCH" ? "Switch" : "Route") + " TMCC ID"
+        showSetAddress: !!controller && controller.scope === "SWITCH"
+        onSetAddressRequested: function(tmccId) {
+            const error = controller.programSwitchAddress(tmccId)
+            if (error)
+                errorText = error
+            else
+                close()
+        }
         onSubmitted: root.submitTmccId()
     }
 
