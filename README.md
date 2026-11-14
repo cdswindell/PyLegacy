@@ -22,7 +22,7 @@ actions, allowing the development of physical control panels to operate trains.
 
 ## Quick Start
 
-For the touchscreen cab, see the [PyCab Qt User Manual](docs/pycab-qt/README.md).
+For the touchscreen cab, see the [PyCab Qt User Manual](doc/pycab-qt/README.md).
 
 If you are anxious to get going and take **Pytrain** for a spin, this section is for you.
 If you want a more detailed overview of what **PyTrain** is, why it was written, and what
