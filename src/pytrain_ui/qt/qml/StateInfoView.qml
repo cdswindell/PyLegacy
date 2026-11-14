@@ -11,6 +11,7 @@ Rectangle {
     readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
     readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible
     readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges
+    readonly property color fieldLabelColor: "#b5c9e5"
     readonly property var record: controller ? controller.model : ({})
     color: "#102858"
     radius: 10
@@ -85,7 +86,7 @@ Rectangle {
                     Label {
                         Layout.fillWidth: true
                         text: modelData.label
-                        color: "#b5c9e5"
+                        color: root.fieldLabelColor
                         font.pixelSize: 14
                         wrapMode: Text.WordWrap
                     }
@@ -162,6 +163,7 @@ Rectangle {
                     Repeater {
                         model: root.record.identity || []
                         delegate: InfoButton {
+                            id: identityButton
                             required property var modelData
                             Layout.fillWidth: true
                             Layout.preferredWidth: 0
@@ -171,6 +173,31 @@ Rectangle {
                             text: modelData.label + "\n" + modelData.display
                             font.pixelSize: 17
                             enabled: !!root.record.editable
+                            contentItem: Item {
+                                ColumnLayout {
+                                    width: parent.width
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 0
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: modelData.label
+                                        textFormat: Text.PlainText
+                                        font: identityButton.font
+                                        color: root.fieldLabelColor
+                                        horizontalAlignment: Text.AlignHCenter
+                                        elide: Text.ElideRight
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: modelData.display
+                                        textFormat: Text.PlainText
+                                        font: identityButton.font
+                                        color: "white"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
                             onClicked: {
                                 if (modelData.key === "name" && root.useTouchKeyboard)
                                     roadNameKeyboard.openWithText(modelData.value || "")
@@ -248,17 +275,21 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 18
-                    color: "white"
+                    color: "#ff6666"
                 }
-                background: Rectangle {
-                    color: "#572f43"
-                    border.color: "#b67580"
-                    radius: 8
+                background: ButtonFace {
+                    depressed: clearButton.down
+                    focused: clearButton.activeFocus
                     Rectangle {
-                        width: parent.width * clearButton.progress
-                        height: parent.height
-                        radius: 8
-                        color: "#a93c4b"
+                        visible: clearButton.down && clearButton.progress > 0
+                        anchors.left: parent.left
+                        anchors.leftMargin: 3
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 2
+                        width: Math.max(0, parent.width - 6) * clearButton.progress
+                        height: 5
+                        radius: 2
+                        color: clearButton.contentItem.color
                     }
                 }
             }
@@ -302,7 +333,13 @@ Rectangle {
         readonly property bool numeric: field.key === "number"
         readonly property bool choice: !!field.options && field.options.length > 0
         readonly property bool engineTypeList: choice && field.key === "type"
+        readonly property real editorScale: choice ? 1.25 : 1
+        readonly property int choiceHeight: Math.round(50 * editorScale)
+        readonly property int choiceGap: Math.round(10 * editorScale)
+        readonly property real choiceBodyHeight: Math.max(choiceHeight, parent.height - 200)
         readonly property bool shortList: choice && !engineTypeList && field.options.length <= 6
+            && field.options.length * (choiceHeight + choiceGap) - choiceGap <= choiceBodyHeight
+        readonly property bool scrollChoices: choice && (engineTypeList || (!shortList && field.options.length <= 6))
         readonly property string originalValue: field.value === undefined || field.value === null ? "" : String(field.value)
         readonly property bool hasUnsavedChanges: visible && (choice
             ? picker.currentIndex >= 0 && String(picker.currentValue) !== originalValue
@@ -323,6 +360,7 @@ Rectangle {
             required property int index
             required property var modelData
             text: modelData.label
+            font.pixelSize: Math.round(18 * fieldEditor.editorScale)
             selected: picker.currentIndex === index
             Accessible.checkable: true
             Accessible.checked: selected
@@ -335,7 +373,7 @@ Rectangle {
             entry.text = row.value === undefined || row.value === null ? "" : String(row.value)
             picker.currentIndex = choice ? picker.indexOfValue(row.value) : -1
             open()
-            if (engineTypeList)
+            if (scrollChoices)
                 revealEngineType.restart()
             if (!choice) {
                 entry.forceActiveFocus()
@@ -355,57 +393,58 @@ Rectangle {
         }
 
         parent: Overlay.overlay
-        width: Math.min(parent.width - 24, roadName ? 840 : (numeric ? 560 : 480))
+        width: Math.min(parent.width - 24, roadName ? 840 : (numeric ? 560 : 480 * editorScale))
         x: (parent.width - width) / 2
         y: Math.max(12, (parent.height - height) / 2)
-        padding: 16
+        padding: Math.round(16 * editorScale)
         modal: false
         focus: true
         closePolicy: Popup.CloseOnEscape
         background: Rectangle { color: "#102858"; radius: 12; border.color: "#7094c0" }
         contentItem: ColumnLayout {
-            spacing: 10
+            spacing: Math.round(10 * fieldEditor.editorScale)
             Label {
                 text: fieldEditor.field.label || ""
                 color: "white"
-                font.pixelSize: 24
+                font.pixelSize: Math.round(24 * fieldEditor.editorScale)
                 font.bold: true
             }
             ComboBox {
                 id: picker
-                visible: fieldEditor.choice && !fieldEditor.shortList && !fieldEditor.engineTypeList
+                visible: fieldEditor.choice && !fieldEditor.shortList && !fieldEditor.scrollChoices
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
+                Layout.preferredHeight: Math.round(54 * fieldEditor.editorScale)
                 textRole: "label"
                 valueRole: "value"
                 model: fieldEditor.field.options || []
-                font.pixelSize: 18
+                font.pixelSize: Math.round(18 * fieldEditor.editorScale)
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 visible: fieldEditor.shortList
-                spacing: 6
+                spacing: fieldEditor.choiceGap
                 Repeater {
                     model: fieldEditor.shortList ? fieldEditor.field.options : []
                     FieldChoice {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 50
+                        Layout.preferredHeight: fieldEditor.choiceHeight
                     }
                 }
             }
             ListView {
                 id: engineTypes
-                visible: fieldEditor.engineTypeList
+                visible: fieldEditor.scrollChoices
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(count, fieldEditor.parent.height < 450 ? 4 : 5) * 56 - (count > 0 ? 6 : 0)
+                Layout.preferredHeight: Math.min(fieldEditor.choiceBodyHeight,
+                    Math.min(count, 5) * (fieldEditor.choiceHeight + spacing) - (count > 0 ? spacing : 0))
                 clip: true
-                spacing: 6
+                spacing: fieldEditor.choiceGap
                 boundsBehavior: Flickable.StopAtBounds
-                model: fieldEditor.engineTypeList ? fieldEditor.field.options : []
+                model: fieldEditor.scrollChoices ? fieldEditor.field.options : []
                 ScrollBar.vertical: ListScrollBar { id: typeScrollBar }
                 delegate: FieldChoice {
                     width: engineTypes.width - typeScrollBar.gutterWidth
-                    height: 50
+                    height: fieldEditor.choiceHeight
                 }
             }
             RowLayout {
@@ -468,9 +507,16 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: metrics.footerGap
                 spacing: 18
-                FooterButton { text: fieldEditor.choice || fieldEditor.roadName ? "Cancel" : "Close"; onClicked: fieldEditor.close() }
+                FooterButton {
+                    text: fieldEditor.choice || fieldEditor.roadName ? "Cancel" : "Close"
+                    Layout.preferredHeight: Math.round(56 * fieldEditor.editorScale)
+                    font.pixelSize: Math.round(18 * fieldEditor.editorScale)
+                    onClicked: fieldEditor.close()
+                }
                 FooterButton {
                     text: fieldEditor.roadName ? "Save" : "Apply"
+                    Layout.preferredHeight: Math.round(56 * fieldEditor.editorScale)
+                    font.pixelSize: Math.round(18 * fieldEditor.editorScale)
                     selected: true
                     enabled: fieldEditor.choice ? picker.currentIndex >= 0 :
                              !root.record.creating || entry.text.trim().length > 0

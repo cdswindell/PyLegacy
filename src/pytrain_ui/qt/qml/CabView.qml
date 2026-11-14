@@ -719,17 +719,39 @@ Rectangle {
                         asynchronous: true
                         cache: false
                     }
+                    Timer {
+                        id: artworkTapWindow
+                        interval: 450
+                    }
                     TapHandler {
+                        property point firstTapPosition
+
                         enabled: !!root.infoController && cab.tmccId > 0
                         gesturePolicy: TapHandler.DragThreshold
-                        onLongPressed: root.stateInfoRequested()
-                        onDoubleTapped: root.stateInfoRequested()
+                        onCanceled: artworkTapWindow.stop()
+                        onLongPressed: {
+                            artworkTapWindow.stop()
+                            root.stateInfoRequested()
+                        }
+                        onTapped: function(point) {
+                            const position = point.position
+                            if (artworkTapWindow.running
+                                    && Math.hypot(position.x - firstTapPosition.x,
+                                                  position.y - firstTapPosition.y) <= 32) {
+                                artworkTapWindow.stop()
+                                root.stateInfoRequested()
+                            } else {
+                                firstTapPosition = position
+                                artworkTapWindow.restart()
+                            }
+                        }
                     }
                     DragHandler {
                         id: artworkDrag
                         target: null
                         xAxis.enabled: true
                         yAxis.enabled: false
+                        onActiveChanged: if (active) artworkTapWindow.stop()
                         enabled: cab.scope === "ENGINE" && root.selection && root.selection.count > 0
                         onGrabChanged: function(transition, point) {
                             if (transition !== PointerDevice.UngrabExclusive)
