@@ -89,13 +89,7 @@ Switch(
 )
 ```
 
-Save the file and add `-buttons_file` to your usual PyTrain startup
-command. With no filename argument, PyTrain reads `buttons.py` in the
-current directory. You can also specify a path:
-
-```sh
-pytrain -buttons_file /path/to/buttons.py
-```
+Load this example using the [startup instructions below](#use-the-classes-in-buttonspy).
 
 ## Choose a controller or status display
 
@@ -105,8 +99,37 @@ pytrain -buttons_file /path/to/buttons.py
 | `EngineController` | Momentary buttons, optional quadrature encoder, optional ADS1115 analog controls and base-status LEDs | Build a dedicated cab for an engine or train, or let your own software select which target the controls operate. |
 | `Controller` | Matrix keypad, optional I²C character LCD or OLED, and optional `EngineController` hardware | Build a cab where the operator selects an engine or train on a keypad and uses the same physical controls for different targets. |
 
-The examples below are separate `buttons.py` configurations. Load one
-using the startup option above and substitute your own pins and addresses.
+## Use the classes in `buttons.py`
+
+Copy the complete Python block for your setup into `buttons.py`. If you
+already have a file, add the block at the top level alongside your
+existing button definitions. Match the GPIOs, I²C addresses, and TMCC ID
+to your hardware and roster.
+
+- [`Controller` with a keypad and LCD](#look-up-an-engine-on-a-204-lcd)
+  lets the operator choose the target. Copy this block for a read-only
+  panel. For a cab with a throttle, bell, and horn, use the
+  [full cab example](#add-throttle-and-command-buttons).
+- [`EngineStatus` with an OLED](#enginestatus) displays the engine or
+  train specified by `tmcc_id` and `scope` in the file.
+- [`EngineController` with physical controls](#enginecontroller) binds
+  commands when the file calls `cab.update()`. Copy that call and the
+  state lookup along with the constructor.
+
+Each block is a separate example. If you combine devices in one file,
+assign each device its own GPIOs and I²C address. A `Controller` set up
+for OLED already creates an `EngineStatus` for that screen.
+
+In the directory containing `buttons.py`, add `-buttons_file` to your
+usual PyTrain startup command. You can also supply the path explicitly:
+
+```sh
+pytrain -buttons_file /path/to/buttons.py
+```
+
+Restart PyTrain with that option after editing the file. For a keypad
+lookup, wait for synchronization, then press `A 1 2 #` to select engine 12.
+
 The examples use Broadcom (BCM) GPIO numbers. Share ground among the Pi
 and its peripherals, keep the Pi's GPIO signals at 3.3 V, and choose
 unused GPIOs when combining hardware. On the Pi's 40-pin header, I²C uses
