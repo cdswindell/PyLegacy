@@ -258,13 +258,16 @@ Rectangle {
             Layout.fillWidth: true
             Layout.topMargin: metrics.footerGap
             spacing: 18
+            readonly property int buttonHeight: 70
+            id: recordFooter
+
             DelayButton {
                 id: clearButton
                 visible: !root.record.creating && !!root.record.canClear
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.minimumWidth: 0
-                Layout.preferredHeight: 56
+                Layout.preferredHeight: recordFooter.buttonHeight
                 text: "Hold to Clear"
                 Accessible.name: "Hold to clear this Base 3 record"
                 delay: 3000
@@ -294,10 +297,12 @@ Rectangle {
                 }
             }
             FooterButton {
+                Layout.preferredHeight: recordFooter.buttonHeight
                 text: root.record.creating && !root.record.busy ? "Cancel" : "Close"
                 onClicked: root.closeRequested()
             }
             FooterButton {
+                Layout.preferredHeight: recordFooter.buttonHeight
                 visible: !!root.record.creating
                 text: "Create"
                 enabled: !!root.record.canCreate

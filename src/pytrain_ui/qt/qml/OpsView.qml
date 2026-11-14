@@ -327,6 +327,8 @@ RosterPanel {
         id: actionButton
         required property string symbol
         property bool rightHand: false
+        property int iconSpacing: 8
+        property int turnoutIconWidth: 23
         readonly property bool turnout: symbol === "thru" || symbol === "out"
 
         Accessible.role: Accessible.Button
@@ -339,7 +341,7 @@ RosterPanel {
             RowLayout {
                 anchors.centerIn: parent
                 width: Math.min(implicitWidth, parent.width)
-                spacing: 8
+                spacing: actionButton.iconSpacing
 
                 TurnoutDiagram {
                     visible: actionButton.turnout
@@ -347,7 +349,7 @@ RosterPanel {
                     rightHand: actionButton.rightHand
                     diverging: actionButton.symbol === "out"
                     opacity: actionButton.enabled ? 1 : 0.55
-                    Layout.preferredWidth: 23
+                    Layout.preferredWidth: actionButton.turnoutIconWidth
                     Layout.preferredHeight: 34
                 }
 
@@ -432,7 +434,11 @@ RosterPanel {
         Layout.preferredWidth: 88
         Layout.minimumHeight: 60
         Layout.maximumHeight: 60
-        font.pixelSize: 22
+        leftPadding: 4
+        rightPadding: 4
+        iconSpacing: 4
+        turnoutIconWidth: 20
+        font.pixelSize: 20
     }
 
     ColumnLayout {
@@ -555,13 +561,37 @@ RosterPanel {
                 color: "#23303d"
                 border.width: 1
                 border.color: "#444c57"
+                Timer {
+                    id: rowTapWindow
+                    interval: 450
+                }
                 TapHandler {
+                    property point firstTapPosition
+
+                    enabled: roster.enabled && !roster.moving
                     acceptedButtons: Qt.LeftButton
-                    onDoubleTapped: {
-                        if (rowActions.contains(rowActions.mapFromItem(row, point.position)))
+                    gesturePolicy: TapHandler.DragThreshold
+                    onEnabledChanged: if (!enabled) rowTapWindow.stop()
+                    onCanceled: rowTapWindow.stop()
+                    onLongPressed: rowTapWindow.stop()
+                    onTapped: function(point) {
+                        const position = point.position
+                        if (rowActions.contains(rowActions.mapFromItem(row, position))) {
+                            rowTapWindow.stop()
                             return
-                        if (root.controller.scope === "ROUTE") root.controller.fireRoute(row.rowData.tmccId)
-                        else root.controller.toggleSwitch(row.rowData.tmccId)
+                        }
+                        if (rowTapWindow.running
+                                && Math.hypot(position.x - firstTapPosition.x,
+                                              position.y - firstTapPosition.y) <= 32) {
+                            rowTapWindow.stop()
+                            if (row.isRoute)
+                                root.controller.fireRoute(row.rowData.tmccId)
+                            else
+                                root.controller.toggleSwitch(row.rowData.tmccId)
+                        } else {
+                            firstTapPosition = position
+                            rowTapWindow.restart()
+                        }
                     }
                 }
                 RowLayout {
@@ -636,7 +666,7 @@ RosterPanel {
                         }
                         text: rowData.stateText === "UNKNOWN" ? "" : rowData.stateText
                         color: rowData.stateText === "Aligned" ? "#73d38a" :
-                               rowData.stateText === "UNKNOWN" ? "#aeb5bf" : "#b51f2a"
+                               "#ffffff"
                         font.pixelSize: 16
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter
@@ -1030,9 +1060,10 @@ RosterPanel {
 
             RowLayout {
                 Layout.fillWidth: true
+                Layout.topMargin: metrics.footerGap
                 spacing: 14
                 ClearRecordButton {
-                    Layout.preferredHeight: 63
+                    Layout.preferredHeight: 79
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     enabled: {
                         root.rosterRows
@@ -1050,7 +1081,7 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 63
+                    Layout.preferredHeight: 79
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     text: "Cancel"
                     font.pixelSize: metrics.editorButtonFontSize
@@ -1059,7 +1090,7 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 63
+                    Layout.preferredHeight: 79
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     activateOnRelease: true
                     text: "Save"
@@ -1543,9 +1574,11 @@ RosterPanel {
             }
             RowLayout {
                 Layout.fillWidth: true
+                Layout.topMargin: metrics.footerGap
                 spacing: 14
 
                 ClearRecordButton {
+                    Layout.preferredHeight: 63
                     enabled: {
                         root.rosterRows
                         return controller.canClearRecord(root.editingSwitchId)
@@ -1561,7 +1594,7 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 50
+                    Layout.preferredHeight: 63
                     text: "Cancel"
                     font.pixelSize: metrics.editorButtonFontSize
                     onClicked: switchEditor.close()
@@ -1569,7 +1602,7 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 50
+                    Layout.preferredHeight: 63
                     activateOnRelease: true
                     text: "Save"
                     font.pixelSize: metrics.editorButtonFontSize
