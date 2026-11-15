@@ -19,7 +19,7 @@ Button {
         text: root.text
         color: root.enabled ? "white" : "#7d8591"
         font.pixelSize: 24
-        font.bold: root.enabled
+        font.bold: true
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }

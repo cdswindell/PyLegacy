@@ -67,7 +67,7 @@ Control {
 
     implicitHeight: compact ? 44 : 58
     font.pixelSize: compact ? 12 : 14
-    font.bold: trialIcon === "" && iconSource.toString() === ""
+    font.bold: true
     focusPolicy: Qt.StrongFocus
 
     readonly property real iconOpacity: enabled ? 1 : 0.5

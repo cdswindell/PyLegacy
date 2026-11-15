@@ -63,7 +63,7 @@ Popup {
             text: root.showingModules ? "My LCS Modules" : "Which module are you configuring?"
             color: root.showingModules ? "#f4f6f8" : "#aeb5bf"
             font.pixelSize: root.showingModules ? 20 : 16
-            font.bold: root.showingModules
+            font.bold: true
         }
 
         Repeater {
@@ -75,7 +75,7 @@ Popup {
                 Layout.preferredHeight: 70
                 selected: root.controller.deviceKey === modelData.key
                 text: modelData.label + (modelData.blurb.length ? "   " + modelData.blurb : "")
-                font.bold: selected
+                font.bold: true
                 onClicked: root.controller.selectDevice(modelData.key)
                 onDoubleClicked: {
                     root.controller.selectDevice(modelData.key)
@@ -701,7 +701,7 @@ Popup {
                 Layout.preferredHeight: 52
                 activateOnRelease: true
                 text: root.showingModules ? "Close" : (root.page === 3 ? "Configure" : "Next")
-                font.bold: !root.showingModules
+                font.bold: true
                 enabled: root.showingModules || (root.controller && root.controller.deviceKey.length > 0)
                 onClicked: {
                     if (root.showingModules) {

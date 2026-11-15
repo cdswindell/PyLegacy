@@ -490,7 +490,6 @@ Rectangle {
         Accessible.name: stopSign ? text + " Stop" : text
         enabled: !action.disabled && (!action.speedPreset || root.speedPresetsEnabled)
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
-        font.bold: emergencyStop
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
         font.pixelSize: root.compact ? (wideArtwork ? 12 : 14) : 18
         deferForHold: action.hold || false
@@ -661,7 +660,7 @@ Rectangle {
                                 text: parent.text
                                 color: pageTab.checked ? "#ffffff" : "#aeb7c2"
                                 font.pixelSize: 18
-                                font.bold: parent.checked
+                                font.bold: true
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }

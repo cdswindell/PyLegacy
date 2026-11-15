@@ -36,6 +36,7 @@ Rectangle {
     component InfoButton: Button {
         id: button
         property bool selected: false
+        font.bold: true
         contentItem: Text {
             text: button.text
             font: button.font

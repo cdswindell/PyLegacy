@@ -153,7 +153,7 @@ Rectangle {
         property bool navigates: false
         padding: 10
         font.pixelSize: 24
-        font.bold: navigates
+        font.bold: true
         rightPadding: navigates ? 36 : padding
         contentItem: Text {
             text: button.text

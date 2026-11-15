@@ -103,6 +103,7 @@ Popup {
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 64
                     text: "✕"
+                    font.bold: true
                     font.pixelSize: 26
                     onClicked: root.close()
 

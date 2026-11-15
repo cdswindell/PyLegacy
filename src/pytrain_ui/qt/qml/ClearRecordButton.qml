@@ -12,6 +12,7 @@ DelayButton {
     Accessible.name: "Hold for 3 seconds to clear this Base 3 record"
     delay: 3000
     onVisibleChanged: if (visible) checked = false
+    font.bold: true
     font.pixelSize: 20
     contentItem: Text {
         text: clearButton.text

@@ -92,7 +92,7 @@ RosterPanel {
 
     component ChoiceButton: CabButton {
         font.pixelSize: 26
-        font.bold: selected
+        font.bold: true
     }
 
     ColumnLayout {

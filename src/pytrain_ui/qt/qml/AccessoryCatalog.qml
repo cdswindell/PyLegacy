@@ -124,7 +124,7 @@ RosterPanel {
 
     component ChoiceButton: CabButton {
         font.pixelSize: 26
-        font.bold: selected
+        font.bold: true
     }
 
     ColumnLayout {
@@ -334,7 +334,7 @@ RosterPanel {
                                 Layout.preferredHeight: 57
                                 text: modelData.label
                                 font.pixelSize: 26
-                                font.bold: modelData.selected
+                                font.bold: true
                                 selected: modelData.selected
                                 enabled: modelData.enabled === undefined || modelData.enabled
                             }
