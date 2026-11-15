@@ -143,6 +143,20 @@ Item {
         }
     }
 
+    Repeater {
+        model: root.scaleCount
+
+        Rectangle {
+            required property int index
+            readonly property int stepValue: root.minimumValue + index * root.scaleStep
+            width: root.largeTouch ? 10 : 7
+            height: 2
+            x: trough.x + trough.width - width / 2
+            y: Math.round(root.valueToY(stepValue) + (handle.height - height) / 2)
+            color: "#a9bfd3"
+        }
+    }
+
     Rectangle {
         anchors.horizontalCenter: rail.horizontalCenter
         width: 18

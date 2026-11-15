@@ -1014,7 +1014,10 @@ Rectangle {
                                     font.pixelSize: root.compact ? 12 : 16
                                 }
                                 popup.width: root.compact ? 150 : 220
-                                popup.padding: 5
+                                readonly property int optionGap: 5
+                                popup.padding: 8
+                                popup.height: count * (root.sliderButtonHeight + optionGap)
+                                              - optionGap + popup.topPadding + popup.bottomPadding
                                 popup.background: Rectangle { color: "#102858"; radius: 8; border.color: "#6385af" }
                                 ToolTip.visible: hovered
                                 delegate: ItemDelegate {
@@ -1022,7 +1025,8 @@ Rectangle {
                                     required property int index
                                     required property string modelData
                                     width: analogMode.popup.availableWidth
-                                    height: root.sliderButtonHeight
+                                    height: root.sliderButtonHeight + bottomInset
+                                    bottomInset: index < analogMode.count - 1 ? analogMode.optionGap : 0
                                     text: root.analogModeLabel(modelData)
                                     font: analogMode.font
                                     highlighted: analogMode.highlightedIndex === index
@@ -1033,7 +1037,8 @@ Rectangle {
                                         verticalAlignment: Text.AlignVCenter
                                     }
                                     background: ButtonFace {
-                                        selected: analogMode.currentIndex === index || modeChoice.highlighted
+                                        selected: analogMode.currentIndex === index
+                                        focused: modeChoice.highlighted && modeChoice.visualFocus
                                         depressed: modeChoice.down
                                     }
                                 }
@@ -1061,27 +1066,23 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
-                                maximumValue: root.analogControlMode === "Horn" ? 15 : 7
+                                momentumMode: root.analogControlMode === "Momentum"
+                                presetMomentum: momentumMode && !cab.isLegacy
+                                maximumValue: springReturn ? 15 : presetMomentum ? 2 : 7
                                 springReturn: root.analogControlMode === "Horn"
-                                value: root.analogControlMode === "Brake" ? cab.trainBrake : root.analogControlMode === "Momentum" ? cab.momentum : 0
+                                value: {
+                                    if (!momentumMode)
+                                        return springReturn ? 0 : cab.trainBrake
+                                    return presetMomentum ? (cab.momentum <= 0 ? 0 : cab.momentum >= 7 ? 2 : 1)
+                                                          : cab.momentum
+                                }
                                 onValueMoved: function(v) {
                                     if (root.analogControlMode === "Brake") cab.setTrainBrake(v)
                                     else if (root.analogControlMode === "Horn") cab.setQuillingHorn(v)
                                 }
                                 onValueCommitted: function(v) {
-                                    if (root.analogControlMode === "Momentum") cab.setMomentum(v)
+                                    if (momentumMode) cab.setMomentum(presetMomentum ? [0, 3, 7][v] : v)
                                 }
-                            }
-                            Label {
-                                objectName: "variableControlRange"
-                                Layout.fillWidth: true
-                                Layout.minimumHeight: 20
-                                Layout.maximumHeight: 20
-                                Layout.preferredHeight: 20
-                                horizontalAlignment: Text.AlignHCenter
-                                text: root.analogControlMode === "Horn" ? "0–15" : "0–7"
-                                color: "#bdcfe5"
-                                font.pixelSize: root.compact ? 12 : 15
                             }
                             Timer {
                                 interval: cab.isCab1 || cab.isCrane ? cab.hornRepeatInterval : 500

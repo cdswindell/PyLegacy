@@ -11,8 +11,11 @@ Item {
     property bool awaitingConfirmation: false
     property bool springReturn: false
     property bool largeTouch: false
+    property bool momentumMode: false
+    property bool presetMomentum: false
+    readonly property int scaleFontSize: largeTouch ? 14 : 11
+    readonly property int labelStep: maximumValue === 15 && (height - handle.height) / 15 < scaleFontSize + 5 ? 3 : 1
     readonly property bool dragging: pointer.pressed
-    readonly property int tickCount: maximumValue <= 7 ? maximumValue + 1 : 5
     readonly property real activeHeight: Math.max(1, height)
 
     signal valueMoved(int value)
@@ -21,6 +24,16 @@ Item {
 
     implicitWidth: 76
     implicitHeight: 420
+
+    function scaleLabel(v) {
+        if (!momentumMode)
+            return String(v)
+        if (v === minimumValue)
+            return "Low"
+        if (v === maximumValue)
+            return "High"
+        return presetMomentum ? "Med" : String(v)
+    }
 
     function clamp(v) {
         return Math.max(minimumValue, Math.min(maximumValue, v))
@@ -71,7 +84,7 @@ Item {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         height: rail.height
-        width: Math.max(0, Math.min(46, root.width - 8))
+        width: Math.min(46, Math.round(root.width * 0.44))
         radius: 12
         gradient: Gradient {
             GradientStop { position: 0; color: "#10151c" }
@@ -82,21 +95,43 @@ Item {
     }
 
     Repeater {
-        model: root.tickCount
+        model: root.maximumValue - root.minimumValue + 1
 
-        Rectangle {
+        Item {
             required property int index
-            width: index === 0 || index === root.tickCount - 1 ? 16 : 10
-            height: 1
-            x: rail.x + rail.width + 5
-            y: rail.y + index * (rail.height - height) / Math.max(1, root.tickCount - 1)
-            color: "#8b949f"
+            readonly property int stepValue: root.minimumValue + index
+            readonly property bool active: stepValue === root.displayValue()
+
+            x: 0
+            y: root.valueToY(stepValue) + handle.height / 2
+            width: rail.x + rail.width / 2
+            height: 0
+
+            Rectangle {
+                id: tick
+                anchors.right: parent.right
+                anchors.rightMargin: Math.min(22, root.width * 0.18)
+                anchors.verticalCenter: parent.verticalCenter
+                width: active || index % root.labelStep === 0 ? 6 : 3
+                height: active ? 2 : 1
+                color: active ? "#d6efff" : "#8198ae"
+            }
+            Text {
+                anchors.right: tick.left
+                anchors.rightMargin: 3
+                anchors.verticalCenter: parent.verticalCenter
+                visible: index % root.labelStep === 0
+                text: root.scaleLabel(stepValue)
+                font.pixelSize: root.scaleFontSize
+                font.bold: active
+                color: active ? "#ffffff" : "#b9cee4"
+            }
         }
     }
 
     Rectangle {
         id: rail
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: Math.round(root.width * 0.68 - width / 2)
         anchors.top: parent.top
         height: root.activeHeight
         width: 8
@@ -107,17 +142,17 @@ Item {
 
     ButtonFace {
         id: handle
-        width: Math.round(0.8 * Math.max(24, Math.min(root.largeTouch ? 104 : 68, root.width - 6)))
+        width: Math.round(Math.min(root.largeTouch ? 58 : 46, root.width * 0.49))
         height: Math.round(0.8 * (root.largeTouch ? 72 : 46))
-        x: (root.width - width) / 2
+        anchors.right: parent.right
         y: root.valueToY(root.displayValue())
         depressed: pointer.pressed
         selected: pointer.pressed
 
         Text {
             anchors.centerIn: parent
-            text: root.displayValue()
-            font.pixelSize: root.largeTouch ? 26 : 17
+            text: root.scaleLabel(root.displayValue())
+            font.pixelSize: text.length > 2 ? root.scaleFontSize : root.largeTouch ? 26 : 17
             font.bold: true
             color: "#ffffff"
         }
