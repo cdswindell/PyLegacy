@@ -252,6 +252,8 @@ class CabController(QObject):
                 )
             if hold_enabled and action.hold_kind == "analog":
                 hold_enabled = action.hold_target in profile.analog_modes
+            if action.key == "lights" and not hold_enabled:
+                label = "Aux 2"
             model.append(
                 {
                     "key": action.key,
