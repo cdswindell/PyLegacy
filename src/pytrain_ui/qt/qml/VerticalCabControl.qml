@@ -117,8 +117,8 @@ Item {
                 color: active ? "#d6efff" : "#8198ae"
             }
             Text {
-                anchors.right: tick.left
-                anchors.rightMargin: 3
+                anchors.left: parent.left
+                anchors.leftMargin: 3
                 anchors.verticalCenter: parent.verticalCenter
                 visible: index % root.labelStep === 0
                 text: root.scaleLabel(stepValue)
@@ -131,7 +131,7 @@ Item {
 
     Rectangle {
         id: rail
-        x: Math.round(root.width * 0.68 - width / 2)
+        x: Math.round(root.width * 0.78 - width / 2) + 3
         anchors.top: parent.top
         height: root.activeHeight
         width: 8
@@ -142,7 +142,7 @@ Item {
 
     ButtonFace {
         id: handle
-        width: Math.round(Math.min(root.largeTouch ? 58 : 46, root.width * 0.49))
+        width: Math.round(Math.min(root.largeTouch ? 68 : 53, root.width * 0.60))
         height: Math.round(0.8 * (root.largeTouch ? 72 : 46))
         anchors.right: parent.right
         y: root.valueToY(root.displayValue())
