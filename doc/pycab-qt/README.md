@@ -2,7 +2,7 @@
 
 PyCab is the touchscreen cab for operating a Lionel layout through PyTrain. This guide covers the Engine, Train, Switch, Accessory, and Route views and their shared tools. The images are simulated captures of the current Qt interface at **720 × 1280**, the layout for the 5-inch Raspberry Pi display. They use sample records and may differ from the Pi in font rendering and touch behavior.
 
-<img src="screens/engine-controls.png" width="360" alt="Diesel Engine Controls and throttle on the 5-inch Pi layout">
+<img src="screens/engine-controls-pi.png" width="360" alt="Diesel Engine Controls and throttle on the 5-inch Pi layout">
 
 ## Table of Contents
 
@@ -11,15 +11,16 @@ PyCab is the touchscreen cab for operating a Lionel layout through PyTrain. This
 3. [Engine Roster and Keypads](#engine-roster-and-keypads)
 4. [Engine Controls](#engine-controls)
 5. [Button Decorators](#button-decorators)
-6. [Speed and Volume](#speed-and-volume)
-7. [State Tiles and Engine Information](#state-tiles-and-engine-information)
-8. [Sound, Dialogs, and Lights](#sound-dialogs-and-lights)
-9. [Train Operations](#train-operations)
-10. [Accessory Operations](#accessory-operations)
-11. [Switch Operations](#switch-operations)
-12. [Route Operations and Route Builder](#route-operations-and-route-builder)
-13. [Manage PyTrain](#manage-pytrain)
-14. [LCS Device Manager](#lcs-device-manager)
+6. [Throttle and Secondary Slider](#throttle-and-secondary-slider)
+7. [Speed and Volume](#speed-and-volume)
+8. [State Tiles and Engine Information](#state-tiles-and-engine-information)
+9. [Sound, Dialogs, and Lights](#sound-dialogs-and-lights)
+10. [Train Operations](#train-operations)
+11. [Accessory Operations](#accessory-operations)
+12. [Switch Operations](#switch-operations)
+13. [Route Operations and Route Builder](#route-operations-and-route-builder)
+14. [Manage PyTrain](#manage-pytrain)
+15. [LCS Device Manager](#lcs-device-manager)
 
 ## Start PyCab
 
@@ -72,9 +73,11 @@ Search by name, road number, TMCC ID, or engine type. Use **Name**, **Road #**, 
 
 Tap a row to open its cab. Enter a numeric TMCC ID with the keypad or the search field and use **Set** to go directly to it. If the engine is missing, PyCab opens Engine Information for that ID. The engine keypad accepts up to four digits. **Set Address** is a programming command, separate from selecting a roster entry.
 
-On the Pi, tap the search field to open the on-screen keyboard. Use the backspace key to delete a character and hold it to clear the field. **Close** on a keypad leaves without submitting.
+On the Pi, tap the search field to open the on-screen keyboard. Use the backspace key to delete a character and hold it to clear the field. **Close** on a keypad leaves without submitting. The touchscreen keyboard has a wide **Space** bar with **#**, **&**, **-**, and **+** on the same row. **Done** dismisses a roster or route field keyboard. **Save** confirms Road Name in Engine or Train Information.
 
-<img src="screens/engine-roster.png" width="280" alt="Engine roster with search, sorting, and type filters"> <img src="screens/engine-keypad.png" width="280" alt="Engine TMCC ID keypad and Set Address"> <img src="screens/search-keyboard.png" width="280" alt="On-screen search keyboard">
+<img src="screens/engine-roster.png" width="280" alt="Engine roster with search, sorting, and type filters"> <img src="screens/engine-keypad.png" width="280" alt="Engine TMCC ID keypad and Set Address">
+
+<img src="screens/roster-touch-keyboard.png" width="420" alt="On-screen search keyboard">
 
 ## Engine Controls
 
@@ -115,6 +118,16 @@ Swipe the locomotive image to cycle through active engine tiles. Tap a tile to s
 
 The progress bar shows hold progress on buttons that wait for a hold threshold.
 
+## Throttle and Secondary Slider
+
+The throttle handle is offset toward the left, with tick marks and speed numbers on the right. Its Target readout follows the selected speed. The highlighted segment spans the gap between Current Speed and Target in either direction.
+
+The narrower secondary trough has its scale on the left and its thumb overhangs that side. The labels change with the selector. Horn shows 0–15, Brake shows 0–7, and Momentum shows Low, steps 1–6, and High on Legacy. TMCC momentum has Low, Med, and High.
+
+<img src="screens/sliders-ramp-up.png" width="330" alt="Throttle ramping up from 42 to 120 with the Horn scale visible"> <img src="screens/sliders-ramp-down.png" width="330" alt="Throttle ramping down from 120 to 42 with the Horn scale visible">
+
+<img src="screens/secondary-brake.png" width="330" alt="Secondary slider showing Brake steps from 0 to 7"> <img src="screens/secondary-momentum.png" width="330" alt="Secondary slider showing Low, intermediate steps, and High">
+
 ## Speed and Volume
 
 The railroad speed presets run from **Restricted** through **Highball**. Tap to ramp to that preset. On supported engines, holding adds the tower request and engineer acknowledgment. **Normal** ramps to zero, **Roll** ramps to roll speed, and **Emergency** commands zero immediately with emergency dialog where supported.
@@ -145,7 +158,9 @@ Tap an enabled state tile below the controls to edit its value. Dimmed tiles are
 
 **Engine Information** shows roster fields, live status, and consist details. Tap a field to edit it. On the Pi, **Road Name** opens a touchscreen keyboard with **Save**. **Road Number** opens a numeric editor. **Engine Type**, **Control Type**, and **Sound Type** show selectable choices. Scroll the engine type list as needed. For an existing engine, confirm the field editor to write the change. For a new engine, field edits are staged until you tap **Create**. Hold **Clear** for three seconds to clear an existing record. Leaving with pending changes can prompt you to keep editing or discard them.
 
-<img src="screens/engine-information.png" width="280" alt="Engine Information and Real Time Status"> <img src="screens/create-engine.png" width="280" alt="Create Engine for an unused address"> <img src="screens/road-name-touch.png" width="280" alt="Road Name editor with the on-screen keyboard">
+<img src="screens/engine-information-pi.png" width="280" alt="Engine Information and Real Time Status"> <img src="screens/create-engine.png" width="280" alt="Create Engine for an unused address">
+
+<img src="screens/engine-road-name-touch-keyboard.png" width="420" alt="Road Name editor with the on-screen keyboard">
 
 <img src="screens/road-number.png" width="225" alt="Road Number keypad"> <img src="screens/engine-type.png" width="225" alt="Scrollable Engine Type choices"> <img src="screens/control-type.png" width="225" alt="Control Type choices"> <img src="screens/sound-type.png" width="225" alt="Sound Type choices">
 
@@ -184,7 +199,9 @@ Tap **Train** to browse the roster or return to the last train you operated. Sel
 
 <img src="screens/train-roster.png" width="225" alt="Train Roster"> <img src="screens/train-keypad.png" width="225" alt="Train Keypad"> <img src="screens/train-controls.png" width="225" alt="Train Controls">
 
-<img src="screens/train-speed-volume.png" width="225" alt="Train Speed Volume"> <img src="screens/train-information.png" width="225" alt="Train Information">
+<img src="screens/train-speed-volume.png" width="225" alt="Train Speed Volume"> <img src="screens/train-information-pi.png" width="225" alt="Train Information">
+
+<img src="screens/train-road-name-touch.png" width="420" alt="Train Road Name touchscreen keyboard">
 
 ## Accessory Operations
 
@@ -205,6 +222,8 @@ Search or sort the switch roster by **Name**, **Road #**, or **TMCC ID**. Enable
 
 <img src="screens/switch-overwrite.png" width="225" alt="Switch Overwrite"> <img src="screens/switch-road-number.png" width="225" alt="Switch Road Number"> <img src="screens/switch-address-editor.png" width="225" alt="Switch Address Editor">
 
+<img src="screens/switch-road-name-touch.png" width="420" alt="Switch Road Name touchscreen keyboard">
+
 ## Route Operations and Route Builder
 
 The roster shows **Aligned** or **Unset** when alignment is known. A blank status means alignment is unknown. Sort by name, road number, TMCC ID, or alignment. Tap **Fire** or double-tap the body of a tile to fire the route. Swipe to scroll the roster.
@@ -219,7 +238,7 @@ The roster shows **Aligned** or **Unset** when alignment is known. A blank statu
 
 <img src="screens/discard-changes.png" width="225" alt="Keep Editing or Discard confirmation">
 
-<img src="screens/route-address-editor.png" width="225" alt="Route Address Editor"> <img src="screens/route-name-editor.png" width="225" alt="Route Name Editor"> <img src="screens/route-number-editor.png" width="225" alt="Route Number Editor">
+<img src="screens/route-address-editor.png" width="225" alt="Route Address Editor"> <img src="screens/route-name-touch-keyboard.png" width="225" alt="Route Name Editor"> <img src="screens/route-number-editor.png" width="225" alt="Route Number Editor">
 
 ## Manage PyTrain
 
