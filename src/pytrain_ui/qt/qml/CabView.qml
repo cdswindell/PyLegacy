@@ -887,7 +887,8 @@ Rectangle {
                 anchors.topMargin: -16
                 anchors.bottom: parent.bottom
                 readonly property int extraSliderSpacing: cab.analogModes.length > 0 ? 8 : 0
-                width: (drivingArea.width - root.gap - cabLayout.extraOperatingWidth) * 2 / 5 + extraSliderSpacing
+                readonly property int extraSecondaryWidth: cab.analogModes.length > 0 ? 8 : 0
+                width: (drivingArea.width - root.gap - cabLayout.extraOperatingWidth) * 2 / 5 + extraSliderSpacing + extraSecondaryWidth
                 radius: 10
                 color: "#102858"
                 border.color: "#496b9d"
@@ -963,7 +964,7 @@ Rectangle {
                     Item {
                         id: sliderColumns
                         objectName: "sliderColumns"
-                        readonly property real laneWidth: (width - 6 - drivingSliders.extraSliderSpacing) / 3
+                        readonly property real laneWidth: (width - 6 - drivingSliders.extraSliderSpacing - drivingSliders.extraSecondaryWidth) / 3
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.minimumHeight: 0
@@ -973,7 +974,7 @@ Rectangle {
                             anchors.left: parent.left
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            width: sliderColumns.laneWidth
+                            width: sliderColumns.laneWidth + drivingSliders.extraSecondaryWidth
                             spacing: 6
                             Label {
                                 objectName: "variableControlLabel"
