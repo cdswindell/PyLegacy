@@ -753,7 +753,10 @@ RosterPanel {
     Popup {
         id: routeBuilder
         objectName: "routeBuilder"
-        readonly property int minimumButtonHeight: 58
+        readonly property bool compact: height < 920
+        readonly property int minimumButtonHeight: compact ? 40 : 58
+        readonly property int footerHeight: compact ? 52 : 72
+        readonly property int fieldHeight: compact ? 42 : 58
 
         function toggleOutHandedness() {
             const index = controller.routeComponentIndex
@@ -761,12 +764,11 @@ RosterPanel {
                 controller.setRouteComponentPosition("OUT")
             controller.toggleRouteComponentDirection(index)
         }
-        onOpened: routeBuilderScroll.contentY = routeBuilderScroll.originY
         x: Math.max(0, (root.width - width) / 2)
         y: root.editorTop
         width: Math.min(root.width - 16, 720)
         height: Math.max(0, root.height - y - 8)
-        padding: 18
+        padding: compact ? 12 : 18
         modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
@@ -779,7 +781,7 @@ RosterPanel {
         }
 
         contentItem: ColumnLayout {
-            spacing: 16
+            spacing: routeBuilder.compact ? 5 : 9
 
             RowLayout {
                 Layout.fillWidth: true
@@ -787,7 +789,7 @@ RosterPanel {
                     Layout.fillWidth: true
                     text: "Route Builder"
                     color: "#f4f6f8"
-                    font.pixelSize: 29
+                    font.pixelSize: routeBuilder.compact ? 24 : 29
                     font.bold: true
                 }
                 Label {
@@ -797,29 +799,18 @@ RosterPanel {
                 }
             }
 
-            Flickable {
-                id: routeBuilderScroll
+            GridLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 0
-                Layout.preferredHeight: routeBuilderContent.implicitHeight
-                Layout.maximumHeight: routeBuilderContent.implicitHeight
-                contentWidth: width
-                contentHeight: routeBuilderContent.height
-                flickableDirection: Flickable.VerticalFlick
-                boundsBehavior: Flickable.StopAtBounds
-                interactive: contentHeight > height
-                clip: true
-                ScrollBar.vertical: ScrollBar {}
-
+                columns: routeBuilder.compact ? 3 : 1
+                columnSpacing: 12
+                rowSpacing: routeBuilder.compact ? 6 : 9
                 ColumnLayout {
-                    id: routeBuilderContent
-                    width: routeBuilderScroll.width
-                    height: implicitHeight
-                    spacing: 14
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    spacing: 4
                     Label {
                         text: "TMCC ID (1-98)"
-                        font.pixelSize: 23
+                        font.pixelSize: routeBuilder.compact ? 16 : 23
                         color: "#aeb5bf"
                     }
                     IdentityNumberField {
@@ -828,237 +819,254 @@ RosterPanel {
                         address: true
                         validator: IntValidator { bottom: 1; top: 98 }
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 62
-                        font.pixelSize: 28
+                        Layout.preferredHeight: routeBuilder.fieldHeight
+                        font.pixelSize: routeBuilder.compact ? 20 : 28
                         onEditingFinished: if (Qt.platform.os !== "linux") root.routeIdEditingFinished()
                         onKeypadAccepted: root.routeIdEditingFinished()
                     }
+                }
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 2
+                    spacing: 4
                     Label {
                         text: "Route Name"
-                        font.pixelSize: 23
+                        font.pixelSize: routeBuilder.compact ? 16 : 23
                         color: "#aeb5bf"
                     }
                     TouchSearchField {
                         id: routeNameField
                         keyboardTitle: "Route Name"
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 62
+                        Layout.preferredHeight: routeBuilder.fieldHeight
                         maximumLength: 31
-                        font.pixelSize: 28
+                        font.pixelSize: routeBuilder.compact ? 20 : 28
                     }
+                }
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    spacing: 4
                     Label {
                         text: "Route Number"
-                        font.pixelSize: 23
+                        font.pixelSize: routeBuilder.compact ? 16 : 23
                         color: "#aeb5bf"
                     }
                     IdentityNumberField {
                         id: routeNumberField
                         keypadTitle: "Route Number"
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 62
-                        font.pixelSize: 28
-                    }
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: controller && controller.routeComponents.length ?
-                                  "Select an element to edit or reorder. Double-tap or touch/hold Out to flip turnout left or right." :
-                                  "No elements yet. Add a switch or nested route."
-                        color: "#aeb5bf"
-                        font.pixelSize: 18
-                        wrapMode: Text.WordWrap
-                    }
-
-                    ListView {
-                        id: routeComponentList
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 182
-                        Layout.preferredHeight: 182
-                        Layout.maximumHeight: 300
-                        orientation: ListView.Horizontal
-                        spacing: 8
-                        clip: true
-                        model: controller ? controller.routeComponents : []
-
-                        delegate: Rectangle {
-                            id: routeElement
-                            required property var modelData
-
-                            function flipOutTurnout() {
-                                if (modelData.scope === "SWITCH" && modelData.position === "OUT")
-                                    controller.toggleRouteComponentDirection(modelData.index)
-                                else
-                                    controller.selectRouteComponent(modelData.index)
-                            }
-
-                            width: modelData.scope === "SWITCH" ? 132 : 180
-                            height: routeComponentList.height - 4
-                            radius: 8
-                            color: controller && controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
-                            border.width: controller && controller.routeComponentIndex === modelData.index ? 2 : 1
-                            border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
-
-                            TapHandler {
-                                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                                exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
-                                onSingleTapped: controller.selectRouteComponent(modelData.index)
-                                onDoubleTapped: routeElement.flipOutTurnout()
-                            }
-                            TapHandler {
-                                acceptedDevices: PointerDevice.TouchScreen
-                                exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
-                                onSingleTapped: controller.selectRouteComponent(modelData.index)
-                                onDoubleTapped: routeElement.flipOutTurnout()
-                                onLongPressed: routeElement.flipOutTurnout()
-                            }
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 10
-                                spacing: 5
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: "Element " + (modelData.index + 1)
-                                    color: "#aeb5bf"
-                                    font.pixelSize: 14
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: modelData.name
-                                    color: "#f4f6f8"
-                                    font.pixelSize: 19
-                                    font.bold: true
-                                    wrapMode: Text.WordWrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: modelData.scope === "ROUTE" ? "Route " + modelData.tmccId :
-                                                                       "Switch " + modelData.tmccId
-                                    color: "#aeb5bf"
-                                    font.pixelSize: 16
-                                }
-                                TurnoutDiagram {
-                                    objectName: "routeSwitchDiagram"
-                                    visible: modelData.scope === "SWITCH"
-                                    diverging: modelData.position === "OUT"
-                                    rightHand: modelData.turnoutDirection === "RIGHT"
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    Layout.minimumHeight: visible ? 32 : 0
-                                    Layout.maximumHeight: 156
-                                }
-                                Item {
-                                    visible: modelData.scope !== "SWITCH"
-                                    Layout.fillHeight: true
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: modelData.turnoutDirection ? "OUT " + modelData.turnoutDirection : modelData.position
-                                    color: modelData.position === "THRU" ? "#73d38a" :
-                                           modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
-                                    font.pixelSize: 19
-                                    font.bold: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                }
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 14
-                        IconActionButton {
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            symbol: "thru"
-                            text: "Thru"
-                            rightHand: enabled &&
-                                       controller.routeComponents[controller.routeComponentIndex].turnoutDirection === "RIGHT"
-                            enabled: controller && controller.routeComponentIndex >= 0 &&
-                                     controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
-                            selected: enabled &&
-                                      controller.routeComponents[controller.routeComponentIndex].position === "THRU"
-                            onClicked: controller.setRouteComponentPosition("THRU")
-                        }
-                        IconActionButton {
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            symbol: "out"
-                            text: "Out"
-                            rightHand: enabled &&
-                                       controller.routeComponents[controller.routeComponentIndex].turnoutDirection === "RIGHT"
-                            enabled: controller && controller.routeComponentIndex >= 0 &&
-                                     controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
-                            selected: enabled &&
-                                      controller.routeComponents[controller.routeComponentIndex].position === "OUT"
-                            distinguishDoubleClick: true
-                            holdWithinBounds: true
-                            mouseHoldEnabled: Qt.platform.os === "osx"
-                            onDoubleClicked: routeBuilder.toggleOutHandedness()
-                            onGestureHeld: routeBuilder.toggleOutHandedness()
-                            onClicked: controller.setRouteComponentPosition("OUT")
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 14
-                        IconActionButton {
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            symbol: "left"
-                            text: "Move Left"
-                            enabled: controller && controller.routeComponentIndex > 0
-                            onClicked: controller.moveRouteComponent(-1)
-                        }
-                        IconActionButton {
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            symbol: "right"
-                            text: "Move Right"
-                            enabled: controller && controller.routeComponentIndex >= 0 &&
-                                     controller.routeComponentIndex < controller.routeComponents.length - 1
-                            onClicked: controller.moveRouteComponent(1)
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 14
-                        IconActionButton {
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            symbol: "add"
-                            text: "Add…"
-                            enabled: controller && controller.routeComponents.length < 16
-                            onClicked: root.openRoutePicker()
-                        }
-                        IconActionButton {
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            symbol: "remove"
-                            text: "Remove"
-                            enabled: controller && controller.routeComponentIndex >= 0
-                            onClicked: controller.removeRouteComponent()
-                        }
-                        CabButton {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 0
-                            Layout.minimumHeight: routeBuilder.minimumButtonHeight
-                            text: "Clear All"
-                            enabled: controller && controller.routeComponents.length > 0
-                            onClicked: controller.clearRouteComponents()
-                        }
-                    }
-
-                    Label {
-                        id: routeBuilderError
-                        Layout.fillWidth: true
-                        visible: text.length > 0
-                        color: "#ff7777"
-                        font.pixelSize: 16
-                        wrapMode: Text.WordWrap
+                        Layout.preferredHeight: routeBuilder.fieldHeight
+                        font.pixelSize: routeBuilder.compact ? 20 : 28
                     }
                 }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: controller && controller.routeComponents.length ?
+                          "Select an element to edit or reorder. Double-tap or touch/hold Out to flip turnout left or right." :
+                          "No elements yet. Add a switch or nested route."
+                color: "#aeb5bf"
+                font.pixelSize: routeBuilder.compact ? 14 : 18
+                wrapMode: Text.WordWrap
+            }
+
+            ListView {
+                id: routeComponentList
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: routeBuilder.compact ? 140 : 172
+                Layout.preferredHeight: routeBuilder.compact ? 146 : 182
+                Layout.maximumHeight: 300
+                orientation: ListView.Horizontal
+                spacing: 8
+                clip: true
+                model: controller ? controller.routeComponents : []
+
+                delegate: Rectangle {
+                    id: routeElement
+                    required property var modelData
+
+                    function flipOutTurnout() {
+                        if (modelData.scope === "SWITCH" && modelData.position === "OUT")
+                            controller.toggleRouteComponentDirection(modelData.index)
+                        else
+                            controller.selectRouteComponent(modelData.index)
+                    }
+
+                    width: modelData.scope === "SWITCH" ? 132 : 180
+                    height: routeComponentList.height - 4
+                    radius: 8
+                    color: controller && controller.routeComponentIndex === modelData.index ? "#164f70" : "#262b32"
+                    border.width: controller && controller.routeComponentIndex === modelData.index ? 2 : 1
+                    border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
+
+                    TapHandler {
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
+                        onSingleTapped: controller.selectRouteComponent(modelData.index)
+                        onDoubleTapped: routeElement.flipOutTurnout()
+                    }
+                    TapHandler {
+                        acceptedDevices: PointerDevice.TouchScreen
+                        exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
+                        onSingleTapped: controller.selectRouteComponent(modelData.index)
+                        onDoubleTapped: routeElement.flipOutTurnout()
+                        onLongPressed: routeElement.flipOutTurnout()
+                    }
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: routeBuilder.compact ? 6 : 10
+                        spacing: routeBuilder.compact ? 2 : 5
+                        Label {
+                            Layout.fillWidth: true
+                            text: "Element " + (modelData.index + 1)
+                            color: "#aeb5bf"
+                            font.pixelSize: routeBuilder.compact ? 11 : 14
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.name
+                            color: "#f4f6f8"
+                            font.pixelSize: routeBuilder.compact ? 15 : 19
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.scope === "ROUTE" ? "Route " + modelData.tmccId :
+                                                               "Switch " + modelData.tmccId
+                            color: "#aeb5bf"
+                            font.pixelSize: routeBuilder.compact ? 13 : 16
+                        }
+                        TurnoutDiagram {
+                            objectName: "routeSwitchDiagram"
+                            visible: modelData.scope === "SWITCH"
+                            diverging: modelData.position === "OUT"
+                            rightHand: modelData.turnoutDirection === "RIGHT"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumHeight: visible ? 32 : 0
+                            Layout.maximumHeight: 156
+                        }
+                        Item {
+                            visible: modelData.scope !== "SWITCH"
+                            Layout.fillHeight: true
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.turnoutDirection ? "OUT " + modelData.turnoutDirection : modelData.position
+                            color: modelData.position === "THRU" ? "#73d38a" :
+                                   modelData.position === "OUT" ? "#f0a35a" : "#55c7ff"
+                            font.pixelSize: routeBuilder.compact ? 15 : 19
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+                IconActionButton {
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    symbol: "thru"
+                    text: "Thru"
+                    rightHand: enabled &&
+                               controller.routeComponents[controller.routeComponentIndex].turnoutDirection === "RIGHT"
+                    enabled: controller && controller.routeComponentIndex >= 0 &&
+                             controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
+                    selected: enabled &&
+                              controller.routeComponents[controller.routeComponentIndex].position === "THRU"
+                    onClicked: controller.setRouteComponentPosition("THRU")
+                }
+                IconActionButton {
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    symbol: "out"
+                    text: "Out"
+                    rightHand: enabled &&
+                               controller.routeComponents[controller.routeComponentIndex].turnoutDirection === "RIGHT"
+                    enabled: controller && controller.routeComponentIndex >= 0 &&
+                             controller.routeComponents[controller.routeComponentIndex].scope === "SWITCH"
+                    selected: enabled &&
+                              controller.routeComponents[controller.routeComponentIndex].position === "OUT"
+                    distinguishDoubleClick: true
+                    holdWithinBounds: true
+                    mouseHoldEnabled: Qt.platform.os === "osx"
+                    onDoubleClicked: routeBuilder.toggleOutHandedness()
+                    onGestureHeld: routeBuilder.toggleOutHandedness()
+                    onClicked: controller.setRouteComponentPosition("OUT")
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+                IconActionButton {
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    symbol: "left"
+                    text: "Move Left"
+                    enabled: controller && controller.routeComponentIndex > 0
+                    onClicked: controller.moveRouteComponent(-1)
+                }
+                IconActionButton {
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    symbol: "right"
+                    text: "Move Right"
+                    enabled: controller && controller.routeComponentIndex >= 0 &&
+                             controller.routeComponentIndex < controller.routeComponents.length - 1
+                    onClicked: controller.moveRouteComponent(1)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+                IconActionButton {
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    symbol: "add"
+                    text: "Add…"
+                    enabled: controller && controller.routeComponents.length < 16
+                    onClicked: root.openRoutePicker()
+                }
+                IconActionButton {
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    symbol: "remove"
+                    text: "Remove"
+                    enabled: controller && controller.routeComponentIndex >= 0
+                    onClicked: controller.removeRouteComponent()
+                }
+                CabButton {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.preferredHeight: routeBuilder.compact ? 42 : 62
+                    Layout.minimumHeight: routeBuilder.minimumButtonHeight
+                    text: "Clear All"
+                    enabled: controller && controller.routeComponents.length > 0
+                    onClicked: controller.clearRouteComponents()
+                }
+            }
+
+            Label {
+                id: routeBuilderError
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: "#ff7777"
+                font.pixelSize: routeBuilder.compact ? 13 : 16
+                wrapMode: Text.WordWrap
             }
 
             RowLayout {
@@ -1066,7 +1074,7 @@ RosterPanel {
                 Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 spacing: 14
                 ClearRecordButton {
-                    Layout.preferredHeight: 79
+                    Layout.preferredHeight: routeBuilder.footerHeight
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     enabled: {
                         root.rosterRows
@@ -1084,7 +1092,7 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 79
+                    Layout.preferredHeight: routeBuilder.footerHeight
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     text: "Cancel"
                     font.pixelSize: metrics.editorButtonFontSize
@@ -1093,7 +1101,7 @@ RosterPanel {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 79
+                    Layout.preferredHeight: routeBuilder.footerHeight
                     Layout.minimumHeight: routeBuilder.minimumButtonHeight
                     activateOnRelease: true
                     text: "Save"
@@ -1116,10 +1124,6 @@ RosterPanel {
                             routeBuilder.close()
                     }
                 }
-            }
-            Item {
-                Layout.fillHeight: true
-                Layout.preferredHeight: 0
             }
         }
     }
