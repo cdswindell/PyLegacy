@@ -1,6 +1,8 @@
 # PyCab Qt User Manual
 
-PyCab is the touchscreen cab for operating a Lionel layout through PyTrain. This guide covers Engine, Switch, Route, and shared tools. The images are simulated captures of the current Qt interface at **720 × 1280**, the layout for the 5-inch Raspberry Pi display. They use sample records and may differ from the Pi in font rendering and touch behavior.
+PyCab is the touchscreen cab for operating a Lionel layout through PyTrain. This guide covers the Engine, Train, Switch, Accessory, and Route views and their shared tools. The images are simulated captures of the current Qt interface at **720 × 1280**, the layout for the 5-inch Raspberry Pi display. They use sample records and may differ from the Pi in font rendering and touch behavior.
+
+<img src="screens/engine-controls.png" width="360" alt="Diesel Engine Controls and throttle on the 5-inch Pi layout">
 
 ## Table of Contents
 
@@ -8,13 +10,16 @@ PyCab is the touchscreen cab for operating a Lionel layout through PyTrain. This
 2. [Navigate the Cab](#navigate-the-cab)
 3. [Engine Roster and Keypads](#engine-roster-and-keypads)
 4. [Engine Controls](#engine-controls)
-5. [Speed and Volume](#speed-and-volume)
-6. [State Tiles and Engine Information](#state-tiles-and-engine-information)
-7. [Sound, Dialogs, and Lights](#sound-dialogs-and-lights)
-8. [Switch Operations](#switch-operations)
-9. [Route Operations and Route Builder](#route-operations-and-route-builder)
-10. [Manage PyTrain](#manage-pytrain)
-11. [LCS Device Manager](#lcs-device-manager)
+5. [Button Decorators](#button-decorators)
+6. [Speed and Volume](#speed-and-volume)
+7. [State Tiles and Engine Information](#state-tiles-and-engine-information)
+8. [Sound, Dialogs, and Lights](#sound-dialogs-and-lights)
+9. [Train Operations](#train-operations)
+10. [Accessory Operations](#accessory-operations)
+11. [Switch Operations](#switch-operations)
+12. [Route Operations and Route Builder](#route-operations-and-route-builder)
+13. [Manage PyTrain](#manage-pytrain)
+14. [LCS Device Manager](#lcs-device-manager)
 
 ## Start PyCab
 
@@ -33,7 +38,7 @@ PyCab starts fullscreen on a detected Raspberry Pi or Steam Deck. Use **Manage P
 | `--legacy` | Opens the older GuiZero cab. `PYTRAIN_LEGACY_GUI=1` also selects it when neither launcher flag is specified. |
 | `-h`, `--help` | Shows the Qt command-line options and exits. |
 | `tmcc_id` | Optional starting TMCC ID. The parser default is 1. PyCab can also restore the last engine or open the roster. |
-| `-train` | Requests train scope at startup. Train operation is outside this guide. |
+| `-train` | Requests train scope at startup. Opens Train scope. |
 | `-client` | Runs as a client and discovers a PyTrain server when no address is given. |
 | `-server SERVER` | Specifies the PyTrain server address for client mode. |
 | `-base [BASE]` | Connects to a Base 3 at the supplied IP address. Supply `-base` by itself to discover the Base 3 on the local network. |
@@ -73,9 +78,9 @@ On the Pi, tap the search field to open the on-screen keyboard. Use the backspac
 
 ## Engine Controls
 
-The cab shows the selected engine's name, road number, and TMCC ID above the locomotive image. **Current Speed** shows reported speed. The throttle thumb shows the target. Drag or tap the throttle track to set a target, or use **+** and **−** for individual speed steps when ramping is idle. The second slider controls the selected function, such as horn, brake, or momentum. A single supported function appears as a label. The horn slider returns to zero on release.
+The cab shows the selected engine's name, road number, and TMCC ID above the locomotive image. **Current Speed** shows reported speed. The throttle thumb shows the target. Drag or tap the throttle track to set a target, or use **+** and **−** for individual speed steps when ramping is idle. The second slider controls the selected function, such as horn, brake, or momentum. A single supported function appears as a label. The horn slider returns to zero on release. The throttle scale uses 20-step labels for Legacy and 5-step labels for TMCC. While ramping, the trough shows the remaining span between reported speed and target.
 
-The **Controls** tab changes with engine and control type. The overlapping squares mark a hold that opens another screen. A circular arrow marks a repeating command. A **+** in the corner marks an additional hold action. The progress bar shows how long the button has been held.
+The **Controls** tab changes with engine and control type. Corner marks show what happens on a hold. See [Button Decorators](#button-decorators).
 
 Swipe the locomotive image to cycle through active engine tiles. Tap a tile to select its engine or tap its **×** to remove the tile. Double-tap the locomotive image to open **Engine Information**. On a Mac, use a double-click.
 
@@ -88,11 +93,27 @@ Swipe the locomotive image to cycle through active engine tiles. Tap a tile to s
 | Track Crane | Boom/Cab, Main/Roll, Aux Hook, outriggers, and work lights. Cab-1 uses a centered relative throttle and a direction toggle. The throttle returns to center on release. |
 | Transformer | **Full On**, **Shut Down**, direction toggle, and track power controlled through speed steps. Its second tab is **Speed**. |
 
-<img src="screens/engine-controls.png" width="280" alt="Diesel Controls tab"> <img src="screens/steam.png" width="280" alt="Steam Controls tab"> <img src="screens/electric.png" width="280" alt="Electric Controls tab">
+<img src="screens/steam.png" width="280" alt="Steam Controls tab"> <img src="screens/electric.png" width="280" alt="Electric Controls tab">
 
 <img src="screens/acela.png" width="280" alt="Acela Controls tab"> <img src="screens/crane.png" width="280" alt="Crane Controls tab"> <img src="screens/transformer.png" width="280" alt="Transformer Controls tab">
 
 <img src="screens/passenger.png" width="280" alt="Passenger car Controls tab"> <img src="screens/freight.png" width="280" alt="Freight car Controls tab">
+
+<img src="screens/tmcc.png" width="225" alt="Tmcc"> <img src="screens/diesel-switcher.png" width="225" alt="Diesel Switcher"> <img src="screens/diesel-pullmor.png" width="225" alt="Diesel Pullmor">
+
+<img src="screens/steam-switcher.png" width="225" alt="Steam Switcher"> <img src="screens/steam-pullmor.png" width="225" alt="Steam Pullmor">
+
+## Button Decorators
+
+<img src="screens/button-decorators.png" width="900" alt="Enlarged button corner markers beside the original Crew, Aux 1, and Boost buttons">
+
+| Corner Mark | What Holding Does |
+| --- | --- |
+| Overlapping squares | Opens a panel, such as Crew Dialogs or Lights. On Horn or Whistle, it selects that function on the secondary slider. |
+| Plus sign | Runs an alternate action. Aux 1 runs a Lionel sequence, a railroad speed preset adds spoken dialog to the speed change, and an enabled gauge refills its resource. |
+| Circular arrow | Repeats the command while held, as on Boost and Brake. |
+
+The progress bar shows hold progress on buttons that wait for a hold threshold.
 
 ## Speed and Volume
 
@@ -101,6 +122,10 @@ The railroad speed presets run from **Restricted** through **Highball**. Tap to 
 Hold an enabled fuel, coal, or water gauge to refill. **Set Address** programs the selected address. The lower controls adjust master volume, blend, and effort where supported. Disabled or absent controls reflect the selected equipment's capabilities.
 
 <img src="screens/speed-volume.png" width="300" alt="Speed and Volume tab with railroad speed presets, gauges, and sound controls">
+
+<img src="screens/tmcc-speed-volume.png" width="225" alt="Tmcc Speed Volume"> <img src="screens/crane-speed-volume.png" width="225" alt="Crane Speed Volume"> <img src="screens/transformer-speed-volume.png" width="225" alt="Transformer Speed Volume">
+
+<img src="screens/passenger-speed-volume.png" width="225" alt="Passenger Speed Volume"> <img src="screens/freight-speed-volume.png" width="225" alt="Freight Speed Volume">
 
 ## State Tiles and Engine Information
 
@@ -118,22 +143,54 @@ Tap an enabled state tile below the controls to edit its value. Dimmed tiles are
 
 <img src="screens/speed-limit.png" width="225" alt="Speed Limit"> <img src="screens/effort.png" width="225" alt="Effort"> <img src="screens/rpm.png" width="225" alt="RPM">
 
-**Engine Information** shows roster fields, live status, and consist details. Tap a field to edit it. On the Pi, **Road Name** opens a touchscreen keyboard with **Save**. **Road Number** opens a numeric editor. **Engine Type**, **Control Type**, and **Sound Type** show selectable choices. Scroll the engine type list as needed. For an existing engine, confirm the field editor to write the change. For a new engine, field edits are staged until you tap **Create**. Hold **Hold to Clear** for three seconds to clear an existing record. Leaving with pending changes can prompt you to keep editing or discard them.
+**Engine Information** shows roster fields, live status, and consist details. Tap a field to edit it. On the Pi, **Road Name** opens a touchscreen keyboard with **Save**. **Road Number** opens a numeric editor. **Engine Type**, **Control Type**, and **Sound Type** show selectable choices. Scroll the engine type list as needed. For an existing engine, confirm the field editor to write the change. For a new engine, field edits are staged until you tap **Create**. Hold **Clear** for three seconds to clear an existing record. Leaving with pending changes can prompt you to keep editing or discard them.
 
 <img src="screens/engine-information.png" width="280" alt="Engine Information and Real Time Status"> <img src="screens/create-engine.png" width="280" alt="Create Engine for an unused address"> <img src="screens/road-name-touch.png" width="280" alt="Road Name editor with the on-screen keyboard">
 
 <img src="screens/road-number.png" width="225" alt="Road Number keypad"> <img src="screens/engine-type.png" width="225" alt="Scrollable Engine Type choices"> <img src="screens/control-type.png" width="225" alt="Control Type choices"> <img src="screens/sound-type.png" width="225" alt="Sound Type choices">
 
+On desktop, **Road Name** opens a text editor for the physical keyboard.
+
+<img src="screens/road-name.png" width="225" alt="Road Name">
+
 ## Sound, Dialogs, and Lights
 
 - Hold **Bell** where supported to open Bell/Horn or Bell/Whistle Options. The panel offers tone cycling and playback controls where the protocol and engine support them.
 - Hold **Crew** or **Tower** to browse spoken commands. A category button opens its list. **Back** returns to the categories and **Close** dismisses the panel. Speed choices in these dialog panels play the announcement only.
-- Hold **Aux 2** on supported Legacy engines for the Lights panel. The available groups depend on engine type. The bottom row includes **Aux 2**, **Close**, and **Cab** where supported.
+- Hold **Aux 2** on supported Legacy engines for the Lights panel. The available groups depend on engine type. TMCC Aux 2 uses a single action and has no Lights sublabel. The bottom row includes **Aux 2**, **Close**, and **Cab** where supported.
 - Passenger cars provide separate **Conductor**, **Station**, and **Steward** dialog panels. Tap for a dialog or hold to choose one. The Conductor panel groups dialogs and actions.
 
 <img src="screens/bell-horn.png" width="225" alt="Bell and Horn Options"> <img src="screens/crew.png" width="225" alt="Engineer and Crew Dialogs"> <img src="screens/tower.png" width="225" alt="Tower Dialogs"> <img src="screens/lights.png" width="225" alt="Lights panel">
 
 <img src="screens/conductor.png" width="225" alt="Conductor dialogs and actions"> <img src="screens/station.png" width="225" alt="Station dialogs"> <img src="screens/steward.png" width="225" alt="Steward dialogs">
+
+<img src="screens/bell-whistle.png" width="225" alt="Bell Whistle"> <img src="screens/crew-acknowledge.png" width="225" alt="Crew Acknowledge"> <img src="screens/crew-arrive-depart.png" width="225" alt="Crew Arrive Depart">
+
+<img src="screens/crew-status.png" width="225" alt="Crew Status"> <img src="screens/crew-conductor.png" width="225" alt="Crew Conductor"> <img src="screens/crew-station.png" width="225" alt="Crew Station">
+
+<img src="screens/crew-steward.png" width="225" alt="Crew Steward"> <img src="screens/crew-etc.png" width="225" alt="Crew Etc"> <img src="screens/crew-general.png" width="225" alt="Crew General">
+
+<img src="screens/tower-speed.png" width="225" alt="Tower Speed"> <img src="screens/tower-arrive-depart.png" width="225" alt="Tower Arrive Depart"> <img src="screens/lights-cab-lights.png" width="225" alt="Lights Cab Lights">
+
+<img src="screens/lights-car-lights.png" width="225" alt="Lights Car Lights"> <img src="screens/lights-ditch-lights.png" width="225" alt="Lights Ditch Lights"> <img src="screens/lights-ground-lights.png" width="225" alt="Lights Ground Lights">
+
+<img src="screens/lights-marker-lights.png" width="225" alt="Lights Marker Lights"> <img src="screens/lights-mars-lights.png" width="225" alt="Lights Mars Lights"> <img src="screens/lights-rule-17.png" width="225" alt="Lights Rule 17">
+
+<img src="screens/lights-strobe-lights.png" width="225" alt="Lights Strobe Lights"> <img src="screens/lights-tender-lights.png" width="225" alt="Lights Tender Lights">
+
+## Train Operations
+
+Tap **Train** to browse the roster or return to the last train you operated. Select a train from the list or use its TMCC ID keypad. The cab includes **Controls**, **Speed/Volume**, and **Train Information**, with the fields and controls available for the selected train.
+
+<img src="screens/train-roster.png" width="225" alt="Train Roster"> <img src="screens/train-keypad.png" width="225" alt="Train Keypad"> <img src="screens/train-controls.png" width="225" alt="Train Controls">
+
+<img src="screens/train-speed-volume.png" width="225" alt="Train Speed Volume"> <img src="screens/train-information.png" width="225" alt="Train Information">
+
+## Accessory Operations
+
+Tap **Acc** for the accessory roster. Search by name, road number, or TMCC ID. Use the keypad to enter an address. Select a configured accessory to open its operating view and use the controls assigned to that accessory.
+
+<img src="screens/accessory-roster.png" width="225" alt="Accessory Roster"> <img src="screens/accessory-keypad.png" width="225" alt="Accessory Keypad"> <img src="screens/accessory-operating.png" width="225" alt="Accessory Operating">
 
 ## Switch Operations
 
@@ -141,10 +198,12 @@ Search or sort the switch roster by **Name**, **Road #**, or **TMCC ID**. Enable
 
 - Tap **Thru** for the straight path or **Out** for the diverging path. The highlighted button shows the reported position. Neither is highlighted when the position is unknown.
 - Double-tap the body of a tile to toggle the switch. An unknown switch goes to **Thru**. Swipe to scroll.
-- Tap **Edit…** to change the road name or number, then **Save**. Hold **Clear** for three seconds to clear the record.
+- Tap **Edit…** to change the road name or number, then **Save**. On the Pi, tap **Road Name** for the on-screen keyboard or **Road Number** for the four-digit keypad. **Add Switch** also opens a numeric keypad for its TMCC ID. Hold **Clear** for three seconds to clear the record.
 - Tap **Add…** to create a record. For a Lionel Command Control switch, follow the panel's instruction to put the device in PROGRAM mode before adding. **Set Address** also appears on the switch keypad.
 
 <img src="screens/switch-roster.png" width="225" alt="Switch roster"> <img src="screens/switch-keypad.png" width="225" alt="Switch keypad with Set Address"> <img src="screens/switch-edit.png" width="225" alt="Edit Switch"> <img src="screens/switch-add.png" width="225" alt="Add Switch">
+
+<img src="screens/switch-overwrite.png" width="225" alt="Switch Overwrite"> <img src="screens/switch-road-number.png" width="225" alt="Switch Road Number"> <img src="screens/switch-address-editor.png" width="225" alt="Switch Address Editor">
 
 ## Route Operations and Route Builder
 
@@ -159,6 +218,8 @@ The roster shows **Aligned** or **Unset** when alignment is known. A blank statu
 <img src="screens/route-roster.png" width="225" alt="Route roster"> <img src="screens/route-keypad.png" width="225" alt="Route TMCC ID keypad"> <img src="screens/route-builder.png" width="225" alt="Route Builder with three-rail element graphics"> <img src="screens/route-picker.png" width="225" alt="Add to Route element picker">
 
 <img src="screens/discard-changes.png" width="225" alt="Keep Editing or Discard confirmation">
+
+<img src="screens/route-address-editor.png" width="225" alt="Route Address Editor"> <img src="screens/route-name-editor.png" width="225" alt="Route Name Editor"> <img src="screens/route-number-editor.png" width="225" alt="Route Number Editor">
 
 ## Manage PyTrain
 
