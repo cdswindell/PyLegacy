@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Popup {
     id: root
 
+    PanelMetrics { id: metrics }
     required property var cab
     property string panelKey: ""
     property string panelTitle: ""
@@ -56,7 +57,7 @@ Popup {
     }
 
     contentItem: ColumnLayout {
-        spacing: 0
+        spacing: 10
 
         Rectangle {
             Layout.fillWidth: true
@@ -126,16 +127,21 @@ Popup {
         }
 
         ScrollView {
+            id: commands
+            Layout.minimumHeight: 0
+            Layout.preferredHeight: sections.implicitHeight
+            Layout.maximumHeight: sections.implicitHeight
+            contentWidth: availableWidth
+            contentHeight: sections.implicitHeight
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.leftMargin: 12
             Layout.rightMargin: 12
-            Layout.topMargin: 10
-            Layout.bottomMargin: 10
             clip: true
 
             ColumnLayout {
-                width: parent.width
+                id: sections
+                width: commands.availableWidth
                 spacing: 10
 
                 Repeater {
@@ -194,6 +200,20 @@ Popup {
                     }
                 }
             }
+        }
+
+        CabButton {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 160
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
+            Layout.bottomMargin: 12
+            text: "Close"
+            onClicked: root.close()
+        }
+
+        Item {
+            Layout.fillHeight: true
+            Layout.preferredHeight: 0
         }
     }
 }

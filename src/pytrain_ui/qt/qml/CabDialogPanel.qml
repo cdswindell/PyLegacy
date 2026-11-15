@@ -249,7 +249,10 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
+            Layout.preferredHeight: choicesGrid.implicitHeight
+            Layout.maximumHeight: choicesGrid.implicitHeight
             contentWidth: availableWidth
+            contentHeight: choicesGrid.implicitHeight
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -363,6 +366,11 @@ Rectangle {
                 text: "Cab"
                 onClicked: root.cab.triggerPanelCommand("CAB_AUTO")
             }
+        }
+
+        Item {
+            Layout.fillHeight: true
+            Layout.preferredHeight: 0
         }
     }
 }

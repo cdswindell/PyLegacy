@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     property string currentScope: ""
+    readonly property int buttonInset: 4
     implicitHeight: 84
     signal scopePressed(string scope, bool showKeypad)
 
@@ -16,7 +17,7 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 4
+        anchors.margins: root.buttonInset
         spacing: 4
 
         Repeater {

@@ -772,7 +772,9 @@ RosterPanel {
                 id: routeBuilderScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredHeight: 0
+                Layout.minimumHeight: 0
+                Layout.preferredHeight: routeBuilderContent.implicitHeight
+                Layout.maximumHeight: routeBuilderContent.implicitHeight
                 contentWidth: width
                 contentHeight: routeBuilderContent.height
                 flickableDirection: Flickable.VerticalFlick
@@ -784,7 +786,7 @@ RosterPanel {
                 ColumnLayout {
                     id: routeBuilderContent
                     width: routeBuilderScroll.width
-                    height: Math.max(implicitHeight, routeBuilderScroll.height)
+                    height: implicitHeight
                     spacing: 14
                     Label {
                         text: "TMCC ID (1-98)"
@@ -1103,6 +1105,10 @@ RosterPanel {
                     }
                 }
             }
+            Item {
+                Layout.fillHeight: true
+                Layout.preferredHeight: 0
+            }
         }
     }
 
@@ -1225,6 +1231,9 @@ RosterPanel {
                 id: routeCandidateList
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.minimumHeight: 0
+                Layout.preferredHeight: contentHeight
+                Layout.maximumHeight: contentHeight
                 clip: true
                 spacing: 5
                 model: root.routeCandidateRows()
@@ -1302,11 +1311,15 @@ RosterPanel {
                 wrapMode: Text.WordWrap
             }
             CabButton {
-                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
+                Layout.topMargin: metrics.footerOffset(Layout.preferredHeight, parent.spacing)
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
                 text: "Cancel"
                 onClicked: routePicker.close()
+            }
+            Item {
+                Layout.fillHeight: true
+                Layout.preferredHeight: 0
             }
         }
     }

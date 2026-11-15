@@ -192,11 +192,16 @@ Rectangle {
             id: scroll
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            Layout.preferredHeight: adminBody.implicitHeight
+            Layout.maximumHeight: adminBody.implicitHeight
             contentWidth: availableWidth
+            contentHeight: adminBody.implicitHeight
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             ColumnLayout {
+                id: adminBody
                 x: Math.min(18, scroll.availableWidth * 0.03)
                 width: scroll.availableWidth - 2 * x
                 spacing: root.compact ? 8 : 10
@@ -327,12 +332,17 @@ Rectangle {
             }
         }
         PanelButton {
-            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
+            Layout.topMargin: metrics.footerOffset(root.buttonHeight, parent.spacing)
             Layout.fillWidth: false
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 180
             text: "Close"
             onClicked: root.closeRequested()
+        }
+
+        Item {
+            Layout.fillHeight: true
+            Layout.preferredHeight: 0
         }
     }
 }

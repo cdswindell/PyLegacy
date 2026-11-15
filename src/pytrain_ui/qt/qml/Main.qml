@@ -213,6 +213,7 @@ ApplicationWindow {
 
                     CabView {
                         id: operatingCabView
+                        operatingEdgeInset: scopeBar.Layout.leftMargin + scopeBar.buttonInset
                         anchors.fill: parent
                         visible: window.stateInfoVisible || !window.engineCatalogVisible
                         cab: cabController
@@ -295,6 +296,7 @@ ApplicationWindow {
             }
 
             ScopeBar {
+                id: scopeBar
                 color: window.engineScope ? "#102858" : "#20242a"
                 Layout.fillWidth: true
                 Layout.leftMargin: -6
@@ -383,7 +385,7 @@ ApplicationWindow {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: 180
                 Layout.preferredHeight: 70
-                Layout.topMargin: panelMetrics.footerOffset(implicitHeight, parent.spacing)
+                Layout.topMargin: panelMetrics.footerOffset(Layout.preferredHeight, parent.spacing)
                 font.pixelSize: 22
                 text: "Close"
                 onClicked: cabMenu.close()

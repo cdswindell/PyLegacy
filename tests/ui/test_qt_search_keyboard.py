@@ -98,7 +98,7 @@ def click(item):
 click("field")
 assert value("window.keyboardPopup().visible"), "Tapping the field must open the keyboard"
 assert value("window.keyboardPopup().height") < window().height()
-for key in ("Clear", "Space", "−", "Done"):
+for key in ("Clear", "Cancel", "#", "&", "Space", "-", "+", "Done"):
     assert value(button(key) + ".width") >= 44, "Keyboard footer keys must remain tappable"
     assert value(button(key) + ".height") >= 44
 for key in ["c", "s", "x", "1", "2"]:
@@ -110,7 +110,7 @@ assert value("field.text") == "csx1"
 click(button("⇧"))
 click(button("A"))
 click(button("Space"))
-click(button("−"))
+click(button("-"))
 assert value("field.text") == "csx1A -"
 click(button("Done"))
 assert not value("window.keyboardPopup().visible")

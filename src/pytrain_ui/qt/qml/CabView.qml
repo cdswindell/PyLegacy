@@ -113,6 +113,7 @@ Rectangle {
     readonly property bool standaloneCar: passengerCar || freightCar
     readonly property bool speedPresetsEnabled: cab.hasThrottle && !standaloneCar && !cab.isCrane && !cab.isCab1
     readonly property string analogControlMode: cab.analogModes.length === 1 ? cab.analogModes[0] : analogMode.currentText
+    property real operatingEdgeInset: cabLayout.defaultSideMargin
     readonly property bool compact: height < 850
     readonly property int directionFontSize: compact ? 17 : 22
     readonly property int gap: compact ? 6 : 8
@@ -534,8 +535,10 @@ Rectangle {
         readonly property int extraOperatingWidth: 12
         anchors.fill: parent
         anchors.margins: root.compact ? 8 : 12
-        anchors.leftMargin: anchors.margins - extraOperatingWidth / 2
-        anchors.rightMargin: anchors.leftMargin
+        readonly property real defaultSideMargin: anchors.margins - extraOperatingWidth / 2
+        readonly property real edgeExpansion: defaultSideMargin - root.operatingEdgeInset
+        anchors.leftMargin: root.operatingEdgeInset
+        anchors.rightMargin: root.operatingEdgeInset
         anchors.bottomMargin: 4
         spacing: root.gap
 
@@ -600,6 +603,7 @@ Rectangle {
         Item {
             id: drivingArea
             objectName: "drivingArea"
+            Layout.leftMargin: cabLayout.edgeExpansion > 0 ? 2 : 0
             enabled: !bellHornPanel.visible && !root.dialogPanelOpen
             visible: !root.stateInfoVisible
             Layout.topMargin: 16
@@ -887,8 +891,9 @@ Rectangle {
                 anchors.topMargin: -16
                 anchors.bottom: parent.bottom
                 readonly property int extraSliderSpacing: cab.analogModes.length > 0 ? 8 : 0
-                readonly property int extraSecondaryWidth: cab.analogModes.length > 0 ? 8 : 0
-                width: (drivingArea.width - root.gap - cabLayout.extraOperatingWidth) * 2 / 5 + extraSliderSpacing + extraSecondaryWidth
+                readonly property int extraSecondaryWidth: cab.analogModes.length > 0 ? 8 + cabLayout.edgeExpansion : 0
+                readonly property real originalAreaWidth: cabLayout.width - 2 * cabLayout.edgeExpansion
+                width: (originalAreaWidth - root.gap - cabLayout.extraOperatingWidth) * 2 / 5 + extraSliderSpacing + extraSecondaryWidth
                 radius: 10
                 color: "#102858"
                 border.color: "#496b9d"

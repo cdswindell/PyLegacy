@@ -105,11 +105,16 @@ Popup {
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            Layout.preferredHeight: deviceDetails.implicitHeight
+            Layout.maximumHeight: deviceDetails.implicitHeight
+            contentHeight: deviceDetails.implicitHeight
             visible: !root.showingModules && root.page === 1
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             ColumnLayout {
+                id: deviceDetails
                 width: parent.width
                 spacing: 10
 
@@ -321,7 +326,6 @@ Popup {
 
         ColumnLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             visible: !root.showingModules && root.page === 2
             spacing: 10
 
@@ -392,7 +396,6 @@ Popup {
 
         ColumnLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             visible: !root.showingModules && root.page === 3
             spacing: 10
 
@@ -509,9 +512,6 @@ Popup {
                 wrapMode: Text.WordWrap
             }
 
-            Item {
-                Layout.fillHeight: true
-            }
         }
 
         RowLayout {
@@ -556,7 +556,10 @@ Popup {
         ListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.showingModules
+            Layout.minimumHeight: 0
+            Layout.preferredHeight: contentHeight
+            Layout.maximumHeight: contentHeight
+            visible: root.showingModules && count > 0
             clip: true
             spacing: 8
             model: {
@@ -638,18 +641,12 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             visible: root.showingModules && root.controller && root.controller.modules.length === 0
             text: "No LCS modules have reported themselves yet."
             color: "#aeb5bf"
             font.pixelSize: 16
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-        }
-
-        Item {
-            Layout.fillHeight: true
-            visible: !root.showingModules && root.page === 0
         }
 
         RowLayout {
@@ -725,6 +722,11 @@ Popup {
                     }
                 }
             }
+        }
+
+        Item {
+            Layout.fillHeight: true
+            Layout.preferredHeight: 0
         }
     }
 }
