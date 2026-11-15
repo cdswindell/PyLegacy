@@ -8,6 +8,7 @@ Item {
     property int minimumValue: 0
     property int maximumValue: 199
     property int value: 0
+    property int currentSpeed: value
     property int pendingValue: value
     property bool awaitingConfirmation: false
     property bool largeTouch: false
@@ -79,6 +80,8 @@ Item {
     }
 
     Rectangle {
+        id: trough
+
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         height: rail.height
@@ -115,6 +118,29 @@ Item {
         radius: 4
         color: "#10151b"
         border.color: "#536170"
+    }
+
+    Rectangle {
+        id: rampBand
+        objectName: "throttleRampBand"
+
+        readonly property real currentY: root.valueToY(root.currentSpeed) + handle.height / 2
+        readonly property real targetY: root.valueToY(root.value) + handle.height / 2
+
+        anchors.horizontalCenter: rail.horizontalCenter
+        y: Math.min(currentY, targetY)
+        width: Math.max(0, trough.width - 2)
+        height: Math.abs(targetY - currentY)
+        visible: root.enabled && !root.springReturn && height > 0
+        color: "#65451f"
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: rail.width
+            height: parent.height
+            color: "#402d18"
+            border.color: "#d4a151"
+        }
     }
 
     Rectangle {
