@@ -1383,8 +1383,9 @@ RosterPanel {
                 text: "Road Name"
                 color: "#aeb5bf"
             }
-            TextField {
+            TouchSearchField {
                 id: addRoadName
+                keyboardTitle: "Road Name"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
                 maximumLength: 31
@@ -1530,8 +1531,9 @@ RosterPanel {
                 color: "#aeb5bf"
                 font.pixelSize: 17
             }
-            TextField {
+            TouchSearchField {
                 id: roadNameField
+                keyboardTitle: "Road Name"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
                 font.pixelSize: 22

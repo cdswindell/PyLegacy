@@ -148,27 +148,28 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
+            spacing: 5
+
+            Repeater {
+                model: ["#", "&", "Space", "-", "+"]
+                KeyboardKey {
+                    required property string modelData
+                    Layout.preferredWidth: modelData === "Space" ? 280 : 56
+                    text: modelData
+                    Accessible.name: modelData === "-" ? "Hyphen" : modelData
+                    onClicked: root.typeKey(modelData === "Space" ? " " : modelData)
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
             Layout.topMargin: panelMetrics.footerOffset(implicitHeight, parent.spacing)
             spacing: 8
             KeyboardKey {
-                Layout.preferredWidth: 100
                 text: "Clear"
                 onClicked: root.clearEntry()
             }
             KeyboardKey {
-                Layout.preferredWidth: 56
-                text: "-"
-                Accessible.name: "Hyphen"
-                onClicked: root.typeKey("-")
-            }
-            KeyboardKey {
-                Layout.preferredWidth: 280
-                text: "␣"
-                Accessible.name: "Space"
-                onClicked: root.typeKey(" ")
-            }
-            KeyboardKey {
-                Layout.preferredWidth: 100
                 text: "Cancel"
                 onClicked: {
                     if (root.targetField) {
@@ -179,7 +180,6 @@ Popup {
                 }
             }
             KeyboardKey {
-                Layout.preferredWidth: 100
                 text: root.saveEntry ? "Save" : "Done"
                 highlighted: true
                 onClicked: root.finish()
