@@ -150,10 +150,40 @@ Popup {
             Layout.fillWidth: true
             Layout.topMargin: panelMetrics.footerOffset(implicitHeight, parent.spacing)
             spacing: 8
-            KeyboardKey { text: "Clear"; onClicked: root.clearEntry() }
-            KeyboardKey { text: "Space"; onClicked: root.typeKey(" ") }
-            KeyboardKey { text: "−"; onClicked: root.typeKey("-") }
-            KeyboardKey { text: root.saveEntry ? "Save" : "Done"; highlighted: true; onClicked: root.finish() }
+            KeyboardKey {
+                Layout.preferredWidth: 100
+                text: "Clear"
+                onClicked: root.clearEntry()
+            }
+            KeyboardKey {
+                Layout.preferredWidth: 56
+                text: "-"
+                Accessible.name: "Hyphen"
+                onClicked: root.typeKey("-")
+            }
+            KeyboardKey {
+                Layout.preferredWidth: 280
+                text: "␣"
+                Accessible.name: "Space"
+                onClicked: root.typeKey(" ")
+            }
+            KeyboardKey {
+                Layout.preferredWidth: 100
+                text: "Cancel"
+                onClicked: {
+                    if (root.targetField) {
+                        entry.text = root.originalText
+                        root.publish()
+                    }
+                    root.close()
+                }
+            }
+            KeyboardKey {
+                Layout.preferredWidth: 100
+                text: root.saveEntry ? "Save" : "Done"
+                highlighted: true
+                onClicked: root.finish()
+            }
         }
     }
 }
