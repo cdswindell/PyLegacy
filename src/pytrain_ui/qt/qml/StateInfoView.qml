@@ -261,45 +261,16 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 4
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
             spacing: 18
             readonly property int buttonHeight: 70
             id: recordFooter
 
-            DelayButton {
-                id: clearButton
+            ClearRecordButton {
                 visible: !root.record.creating && !!root.record.canClear
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.minimumWidth: 0
                 Layout.preferredHeight: recordFooter.buttonHeight
-                text: "Hold to Clear"
-                Accessible.name: "Hold to clear this Base 3 record"
-                delay: 3000
-                onVisibleChanged: if (visible) checked = false
+                font.pixelSize: 22
                 onActivated: root.controller.clear()
-                contentItem: Text {
-                    text: clearButton.text
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 22
-                    color: "#ff6666"
-                }
-                background: ButtonFace {
-                    depressed: clearButton.down
-                    focused: clearButton.activeFocus
-                    Rectangle {
-                        visible: clearButton.down && clearButton.progress > 0
-                        anchors.left: parent.left
-                        anchors.leftMargin: 3
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 2
-                        width: Math.max(0, parent.width - 6) * clearButton.progress
-                        height: 5
-                        radius: 2
-                        color: clearButton.contentItem.color
-                    }
-                }
             }
             FooterButton {
                 Layout.preferredHeight: recordFooter.buttonHeight
@@ -515,7 +486,7 @@ Rectangle {
             }
             RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: metrics.footerGap
+                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 spacing: 18
                 FooterButton {
                     text: fieldEditor.choice || fieldEditor.roadName ? "Cancel" : "Close"

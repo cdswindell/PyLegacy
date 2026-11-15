@@ -327,7 +327,7 @@ Rectangle {
             }
         }
         PanelButton {
-            Layout.topMargin: metrics.footerGap
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
             Layout.fillWidth: false
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 180

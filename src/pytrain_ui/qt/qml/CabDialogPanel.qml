@@ -330,7 +330,7 @@ Rectangle {
 
         RowLayout {
             id: footer
-            Layout.topMargin: metrics.footerGap
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
             readonly property bool lightsPanel: root.panelKey === "lights"
             readonly property int buttonHeight: lightsPanel ? 60 : 52
             Layout.alignment: Qt.AlignHCenter

@@ -120,7 +120,7 @@ Popup {
         }
         OptionButton {
             Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 36
+            Layout.topMargin: metrics.footerOffset(buttonHeight, parent.spacing)
             faceWidth: root.buttonWidth + 16
             buttonHeight: 56
             text: "Close"

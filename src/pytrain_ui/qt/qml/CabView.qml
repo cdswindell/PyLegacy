@@ -114,6 +114,7 @@ Rectangle {
     readonly property bool speedPresetsEnabled: cab.hasThrottle && !standaloneCar && !cab.isCrane && !cab.isCab1
     readonly property string analogControlMode: cab.analogModes.length === 1 ? cab.analogModes[0] : analogMode.currentText
     readonly property bool compact: height < 850
+    readonly property int directionFontSize: compact ? 17 : 22
     readonly property int gap: compact ? 6 : 8
     readonly property int preferredTileHeight: compact ? 72 : 112
     readonly property int tileHeight: {
@@ -418,6 +419,9 @@ Rectangle {
             boost: "boost", brake: "brake",
             startup: "power-on", shutdown: "power-off",
             acela_startup: "power-on", acela_shutdown: "power-off",
+            transformer_on: "power-on", transformer_off: "power-off",
+            transformer_bell: "bell", transformer_horn: "horn",
+            transformer_rear_coupler: "coupler-rear", transformer_front_coupler: "coupler-front",
             rpm_up: "rpm-up", rpm_down: "rpm-down",
             electric_rpm_up: "rpm-up", electric_rpm_down: "rpm-down",
             horn: action.label === "Whistle" ? "whistle" : "horn",
@@ -937,7 +941,7 @@ Rectangle {
                             id: reverseButton
                             objectName: "reverseDirectionButton"
                             text: "◀ Rev" + (root.requestedDirection === "REVERSE" ? " …" : "")
-                            font.pixelSize: root.compact ? 17 : 22
+                            font.pixelSize: root.directionFontSize
                             enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("REVERSE") >= 0
                             onClicked: root.requestDirection("REVERSE")
@@ -950,7 +954,7 @@ Rectangle {
                             id: forwardButton
                             objectName: "forwardDirectionButton"
                             text: "Fwd ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
-                            font.pixelSize: root.compact ? 17 : 22
+                            font.pixelSize: root.directionFontSize
                             enabled: !root.standaloneCar
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
@@ -1089,7 +1093,8 @@ Rectangle {
                                 Layout.preferredHeight: root.compact ? 52 : 64
                                 text: "◀ Dir ▶"
                                 Accessible.name: "Toggle Direction"
-                                font.pixelSize: root.compact ? 17 : 22
+                                font.pixelSize: root.directionFontSize + 1
+                                selected: true
                                 onClicked: cab.toggleDirection()
                             }
                             SpeedStepButton {

@@ -408,18 +408,6 @@ RosterPanel {
         }
     }
 
-    component ClearRecordButton: FunctionButton {
-        font.pixelSize: metrics.editorButtonFontSize
-        Layout.fillWidth: true
-        Layout.preferredWidth: 0
-        Layout.preferredHeight: 50
-        text: "Clear"
-        Accessible.name: "Hold for 3 seconds to clear this Base 3 record"
-        deferForHold: true
-        holdThreshold: 3000
-        holdHint: "Hold to clear"
-    }
-
     component RosterActionButton: CabButton {
         activateOnRelease: true
         Layout.preferredWidth: 88
@@ -1061,7 +1049,7 @@ RosterPanel {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: metrics.footerGap
+                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 spacing: 14
                 ClearRecordButton {
                     Layout.preferredHeight: 79
@@ -1071,7 +1059,7 @@ RosterPanel {
                         const id = controller.routeBuilderId
                         return id === Number(routeIdField.text) && controller.canClearRecord(id)
                     }
-                    onHeld: {
+                    onActivated: {
                         const error = controller.clearRecord(controller.routeBuilderId)
                         if (error)
                             routeBuilderError.text = error
@@ -1314,6 +1302,7 @@ RosterPanel {
                 wrapMode: Text.WordWrap
             }
             CabButton {
+                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
                 text: "Cancel"
@@ -1425,6 +1414,7 @@ RosterPanel {
                 wrapMode: Text.WordWrap
             }
             RowLayout {
+                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 Layout.fillWidth: true
                 spacing: 10
                 CabButton {
@@ -1485,6 +1475,7 @@ RosterPanel {
                 wrapMode: Text.WordWrap
             }
             RowLayout {
+                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 Layout.fillWidth: true
                 spacing: 10
                 CabButton {
@@ -1575,7 +1566,7 @@ RosterPanel {
             }
             RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: metrics.footerGap
+                Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
                 spacing: 14
 
                 ClearRecordButton {
@@ -1584,7 +1575,7 @@ RosterPanel {
                         root.rosterRows
                         return controller.canClearRecord(root.editingSwitchId)
                     }
-                    onHeld: {
+                    onActivated: {
                         const error = controller.clearRecord(root.editingSwitchId)
                         if (error)
                             switchEditorError.text = error

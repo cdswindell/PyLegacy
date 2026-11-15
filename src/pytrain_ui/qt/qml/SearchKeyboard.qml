@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+    PanelMetrics { id: panelMetrics }
     objectName: "searchKeyboard"
     property string title: "Search"
     property var saveEntry: null
@@ -147,6 +148,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
+            Layout.topMargin: panelMetrics.footerOffset(implicitHeight, parent.spacing)
             spacing: 8
             KeyboardKey { text: "Clear"; onClicked: root.clearEntry() }
             KeyboardKey { text: "Space"; onClicked: root.typeKey(" ") }

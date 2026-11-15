@@ -163,7 +163,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: metrics.footerGap
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
             spacing: 18
             Item { Layout.fillWidth: true; visible: !root.showSetAddress }
             KeyButton {

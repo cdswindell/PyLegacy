@@ -198,7 +198,7 @@ Popup {
         }
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: metrics.footerGap
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
             spacing: 24
             EditorButton {
                 Layout.fillWidth: true

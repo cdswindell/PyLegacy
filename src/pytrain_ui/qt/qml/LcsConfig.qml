@@ -653,7 +653,7 @@ Popup {
         }
 
         RowLayout {
-            Layout.topMargin: metrics.footerGap
+            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
             CabButton {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0

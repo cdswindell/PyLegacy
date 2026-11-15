@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 ApplicationWindow {
     id: window
+    PanelMetrics { id: panelMetrics }
     visibility: startFullscreen ? Window.FullScreen : Window.Windowed
     width: 720
     height: 1280
@@ -382,7 +383,7 @@ ApplicationWindow {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: 180
                 Layout.preferredHeight: 70
-                Layout.topMargin: 12
+                Layout.topMargin: panelMetrics.footerOffset(implicitHeight, parent.spacing)
                 font.pixelSize: 22
                 text: "Close"
                 onClicked: cabMenu.close()
@@ -424,7 +425,7 @@ ApplicationWindow {
             }
             RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: 12
+                Layout.topMargin: panelMetrics.footerOffset(implicitHeight, parent.spacing)
                 spacing: 12
                 CabButton {
                     Layout.fillWidth: true
