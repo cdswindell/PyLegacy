@@ -37,6 +37,40 @@ RosterPanel {
 
     radius: 14
 
+    component IdentityNumberField: TextField {
+        id: numberField
+
+        required property string keypadTitle
+        property bool address: false
+        signal keypadAccepted()
+
+        maximumLength: address ? 2 : 4
+        inputMethodHints: Qt.ImhDigitsOnly
+        validator: RegularExpressionValidator {
+            regularExpression: /[0-9]{0,4}/
+        }
+
+        TapHandler {
+            enabled: Qt.platform.os === "linux"
+            onTapped: keypad.openFor(numberField.text)
+        }
+
+        TmccKeypad {
+            id: keypad
+            title: numberField.keypadTitle
+            minimumId: numberField.address ? 1 : 0
+            maximumId: numberField.address ? 98 : 9999
+            allowEmpty: !numberField.address
+            onSubmitted: {
+                numberField.text = entryText
+                close()
+                numberField.keypadAccepted()
+            }
+        }
+
+        onVisibleChanged: if (!visible) keypad.close()
+    }
+
     function toggleSwitchHandedness(tmccId) {
         rightHandSwitches = Object.assign({}, rightHandSwitches, {[tmccId]: !rightHandSwitches[tmccId]})
     }
@@ -727,11 +761,6 @@ RosterPanel {
                 controller.setRouteComponentPosition("OUT")
             controller.toggleRouteComponentDirection(index)
         }
-        onClosed: {
-            routeIdKeypad.close()
-            routeNumberKeypad.close()
-            routeNameKeyboard.close()
-        }
         onOpened: routeBuilderScroll.contentY = routeBuilderScroll.originY
         x: Math.max(0, (root.width - width) / 2)
         y: root.editorTop
@@ -793,20 +822,16 @@ RosterPanel {
                         font.pixelSize: 23
                         color: "#aeb5bf"
                     }
-                    TextField {
+                    IdentityNumberField {
                         id: routeIdField
+                        keypadTitle: "Route TMCC ID"
+                        address: true
+                        validator: IntValidator { bottom: 1; top: 98 }
                         Layout.fillWidth: true
                         Layout.preferredHeight: 62
-                        maximumLength: 2
-                        inputMethodHints: Qt.ImhDigitsOnly
-                        validator: IntValidator { bottom: 1; top: 98 }
                         font.pixelSize: 28
-                        onEditingFinished: if (!routeIdKeypad.visible) root.routeIdEditingFinished()
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: Qt.platform.os === "linux"
-                            onClicked: routeIdKeypad.openFor(routeIdField.text)
-                        }
+                        onEditingFinished: if (Qt.platform.os !== "linux") root.routeIdEditingFinished()
+                        onKeypadAccepted: root.routeIdEditingFinished()
                     }
 
                     Label {
@@ -814,13 +839,9 @@ RosterPanel {
                         font.pixelSize: 23
                         color: "#aeb5bf"
                     }
-                    TextField {
+                    TouchSearchField {
                         id: routeNameField
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: Qt.platform.os === "linux"
-                            onClicked: routeNameKeyboard.openFor(routeNameField)
-                        }
+                        keyboardTitle: "Route Name"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 62
                         maximumLength: 31
@@ -832,20 +853,11 @@ RosterPanel {
                         font.pixelSize: 23
                         color: "#aeb5bf"
                     }
-                    TextField {
+                    IdentityNumberField {
                         id: routeNumberField
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: Qt.platform.os === "linux"
-                            onClicked: routeNumberKeypad.openFor(routeNumberField.text)
-                        }
+                        keypadTitle: "Route Number"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 62
-                        maximumLength: 4
-                        inputMethodHints: Qt.ImhDigitsOnly
-                        validator: RegularExpressionValidator {
-                            regularExpression: /[0-9]{0,4}/
-                        }
                         font.pixelSize: 28
                     }
 
@@ -1112,33 +1124,6 @@ RosterPanel {
         }
     }
 
-    SearchKeyboard {
-        id: routeNameKeyboard
-        title: "Route Name"
-    }
-
-    TmccKeypad {
-        id: routeIdKeypad
-        title: "Route TMCC ID"
-        onSubmitted: function(tmccId) {
-            routeIdField.text = String(tmccId)
-            close()
-            root.routeIdEditingFinished()
-        }
-    }
-
-    TmccKeypad {
-        id: routeNumberKeypad
-        title: "Route Number"
-        minimumId: 0
-        maximumId: 9999
-        allowEmpty: true
-        onSubmitted: {
-            routeNumberField.text = entryText
-            close()
-        }
-    }
-
     Popup {
         id: routePicker
         objectName: "routePicker"
@@ -1382,15 +1367,16 @@ RosterPanel {
                 text: "TMCC ID (1-98)"
                 color: "#aeb5bf"
             }
-            TextField {
+            IdentityNumberField {
                 id: addSwitchId
+                keypadTitle: "Switch TMCC ID"
+                address: true
+                validator: IntValidator { bottom: 1; top: 98 }
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
-                maximumLength: 2
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: IntValidator { bottom: 1; top: 98 }
                 font.pixelSize: 18
-                onEditingFinished: root.completeExistingSwitchIdentity()
+                onEditingFinished: if (Qt.platform.os !== "linux") root.completeExistingSwitchIdentity()
+                onKeypadAccepted: root.completeExistingSwitchIdentity()
             }
             Label {
                 text: "Road Name"
@@ -1408,15 +1394,11 @@ RosterPanel {
                 text: "Road Number"
                 color: "#aeb5bf"
             }
-            TextField {
+            IdentityNumberField {
                 id: addRoadNumber
+                keypadTitle: "Road Number"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
-                maximumLength: 4
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: RegularExpressionValidator {
-                    regularExpression: /[0-9]{0,4}/
-                }
                 font.pixelSize: 18
             }
             Label {
@@ -1559,16 +1541,12 @@ RosterPanel {
                 color: "#aeb5bf"
                 font.pixelSize: 17
             }
-            TextField {
+            IdentityNumberField {
                 id: roadNumberField
+                keypadTitle: "Road Number"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
                 font.pixelSize: 22
-                maximumLength: 4
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: RegularExpressionValidator {
-                    regularExpression: /[0-9]{0,4}/
-                }
                 selectByMouse: true
             }
 
