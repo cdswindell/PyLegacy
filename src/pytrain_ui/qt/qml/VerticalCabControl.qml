@@ -71,9 +71,12 @@ Item {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         height: rail.height
-        width: Math.min(root.largeTouch ? 64 : 42, root.width - 8)
+        width: Math.max(0, Math.min(46, root.width - 8))
         radius: 12
-        color: "#20242a"
+        gradient: Gradient {
+            GradientStop { position: 0; color: "#10151c" }
+            GradientStop { position: 1; color: "#303a46" }
+        }
         border.width: 1
         border.color: "#4e5662"
     }
@@ -96,30 +99,28 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         height: root.activeHeight
-        width: 10
-        radius: 5
-        color: "#737b86"
+        width: 8
+        radius: 4
+        color: "#10151b"
+        border.color: "#536170"
     }
 
-    Rectangle {
+    ButtonFace {
         id: handle
-        width: Math.max(24, Math.min(root.largeTouch ? 104 : 68, root.width - 6))
-        height: root.largeTouch ? 72 : 46
-        radius: 9
+        width: Math.round(0.8 * Math.max(24, Math.min(root.largeTouch ? 104 : 68, root.width - 6)))
+        height: Math.round(0.8 * (root.largeTouch ? 72 : 46))
         x: (root.width - width) / 2
         y: root.valueToY(root.displayValue())
-        color: pointer.pressed ? "#f7f9fb" : "#e1e5ea"
-        border.width: 2
-        border.color: pointer.pressed ? "#5fb7f2" : "#9aa2ad"
+        depressed: pointer.pressed
+        selected: pointer.pressed
 
         Text {
             anchors.centerIn: parent
             text: root.displayValue()
             font.pixelSize: root.largeTouch ? 26 : 17
             font.bold: true
-            color: "#171a1f"
+            color: "#ffffff"
         }
-
     }
 
     MouseArea {

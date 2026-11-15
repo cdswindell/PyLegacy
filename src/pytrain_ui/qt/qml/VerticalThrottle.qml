@@ -12,6 +12,8 @@ Item {
     property bool awaitingConfirmation: false
     property bool largeTouch: false
     property bool springReturn: false
+    property int scaleStep: 20
+    readonly property int scaleCount: Math.floor((maximumValue - minimumValue) / scaleStep) + 1
     readonly property bool dragging: pointer.pressed
     readonly property real activeHeight: Math.max(1, height)
     signal valueCommitted(int value)
@@ -80,7 +82,7 @@ Item {
         anchors.horizontalCenter: rail.horizontalCenter
         anchors.top: rail.top
         height: rail.height
-        width: 48
+        width: Math.max(0, Math.min(46, root.width - 8))
         radius: 12
         gradient: Gradient {
             GradientStop { position: 0; color: "#10151c" }
@@ -91,20 +93,22 @@ Item {
     }
 
     Repeater {
-        model: 7
-        Rectangle {
+        model: root.scaleCount
+        Text {
             required property int index
-            width: index === 0 || index === 6 ? 24 : 16
-            height: 2
-            x: rail.x + rail.width + 8
-            y: rail.y + index * (rail.height - height) / 6
-            color: "#8b949f"
+            readonly property int stepValue: root.minimumValue + index * root.scaleStep
+            anchors.right: parent.right
+            anchors.rightMargin: 3
+            y: root.valueToY(stepValue) + handle.height / 2 - height / 2
+            text: stepValue
+            font.pixelSize: root.largeTouch ? 14 : 11
+            color: "#c1d8eb"
         }
     }
 
     Rectangle {
         id: rail
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: Math.round(handle.x + handle.width * 0.35 - width / 2)
         anchors.top: parent.top
         height: root.activeHeight
         width: 8
@@ -114,69 +118,72 @@ Item {
     }
 
     Rectangle {
+        anchors.horizontalCenter: rail.horizontalCenter
+        width: 18
+        height: Math.min(root.height, handle.height + 22)
+        y: Math.max(0, Math.min(root.height - height, handle.y - 11))
+        radius: 8
+        color: "#111e28"
+        border.color: "#698492"
+    }
+
+    Rectangle {
         id: handle
         objectName: "throttleThumb"
-        width: Math.min(root.largeTouch ? 144 : 96, root.width - 8)
-        height: Math.round((root.largeTouch ? 96 : 62) * 0.8)
-        radius: 9
-        x: (root.width - width) / 2
+        width: Math.max(0, Math.min(root.largeTouch ? 144 : 96, root.width - (root.largeTouch ? 31 : 24)))
+        height: Math.round((root.largeTouch ? 74 : 54) * 0.8)
+        radius: 14
+        x: 2
         y: root.valueToY(root.displayValue())
         gradient: Gradient {
-            GradientStop { position: 0; color: pointer.pressed ? "#f2f9ff" : "#d3dce5" }
-            GradientStop { position: 0.45; color: "#aab8c6" }
-            GradientStop { position: 0.5; color: "#7c8fa1" }
-            GradientStop { position: 1; color: "#43576a" }
+            GradientStop { position: 0; color: pointer.pressed ? "#306881" : "#698ba0" }
+            GradientStop { position: 0.45; color: "#365a72" }
+            GradientStop { position: 1; color: "#203e52" }
         }
-        border.width: 2
-        border.color: pointer.pressed ? "#5fb7f2" : "#9aa2ad"
+        border.color: pointer.pressed ? "#5fb7f2" : "#8ba9bb"
 
         Rectangle {
-            anchors.fill: parent
-            anchors.margins: 4
-            radius: 5
-            color: "transparent"
-            border.color: "#e2eaf2"
-            opacity: 0.5
-        }
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: root.largeTouch ? 6 : 3
-            text: root.springReturn ? "Relative" : "Target"
-            font.pixelSize: root.largeTouch ? 12 : 8
-            font.bold: true
-            color: "#263c50"
-        }
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: root.largeTouch ? 22 : 13
-            text: root.displayValue()
-            font.pixelSize: root.largeTouch ? 30 : 19
-            font.bold: true
-            color: "#14212e"
-        }
-        Column {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.largeTouch ? 7 : 4
-            spacing: 2
-            Repeater {
-                model: 3
-                Rectangle {
-                    width: Math.min(root.largeTouch ? 72 : 48, handle.width - 20)
-                    height: 2
-                    radius: 1
-                    color: "#23394c"
-                    Rectangle {
-                        y: 2
-                        width: parent.width
-                        height: 1
-                        color: "#c3d2df"
-                        opacity: 0.6
-                    }
+            anchors.centerIn: parent
+            width: parent.width * 0.57
+            height: parent.height - 10
+            radius: 6
+            color: "#142838"
+            border.color: "#698492"
+
+            Column {
+                anchors.centerIn: parent
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.springReturn ? "RELATIVE" : "TARGET"
+                    font.pixelSize: root.largeTouch ? 10 : 8
+                    font.bold: true
+                    color: "#d9edf9"
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.displayValue()
+                    font.pixelSize: root.largeTouch ? 23 : 17
+                    font.bold: true
+                    color: "#ffffff"
                 }
             }
         }
 
+        Repeater {
+            model: 6
+            Rectangle {
+                required property int index
+                width: 2
+                height: parent.height * 0.58
+                anchors.verticalCenter: parent.verticalCenter
+                x: index < 3 ? parent.width * 0.07 + index * 4
+                             : parent.width * 0.81 + (index - 3) * 4
+                radius: 1
+                color: "#152a3a"
+                border.color: "#587d93"
+            }
+        }
     }
 
     MouseArea {

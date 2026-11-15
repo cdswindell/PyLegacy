@@ -1002,32 +1002,44 @@ Rectangle {
                                 onModelChanged: Qt.callLater(root.syncAnalogMode)
                                 onActivated: root.selectedAnalogMode = currentText
                                 font.pixelSize: root.compact ? 11 : 18
-                                leftPadding: 4
-                                rightPadding: 14
+                                font.bold: true
+                                leftPadding: 7
+                                rightPadding: 22
                                 topPadding: 0
                                 bottomPadding: 0
                                 indicator: Text {
-                                    x: analogMode.width - width - 4
+                                    x: analogMode.width - width - 6
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: "▾"
-                                    color: "#c7d5e3"
-                                    font.pixelSize: 12
+                                    color: "#ffffff"
+                                    font.pixelSize: root.compact ? 12 : 16
                                 }
                                 popup.width: root.compact ? 150 : 220
+                                popup.padding: 5
                                 popup.background: Rectangle { color: "#102858"; radius: 8; border.color: "#6385af" }
                                 ToolTip.visible: hovered
                                 delegate: ItemDelegate {
+                                    id: modeChoice
                                     required property int index
                                     required property string modelData
-                                    width: analogMode.width
+                                    width: analogMode.popup.availableWidth
+                                    height: root.sliderButtonHeight
                                     text: root.analogModeLabel(modelData)
                                     font: analogMode.font
                                     highlighted: analogMode.highlightedIndex === index
+                                    contentItem: Text {
+                                        text: modeChoice.text
+                                        font: modeChoice.font
+                                        color: "#ffffff"
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    background: ButtonFace {
+                                        selected: analogMode.currentIndex === index || modeChoice.highlighted
+                                        depressed: modeChoice.down
+                                    }
                                 }
                                 ToolTip.text: root.analogModeLabel(currentText) + (currentText === "Horn" ? " · 0–15" : " · 0–7")
                                 contentItem: Text {
-                                    leftPadding: 2
-                                    rightPadding: 0
                                     text: analogMode.currentText === "Momentum" ? "Mom." : root.analogModeLabel(analogMode.displayText)
                                     color: "#e9edf2"
                                     font: analogMode.font
@@ -1036,10 +1048,10 @@ Rectangle {
                                     minimumPixelSize: 10
                                     fontSizeMode: Text.HorizontalFit
                                 }
-                                background: Rectangle {
-                                    color: analogMode.down ? Qt.darker("#5597bf", 1.45) : "#303945"
-                                    radius: 6
-                                    border.color: "#627384"
+                                background: ButtonFace {
+                                    depressed: analogMode.down
+                                    selected: analogMode.popup.visible
+                                    focused: analogMode.activeFocus
                                 }
                             }
                             VerticalCabControl {
@@ -1109,6 +1121,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 80
+                                scaleStep: cab.isCab1 ? 1 : cab.isLegacy || cab.isTransformer ? 20 : 5
                                 minimumValue: cab.isCab1 ? -5 : 0
                                 maximumValue: cab.isCab1 ? 5 : cab.isTransformer ? cab.commandSpeedMax : Math.max(1, cab.speedMax)
                                 value: cab.isCab1 ? cab.relativeThrottleSpeed : cab.targetSpeed
