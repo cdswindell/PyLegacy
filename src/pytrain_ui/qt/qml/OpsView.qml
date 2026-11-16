@@ -1610,6 +1610,17 @@ RosterPanel {
                 selectByMouse: true
             }
 
+            StateInfoGrid {
+                Layout.fillWidth: true
+                Layout.topMargin: metrics.sectionGap
+                columns: 3
+                rows: {
+                    root.rosterRows
+                    return switchEditor.visible ? controller.lcsBoardDetails(root.editingSwitchId) : []
+                }
+                visible: rows.length > 0
+            }
+
             Label {
                 id: switchEditorError
                 Layout.fillWidth: true

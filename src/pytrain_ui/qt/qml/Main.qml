@@ -43,13 +43,13 @@ ApplicationWindow {
         function onChanged() { window.accessoryRevision++ }
     }
 
-    function openStateInfo(scope, tmccId, fromRoster) {
+    function openStateInfo(scope, tmccId, fromRoster, deviceKind = "") {
         operatingCabView.closeDialogPanel()
         stateInfoScope = scope
         stateInfoId = tmccId
         stateInfoFromRoster = fromRoster
         stateInfoVisible = true
-        stateInfoController.openFor(scope, tmccId, fromRoster)
+        stateInfoController.openFor(scope, tmccId, fromRoster, deviceKind)
     }
 
     function closeStateInfo() {
@@ -272,7 +272,7 @@ ApplicationWindow {
                             window.activeAccessoryKey = key
                             window.accessoryOperatingVisible = true
                         }
-                        onEditRequested: tmccId => window.openStateInfo("ACC", tmccId, true)
+                        onEditRequested: (tmccId, kind) => window.openStateInfo("ACC", tmccId, true, kind)
                         onLcsRequested: accessoryCatalog.openLcsConfiguration()
                     }
 
@@ -285,7 +285,7 @@ ApplicationWindow {
                         accessory: window.activeAccessory
                         configurationVisible: accessoryLcsConfig.visible
                         onConfigureRequested: tmccId => accessoryLcsConfig.openForModule("amc2", tmccId, "ACC")
-                        onInfoRequested: tmccId => window.openStateInfo("ACC", tmccId, false)
+                        onInfoRequested: tmccId => window.openStateInfo("ACC", tmccId, false, window.activeAccessory.kind || "")
                         onCabMenuRequested: cabMenu.open()
                         onCloseRequested: window.accessoryOperatingVisible = false
                     }
@@ -314,10 +314,11 @@ ApplicationWindow {
                                     title: {
                                         const name = (accessoryInfo.record.identity || []).find(field => field.key === "name")
                                         const roadName = name && name.value ? String(name.value) : ""
-                                        const amc2 = accessoryInfo.amc2Info
-                                        if (amc2)
-                                            return roadName.toUpperCase().startsWith("AMC2") ? roadName :
-                                                roadName ? "AMC2 " + roadName : "AMC2"
+                                        const device = accessoryInfo.record.sensorTrack ? "Sensor Track" :
+                                                       accessoryInfo.amc2Info ? "AMC2" : ""
+                                        if (device)
+                                            return roadName.toLowerCase().startsWith(device.toLowerCase()) ? roadName :
+                                                roadName ? device + " " + roadName : device
                                         if (window.accessoryOperatingVisible && window.activeAccessory.tmccId === window.stateInfoId)
                                             return window.activeAccessory.title
                                         return roadName || "Accessory"

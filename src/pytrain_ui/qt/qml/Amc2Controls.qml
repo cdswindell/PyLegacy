@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 Item {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var controller
     required property var accessory
     readonly property string accessoryKey: accessory.key || ""
@@ -23,7 +25,7 @@ Item {
         objectName: "amc2Tabs"
         anchors.left: parent.left
         anchors.top: parent.top
-        anchors.topMargin: 10
+        anchors.topMargin: metrics.accessoryTabInset
         width: parent.width * 2 / 3
         height: 56
         spacing: 6
@@ -35,7 +37,7 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.topMargin: tabs.height + 4
+        anchors.topMargin: tabs.height + metrics.accessoryTabContentGap
         anchors.leftMargin: 8
         anchors.rightMargin: 8
         anchors.bottomMargin: 8

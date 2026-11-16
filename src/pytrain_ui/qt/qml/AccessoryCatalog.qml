@@ -40,7 +40,7 @@ RosterPanel {
     property int activeQuickActions: 0
 
     signal accessoryRequested(string key)
-    signal editRequested(int tmccId)
+    signal editRequested(int tmccId, string kind)
     signal lcsRequested()
     signal cabMenuRequested()
 
@@ -252,17 +252,19 @@ RosterPanel {
             }
         }
         RosterFilterList {
+            objectName: "accessoryFilterTabs"
             selectedKey: root.typeFilter
             Layout.fillWidth: true
-            Layout.preferredHeight: root.compact ? 66 : 96
+            Layout.preferredHeight: 68
             spacing: 8
             model: root.typeFilters
-            delegate: ChoiceButton {
+            delegate: CabPageTab {
                 required property var modelData
                 width: 150
-                height: root.compact ? 54 : 84
+                height: 56
                 text: modelData.label
-                selected: root.typeFilter === modelData.key
+                autoExclusive: true
+                checked: root.typeFilter === modelData.key
                 onClicked: root.typeFilter = modelData.key
             }
         }
@@ -389,7 +391,7 @@ RosterPanel {
                             Layout.preferredHeight: 57
                             text: "Edit"
                             activateOnRelease: true
-                            onClicked: root.editRequested(row.modelData.primaryTmccId)
+                            onClicked: root.editRequested(row.modelData.primaryTmccId, row.modelData.kind)
                         }
                     }
                     Label {

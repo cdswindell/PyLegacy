@@ -10,6 +10,7 @@ from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state import ComponentStateDict
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import EngineState
+from pytrain.db.irda_state import IrdaState
 from pytrain.gui.controller.engine_add_session import EngineAddSession
 from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.pdi.amc2_req import Amc2Req
@@ -20,7 +21,7 @@ from pytrain.protocol.constants import CONTROL_TYPE, LOCO_TYPE, SOUND_TYPE, Comm
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
-from .presentation import format_road_number
+from .presentation import format_road_number, lcs_board_details
 
 _FIELDS = (
     ("name", "Road Name", "road_name", None, None),
@@ -41,12 +42,13 @@ class StateInfoController(QObject):
         super().__init__()
         self._scope = CommandScope.ENGINE
         self._id = 0
+        self._device_kind = ""
         self._draft: EngineAddSession | None = None
         self._waiting_until = 0.0
         self._pending: dict | None = None
         self._error = ""
         self._model: dict = {}
-        self._amc2_saved_values: dict[str, str] = {}
+        self._accessory_saved_values: dict[str, str] = {}
 
     def _lookup(self):
         return ComponentStateStore.get_state(self._scope, self._id, create=False)
@@ -61,10 +63,12 @@ class StateInfoController(QObject):
         return state is None or not state.is_user_defined
 
     @Slot(str, int, bool)
-    def openFor(self, scope: str, tmcc_id: int, create: bool) -> None:
+    @Slot(str, int, bool, str)
+    def openFor(self, scope: str, tmcc_id: int, create: bool, device_kind: str = "") -> None:
         self._scope = CommandScope[scope]
         self._id = tmcc_id
-        self._amc2_saved_values.clear()
+        self._device_kind = device_kind
+        self._accessory_saved_values.clear()
         self._draft = None
         self._pending = None
         self._waiting_until = 0
@@ -73,8 +77,8 @@ class StateInfoController(QObject):
         if create and self._scope == CommandScope.ENGINE and 1 <= tmcc_id <= 9999 and tmcc_id != 99:
             self._draft = EngineAddSession(state or ComponentStateDict(self._scope)[tmcc_id])
         self.refresh(False)
-        if self._model["lcsConfiguration"] and 1 <= tmcc_id <= 98:
-            if state is None or not all(self._amc2_identity(state)):
+        if self._model["inlineIdentity"] and 1 <= tmcc_id <= 98:
+            if state is None or not all(self._accessory_identity(state)):
                 try:
                     BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ACC).send()
                 except (OSError, RuntimeError) as exc:
@@ -87,7 +91,7 @@ class StateInfoController(QObject):
         self._pending = None
         self._waiting_until = 0
         self._id = 0
-        self._amc2_saved_values.clear()
+        self._accessory_saved_values.clear()
         self._model = {}
         self.changed.emit()
 
@@ -139,7 +143,7 @@ class StateInfoController(QObject):
         return live, membership
 
     @staticmethod
-    def _amc2_identity(state: AccessoryState) -> tuple[str, str]:
+    def _accessory_identity(state: AccessoryState) -> tuple[str, str]:
         data = state.comp_data
         reported_name = state.road_name if state.is_road_name else ""
         reported_number = state.road_number if state.is_road_number else ""
@@ -150,18 +154,20 @@ class StateInfoController(QObject):
         number = reported_number or (data.road_number or "" if data else "")
         return name, format_road_number(number)
 
-    def _identity(self, state, amc2: bool = False) -> list[dict]:
+    def _identity(self, state, inline_identity: bool = False) -> list[dict]:
         rows = []
-        amc2_identity = {}
-        if amc2 and state:
-            name, number = self._amc2_identity(state)
-            amc2_identity = {"name": name, "number": number} | self._amc2_saved_values
+        accessory_identity = {}
+        if inline_identity:
+            name, number = self._accessory_identity(state) if state is not None else ("", "")
+            accessory_identity = {"name": name, "number": number} | self._accessory_saved_values
         for key, label, attribute, options, _ in _FIELDS:
             if self._scope == CommandScope.ACC and key not in {"name", "number"}:
                 continue
             if self._scope == CommandScope.TRAIN and key in {"control", "sound"}:
                 continue
-            value = self._draft.values[key] if self._draft else amc2_identity.get(key, getattr(state, attribute, None))
+            value = (
+                self._draft.values[key] if self._draft else accessory_identity.get(key, getattr(state, attribute, None))
+            )
             if key == "number":
                 value = format_road_number(value)
             display = (options.get(value, "—") if options else value) or "—"
@@ -254,19 +260,34 @@ class StateInfoController(QObject):
         live, membership = (
             self._details(state) if isinstance(state, EngineState) and state.comp_data is not None else ([], [])
         )
-        lcs_configuration = self._amc2_configuration(state)
+        irda_state = (
+            ComponentStateStore.get_state(CommandScope.IRDA, self._id, create=False)
+            if self._scope == CommandScope.ACC and self._device_kind in {"", "SENSOR"}
+            else None
+        )
+        sensor_track = isinstance(irda_state, IrdaState) and not irda_state.is_deleted
+        lcs_configuration = (
+            self._amc2_configuration(state) if not sensor_track and self._device_kind in {"", "AMC2"} else []
+        )
+        inline_identity = bool(sensor_track or lcs_configuration)
+        board = lcs_board_details(irda_state if sensor_track else state, known_device=inline_identity)
+        if sensor_track and state is None:
+            status = ""
         model = {
             "scopeTitle": self._scope.title,
             "tmccId": self._id,
             "creating": draft is not None,
             "unsaved": bool(draft and draft.edited and self._pending is None),
             "canCreate": bool(draft and draft.can_create and self._pending is None),
-            "canClear": bool(not draft and not lcs_configuration and state and state.is_deletable),
+            "canClear": bool(not draft and not inline_identity and state and state.is_deletable),
             "lcsConfiguration": lcs_configuration,
-            "editable": bool(self._pending is None and (draft or (state and (state.comp_data or lcs_configuration)))),
+            "lcsBoard": board,
+            "inlineIdentity": inline_identity,
+            "sensorTrack": sensor_track,
+            "editable": bool(self._pending is None and (draft or inline_identity or (state and state.comp_data))),
             "busy": self._pending is not None,
             "status": self._error or status,
-            "identity": self._identity(state, bool(lcs_configuration)) if state or draft else [],
+            "identity": self._identity(state, inline_identity) if state or draft or inline_identity else [],
             "live": live,
             "membership": membership,
             "bluetoothId": state.bt_id if isinstance(state, EngineState) and self._scope == CommandScope.ENGINE else "",
@@ -279,13 +300,13 @@ class StateInfoController(QObject):
             self.changed.emit()
 
     @Slot("QVariantMap", result=bool)
-    def saveAmc2Identity(self, edits: dict) -> bool:
+    def saveAccessoryIdentity(self, edits: dict) -> bool:
         state = self._lookup()
-        if not self._model.get("editable") or not self._model.get("lcsConfiguration") or state is None:
+        if not self._model.get("editable") or not self._model.get("inlineIdentity"):
             return False
         if edits.keys() - {"name", "number"}:
             return False
-        current_name, current_number = self._amc2_identity(state)
+        current_name, current_number = self._accessory_identity(state) if state is not None else ("", "")
         try:
             changes = {}
             if "name" in edits:
@@ -302,6 +323,8 @@ class StateInfoController(QObject):
                 if number != current_number:
                     changes["number"] = number
             if changes:
+                if state is None:
+                    state = ComponentStateStore.get_state(CommandScope.ACC, self._id)
                 if state.comp_data is None:
                     state.initialize(CommandScope.ACC, self._id)
                 data = state.comp_data
@@ -311,7 +334,7 @@ class StateInfoController(QObject):
                 if "number" in changes:
                     requests.append(data.set_road_number_req(int(changes["number"]) if changes["number"] else None))
                 BaseReq.process_sync_reqs([*requests, state], deduplicate_writes=True)
-                self._amc2_saved_values.update(changes)
+                self._accessory_saved_values.update(changes)
             self._error = ""
         except (AssertionError, OSError, RuntimeError, ValueError) as exc:
             self._error = str(exc) or "Unable to save the accessory identity."
@@ -323,7 +346,7 @@ class StateInfoController(QObject):
     @Slot(str, str, result=bool)
     def edit(self, key: str, text: str) -> bool:
         state = self._lookup()
-        if not self._model.get("editable") or self._model.get("lcsConfiguration"):
+        if not self._model.get("editable") or self._model.get("inlineIdentity"):
             return False
         field = next((field for field in _FIELDS if field[0] == key), None)
         if field is None or key not in {row["key"] for row in self._model["identity"]}:
@@ -414,7 +437,7 @@ class StateInfoController(QObject):
     @Slot()
     def clear(self) -> None:
         state = self._lookup()
-        if self._draft or state is None or not state.is_deletable or self._amc2_configuration(state):
+        if self._draft or state is None or not state.is_deletable or self._model.get("inlineIdentity"):
             return
         try:
             if state.clear(notify=True, clear_db=True):

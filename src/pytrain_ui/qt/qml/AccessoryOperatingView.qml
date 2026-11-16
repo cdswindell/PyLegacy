@@ -5,6 +5,8 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    PanelMetrics { id: metrics }
+
     property var controller
     property var accessory: ({})
     property bool configurationVisible: false
@@ -158,7 +160,7 @@ Rectangle {
         }
 
         AccessoryDeviceControls {
-            Layout.topMargin: root.kind === "AMC2" ? 12 : 0
+            Layout.topMargin: root.kind === "AMC2" || root.kind === "SENSOR" ? metrics.sectionGap : 0
             enabled: !root.configurationVisible
             Layout.fillWidth: true
             Layout.fillHeight: true

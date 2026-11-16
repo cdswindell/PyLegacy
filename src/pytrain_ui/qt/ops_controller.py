@@ -19,7 +19,7 @@ from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 
-from .presentation import format_road_number
+from .presentation import format_road_number, lcs_board_details
 
 
 class OpsController(QObject):
@@ -192,6 +192,11 @@ class OpsController(QObject):
     def switchRoadNumber(self, tmcc_id: int) -> str:
         state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False)
         return self._identity(state)[1] if isinstance(state, SwitchState) else ""
+
+    @Slot(int, result="QVariantList")
+    def lcsBoardDetails(self, tmcc_id: int) -> list[dict]:
+        state = ComponentStateStore.get_state(self._scope, tmcc_id, create=False)
+        return lcs_board_details(state, known_device=bool(self._switch_lcs_associations(tmcc_id)))
 
     @Slot(int, str, str, result=str)
     def saveSwitchIdentity(self, tmcc_id: int, road_name: str, road_number: str) -> str:

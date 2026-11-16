@@ -20,6 +20,7 @@ from pytrain.pdi.base_req import BaseReq
 from pytrain.pdi.bpc2_req import Bpc2Req
 from pytrain.pdi.constants import Asc2Action, Bpc2Action, PdiCommand
 from pytrain.pdi.pdi_listener import PdiDispatcher
+from pytrain.pdi.pdi_req import PdiReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -155,7 +156,7 @@ def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypat
     monkeypatch.setattr(ComponentState, "clear", clear)
     controller = module.StateInfoController()
     query = Mock()
-    monkeypatch.setattr(BaseReq, "send", lambda request: query(request))
+    monkeypatch.setattr(PdiReq, "send", lambda packet: query(packet))
     controller.openFor("ACC", config.tmcc_id, False)
     if has_base_record:
         query.assert_not_called()
@@ -188,11 +189,11 @@ def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypat
     monkeypatch.setattr(BaseReq, "process_sync_reqs", write)
     controller.refresh(False)
     assert not controller.edit("name", "Motor Controller")
-    assert controller.saveAmc2Identity({"number": "0026"})
-    assert not controller.saveAmc2Identity({"name": "Yard motors", "number": "12AB"})
+    assert controller.saveAccessoryIdentity({"number": "0026"})
+    assert not controller.saveAccessoryIdentity({"name": "Yard motors", "number": "12AB"})
     write.assert_not_called()
 
-    assert controller.saveAmc2Identity({"number": "42"})
+    assert controller.saveAccessoryIdentity({"number": "42"})
     write.assert_called_once()
     number_req, refreshed = write.call_args.args[0]
     assert number_req.tmcc_id == state.tmcc_id
@@ -203,7 +204,7 @@ def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypat
     assert fields == {"name": "Wind Turbine #3", "number": "0042"}
 
     write.reset_mock()
-    assert controller.saveAmc2Identity({"name": " Yard motors "})
+    assert controller.saveAccessoryIdentity({"name": " Yard motors "})
     write.assert_called_once()
     name_req, refreshed = write.call_args.args[0]
     assert name_req.tmcc_id == state.tmcc_id
@@ -211,6 +212,47 @@ def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypat
     fields = {row["key"]: row["value"] for row in controller.model["identity"]}
     assert fields == {"name": "Yard motors", "number": "0042"}
     assert controller.model["lcsConfiguration"] == [{"label": label, "value": value} for label, value in info.items()]
+
+
+def test_sensor_track_state_info_edits_accessory_identity_and_uses_sensor_board(monkeypatch) -> None:
+    module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
+    address = 50
+    accessory = ComponentStateDict(CommandScope.ACC)[address]
+    accessory.initialize(CommandScope.ACC, address)
+    accessory.comp_data.road_name = "Upper Main West"
+    accessory.comp_data.road_number = "50"
+    sensor = ComponentStateDict(CommandScope.IRDA)[address]
+    sensor.update(PdiReq.from_bytes(bytes.fromhex("d132320102030096df")))
+    sensor.update(PdiReq.from_bytes(bytes.fromhex("d1323204b101006f77df")))
+    states = {CommandScope.ACC: accessory, CommandScope.IRDA: sensor}
+    monkeypatch.setattr(ComponentStateStore, "get_state", lambda scope, _address, create=False: states.get(scope))
+    write = Mock()
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", write)
+    controller = module.StateInfoController()
+
+    controller.openFor("ACC", address, False, "SENSOR")
+
+    assert controller.model["inlineIdentity"] and controller.model["editable"]
+    assert not controller.model["canClear"]
+    assert {row["label"]: row["value"] for row in controller.model["lcsBoard"]} == {
+        "Board ID": "177",
+        "Model": "0",
+        "Firmware": "2.3.0",
+    }
+    assert {row["key"]: row["value"] for row in controller.model["identity"]} == {
+        "name": "Upper Main West",
+        "number": "0050",
+    }
+    controller.refresh(False)
+    write.assert_not_called()
+    assert controller.saveAccessoryIdentity({"name": "West Sensor", "number": "51"})
+    requests = write.call_args.args[0]
+    assert len(requests) == 3 and requests[-1] is accessory
+    assert all(req.scope == CommandScope.ACC and req.tmcc_id == address for req in requests[:-1])
+    assert {row["key"]: row["value"] for row in controller.model["identity"]} == {
+        "name": "West Sensor",
+        "number": "0051",
+    }
 
 
 @pytest.mark.parametrize("mode,has_record", [(2, True), (3, False)])

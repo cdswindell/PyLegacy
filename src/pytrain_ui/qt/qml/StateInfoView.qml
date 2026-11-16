@@ -10,14 +10,15 @@ Rectangle {
     signal closeRequested()
     readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
     readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible ||
-        amc2Name.keyboardOpen || amc2NumberPad.visible
+        accessoryName.keyboardOpen || accessoryNumberPad.visible
+    readonly property bool inlineIdentity: !!record.inlineIdentity
     readonly property bool amc2Info: !!record.lcsConfiguration && record.lcsConfiguration.length > 0
-    property int amc2DraftId: 0
-    property string initialAmc2Name: ""
-    property string initialAmc2Number: ""
-    readonly property bool amc2IdentityDirty: amc2Info && amc2DraftId === record.tmccId &&
-        (amc2Name.text !== initialAmc2Name || amc2Number.text !== initialAmc2Number)
-    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges || amc2IdentityDirty
+    property int accessoryDraftId: 0
+    property string initialAccessoryName: ""
+    property string initialAccessoryNumber: ""
+    readonly property bool accessoryIdentityDirty: inlineIdentity && accessoryDraftId === record.tmccId &&
+        (accessoryName.text !== initialAccessoryName || accessoryNumber.text !== initialAccessoryNumber)
+    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges || accessoryIdentityDirty
     readonly property color fieldLabelColor: "#b5c9e5"
     readonly property var record: controller ? controller.model : ({})
     implicitHeight: panelLayout.implicitHeight + 20
@@ -25,49 +26,49 @@ Rectangle {
     radius: 10
     border.color: "#496b9d"
 
-    function loadAmc2Identity() {
+    function loadAccessoryIdentity() {
         const fields = record.identity || []
         const name = fields.find(field => field.key === "name")
         const number = fields.find(field => field.key === "number")
-        initialAmc2Name = name && name.value ? String(name.value) : ""
-        initialAmc2Number = number && number.value ? String(number.value) : ""
-        amc2Name.text = initialAmc2Name
-        amc2Number.text = initialAmc2Number
-        amc2DraftId = record.tmccId || 0
+        initialAccessoryName = name && name.value ? String(name.value) : ""
+        initialAccessoryNumber = number && number.value ? String(number.value) : ""
+        accessoryName.text = initialAccessoryName
+        accessoryNumber.text = initialAccessoryNumber
+        accessoryDraftId = record.tmccId || 0
     }
 
-    function syncAmc2Identity() {
-        if (!visible || !amc2Info)
+    function syncAccessoryIdentity() {
+        if (!visible || !inlineIdentity)
             return
-        if (amc2DraftId !== record.tmccId) {
-            loadAmc2Identity()
+        if (accessoryDraftId !== record.tmccId) {
+            loadAccessoryIdentity()
             return
         }
         const fields = record.identity || []
         // Let late identity data populate an empty field without replacing an open draft.
-        if (!initialAmc2Name && !amc2Name.text) {
+        if (!initialAccessoryName && !accessoryName.text) {
             const name = fields.find(field => field.key === "name")
-            initialAmc2Name = name && name.value ? String(name.value) : ""
-            amc2Name.text = initialAmc2Name
+            initialAccessoryName = name && name.value ? String(name.value) : ""
+            accessoryName.text = initialAccessoryName
         }
-        if (!initialAmc2Number && !amc2Number.text) {
+        if (!initialAccessoryNumber && !accessoryNumber.text) {
             const number = fields.find(field => field.key === "number")
-            initialAmc2Number = number && number.value ? String(number.value) : ""
-            amc2Number.text = initialAmc2Number
+            initialAccessoryNumber = number && number.value ? String(number.value) : ""
+            accessoryNumber.text = initialAccessoryNumber
         }
     }
 
-    onRecordChanged: Qt.callLater(syncAmc2Identity)
+    onRecordChanged: Qt.callLater(syncAccessoryIdentity)
 
     onVisibleChanged: {
         if (!visible) {
             fieldEditor.close()
             roadNameKeyboard.close()
-            amc2NumberPad.close()
-            amc2DraftId = 0
+            accessoryNumberPad.close()
+            accessoryDraftId = 0
         } else {
             details.contentItem.contentY = 0
-            Qt.callLater(syncAmc2Identity)
+            Qt.callLater(syncAccessoryIdentity)
         }
     }
 
@@ -107,49 +108,6 @@ Rectangle {
         font.pixelSize: 22
     }
 
-    component DetailGrid: GridLayout {
-        id: section
-        required property var rows
-        property int tileHeight: 0
-        columns: width >= 520 ? 4 : 2
-        columnSpacing: 8
-        rowSpacing: 8
-        Repeater {
-            model: section.rows
-            delegate: Rectangle {
-                required property var modelData
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.minimumWidth: 0
-                Layout.preferredHeight: section.tileHeight || detailLabels.implicitHeight + 16
-                color: "#173765"
-                radius: 6
-                ColumnLayout {
-                    id: detailLabels
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.margins: 8
-                    spacing: 2
-                    Label {
-                        Layout.fillWidth: true
-                        text: modelData.label
-                        color: root.fieldLabelColor
-                        font.pixelSize: 17
-                        wrapMode: Text.WordWrap
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: modelData.value
-                        color: "white"
-                        font.pixelSize: 20
-                        wrapMode: Text.WrapAnywhere
-                    }
-                }
-            }
-        }
-    }
-
     ColumnLayout {
         id: panelLayout
         anchors.fill: parent
@@ -166,13 +124,13 @@ Rectangle {
             }
             Label {
                 Layout.fillWidth: true
-                visible: !root.amc2Info && !root.record.creating && !!root.record.editable
+                visible: !root.inlineIdentity && !root.record.creating && !!root.record.editable
                 text: root.useTouchKeyboard ? "Tap to edit" : "Click to edit"
                 color: "#b5c9e5"
                 font.pixelSize: 18
                 wrapMode: Text.WordWrap
             }
-            Item { Layout.fillWidth: true; visible: root.amc2Info || root.record.creating || !root.record.editable }
+            Item { Layout.fillWidth: true; visible: root.inlineIdentity || root.record.creating || !root.record.editable }
             FooterButton {
                 visible: !!root.record.creating
                 Layout.fillWidth: false
@@ -208,7 +166,7 @@ Rectangle {
                 spacing: 8
 
                 ColumnLayout {
-                    visible: root.amc2Info
+                    visible: root.inlineIdentity
                     Layout.fillWidth: true
                     spacing: 8
 
@@ -222,8 +180,8 @@ Rectangle {
                         spacing: 8
 
                         TouchSearchField {
-                            id: amc2Name
-                            objectName: "amc2RoadName"
+                            id: accessoryName
+                            objectName: "accessoryRoadName"
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredHeight: 52
@@ -237,8 +195,8 @@ Rectangle {
                             Accessible.name: "Road Name"
                         }
                         TitleCaseButton {
-                            field: amc2Name
-                            Layout.preferredHeight: amc2Name.Layout.preferredHeight
+                            field: accessoryName
+                            Layout.preferredHeight: accessoryName.Layout.preferredHeight
                             visible: !!root.record.editable
                         }
                     }
@@ -249,8 +207,8 @@ Rectangle {
                         font.pixelSize: 17
                     }
                     TextField {
-                        id: amc2Number
-                        objectName: "amc2RoadNumber"
+                        id: accessoryNumber
+                        objectName: "accessoryRoadNumber"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 52
                         maximumLength: 4
@@ -261,15 +219,15 @@ Rectangle {
                         inputMethodHints: Qt.ImhDigitsOnly
                         Accessible.name: "Road Number"
                         TapHandler {
-                            enabled: root.useTouchKeyboard && !amc2Number.readOnly
-                            onTapped: amc2NumberPad.openFor(amc2Number.text)
+                            enabled: root.useTouchKeyboard && !accessoryNumber.readOnly
+                            onTapped: accessoryNumberPad.openFor(accessoryNumber.text)
                         }
                     }
                 }
 
                 GridLayout {
                     Layout.fillWidth: true
-                    visible: !root.amc2Info
+                    visible: !root.inlineIdentity
                     columns: 2
                     columnSpacing: 8
                     rowSpacing: 8
@@ -344,7 +302,7 @@ Rectangle {
                     font.pixelSize: 23
                     font.bold: true
                 }
-                DetailGrid {
+                StateInfoGrid {
                     id: amc2Device
                     objectName: "amc2DeviceConfiguration"
                     Layout.fillWidth: true
@@ -353,13 +311,29 @@ Rectangle {
                     rows: (root.record.lcsConfiguration || []).slice(0, 3)
                     visible: root.amc2Info
                 }
-                DetailGrid {
+                StateInfoGrid {
                     id: amc2Motors
                     objectName: "amc2MotorConfiguration"
                     Layout.fillWidth: true
                     columns: 2
                     tileHeight: amc2Device.tileHeight
                     rows: (root.record.lcsConfiguration || []).slice(3)
+                    visible: rows.length > 0
+                }
+                Label {
+                    visible: lcsBoard.rows.length > 0
+                    Layout.topMargin: metrics.sectionGap
+                    text: "LCS Board Information"
+                    color: "white"
+                    font.pixelSize: 23
+                    font.bold: true
+                }
+                StateInfoGrid {
+                    id: lcsBoard
+                    objectName: "lcsBoardInformation"
+                    Layout.fillWidth: true
+                    columns: 3
+                    rows: root.record.lcsBoard || []
                     visible: rows.length > 0
                 }
                 Label {
@@ -370,7 +344,7 @@ Rectangle {
                     font.pixelSize: 23
                     font.bold: true
                 }
-                DetailGrid {
+                StateInfoGrid {
                     id: live
                     Layout.fillWidth: true
                     rows: root.record.live || []
@@ -384,7 +358,7 @@ Rectangle {
                     font.pixelSize: 23
                     font.bold: true
                 }
-                DetailGrid {
+                StateInfoGrid {
                     id: membership
                     Layout.fillWidth: true
                     rows: root.record.membership || []
@@ -413,20 +387,20 @@ Rectangle {
                 onClicked: root.closeRequested()
             }
             FooterButton {
-                objectName: "saveAmc2Identity"
-                visible: root.amc2Info
+                objectName: "saveAccessoryIdentity"
+                visible: root.inlineIdentity
                 Layout.preferredHeight: recordFooter.buttonHeight
                 text: "Save"
                 selected: true
-                enabled: !!root.record.editable && root.amc2IdentityDirty && amc2Number.acceptableInput
+                enabled: !!root.record.editable && root.accessoryIdentityDirty && accessoryNumber.acceptableInput
                 onClicked: {
                     const edits = {}
-                    if (amc2Name.text !== root.initialAmc2Name)
-                        edits.name = amc2Name.text
-                    if (amc2Number.text !== root.initialAmc2Number)
-                        edits.number = amc2Number.text
-                    if (root.controller.saveAmc2Identity(edits)) {
-                        root.loadAmc2Identity()
+                    if (accessoryName.text !== root.initialAccessoryName)
+                        edits.name = accessoryName.text
+                    if (accessoryNumber.text !== root.initialAccessoryNumber)
+                        edits.number = accessoryNumber.text
+                    if (root.controller.saveAccessoryIdentity(edits)) {
+                        root.loadAccessoryIdentity()
                         root.closeRequested()
                     }
                 }
@@ -449,13 +423,13 @@ Rectangle {
     }
 
     TmccKeypad {
-        id: amc2NumberPad
+        id: accessoryNumberPad
         title: "Road Number"
         minimumId: 0
         maximumId: 9999
         allowEmpty: true
         onSubmitted: {
-            amc2Number.text = entryText
+            accessoryNumber.text = entryText
             close()
         }
     }

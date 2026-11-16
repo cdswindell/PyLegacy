@@ -4,22 +4,85 @@ import QtQuick.Layouts
 
 Item {
     id: root
+
+    PanelMetrics { id: metrics }
     required property var controller
     required property var accessory
     readonly property string kind: accessory.kind || ""
-    ListView {
-        anchors.fill: parent
+    TabBar {
+        id: sensorTabs
+        objectName: "sensorTabs"
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.topMargin: metrics.accessoryTabInset
         visible: root.kind === "SENSOR"
-        spacing: 8
+        width: parent.width / 3
+        height: 56
+        padding: 0
+        background: Item {}
+        CabPageTab {
+            id: actionTab
+            text: "Action"
+            height: sensorTabs.height
+        }
+    }
+
+    ListView {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: sensorTabs.top
+        // The tab style can offset the visible button inside the TabBar.
+        anchors.topMargin: metrics.accessoryTabContentGap + (actionTab.parent
+            ? actionTab.parent.mapToItem(sensorTabs, 0, actionTab.y + actionTab.height).y
+            : sensorTabs.height)
+        anchors.bottom: parent.bottom
+        visible: root.kind === "SENSOR"
+        spacing: 14
         clip: true
         model: visible ? root.accessory.sequences || [] : []
         ScrollBar.vertical: ListScrollBar { id: sensorScroll }
 
         delegate: CabButton {
+            id: actionButton
             required property var modelData
             width: ListView.view.width - sensorScroll.gutterWidth
             height: 60
-            text: modelData.label
+            leftPadding: 10
+            rightPadding: 10
+            readonly property var directions: /^(.*) R➟L[/](.*) L➟R$/.exec(modelData.label)
+            readonly property var actionLabels: directions
+                ? ["Right ➟ Left: " + directions[1], "Left ➟ Right: " + directions[2]]
+                : [modelData.label]
+            text: actionLabels.join(". ")
+            Accessible.role: Accessible.Button
+            Accessible.name: text
+            contentItem: Item {
+                RowLayout {
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.min(parent.width, 580)
+                    spacing: 12
+                    Repeater {
+                        model: actionButton.actionLabels
+                        Text {
+                            required property string modelData
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: 1
+                            Layout.fillHeight: true
+                            text: modelData
+                            font: actionButton.font
+                            color: actionButton.enabled ? "#ffffff" : "#7d8591"
+                            horizontalAlignment: actionButton.directions ? Text.AlignLeft : Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
             selected: root.accessory.sequence === modelData.value
             activateOnRelease: true
             onClicked: root.controller.setSensorSequence(root.accessory.key, modelData.value)
