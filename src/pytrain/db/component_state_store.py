@@ -257,6 +257,14 @@ class ComponentStateStore:
                             self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
                                 self._lcs_config_reqs[(command.command, address)] = command
+                                if command.command.is_bpc2:
+                                    log.debug(
+                                        "LCS CONFIG cached: %s %s %s mode=%s",
+                                        command.command.name,
+                                        command.scope.name,
+                                        address,
+                                        command.mode,
+                                    )
                             if (
                                 isinstance(command, CompDataMixin)
                                 and command.comp_data
@@ -276,16 +284,34 @@ class ComponentStateStore:
                 pass
 
     def _clear_config_cache(self) -> None:
+        log.debug("LCS CONFIG cache reset at sync start: %d entries", len(self._lcs_config_reqs))
         self._lcs_config_reqs.clear()
 
     # noinspection PyTypeChecker
     def _process_config_cache(self) -> None:
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "LCS CONFIG cache at Sync Complete (command, scope, address, mode): %s",
+                [
+                    (config.command.name, config.scope.name, config.address, getattr(config, "mode", None))
+                    for config in tuple(self._lcs_config_reqs.values())
+                ],
+            )
         for config in self._lcs_config_reqs.values():
             if (
                 config.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}
                 and config.num_addressable_ports > 1
             ):
                 pri_state = ComponentStateStore.get_state(config.scope, config.address, False)
+                if config.command.is_bpc2:
+                    log.debug(
+                        "BPC2 at Sync Complete: %s %s mode=%s ports=%s base_found=%s",
+                        config.scope.name,
+                        config.address,
+                        config.mode,
+                        config.num_addressable_ports,
+                        pri_state is not None,
+                    )
                 if pri_state:
                     pri_tmcc_id = pri_state.address
                     for offset in range(1, config.num_addressable_ports):
@@ -295,6 +321,15 @@ class ComponentStateStore:
                             slave_state._parent = pri_state
                             # The module's configuration confirms this port exists.
                             ComponentStateStore.set_state(config.scope, port_address, slave_state)
+                            if config.command.is_bpc2:
+                                log.debug(
+                                    "BPC2 parent assigned at Sync Complete: %s %s -> %s %s (port %s)",
+                                    config.scope.name,
+                                    port_address,
+                                    config.scope.name,
+                                    pri_tmcc_id,
+                                    offset + 1,
+                                )
             elif config.scope == CommandScope.IRDA:
                 pri_state = ComponentStateStore.get_state(CommandScope.IRDA, config.address, False)
                 slave_state = ComponentStateStore.get_state(CommandScope.ACC, config.address)
