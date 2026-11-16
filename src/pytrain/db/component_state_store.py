@@ -20,6 +20,8 @@ from sortedcontainers import SortedDict
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
+from ..pdi.asc2_req import Asc2Req
+from ..pdi.bpc2_req import Bpc2Req
 from ..pdi.lcs_req import LcsReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -34,6 +36,7 @@ from .component_state import (
     SCOPE_TO_STATE_MAP,
     ComponentState,
     ComponentStateDict,
+    LcsProxyState,
     RequestConfigurationException,
     SystemStateDict,
 )
@@ -179,6 +182,7 @@ class ComponentStateStore:
         self._is_base = is_base
         self._is_ser2 = is_ser2
         self._filter_updates = is_base is True and is_ser2 is True
+        self._lcs_config_lock = threading.RLock()
         self._lcs_config_reqs: dict[tuple[PdiCommand, int], LcsReq] = {}
         if topics:
             for topic in topics:
@@ -256,15 +260,7 @@ class ComponentStateStore:
 
                             self._state[scope][address].update(command)
                             if isinstance(command, LcsReq) and command.is_config_req:
-                                self._lcs_config_reqs[(command.command, address)] = command
-                                if command.command.is_bpc2:
-                                    log.debug(
-                                        "LCS CONFIG cached: %s %s %s mode=%s",
-                                        command.command.name,
-                                        command.scope.name,
-                                        address,
-                                        command.mode,
-                                    )
+                                self._cache_lcs_config(command)
                             if (
                                 isinstance(command, CompDataMixin)
                                 and command.comp_data
@@ -283,58 +279,108 @@ class ComponentStateStore:
             except RequestConfigurationException:
                 pass
 
-    def _clear_config_cache(self) -> None:
-        log.debug("LCS CONFIG cache reset at sync start: %d entries", len(self._lcs_config_reqs))
-        self._lcs_config_reqs.clear()
-
-    # noinspection PyTypeChecker
-    def _process_config_cache(self) -> None:
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug(
-                "LCS CONFIG cache at Sync Complete (command, scope, address, mode): %s",
-                [
-                    (config.command.name, config.scope.name, config.address, getattr(config, "mode", None))
-                    for config in tuple(self._lcs_config_reqs.values())
-                ],
-            )
-        for config in self._lcs_config_reqs.values():
-            if (
-                config.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}
-                and config.num_addressable_ports > 1
-            ):
-                pri_state = ComponentStateStore.get_state(config.scope, config.address, False)
-                if config.command.is_bpc2:
-                    log.debug(
-                        "BPC2 at Sync Complete: %s %s mode=%s ports=%s base_found=%s",
+    def _cache_lcs_config(self, config: LcsReq) -> None:
+        if config.is_error:
+            return
+        with self._lcs_config_lock:
+            self._lcs_config_reqs[(config.command, config.address)] = config
+            # Latching switch mode is intentionally excluded from port association.
+            if isinstance(config, Asc2Req) and config.mode == 3:
+                log.warning("ASC2 %s reported Mode 3 (latching switch); skipping port association", config.address)
+                return
+            if isinstance(config, (Asc2Req, Bpc2Req)):
+                log.debug("LCS CONFIG cached: %s %s mode=%s", config.command.name, config.address, config.mode)
+                repaired = self._link_lcs_ports(config, tuple(self._lcs_config_reqs.values()))
+                if repaired and self.is_state_synchronized():
+                    log.info(
+                        "LCS port links repaired on CONFIG: %s %s %s, ports at %s",
+                        config.command.name,
                         config.scope.name,
                         config.address,
-                        config.mode,
-                        config.num_addressable_ports,
-                        pri_state is not None,
+                        repaired,
                     )
-                if pri_state:
-                    pri_tmcc_id = pri_state.address
-                    for offset in range(1, config.num_addressable_ports):
-                        port_address = pri_tmcc_id + offset
-                        slave_state = ComponentStateStore.get_state(config.scope, port_address, True)
-                        if slave_state:
-                            slave_state._parent = pri_state
-                            # The module's configuration confirms this port exists.
-                            ComponentStateStore.set_state(config.scope, port_address, slave_state)
-                            if config.command.is_bpc2:
-                                log.debug(
-                                    "BPC2 parent assigned at Sync Complete: %s %s -> %s %s (port %s)",
-                                    config.scope.name,
-                                    port_address,
-                                    config.scope.name,
-                                    pri_tmcc_id,
-                                    offset + 1,
-                                )
-            elif config.scope == CommandScope.IRDA:
-                pri_state = ComponentStateStore.get_state(CommandScope.IRDA, config.address, False)
-                slave_state = ComponentStateStore.get_state(CommandScope.ACC, config.address)
-                if pri_state and slave_state:
-                    slave_state._parent = pri_state
+
+    def _clear_config_cache(self) -> None:
+        with self._lcs_config_lock:
+            log.debug("LCS CONFIG cache reset at sync start: %d entries", len(self._lcs_config_reqs))
+            self._lcs_config_reqs.clear()
+
+    @staticmethod
+    def _lcs_port_count(config: LcsReq) -> int:
+        if config.scope not in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}:
+            return 0
+        if isinstance(config, Asc2Req) and config.mode not in {0, 1, 2}:
+            return 0
+        if isinstance(config, Bpc2Req) and config.mode not in {0, 1, 2, 3}:
+            return 0
+        return config.num_addressable_ports
+
+    # noinspection PyProtectedMember
+    def _link_lcs_ports(self, config: LcsReq, configs: tuple[LcsReq, ...]) -> list[int]:
+        count = self._lcs_port_count(config)
+        if count <= 1:
+            return []
+        scope, address = config.scope, config.address
+        parent = self.get_state(scope, address, False)
+        if not isinstance(parent, LcsProxyState):
+            log.warning(
+                "LCS port links unavailable: %s %s %s has no base state", config.command.name, scope.name, address
+            )
+            return []
+
+        other_configs = [
+            other
+            for other in configs
+            if other.scope == scope and other.address != address and self._lcs_port_count(other) > 0
+        ]
+        repaired = []
+        for port_address in range(address + 1, min(99, address + count - 1) + 1):
+            child = self.get_state(scope, port_address, False)
+            if isinstance(child, LcsProxyState) and child.parent is parent:
+                continue
+            if any(
+                other.address <= port_address < other.address + self._lcs_port_count(other) for other in other_configs
+            ):
+                log.warning(
+                    "LCS port link conflict: %s %s claims %s %s", config.command.name, address, scope.name, port_address
+                )
+                continue
+            child = child if child is not None else self.get_state(scope, port_address)
+            if isinstance(child, LcsProxyState):
+                child._parent = parent
+                # The module's configuration confirms this port exists.
+                self.set_state(scope, port_address, child)
+                repaired.append(port_address)
+        return repaired
+
+    # noinspection PyProtectedMember
+    def _process_config_cache(self) -> None:
+        with self._lcs_config_lock:
+            configs = tuple(self._lcs_config_reqs.values())
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(
+                    "LCS CONFIG cache at Sync Complete (command, scope, address, mode): %s",
+                    [
+                        (config.command.name, config.scope.name, config.address, getattr(config, "mode", None))
+                        for config in configs
+                    ],
+                )
+            for config in configs:
+                if config.scope == CommandScope.IRDA:
+                    parent = self.get_state(CommandScope.IRDA, config.address, False)
+                    child = self.get_state(CommandScope.ACC, config.address)
+                    if parent and child:
+                        child._parent = parent
+                    continue
+                repaired = self._link_lcs_ports(config, configs)
+                if repaired and isinstance(config, (Asc2Req, Bpc2Req)):
+                    log.info(
+                        "LCS post-sync validation repaired port links: %s %s %s, ports at %s",
+                        config.command.name,
+                        config.scope.name,
+                        config.address,
+                        repaired,
+                    )
 
     @property
     def is_empty(self) -> bool:
