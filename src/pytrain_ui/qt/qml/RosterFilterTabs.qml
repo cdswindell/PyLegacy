@@ -4,7 +4,7 @@ import QtQuick.Layouts
 RosterFilterList {
     id: root
 
-    readonly property int tabHeight: 56
+    readonly property int tabHeight: 60
 
     signal selected(string key)
 

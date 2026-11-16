@@ -13,6 +13,32 @@ CabButton {
 
     activateOnRelease: true
 
+    Item {
+        objectName: "asc2HoldDecoration"
+        visible: root.deviceKind === "ASC2" && root.action === "HOLD"
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 7
+        width: 17
+        height: 16
+        opacity: root.enabled ? 1 : 0.45
+
+        Repeater {
+            model: 2
+            Rectangle {
+                required property int index
+                x: index * 4
+                y: (1 - index) * 4
+                width: 12
+                height: 10
+                radius: 1
+                color: "transparent"
+                border.color: "#ffffff"
+                border.width: 1
+            }
+        }
+    }
+
     function releaseAccessory() {
         if (!heldAddress)
             return

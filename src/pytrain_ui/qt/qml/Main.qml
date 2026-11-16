@@ -111,6 +111,10 @@ ApplicationWindow {
     Connections {
         target: stateInfoController
         function onRecordReady(scope, tmccId) {
+            if (scope === "ACC") {
+                window.closeStateInfo()
+                return
+            }
             if (!cabController.selectAddress(scope, tmccId))
                 return
             if (scope === "ENGINE")
@@ -273,6 +277,7 @@ ApplicationWindow {
                             window.accessoryOperatingVisible = true
                         }
                         onEditRequested: (tmccId, kind) => window.openStateInfo("ACC", tmccId, true, kind)
+                        onAddRequested: window.openStateInfo("ACC", 0, true)
                         onLcsRequested: accessoryCatalog.openLcsConfiguration()
                     }
 
@@ -315,7 +320,7 @@ ApplicationWindow {
                                         const name = (accessoryInfo.record.identity || []).find(field => field.key === "name")
                                         const roadName = name && name.value ? String(name.value) : ""
                                         const device = accessoryInfo.record.sensorTrack ? "Sensor Track" :
-                                                       accessoryInfo.amc2Info ? "AMC2" : ""
+                                                       (accessoryInfo.record.lcsDeviceType || "")
                                         if (device)
                                             return roadName.toLowerCase().startsWith(device.toLowerCase()) ? roadName :
                                                 roadName ? device + " " + roadName : device

@@ -12,13 +12,18 @@ from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import EngineState
 from pytrain.db.irda_state import IrdaState
 from pytrain.gui.controller.engine_add_session import EngineAddSession
+from pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
+from pytrain.gui.controller.lcs_device_registry import ASC2, BPC2
 from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.pdi.amc2_req import Amc2Req
+from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.base_req import BaseReq
+from pytrain.pdi.bpc2_req import Bpc2Req
 from pytrain.pdi.constants import PdiCommand
+from pytrain.pdi.irda_req import IrdaReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CONTROL_TYPE, LOCO_TYPE, SOUND_TYPE, CommandScope
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 from .presentation import format_road_number, lcs_board_details
@@ -43,6 +48,7 @@ class StateInfoController(QObject):
         self._scope = CommandScope.ENGINE
         self._id = 0
         self._device_kind = ""
+        self._adding_accessory = False
         self._draft: EngineAddSession | None = None
         self._waiting_until = 0.0
         self._pending: dict | None = None
@@ -68,12 +74,13 @@ class StateInfoController(QObject):
         self._scope = CommandScope[scope]
         self._id = tmcc_id
         self._device_kind = device_kind
+        self._adding_accessory = create and self._scope == CommandScope.ACC and tmcc_id == 0
         self._accessory_saved_values.clear()
         self._draft = None
         self._pending = None
         self._waiting_until = 0
         self._error = ""
-        state = self._lookup()
+        state = self._lookup() if tmcc_id else None
         if create and self._scope == CommandScope.ENGINE and 1 <= tmcc_id <= 9999 and tmcc_id != 99:
             self._draft = EngineAddSession(state or ComponentStateDict(self._scope)[tmcc_id])
         self.refresh(False)
@@ -87,6 +94,7 @@ class StateInfoController(QObject):
 
     @Slot()
     def close(self) -> None:
+        self._adding_accessory = False
         self._draft = None
         self._pending = None
         self._waiting_until = 0
@@ -222,8 +230,85 @@ class StateInfoController(QObject):
                 )
         return self._rows(rows)
 
+    def _sensor_configuration(self, state: IrdaState) -> list[dict]:
+        config = next(
+            (
+                item.config
+                for item in occupants_of(self._id, scope=CommandScope.ACC)
+                if item.device.key == "sensor_track" and isinstance(item.config, IrdaReq)
+            ),
+            None,
+        )
+        sequence = state.sequence if state.sequence is not None else config.sequence if config is not None else None
+        action = next(
+            (label for label, value in SENSOR_TRACK_OPTS if sequence is not None and value == sequence.value), None
+        )
+        right_to_left = config.loco_rl if config is not None else None
+        left_to_right = config.loco_lr if config is not None else None
+        return self._rows(
+            (
+                ("Device", "IR Sensor Track"),
+                ("TMCC ID", self._id),
+                ("Address Type", self._scope.name),
+                ("Action", action),
+                ("Engine ID Right ➟ Left", "Any" if right_to_left == 255 else right_to_left),
+                ("Engine ID Left ➟ Right", "Any" if left_to_right == 255 else left_to_right),
+            )
+        )
+
+    def _relay_configuration(self, state) -> tuple[str, list[dict], AccessoryState | None]:
+        if self._scope != CommandScope.ACC or self._device_kind not in {"", "ASC2", "BPC2"}:
+            return "", [], state
+        device = None
+        if self._device_kind:
+            device = ASC2 if self._device_kind == "ASC2" else BPC2
+        elif isinstance(state, AccessoryState):
+            if state.is_asc2:
+                device = ASC2
+            elif state.is_bpc2:
+                device = BPC2
+        if device is None:
+            return "", [], state
+
+        occupant = next(
+            (item for item in occupants_of(self._id, scope=CommandScope.ACC) if item.device.key == device.key),
+            None,
+        )
+        board_state = occupant.state if occupant is not None and occupant.state is not None else state
+        base_id = occupant.base_id if occupant is not None else getattr(state, "parent_id", None)
+        port = occupant.port_index if occupant is not None else getattr(state, "port", None)
+        mode = occupant.mode if occupant is not None else device.mode_for_pdi_mode(getattr(state, "mode", None))
+        config = occupant.config if occupant is not None else None
+        rows = [
+            ("Device", device.label),
+            ("Base TMCC ID", base_id),
+            ("Address Type", self._scope.name if mode is not None else None),
+            ("Port", port),
+            ("Mode", mode.name if mode is not None else None),
+        ]
+        if device is ASC2:
+            delay = config.delay if isinstance(config, Asc2Req) else None
+            rows.append(("Delay", f"{delay:g} s" if delay is not None else None))
+        else:
+            restore = ("On" if config.restore else "Off") if isinstance(config, Bpc2Req) else None
+            rows.append(("Restore on Power-Up", restore))
+        return device.label, self._rows(rows), board_state
+
     @Slot(bool)
     def refresh(self, editor_open: bool) -> None:
+        if self._adding_accessory:
+            model = {
+                "scopeTitle": self._scope.title,
+                "tmccId": 0,
+                "addingAccessory": True,
+                "inlineIdentity": True,
+                "editable": True,
+                "status": self._error,
+            }
+            if model != self._model:
+                self._model = model
+                self.changed.emit()
+            return
         if not self._id:
             return
         state = self._lookup()
@@ -269,9 +354,16 @@ class StateInfoController(QObject):
         lcs_configuration = (
             self._amc2_configuration(state) if not sensor_track and self._device_kind in {"", "AMC2"} else []
         )
+        lcs_device_type = "AMC2" if lcs_configuration else ""
+        board_state = irda_state if sensor_track else state
+        if sensor_track:
+            lcs_device_type = "IR Sensor Track"
+            lcs_configuration = self._sensor_configuration(irda_state)
+        elif not lcs_configuration:
+            lcs_device_type, lcs_configuration, board_state = self._relay_configuration(state)
         inline_identity = bool(sensor_track or lcs_configuration)
-        board = lcs_board_details(irda_state if sensor_track else state, known_device=inline_identity)
-        if sensor_track and state is None:
+        board = lcs_board_details(board_state, known_device=inline_identity)
+        if inline_identity and state is None:
             status = ""
         model = {
             "scopeTitle": self._scope.title,
@@ -281,6 +373,7 @@ class StateInfoController(QObject):
             "canCreate": bool(draft and draft.can_create and self._pending is None),
             "canClear": bool(not draft and not inline_identity and state and state.is_deletable),
             "lcsConfiguration": lcs_configuration,
+            "lcsDeviceType": lcs_device_type,
             "lcsBoard": board,
             "inlineIdentity": inline_identity,
             "sensorTrack": sensor_track,
@@ -299,10 +392,61 @@ class StateInfoController(QObject):
             self._model = model
             self.changed.emit()
 
+    @Slot(int, result=str)
+    def accessoryAddressStatus(self, tmcc_id: int) -> str:
+        if not 1 <= tmcc_id <= 98:
+            return "invalid"
+        scope = CommandScope.ACC
+        state = ComponentStateStore.get_state(scope, tmcc_id, create=False)
+        sensor = ComponentStateStore.get_state(CommandScope.IRDA, tmcc_id, create=False)
+        if (
+            isinstance(sensor, IrdaState)
+            and not sensor.is_deleted
+            or isinstance(state, AccessoryState)
+            and state.is_lcs
+            or occupants_of(tmcc_id, scope=scope)
+        ):
+            return "lcs"
+        return "existing" if state is not None and not state.is_deleted else "available"
+
+    @Slot(int, str, str, bool, result=bool)
+    def addAccessory(self, tmcc_id: int, road_name: str, road_number: str, overwrite: bool) -> bool:
+        if not self._adding_accessory:
+            return False
+        name, number = road_name.strip(), road_number.strip()
+        try:
+            if not 1 <= tmcc_id <= 98:
+                raise ValueError("Enter a TMCC ID from 1 to 98.")
+            if not 1 <= len(name) <= 31:
+                raise ValueError("Road Name must contain 1 to 31 characters.")
+            if not number.isascii() or not number.isdecimal() or len(number) > 4:
+                raise ValueError("Road Number must contain one to four digits.")
+            address_status = self.accessoryAddressStatus(tmcc_id)
+            if address_status == "lcs":
+                raise ValueError("This address belongs to an LCS device. Edit its identity from the roster.")
+            if address_status == "existing" and not overwrite:
+                raise ValueError(f"Accessory {tmcc_id} already exists.")
+
+            scope = CommandScope.ACC
+            CommandReq.build(TMCC1AuxCommandEnum.SET_ADDRESS, address=tmcc_id, scope=scope).send()
+            state = ComponentStateStore.get_state(scope, tmcc_id, create=True)
+            if state.comp_data is None:
+                state.initialize(scope, tmcc_id)
+            data = state.comp_data
+            BaseReq.process_sync_reqs([data.set_road_name_req(name), data.set_road_number_req(int(number)), state])
+        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+            self._error = str(exc) or "Unable to add the accessory."
+            self.refresh(True)
+            return False
+
+        self._adding_accessory = False
+        self.recordReady.emit(CommandScope.ACC.name, tmcc_id)
+        return True
+
     @Slot("QVariantMap", result=bool)
     def saveAccessoryIdentity(self, edits: dict) -> bool:
         state = self._lookup()
-        if not self._model.get("editable") or not self._model.get("inlineIdentity"):
+        if self._adding_accessory or not self._model.get("editable") or not self._model.get("inlineIdentity"):
             return False
         if edits.keys() - {"name", "number"}:
             return False

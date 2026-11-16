@@ -12,7 +12,7 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import ComponentState, ComponentStateDict, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import TrainState
-from pytrain.gui.controller.lcs_device_registry import AMC2, ASC2
+from pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
 from pytrain.pdi.amc2_req import Amc2Req
 from pytrain.pdi.asc2_req import Asc2Req
@@ -23,7 +23,7 @@ from pytrain.pdi.pdi_listener import PdiDispatcher
 from pytrain.pdi.pdi_req import PdiReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1SwitchCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
@@ -222,6 +222,10 @@ def test_sensor_track_state_info_edits_accessory_identity_and_uses_sensor_board(
     accessory.comp_data.road_name = "Upper Main West"
     accessory.comp_data.road_number = "50"
     sensor = ComponentStateDict(CommandScope.IRDA)[address]
+    config = PdiReq.from_bytes(bytes.fromhex("d13232033200000005ffff64df"))
+    sensor.update(config)
+    occupant = LcsOccupant(address, SENSOR_TRACK, SENSOR_TRACK.modes[0], 1, scope=CommandScope.IRDA, config=config)
+    monkeypatch.setitem(vars(module), "occupants_of", lambda *_args, **_kwargs: [occupant])
     sensor.update(PdiReq.from_bytes(bytes.fromhex("d132320102030096df")))
     sensor.update(PdiReq.from_bytes(bytes.fromhex("d1323204b101006f77df")))
     states = {CommandScope.ACC: accessory, CommandScope.IRDA: sensor}
@@ -234,6 +238,14 @@ def test_sensor_track_state_info_edits_accessory_identity_and_uses_sensor_board(
 
     assert controller.model["inlineIdentity"] and controller.model["editable"]
     assert not controller.model["canClear"]
+    assert {row["label"]: row["value"] for row in controller.model["lcsConfiguration"]} == {
+        "Device": "IR Sensor Track",
+        "TMCC ID": "50",
+        "Address Type": "ACC",
+        "Action": "Begin Run R➟L/End Run L➟R",
+        "Engine ID Right ➟ Left": "Any",
+        "Engine ID Left ➟ Right": "Any",
+    }
     assert {row["label"]: row["value"] for row in controller.model["lcsBoard"]} == {
         "Board ID": "177",
         "Model": "0",
@@ -253,6 +265,119 @@ def test_sensor_track_state_info_edits_accessory_identity_and_uses_sensor_board(
         "name": "West Sensor",
         "number": "0051",
     }
+
+
+@pytest.mark.parametrize(
+    "device,packets,base_id,details,firmware",
+    [
+        (
+            ASC2,
+            ["d13e1e031e00000000196adf", "d13e1e0102090098df", "d13e1e041101046d1ddf"],
+            30,
+            {"Mode": "ACC (mixed)", "Delay": "0.25 s"},
+            "2.9.0",
+        ),
+        (
+            BPC2,
+            ["d1420103010000008237df", "d1420101020300b7df", "d14201041301056e32df"],
+            1,
+            {"Mode": "ACC", "Restore on Power-Up": "On"},
+            "2.3.0",
+        ),
+    ],
+)
+def test_relay_state_info_shows_module_configuration_and_saves_port_identity(
+    monkeypatch, device, packets, base_id, details, firmware
+) -> None:
+    module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
+    scope = CommandScope.ACC
+    states = ComponentStateDict(scope)
+    base, port = states[base_id], states[base_id + 2]
+    monkeypatch.setattr(
+        ComponentStateStore,
+        "get_state",
+        lambda requested_scope, address, create=False: states.get(address) if requested_scope == scope else None,
+    )
+    config, info, board_info = [PdiReq.from_bytes(bytes.fromhex(packet)) for packet in packets]
+    for packet in (config, info, board_info):
+        base.update(packet)
+    port.initialize(scope, port.tmcc_id)
+    port.comp_data.road_name = "Loader"
+    port.comp_data.road_number = "3"
+    assert isinstance(config, (Asc2Req, Bpc2Req))
+    occupant = LcsOccupant(
+        base_id, device, device.mode_for_pdi_mode(config.mode), 8, scope=scope, state=base, config=config
+    )
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_kwargs: [occupant.at(address)])
+    writes = Mock()
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", writes)
+    controller = module.StateInfoController()
+    controller.openFor("ACC", port.tmcc_id, False, device.label)
+
+    assert controller.model["inlineIdentity"]
+    assert controller.model["lcsDeviceType"] == device.label
+    assert not controller.model["canClear"]
+    assert {row["label"]: row["value"] for row in controller.model["lcsConfiguration"]} == {
+        "Device": device.label,
+        "Base TMCC ID": str(base_id),
+        "Address Type": "ACC",
+        "Port": "3",
+        **details,
+    }
+    assert {row["label"]: row["value"] for row in controller.model["lcsBoard"]}["Firmware"] == firmware
+    assert {row["key"]: row["value"] for row in controller.model["identity"]} == {"name": "Loader", "number": "0003"}
+    writes.assert_not_called()
+
+    assert controller.saveAccessoryIdentity({"number": "81"})
+    number, state = writes.call_args.args[0]
+    assert state is port and number.tmcc_id == port.tmcc_id
+    assert port.comp_data.road_name == "Loader"
+    assert port.comp_data.road_number == "0081"
+
+
+def test_add_accessory_sends_set_address_before_base_identity_writes(monkeypatch) -> None:
+    module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
+    scope = CommandScope.ACC
+    states = ComponentStateDict(scope)
+    monkeypatch.setattr(
+        ComponentStateStore,
+        "get_state",
+        lambda requested_scope, address, create=False: (
+            (states[address] if create else states.get(address)) if requested_scope == scope else None
+        ),
+    )
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_kwargs: [object()] if address == 33 else [])
+    calls = Mock()
+    monkeypatch.setattr(CommandReq, "send", lambda packet: calls.program(packet))
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", calls.write)
+    controller = module.StateInfoController()
+    controller.recordReady.connect(calls.ready)
+    controller.openFor("ACC", 0, True)
+
+    assert controller.model["addingAccessory"]
+    assert not controller.addAccessory(99, "Conveyor", "4", False)
+    assert not controller.addAccessory(4, "", "4", False)
+    assert not controller.addAccessory(4, "Conveyor", "", False)
+    assert not controller.addAccessory(33, "Conveyor", "4", True)
+    assert not calls.mock_calls
+
+    assert controller.addAccessory(4, " Conveyor ", "4", False)
+
+    assert [call[0] for call in calls.mock_calls] == ["program", "write", "ready"]
+    command = calls.program.call_args.args[0]
+    assert (command.command, command.scope, command.address) == (TMCC1AuxCommandEnum.SET_ADDRESS, scope, 4)
+    name, number, state = calls.write.call_args.args[0]
+    assert (name.scope, name.tmcc_id, number.scope, number.tmcc_id) == (scope, 4, scope, 4)
+    assert state is states[4]
+    assert (state.comp_data.road_name, state.comp_data.road_number) == ("Conveyor", "0004")
+    calls.ready.assert_called_once_with("ACC", 4)
+
+    calls.reset_mock()
+    controller.openFor("ACC", 0, True)
+    assert not controller.addAccessory(4, "Replacement", "5", False)
+    assert not calls.mock_calls
+    assert controller.addAccessory(4, "Replacement", "5", True)
+    assert (state.comp_data.road_name, state.comp_data.road_number) == ("Replacement", "0005")
 
 
 @pytest.mark.parametrize("mode,has_record", [(2, True), (3, False)])

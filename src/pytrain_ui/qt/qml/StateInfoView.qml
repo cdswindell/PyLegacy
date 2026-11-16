@@ -10,15 +10,21 @@ Rectangle {
     signal closeRequested()
     readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
     readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible ||
-        accessoryName.keyboardOpen || accessoryNumberPad.visible
+        accessoryName.keyboardOpen || accessoryNumberPad.visible || accessoryIdPad.visible || overwriteAccessory.visible
     readonly property bool inlineIdentity: !!record.inlineIdentity
-    readonly property bool amc2Info: !!record.lcsConfiguration && record.lcsConfiguration.length > 0
-    property int accessoryDraftId: 0
+    readonly property bool amc2Info: record.lcsDeviceType === "AMC2"
+    readonly property bool addingAccessory: !!record.addingAccessory
+    readonly property string newAccessoryAddressStatus: {
+        root.record
+        return addingAccessory && accessoryId.acceptableInput
+            ? controller.accessoryAddressStatus(Number(accessoryId.text)) : ""
+    }
+    property int accessoryDraftId: -1
     property string initialAccessoryName: ""
     property string initialAccessoryNumber: ""
     readonly property bool accessoryIdentityDirty: inlineIdentity && accessoryDraftId === record.tmccId &&
         (accessoryName.text !== initialAccessoryName || accessoryNumber.text !== initialAccessoryNumber)
-    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges || accessoryIdentityDirty
+    readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges || accessoryIdentityDirty || (addingAccessory && accessoryId.text.length > 0)
     readonly property color fieldLabelColor: "#b5c9e5"
     readonly property var record: controller ? controller.model : ({})
     implicitHeight: panelLayout.implicitHeight + 20
@@ -65,7 +71,10 @@ Rectangle {
             fieldEditor.close()
             roadNameKeyboard.close()
             accessoryNumberPad.close()
-            accessoryDraftId = 0
+            accessoryIdPad.close()
+            overwriteAccessory.close()
+            accessoryId.clear()
+            accessoryDraftId = -1
         } else {
             details.contentItem.contentY = 0
             Qt.callLater(syncAccessoryIdentity)
@@ -117,7 +126,8 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Label {
-                text: root.record.creating ? "Create Engine" : (root.record.scopeTitle || "Engine") + " Information"
+                text: root.addingAccessory ? "Add Accessory" :
+                    root.record.creating ? "Create Engine" : (root.record.scopeTitle || "Engine") + " Information"
                 color: "white"
                 font.pixelSize: 26
                 font.bold: true
@@ -169,6 +179,45 @@ Rectangle {
                     visible: root.inlineIdentity
                     Layout.fillWidth: true
                     spacing: 8
+
+                    Label {
+                        Layout.fillWidth: true
+                        visible: root.addingAccessory
+                        text: "Put the Lionel Command Control accessory into PROGRAM mode before pressing Add Accessory."
+                        color: "#f0c36a"
+                        font.pixelSize: 16
+                        wrapMode: Text.WordWrap
+                    }
+                    Label {
+                        visible: root.addingAccessory
+                        text: "TMCC ID (1–98)"
+                        color: root.fieldLabelColor
+                        font.pixelSize: 17
+                    }
+                    TextField {
+                        id: accessoryId
+                        objectName: "newAccessoryTmccId"
+                        visible: root.addingAccessory
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 52
+                        maximumLength: 2
+                        validator: IntValidator { bottom: 1; top: 98 }
+                        font.pixelSize: 22
+                        selectByMouse: true
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        Accessible.name: "Accessory TMCC ID"
+                        TapHandler {
+                            enabled: root.useTouchKeyboard
+                            onTapped: accessoryIdPad.openFor(accessoryId.text)
+                        }
+                    }
+                    Label {
+                        visible: root.addingAccessory && root.newAccessoryAddressStatus === "lcs"
+                        Layout.fillWidth: true
+                        text: "This address belongs to an LCS device. Edit its identity from the roster."
+                        color: "#f0c36a"
+                        wrapMode: Text.WordWrap
+                    }
 
                     Label {
                         text: "Road Name"
@@ -295,21 +344,22 @@ Rectangle {
                 }
 
                 Label {
-                    visible: root.amc2Info
+                    visible: !!root.record.lcsDeviceType
                     Layout.topMargin: metrics.sectionGap
-                    text: "AMC2 Configuration"
+                    text: (root.record.lcsDeviceType || "") + " Configuration"
                     color: "white"
                     font.pixelSize: 23
                     font.bold: true
                 }
                 StateInfoGrid {
                     id: amc2Device
-                    objectName: "amc2DeviceConfiguration"
+                    objectName: "lcsDeviceConfiguration"
                     Layout.fillWidth: true
                     columns: 3
                     tileHeight: 84
-                    rows: (root.record.lcsConfiguration || []).slice(0, 3)
-                    visible: root.amc2Info
+                    rows: root.amc2Info || root.record.sensorTrack
+                        ? root.record.lcsConfiguration.slice(0, 3) : root.record.lcsConfiguration || []
+                    visible: rows.length > 0
                 }
                 StateInfoGrid {
                     id: amc2Motors
@@ -317,7 +367,19 @@ Rectangle {
                     Layout.fillWidth: true
                     columns: 2
                     tileHeight: amc2Device.tileHeight
-                    rows: (root.record.lcsConfiguration || []).slice(3)
+                    rows: root.amc2Info ? root.record.lcsConfiguration.slice(3) : []
+                    visible: rows.length > 0
+                }
+                StateInfoGrid {
+                    Layout.fillWidth: true
+                    columns: 1
+                    rows: root.record.sensorTrack ? root.record.lcsConfiguration.slice(3, 4) : []
+                    visible: rows.length > 0
+                }
+                StateInfoGrid {
+                    Layout.fillWidth: true
+                    columns: 2
+                    rows: root.record.sensorTrack ? root.record.lcsConfiguration.slice(4) : []
                     visible: rows.length > 0
                 }
                 Label {
@@ -375,7 +437,7 @@ Rectangle {
             id: recordFooter
 
             ClearRecordButton {
-                visible: !root.record.creating
+                visible: !root.record.creating && !root.addingAccessory
                 enabled: !!root.record.canClear
                 Layout.preferredHeight: recordFooter.buttonHeight
                 font.pixelSize: 22
@@ -383,12 +445,12 @@ Rectangle {
             }
             FooterButton {
                 Layout.preferredHeight: recordFooter.buttonHeight
-                text: root.record.creating && !root.record.busy ? "Cancel" : "Close"
+                text: root.addingAccessory || (root.record.creating && !root.record.busy) ? "Cancel" : "Close"
                 onClicked: root.closeRequested()
             }
             FooterButton {
                 objectName: "saveAccessoryIdentity"
-                visible: root.inlineIdentity
+                visible: root.inlineIdentity && !root.addingAccessory
                 Layout.preferredHeight: recordFooter.buttonHeight
                 text: "Save"
                 selected: true
@@ -406,6 +468,22 @@ Rectangle {
                 }
             }
             FooterButton {
+                objectName: "addAccessoryButton"
+                Layout.preferredHeight: recordFooter.buttonHeight
+                visible: root.addingAccessory
+                text: "Add Accessory"
+                selected: true
+                enabled: accessoryId.acceptableInput && root.newAccessoryAddressStatus !== "lcs" &&
+                         accessoryName.text.trim().length > 0 && accessoryNumber.acceptableInput &&
+                         accessoryNumber.text.length > 0
+                onClicked: {
+                    if (root.controller.accessoryAddressStatus(Number(accessoryId.text)) === "existing")
+                        overwriteAccessory.open()
+                    else
+                        root.controller.addAccessory(Number(accessoryId.text), accessoryName.text, accessoryNumber.text, false)
+                }
+            }
+            FooterButton {
                 Layout.preferredHeight: recordFooter.buttonHeight
                 visible: !!root.record.creating
                 text: "Create"
@@ -420,6 +498,44 @@ Rectangle {
         anchors.fill: parent
         visible: fieldEditor.visible
         onWheel: event => event.accepted = true
+    }
+
+    TmccKeypad {
+        id: accessoryIdPad
+        title: "Accessory TMCC ID"
+        onSubmitted: tmccId => {
+            accessoryId.text = String(tmccId)
+            accessoryIdPad.close()
+        }
+    }
+
+    Dialog {
+        id: overwriteAccessory
+        objectName: "overwriteAccessory"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(500, parent.width - 24)
+        modal: true
+        title: "Accessory " + accessoryId.text + " already exists"
+        contentItem: Label {
+            text: "Replace its identity and program the accessory at this TMCC ID?"
+            wrapMode: Text.WordWrap
+        }
+        footer: RowLayout {
+            spacing: 10
+            FooterButton {
+                text: "Cancel"
+                onClicked: overwriteAccessory.close()
+            }
+            FooterButton {
+                text: "Replace Accessory"
+                selected: true
+                onClicked: {
+                    overwriteAccessory.close()
+                    root.controller.addAccessory(Number(accessoryId.text), accessoryName.text, accessoryNumber.text, true)
+                }
+            }
+        }
     }
 
     TmccKeypad {

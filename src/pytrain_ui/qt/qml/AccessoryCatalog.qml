@@ -41,6 +41,7 @@ RosterPanel {
 
     signal accessoryRequested(string key)
     signal editRequested(int tmccId, string kind)
+    signal addRequested()
     signal lcsRequested()
     signal cabMenuRequested()
 
@@ -162,8 +163,11 @@ RosterPanel {
     }
 
     component ChoiceButton: CabButton {
-        font.pixelSize: 26
-        font.bold: true
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.preferredWidth: 0
+        Layout.preferredHeight: 92
+        font.pixelSize: 28
     }
 
     ColumnLayout {
@@ -188,19 +192,14 @@ RosterPanel {
             Layout.fillWidth: true
             spacing: 10
             ChoiceButton {
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.preferredHeight: root.compact ? 54 : 92
+                text: "Add…"
+                enabled: !lcsConfig || !lcsConfig.visible
+                onClicked: root.addRequested()
+            }
+            ChoiceButton {
                 text: "LCS…"
                 enabled: !lcsConfig || !lcsConfig.visible
                 onClicked: root.lcsRequested()
-            }
-            CheckBox {
-                Layout.preferredHeight: root.compact ? 54 : 76
-                text: "Show Unnamed"
-                font.pixelSize: 22
-                checked: root.showUnnamedAccessories
-                onToggled: root.showUnnamedAccessories = checked
             }
         }
         RowLayout {
@@ -239,6 +238,14 @@ RosterPanel {
             keys: ["NAME", "ROAD", "TMCC"]
             selectedKey: root.sortMode
             onSelected: key => root.sortMode = key
+        }
+        CheckBox {
+            Layout.preferredHeight: 54
+            Layout.minimumHeight: 54
+            text: "Show Unnamed"
+            font.pixelSize: 22
+            checked: root.showUnnamedAccessories
+            onToggled: root.showUnnamedAccessories = checked
         }
         RosterFilterTabs {
             objectName: "accessoryFilterTabs"

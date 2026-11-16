@@ -108,21 +108,24 @@ RosterPanel {
 
         RowLayout {
             Layout.fillWidth: true
-            ColumnLayout {
+            spacing: 10
+            CabButton {
+                Layout.preferredWidth: pageAllStop.width
+                Layout.preferredHeight: pageAllStop.height
+                text: "Cab"
+                enabled: cab.tmccId > 0
+                font.pixelSize: 24
+                onClicked: root.closeRequested()
+            }
+            CabMenuTitle {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                CabButton {
-                    text: root.scope === "TRAIN" ? "Trains  ▾" : "Engines  ▾"
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 52
-                    font.pixelSize: 22
-                    onClicked: root.cabMenuRequested()
-                }
-                Label { text: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines"); color: "#aeb7c2"; font.pixelSize: 18 }
+                compact: pageAllStop.compact
+                title: root.scope === "TRAIN" ? "Trains" : "Engines"
+                identity: root.filteredTargets().length + (root.scope === "TRAIN" ? " trains" : " engines")
+                onActivated: root.cabMenuRequested()
             }
-            Item { Layout.fillWidth: true }
-            CabButton { Layout.preferredWidth: 144; Layout.preferredHeight: root.height < 850 ? 72 : 88; text: "Cab"; enabled: cab.tmccId > 0; font.pixelSize: 24; onClicked: root.closeRequested() }
-            AllStopButton { compact: root.height < 850; onClicked: cab.halt() }
+            AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: cab.halt() }
         }
 
         RowLayout {
