@@ -109,11 +109,11 @@ Rectangle {
                 Layout.minimumWidth: Layout.preferredWidth
                 Layout.maximumWidth: Layout.preferredWidth
                 Layout.alignment: Qt.AlignVCenter
-                spacing: 8
+                spacing: 14
 
                 CabButton {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.compact ? 48 : 56
+                    Layout.preferredHeight: (root.compact ? 48 : 56) * 1.1
                     text: "Info"
                     font.pixelSize: root.compact ? 17 : 20
                     enabled: !!root.accessory.tmccId
@@ -122,7 +122,7 @@ Rectangle {
 
                 CabButton {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.compact ? 48 : 56
+                    Layout.preferredHeight: (root.compact ? 48 : 56) * 1.1
                     text: "Configure"
                     font.pixelSize: root.compact ? 17 : 20
                     visible: root.kind === "AMC2"
