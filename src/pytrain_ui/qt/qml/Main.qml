@@ -26,12 +26,22 @@ ApplicationWindow {
     property bool manageVisible: false
     property bool engineCatalogVisible: showCatalogAtStartup
     property string activeScope: "ENGINE"
-    property var activeAccessory: ({})
+    property string activeAccessoryKey: ""
+    property int accessoryRevision: 0
+    readonly property var activeAccessory: {
+        accessoryRevision
+        return activeAccessoryKey ? accessoryCatalogController.operatingView(activeAccessoryKey) : ({})
+    }
     property bool accessoryOperatingVisible: false
     property bool stateInfoVisible: false
     property string stateInfoScope: "ENGINE"
     property int stateInfoId: 0
     property bool stateInfoFromRoster: false
+
+    Connections {
+        target: accessoryCatalogController
+        function onChanged() { window.accessoryRevision++ }
+    }
 
     function openStateInfo(scope, tmccId, fromRoster) {
         operatingCabView.closeDialogPanel()
@@ -45,13 +55,14 @@ ApplicationWindow {
     function closeStateInfo() {
         stateInfoVisible = false
         stateInfoController.close()
+        if (stateInfoScope === "ACC") accessoryCatalogController.reload()
     }
 
     function requestEditorExit(action) {
         if (discardChanges.pendingAction)
             return
         if (routeOpsView.hasUnsavedRouteChanges ||
-            (stateInfoVisible && operatingCabView.stateInfoHasUnsavedChanges)) {
+            (stateInfoVisible && (stateInfoScope === "ACC" ? accessoryInfo.hasUnsavedChanges : operatingCabView.stateInfoHasUnsavedChanges))) {
             discardChanges.pendingAction = action
             discardChanges.open()
         } else {
@@ -109,6 +120,11 @@ ApplicationWindow {
             window.closeStateInfo()
         }
         function onRecordCleared(scope, tmccId) {
+            if (scope === "ACC") {
+                window.accessoryOperatingVisible = false
+                window.closeStateInfo()
+                return
+            }
             window.engineCatalogVisible = true
             window.closeStateInfo()
             cabController.forgetClearedTarget(scope, tmccId)
@@ -179,7 +195,7 @@ ApplicationWindow {
             StackLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                currentIndex: window.manageVisible ? 4 : window.stateInfoVisible ? 0 :
+                currentIndex: window.manageVisible ? 4 : (window.stateInfoVisible && window.stateInfoScope !== "ACC") ? 0 :
                               window.activeScope === "SWITCH" ? 1 :
                               window.activeScope === "ROUTE" ? 2 :
                               window.activeScope === "ACCESSORY" ? 3 : 0
@@ -248,26 +264,54 @@ ApplicationWindow {
                         id: accessoryCatalog
                         anchors.fill: parent
                         visible: !window.accessoryOperatingVisible
+                        enabled: !window.stateInfoVisible
                         controller: accessoryCatalogController
                         lcsController: lcsConfigController
                         onCabMenuRequested: cabMenu.open()
                         onAccessoryRequested: function(key) {
-                            window.activeAccessory = accessoryCatalogController.operatingView(key)
+                            window.activeAccessoryKey = key
                             window.accessoryOperatingVisible = true
                         }
-                        onAddRequested: {
-                            // The add workflow is implemented with the accessory operating layer.
-                        }
+                        onEditRequested: tmccId => window.openStateInfo("ACC", tmccId, true)
                         onLcsRequested: accessoryCatalog.openLcsConfiguration()
                     }
 
                     AccessoryOperatingView {
                         anchors.fill: parent
                         visible: window.accessoryOperatingVisible
+                        enabled: !window.stateInfoVisible
                         controller: accessoryCatalogController
                         accessory: window.activeAccessory
+                        onInfoRequested: tmccId => window.openStateInfo("ACC", tmccId, false)
                         onCabMenuRequested: cabMenu.open()
                         onCloseRequested: window.accessoryOperatingVisible = false
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: window.stateInfoVisible && window.stateInfoScope === "ACC"
+                        color: "#102858"
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            AllStopButton {
+                                Layout.alignment: Qt.AlignRight
+                                onClicked: accessoryCatalogController.halt()
+                            }
+                            StateInfoView {
+                                id: accessoryInfo
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                controller: stateInfoController
+                                onCloseRequested: window.requestEditorExit(window.closeStateInfo)
+                                Timer {
+                                    interval: 250
+                                    repeat: true
+                                    running: accessoryInfo.visible
+                                    onTriggered: stateInfoController.refresh(accessoryInfo.editorOpen)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -461,7 +505,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: window.stateInfoVisible && !operatingCabView.stateInfoEditorOpen && !discardChanges.visible
+        enabled: window.stateInfoVisible && !(window.stateInfoScope === "ACC" ? accessoryInfo.editorOpen : operatingCabView.stateInfoEditorOpen) && !discardChanges.visible
         onActivated: window.requestEditorExit(window.closeStateInfo)
     }
 

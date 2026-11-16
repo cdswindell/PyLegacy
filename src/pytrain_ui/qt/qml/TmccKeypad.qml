@@ -15,6 +15,7 @@ Popup {
     property alias errorText: tmccKeypadError.text
     readonly property bool acceptableInput: tmccIdEntry.acceptableInput || (allowEmpty && !entryText.length)
     property bool showSetAddress: false
+    property bool setAddressAllowed: true
     signal submitted(int tmccId)
     signal setAddressRequested(int tmccId)
 
@@ -183,7 +184,7 @@ Popup {
                 text: "Set Address"
                 font.pixelSize: 22
                 highlighted: true
-                enabled: root.acceptableInput && Number(root.entryText) !== 99
+                enabled: root.setAddressAllowed && root.acceptableInput && Number(root.entryText) !== 99
                 onClicked: root.setAddressRequested(Number(root.entryText))
             }
         }

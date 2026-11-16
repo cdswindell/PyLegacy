@@ -7,10 +7,12 @@ Rectangle {
 
     property var controller
     property var accessory: ({})
+    readonly property string kind: accessory.kind || ""
+    signal infoRequested(int tmccId)
     signal closeRequested()
     signal cabMenuRequested()
 
-    color: "#15191f"
+    color: "#102858"
     radius: 10
 
     function operationSource(operation) {
@@ -39,9 +41,16 @@ Rectangle {
             }
 
             RosterMenuButton {
-                text: root.accessory.title || "Accessory"
+                text: (root.accessory.title || "Accessory") + (root.accessory.tmccId ? " · " + root.accessory.tmccId : "")
                 font.pixelSize: 24
                 onClicked: root.cabMenuRequested()
+            }
+
+            CabButton {
+                Layout.preferredWidth: 96
+                text: "Info"
+                enabled: !!root.accessory.tmccId
+                onClicked: root.infoRequested(root.accessory.tmccId)
             }
 
             AllStopButton {
@@ -52,7 +61,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: width / Math.max(1, Number(root.accessory.artworkAspectRatio || 3))
+            Layout.preferredHeight: Math.min(root.height * 0.23, width / Math.max(1, Number(root.accessory.artworkAspectRatio || 3)))
             visible: (root.accessory.artworkSource || "").length > 0
             color: "#0f1216"
             radius: 8
@@ -68,6 +77,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
+            visible: root.kind === "OPERATING"
 
             Label {
                 text: "Power"
@@ -90,8 +100,18 @@ Rectangle {
             Item { Layout.fillWidth: true }
         }
 
+        AccessoryDeviceControls {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.kind !== "" && root.kind !== "OPERATING"
+            controller: root.controller
+            accessory: root.accessory
+        }
+
         ListView {
             id: operationList
+            visible: root.kind === "OPERATING"
+            ScrollBar.vertical: ListScrollBar {}
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -168,41 +188,7 @@ Rectangle {
                         }
                         Item { Layout.fillHeight: true }
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
 
-                            AccessoryActionButton {
-                                controller: root.controller
-                                tmccId: operationRow.modelData.tmccId
-                                visible: operationRow.modelData.behavior === "LATCH"
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 46
-                                text: "On"
-                                selected: operationRow.modelData.state === "ON"
-                                action: "ON"
-                            }
-                            AccessoryActionButton {
-                                controller: root.controller
-                                tmccId: operationRow.modelData.tmccId
-                                visible: operationRow.modelData.behavior === "LATCH"
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 46
-                                text: "Off"
-                                selected: operationRow.modelData.state === "OFF"
-                                action: "OFF"
-                            }
-                            AccessoryActionButton {
-                                controller: root.controller
-                                tmccId: operationRow.modelData.tmccId
-                                visible: operationRow.modelData.behavior === "MOMENTARY_HOLD" ||
-                                         operationRow.modelData.behavior === "MOMENTARY_PULSE"
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 46
-                                text: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "Hold" : "Pulse"
-                                action: operationRow.modelData.behavior === "MOMENTARY_HOLD" ? "HOLD" : "PULSE"
-                            }
-                        }
                     }
                 }
             }

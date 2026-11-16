@@ -191,24 +191,41 @@ class OpsController(QObject):
         state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False)
         return self._identity(state)[1] if isinstance(state, SwitchState) else ""
 
-    @Slot(int, str, str)
-    def saveSwitchIdentity(self, tmcc_id: int, road_name: str, road_number: str) -> None:
-        if self._scope != CommandScope.SWITCH:
-            return
-        state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False)
-        if not isinstance(state, SwitchState) or state.comp_data is None:
-            return
+    @Slot(int, str, str, result=str)
+    def saveSwitchIdentity(self, tmcc_id: int, road_name: str, road_number: str) -> str:
+        if self._scope != CommandScope.SWITCH or not 1 <= tmcc_id <= 98:
+            return "Enter a switch address from 1 to 98."
         road_name = road_name.strip()
-        road_number = road_number.strip().zfill(4) if road_number.strip() else ""
-        current_name, current_number = self._identity(state)
-        requests = []
-        if road_name != current_name:
-            requests.append(state.comp_data.set_road_name_req(road_name))
-        if road_number != current_number:
-            requests.append(state.comp_data.set_road_number_req(int(road_number) if road_number else None))
-        if requests:
-            BaseReq.process_sync_reqs([*requests, state], do_async=True)
+        road_number = road_number.strip()
+        if len(road_name) > 31:
+            return "Road Name must contain no more than 31 characters."
+        if road_number and (not road_number.isascii() or not road_number.isdigit() or len(road_number) > 4):
+            return "Road Number must contain no more than four digits."
+        road_number = road_number.zfill(4) if road_number else ""
+
+        state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False)
+        if state is None and self._is_asc2_switch(tmcc_id):
+            state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=True)
+        if not isinstance(state, SwitchState):
+            return "The switch record is no longer available."
+        if state.comp_data is None:
+            if not self._is_asc2_switch(tmcc_id):
+                return "The switch record is no longer available."
+            state.initialize(CommandScope.SWITCH, tmcc_id)
+
+        try:
+            current_name, current_number = self._identity(state)
+            requests = []
+            if road_name != current_name:
+                requests.append(state.comp_data.set_road_name_req(road_name))
+            if road_number != current_number:
+                requests.append(state.comp_data.set_road_number_req(int(road_number) if road_number else None))
+            if requests:
+                BaseReq.process_sync_reqs([*requests, state], do_async=True)
+        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+            return str(exc) or "Unable to save switch information."
         self._refresh_row(tmcc_id)
+        return ""
 
     @Slot(int, result=bool)
     def canClearRecord(self, tmcc_id: int) -> bool:
@@ -248,10 +265,16 @@ class OpsController(QObject):
     def _send_switch_set_address(tmcc_id: int) -> None:
         CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, tmcc_id).send()
 
+    @Slot(int, result=bool)
+    def canProgramSwitchAddress(self, tmcc_id: int) -> bool:
+        return self._scope == CommandScope.SWITCH and 1 <= tmcc_id <= 98 and not self._is_asc2_switch(tmcc_id)
+
     @Slot(int, result=str)
     def programSwitchAddress(self, tmcc_id: int) -> str:
         if self._scope != CommandScope.SWITCH or not 1 <= tmcc_id <= 98:
             return "Enter a switch address from 1 to 98."
+        if self._is_asc2_switch(tmcc_id):
+            return "This switch address belongs to an ASC2 port."
         try:
             self._send_switch_set_address(tmcc_id)
         except (AssertionError, OSError, RuntimeError, ValueError) as exc:
@@ -279,16 +302,23 @@ class OpsController(QObject):
         # and follows the normal PDI distribution path to the server and connected clients.
         BaseReq(tmcc_id, PdiCommand.BASE_SWITCH).send()
 
+    @staticmethod
+    def _is_asc2_switch(tmcc_id: int) -> bool:
+        return any(occupant.device.key == "asc2" for occupant in occupants_of(tmcc_id, scope=CommandScope.SWITCH))
+
     @Slot(int, result="QVariantMap")
     def switchIdentity(self, tmcc_id: int) -> dict:
-        """Return an existing switch's identity for Add Switch field completion."""
+        """Return the saved identity and ownership of the requested switch address."""
+        result = {"exists": False, "asc2Switch": False, "roadName": "", "roadNumber": ""}
         if not 1 <= tmcc_id <= 98:
-            return {"exists": False, "roadName": "", "roadNumber": ""}
+            return result
+        result["asc2Switch"] = self._is_asc2_switch(tmcc_id)
         state = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False)
-        if not isinstance(state, SwitchState):
-            return {"exists": False, "roadName": "", "roadNumber": ""}
-        road_name, road_number = self._identity(state)
-        return {"exists": True, "roadName": road_name, "roadNumber": road_number}
+        if isinstance(state, SwitchState):
+            result["exists"] = True
+            if state.comp_data is not None or not result["asc2Switch"]:
+                result["roadName"], result["roadNumber"] = self._identity(state)
+        return result
 
     @Slot(int, str, str, bool, bool, result=str)
     def addSwitch(
@@ -304,6 +334,8 @@ class OpsController(QObject):
             return "Switch provisioning is only available from the Switch screen."
         if not 1 <= tmcc_id <= 98:
             return "TMCC ID must be between 1 and 98; 99 is the broadcast address."
+        if self._is_asc2_switch(tmcc_id):
+            return self.saveSwitchIdentity(tmcc_id, road_name, road_number)
         exists = ComponentStateStore.get_state(CommandScope.SWITCH, tmcc_id, create=False) is not None
         if exists and not overwrite:
             return f"Switch {tmcc_id} already exists."

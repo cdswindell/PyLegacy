@@ -125,6 +125,8 @@ class StateInfoController(QObject):
     def _identity(self, state) -> list[dict]:
         rows = []
         for key, label, attribute, options, _ in _FIELDS:
+            if self._scope == CommandScope.ACC and key not in {"name", "number"}:
+                continue
             if self._scope == CommandScope.TRAIN and key in {"control", "sound"}:
                 continue
             value = self._draft.values[key] if self._draft else getattr(state, attribute, None)
@@ -212,7 +214,7 @@ class StateInfoController(QObject):
         if not self._model.get("editable"):
             return False
         field = next((field for field in _FIELDS if field[0] == key), None)
-        if field is None or (self._scope == CommandScope.TRAIN and key in {"control", "sound"}):
+        if field is None or key not in {row["key"] for row in self._model["identity"]}:
             return False
         _, _, attribute, options, command = field
         try:

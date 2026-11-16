@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 
@@ -12,15 +13,17 @@ from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.irda_state import IrdaState
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
-from pytrain.gui.accessories.accessory_registry import PortBehavior
+from pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
+from pytrain.pdi.amc2_req import Amc2Req
 from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.bpc2_req import Bpc2Req
-from pytrain.pdi.constants import Asc2Action, Bpc2Action, PdiCommand
+from pytrain.pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
+from pytrain.pdi.irda_req import IrdaReq, IrdaSequence
 from pytrain.pdi.pdi_listener import PdiDispatcher
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1HaltCommandEnum
 from pytrain.utils.path_utils import find_file
 
 from ..accessory_contracts import (
@@ -30,6 +33,16 @@ from ..accessory_contracts import (
     AnimationPolicy,
     animation_policy,
 )
+
+
+log = logging.getLogger(__name__)
+
+_DEVICE_IMAGES = {
+    "ASC2": "LCS-ASC2-6-81639.jpg",
+    "BPC2": "LCS-BPC2-6-81640.jpg",
+    "AMC2": "LCS-AMC2-6-81641.jpg",
+    "SENSOR": "LCS-Sensor-Track-6-81294.jpg",
+}
 
 
 class AccessoryViewKind(str, Enum):
@@ -55,6 +68,14 @@ class AccessoryDescriptor:
     preferred_view: AccessoryViewKind
     user_defined: bool
 
+    @property
+    def kind(self) -> str:
+        if self.configured_accessory is not None:
+            return "OPERATING"
+        if self.key.startswith("irda:"):
+            return "SENSOR"
+        return self.lcs_labels[0].split(" ", 1)[0] if self.lcs_labels else "TMCC"
+
     def as_row(self) -> dict:
         return {
             "key": self.key,
@@ -70,7 +91,8 @@ class AccessoryDescriptor:
             "userDefined": self.user_defined,
             "stateSummary": AccessoryCatalogController._state_summary(self),
             "quickActions": AccessoryCatalogController._quick_actions(self),
-            "componentRows": AccessoryCatalogController._component_rows(self),
+            "kind": self.kind,
+            "imageSource": AccessoryCatalogController._image_source(_DEVICE_IMAGES.get(self.kind)),
         }
 
 
@@ -83,6 +105,7 @@ class AccessoryCatalogController(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._rows: list[dict] = []
+        self._held_asc2: set[int] = set()
         self._descriptors: dict[str, AccessoryDescriptor] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         self._pdi_dispatcher = PdiDispatcher.get() if PdiDispatcher.is_built() else None
@@ -98,6 +121,11 @@ class AccessoryCatalogController(QObject):
         self.reload()
 
     def close(self) -> None:
+        for tmcc_id in tuple(self._held_asc2):
+            try:
+                self.holdQuickAction(tmcc_id, False)
+            except Exception:
+                log.exception("Unable to release ASC2 accessory %s on close", tmcc_id)
         if self._dispatcher is not None:
             self._dispatcher.unsubscribe(self._accessory_command, CommandScope.ACC)
             self._dispatcher = None
@@ -183,22 +211,24 @@ class AccessoryCatalogController(QObject):
         )
 
     @classmethod
-    def _base_descriptor(cls, state: AccessoryState) -> AccessoryDescriptor:
-        tmcc_id = int(state.tmcc_id)
+    def _base_descriptor(
+        cls, tmcc_id: int, state: AccessoryState | None, lcs_labels: tuple[str, ...]
+    ) -> AccessoryDescriptor:
         name, road_number = cls._identity(state)
-        lcs_labels = cls._lcs_labels((tmcc_id,))
         views = cls._views(None, lcs_labels)
         return AccessoryDescriptor(
-            key=f"acc:{tmcc_id}",
+            key=f"acc:{tmcc_id}" + (f":{lcs_labels[0]}" if lcs_labels else ""),
             tmcc_ids=(tmcc_id,),
             primary_tmcc_id=tmcc_id,
-            name=name or f"Accessory {tmcc_id}",
+            name=name
+            if name and name not in {"Acc", "NA"}
+            else (lcs_labels[0] if lcs_labels else f"Accessory {tmcc_id}"),
             road_number=road_number,
             configured_accessory=None,
             lcs_labels=lcs_labels,
             available_views=views,
             preferred_view=AccessoryViewKind.LCS if lcs_labels else AccessoryViewKind.GENERIC,
-            user_defined=bool(state.is_user_defined),
+            user_defined=bool(lcs_labels or (state and state.is_user_defined)),
         )
 
     @staticmethod
@@ -214,103 +244,43 @@ class AccessoryCatalogController(QObject):
         return " · ".join(summaries)
 
     @staticmethod
-    def _component_rows(descriptor: AccessoryDescriptor) -> list[dict]:
-        configured = descriptor.configured_accessory
-        if configured is None:
-            return []
-        rows: list[dict] = []
-        registry = configured.registry
-        spec = registry.get_spec(configured.accessory_type)
-        power_ids = {
-            configured.tmcc_id_for(op.key)
-            for op in configured.operation_assets
-            if op.behavior == PortBehavior.LATCH and op.key.strip().lower() == "power"
-        }
-        power_on = all(
-            (state := AccessoryCatalogController._state(tmcc_id)) is not None and state.is_aux_on
-            for tmcc_id in power_ids
-        )
-        for operation in configured.operation_assets:
-            tmcc_id = configured.tmcc_id_for(operation.key)
-            state = AccessoryCatalogController._state(tmcc_id)
-            label = registry.get_operation_label(spec, operation.key)
-            # Every non-power operation depends on the configured power
-            # operation, regardless of whether that dependent operation is
-            # latch, hold, or pulse.
-            requires_power = bool(power_ids) and tmcc_id not in power_ids
-            enabled = not requires_power or power_on
-            if operation.behavior == PortBehavior.LATCH:
-                if operation.key.strip().lower() == "power":
-                    on_label, off_label = "On", "Off"
-                else:
-                    on_label = registry.get_operation_label_for_state(
-                        spec,
-                        operation.key,
-                        variant=configured.definition.variant,
-                        is_on=True,
-                    )
-                    off_label = registry.get_operation_label_for_state(
-                        spec,
-                        operation.key,
-                        variant=configured.definition.variant,
-                        is_on=False,
-                    )
-                actions = [
-                    {
-                        "key": "ON",
-                        "label": on_label,
-                        "selected": bool(state and state.is_aux_on),
-                        "enabled": enabled,
-                    },
-                    {
-                        "key": "OFF",
-                        "label": off_label,
-                        "selected": bool(state and state.is_aux_off),
-                        "enabled": enabled,
-                    },
-                ]
-            elif operation.behavior == PortBehavior.MOMENTARY_HOLD:
-                actions = [{"key": "HOLD", "label": "Hold", "selected": False, "enabled": enabled}]
-            else:
-                actions = [{"key": "PULSE", "label": "Pulse", "selected": False, "enabled": enabled}]
-            behavior_label = {
-                PortBehavior.LATCH: "ON/OFF",
-                PortBehavior.MOMENTARY_HOLD: "HOLD",
-                PortBehavior.MOMENTARY_PULSE: "PULSE",
-            }.get(operation.behavior, operation.behavior.value)
-            rows.append(
-                {
-                    "tmccId": tmcc_id,
-                    "label": f"{configured.label} {label}",
-                    "operation": operation.key,
-                    "behavior": behavior_label,
-                    "enabled": enabled,
-                    "quickActions": actions,
-                }
+    def _supports_relay(tmcc_id: int, kind: str) -> bool:
+        matches = [
+            occupant for occupant in occupants_of(tmcc_id, scope=CommandScope.ACC) if occupant.device.label == kind
+        ]
+        if matches:
+            return any(occupant.mode.key == "acc_8" if occupant.mode else kind == "BPC2" for occupant in matches)
+        state = AccessoryCatalogController._state(tmcc_id)
+        return bool(
+            state
+            and (
+                (kind == "BPC2" and state.is_bpc2 and state.mode in (2, "NA", None))
+                or (kind == "ASC2" and state.is_asc2 and state.mode == 0)
             )
-        return rows
+        )
+
+    @classmethod
+    def _relay_feedback(cls, tmcc_id: int) -> AccessoryState | None:
+        # The ACC state is shared if multiple modules occupy the same address.
+        if len(cls._lcs_labels((tmcc_id,))) > 1:
+            return None
+        return cls._state(tmcc_id)
 
     @staticmethod
     def _quick_actions(descriptor: AccessoryDescriptor) -> list[dict]:
-        if descriptor.configured_accessory is not None:
+        if descriptor.kind not in {"BPC2", "ASC2"}:
             return []
-        state = AccessoryCatalogController._state(descriptor.primary_tmcc_id)
-        if state is None:
+        tmcc_id = descriptor.primary_tmcc_id
+        if not AccessoryCatalogController._supports_relay(tmcc_id, descriptor.kind):
             return []
-        lcs_types = {label.split(" ", 1)[0] for label in descriptor.lcs_labels}
-        if "BPC2" in lcs_types:
-            return [
-                {"key": "ON", "label": "On", "selected": state.is_aux_on},
-                {"key": "OFF", "label": "Off", "selected": state.is_aux_off},
-            ]
-        if "ASC2" in lcs_types:
-            momentary = not state.is_aux_on and not state.is_aux_off
-            return [
-                {"key": "ON", "label": "On", "selected": state.is_aux_on},
-                {"key": "OFF", "label": "Off", "selected": state.is_aux_off},
-                {"key": "MOMENTARY", "label": "Momentary", "selected": momentary},
-            ]
-        return []
+        state = AccessoryCatalogController._relay_feedback(tmcc_id)
+        actions = [
+            {"key": "ON", "label": "On", "selected": bool(state and state.is_aux_on)},
+            {"key": "OFF", "label": "Off", "selected": bool(state and state.is_aux_off)},
+        ]
+        if descriptor.kind == "ASC2":
+            actions.append({"key": "HOLD", "label": "Hold", "selected": False})
+        return actions
 
     @staticmethod
     def _sensor_summary(state: IrdaState) -> str:
@@ -424,109 +394,171 @@ class AccessoryCatalogController(QObject):
     def halt(self) -> None:
         CommandReq.build(TMCC1HaltCommandEnum.HALT).send()
 
-    @Slot(int)
-    def toggleQuickAction(self, tmcc_id: int) -> None:
-        """Toggle a latch-capable ASC2/BPC2 port from its observed state."""
+    @staticmethod
+    def _send_asc2(tmcc_id: int, on: bool) -> None:
+        Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=int(on), time=0).send()
 
-        state = self._state(tmcc_id)
-        if state is None or not (state.is_asc2 or state.is_bpc2):
-            return
-        self.quickAction("OFF" if state.is_aux_on else "ON", tmcc_id)
+    @Slot(int, str)
+    def toggleQuickAction(self, tmcc_id: int, kind: str) -> None:
+        state = self._relay_feedback(tmcc_id)
+        self.quickAction("OFF" if state and state.is_aux_on else "ON", tmcc_id, kind)
 
     @Slot(int, bool)
     def holdQuickAction(self, tmcc_id: int, pressed: bool) -> None:
-        """Drive an ASC2 momentary-hold port for the duration of the press."""
+        if pressed:
+            if tmcc_id not in self._held_asc2 and self._supports_relay(tmcc_id, "ASC2"):
+                self._send_asc2(tmcc_id, True)
+                self._held_asc2.add(tmcc_id)
+        elif tmcc_id in self._held_asc2:
+            self._send_asc2(tmcc_id, False)
+            self._held_asc2.remove(tmcc_id)
 
-        state = self._state(tmcc_id)
-        if state is None or not state.is_asc2:
+    @Slot(str, int, str)
+    def quickAction(self, action: str, tmcc_id: int, kind: str) -> None:
+        if action not in {"ON", "OFF"} or (kind == "ASC2" and tmcc_id in self._held_asc2):
             return
-        self.quickAction("ON" if pressed else "OFF", tmcc_id)
+        if not self._supports_relay(tmcc_id, kind):
+            return
+        if kind == "BPC2":
+            Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=int(action == "ON")).send()
+        elif kind == "ASC2":
+            self._send_asc2(tmcc_id, action == "ON")
+
+    @Slot(str, int, str, int)
+    def tmccCommand(self, key: str, tmcc_id: int, name: str, value: int) -> None:
+        descriptor = self._descriptors.get(key)
+        if descriptor is None or descriptor.kind != "TMCC" or descriptor.primary_tmcc_id != tmcc_id:
+            return
+        if (name == "NUMERIC" and 0 <= value <= 9) or (name == "RELATIVE_SPEED" and -5 <= value <= 5):
+            CommandReq.build(TMCC1AuxCommandEnum[name], tmcc_id, value).send()
+        elif name in {
+            "BOOST",
+            "BRAKE",
+            "AUX1_OPT_ONE",
+            "AUX2_OPT_ONE",
+            "FRONT_COUPLER",
+            "REAR_COUPLER",
+            "TOGGLE_DIRECTION",
+        }:
+            CommandReq.build(TMCC1AuxCommandEnum[name], tmcc_id).send()
 
     @Slot(str, int)
-    def quickAction(self, action: str, tmcc_id: int) -> None:
-        """Send a direct PDI action to an ASC2/BPC2-backed accessory."""
+    def setSensorSequence(self, key: str, value: int) -> None:
+        descriptor = self._descriptors.get(key)
+        if descriptor is not None and descriptor.kind == "SENSOR" and value in {v for _, v in SENSOR_TRACK_OPTS}:
+            IrdaReq(
+                descriptor.primary_tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=IrdaSequence(value)
+            ).send()
 
-        state = self._state(tmcc_id)
-        if state is None:
+    @Slot(str, bool, int, int)
+    def setAmc2Output(self, key: str, motor: bool, output: int, level: int) -> None:
+        descriptor = self._descriptors.get(key)
+        if descriptor is None or descriptor.kind != "AMC2":
             return
-        value = 0 if action == "OFF" else 1
-        if state.is_bpc2:
-            Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=value).send()
-        elif state.is_asc2:
-            Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=value).send()
+        if not 1 <= output <= (2 if motor else 4) or not 0 <= level <= 100 or level % 5:
+            return
+        address = descriptor.primary_tmcc_id
+        if motor:
+            Amc2Req(address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=output - 1, speed=level).send()
+            CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, output).send()
+            command = TMCC1AuxCommandEnum.AUX1_OPT_ONE if level else TMCC1AuxCommandEnum.AUX2_OPT_ONE
+            CommandReq.build(command, address).send()
+        else:
+            Amc2Req(address, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=output - 1, level=level).send()
+            CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, output + 2).send()
 
     @Slot(str, result="QVariantMap")
     def operatingView(self, key: str) -> dict:
-        """Return the common operating-view contract for a catalog accessory."""
-
         descriptor = self._descriptors.get(key)
         if descriptor is None:
             return {}
+        panel = {
+            "key": key,
+            "kind": descriptor.kind,
+            "tmccId": descriptor.primary_tmcc_id,
+            "title": descriptor.name,
+            "artworkSource": self._image_source(_DEVICE_IMAGES.get(descriptor.kind)),
+        }
         if descriptor.configured_accessory is not None:
             view = self._configured_operating_state(key, descriptor.configured_accessory)
-            return {
-                "key": view.key,
-                "title": view.title,
-                "artworkSource": view.artwork,
-                "artworkAspectRatio": view.artwork_aspect_ratio,
-                "powerState": view.power_state.value,
-                "powerStateAuthoritative": view.power_state_authoritative,
-                "operations": [self._operation_row(operation) for operation in view.operations],
-            }
-
-        state = self._state(descriptor.primary_tmcc_id)
-        power, authoritative = self._power_state(state)
-        return {
-            "key": key,
-            "title": descriptor.name,
-            "artworkSource": "",
-            "artworkAspectRatio": 3.0,
-            "powerState": power.value,
-            "powerStateAuthoritative": authoritative,
-            "operations": [],
-        }
+            panel.update(
+                artworkSource=view.artwork,
+                artworkAspectRatio=view.artwork_aspect_ratio,
+                powerState=view.power_state.value,
+                powerStateAuthoritative=view.power_state_authoritative,
+                operations=[self._operation_row(operation) for operation in view.operations],
+            )
+        elif descriptor.kind == "SENSOR":
+            state = ComponentStateStore.get_state(CommandScope.IRDA, descriptor.primary_tmcc_id, create=False)
+            panel["sequences"] = [{"label": label, "value": value} for label, value in SENSOR_TRACK_OPTS]
+            panel["sequence"] = state.sequence.value if state and state.sequence is not None else -1
+        elif descriptor.kind == "AMC2":
+            state = self._state(descriptor.primary_tmcc_id)
+            motors = [state.get_motor(i) if state else None for i in (1, 2)]
+            lamps = [state.get_lamp(i) if state else None for i in (1, 2, 3, 4)]
+            panel["motors"] = [
+                {"level": motor.speed if motor else 0, "on": bool(motor and state.is_motor_on(motor))}
+                for motor in motors
+            ]
+            panel["lights"] = [{"level": lamp.level if lamp else 0, "on": bool(lamp and lamp.level)} for lamp in lamps]
+        return panel
 
     @Slot()
     def reload(self) -> None:
         configured_set = ConfiguredAccessorySet.from_file()
         descriptors: list[AccessoryDescriptor] = []
-        covered_ids: set[int] = set()
 
         for configured in configured_set.configured_all():
             descriptor = self._configured_descriptor(configured)
             if descriptor is None:
                 continue
             descriptors.append(descriptor)
-            covered_ids.update(descriptor.tmcc_ids)
 
-        states = sorted(ComponentStateStore.get().get_all(CommandScope.ACC), key=lambda state: state.tmcc_id)
-        for state in states:
-            if not isinstance(state, AccessoryState) or state.is_deleted:
-                continue
-            if int(state.tmcc_id) in covered_ids:
-                continue
-            descriptors.append(self._base_descriptor(state))
+        states = {
+            int(state.tmcc_id): state
+            for state in ComponentStateStore.get().get_all(CommandScope.ACC)
+            if isinstance(state, AccessoryState)
+        }
+        accessory_ports = {
+            tmcc_id
+            for device in occupants(scope=CommandScope.ACC)
+            if device.device.label in _DEVICE_IMAGES
+            for tmcc_id in range(device.base_id, min(device.last_id, 98) + 1)
+        }
+        # Latching ASC2 switch configuration can be filed under ACC on the PDI bus.
+        switch_ports = {
+            tmcc_id
+            for device in occupants(scope=CommandScope.SWITCH)
+            if device.scope == CommandScope.ACC
+            for tmcc_id in range(device.base_id, device.last_id + 1)
+        }
+        for tmcc_id in sorted(states.keys() | accessory_ports):
+            state = states.get(tmcc_id)
+            if state is not None and state.is_deleted:
+                state = None
+            labels = tuple(label for label in self._lcs_labels((tmcc_id,)) if label.split(" ", 1)[0] in _DEVICE_IMAGES)
+            if labels:
+                descriptors.extend(self._base_descriptor(tmcc_id, state, (label,)) for label in labels)
+            elif state is not None and tmcc_id not in switch_ports and not state.is_sensor_track:
+                descriptors.append(self._base_descriptor(tmcc_id, state, ()))
 
-        # Sensor Tracks are stored in IRDA scope rather than ACC.
-        for occupant in occupants():
-            if occupant.device.label != "IR Sensor Track":
+        # Sensor behavior is in IRDA scope; editable identity belongs to the ACC record.
+        for state in ComponentStateStore.get().get_all(CommandScope.IRDA):
+            if not isinstance(state, IrdaState) or state.is_deleted:
                 continue
-            state = ComponentStateStore.get_state(CommandScope.IRDA, occupant.base_id, create=False)
-            if not isinstance(state, IrdaState):
-                continue
-            _name, road_number = self._identity(state)
-            # ComponentState.road_name falls back to the scope moniker ("Irda")
-            # when no user-assigned name exists. Only use an actual Base name.
-            name = str(getattr(state, "_road_name", "") or "").strip() or "Sensor Track"
+            tmcc_id = state.tmcc_id
+            name, road_number = self._identity(self._state(tmcc_id))
+            if not name or name in {"Acc", "NA"}:
+                name = "Sensor Track"
             descriptors.append(
                 AccessoryDescriptor(
-                    key=f"irda:{occupant.base_id}",
-                    tmcc_ids=(occupant.base_id,),
-                    primary_tmcc_id=occupant.base_id,
+                    key=f"irda:{tmcc_id}",
+                    tmcc_ids=(tmcc_id,),
+                    primary_tmcc_id=tmcc_id,
                     name=name,
                     road_number=road_number,
                     configured_accessory=None,
-                    lcs_labels=(f"Sensor Track {occupant.base_id}",),
+                    lcs_labels=(f"Sensor Track {tmcc_id}",),
                     available_views=(AccessoryViewKind.LCS,),
                     preferred_view=AccessoryViewKind.LCS,
                     user_defined=True,

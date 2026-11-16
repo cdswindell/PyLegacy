@@ -299,6 +299,7 @@ Rectangle {
     SearchKeyboard {
         id: roadNameKeyboard
         title: "Road Name"
+        titleCaseEnabled: true
         entryLimit: 31
         saveEntry: function(text) {
             if (root.controller.edit("name", text))
@@ -376,7 +377,7 @@ Rectangle {
         }
 
         parent: Overlay.overlay
-        width: Math.min(parent.width - 24, roadName ? 840 : (numeric ? 560 : 480 * editorScale))
+        width: Math.min(parent.width - 24, roadName ? 600 : (numeric ? 560 : 480 * editorScale))
         x: (parent.width - width) / 2
         y: Math.max(12, (parent.height - height) / 2)
         padding: Math.round(16 * editorScale)
@@ -442,6 +443,11 @@ Rectangle {
                     selectByMouse: true
                     font.pixelSize: 20
                     onAccepted: fieldEditor.submit()
+                }
+                TitleCaseButton {
+                    visible: fieldEditor.roadName
+                    field: entry
+                    Layout.preferredHeight: 52
                 }
                 RosterBackspaceButton {
                     visible: fieldEditor.field.key === "name"

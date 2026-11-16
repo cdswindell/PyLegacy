@@ -6,6 +6,7 @@ Button {
     id: root
     property string entryText: ""
     property int maximumId: 9999
+    property bool addressAllowed: true
     objectName: "rosterSetButton"
     Layout.preferredWidth: 84
     Layout.minimumWidth: 84
@@ -14,7 +15,7 @@ Button {
     text: "Set"
     focusPolicy: Qt.NoFocus
     Accessible.name: "Select TMCC ID"
-    enabled: /^[0-9]+$/.test(entryText) && Number(entryText) > 0 && Number(entryText) <= maximumId
+    enabled: addressAllowed && /^[0-9]+$/.test(entryText) && Number(entryText) > 0 && Number(entryText) <= maximumId
     contentItem: Text {
         text: root.text
         color: root.enabled ? "white" : "#7d8591"

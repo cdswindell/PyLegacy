@@ -78,58 +78,18 @@ Rectangle {
                     Layout.minimumWidth: 0
                     spacing: 0
 
-                    Item {
-                        id: nameViewport
+                    MarqueeLabel {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         Layout.preferredHeight: 22
-                        clip: true
-
-                        readonly property real marqueeGap: 18
-                        readonly property real marqueeDistance: nameText.width + marqueeGap
-
-                        Row {
-                            id: marqueeRow
-                            y: 0
-                            spacing: nameViewport.marqueeGap
-
-                            Text {
-                                id: nameText
-                                text: {
-                                    const name = card.modelData.roadName || "Engine"
-                                    const number = root.roadNumber(card.modelData.roadNumber)
-                                    return number.length > 0 ? name + " " + number : name
-                                }
-                                color: "#f4f6f8"
-                                font.pixelSize: 16
-                                font.bold: card.modelData.current
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            Text {
-                                visible: nameText.width > nameViewport.width
-                                text: nameText.text
-                                color: nameText.color
-                                font: nameText.font
-                                verticalAlignment: Text.AlignVCenter
-                            }
+                        text: {
+                            const name = card.modelData.roadName || "Engine"
+                            const number = root.roadNumber(card.modelData.roadNumber)
+                            return number.length > 0 ? name + " " + number : name
                         }
-
-                        SequentialAnimation {
-                            running: nameText.width > nameViewport.width
-                            loops: Animation.Infinite
-
-                            PauseAnimation { duration: 900 }
-                            NumberAnimation {
-                                target: marqueeRow
-                                property: "x"
-                                from: 0
-                                to: -nameViewport.marqueeDistance
-                                duration: Math.max(1200, nameViewport.marqueeDistance * 18)
-                                easing.type: Easing.Linear
-                            }
-                            ScriptAction { script: marqueeRow.x = 0 }
-                        }
+                        color: "#f4f6f8"
+                        font.pixelSize: 16
+                        font.bold: card.modelData.current
                     }
 
                     RowLayout {

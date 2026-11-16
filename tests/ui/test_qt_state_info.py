@@ -12,6 +12,8 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import ComponentState, ComponentStateDict, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import TrainState
+from pytrain.gui.controller.lcs_device_registry import ASC2
+from pytrain.gui.controller.lcs_id_map import LcsOccupant
 from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.base_req import BaseReq
 from pytrain.pdi.bpc2_req import Bpc2Req
@@ -19,6 +21,7 @@ from pytrain.pdi.constants import Asc2Action, Bpc2Action, PdiCommand
 from pytrain.pdi.pdi_listener import PdiDispatcher
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
@@ -127,6 +130,52 @@ def test_state_info_cannot_clear_bpc2_train(state_info, monkeypatch) -> None:
 
     clear.assert_not_called()
     cleared.assert_not_called()
+
+
+@pytest.mark.parametrize("mode,has_record", [(2, True), (3, False)])
+def test_add_asc2_switch_saves_identity_without_programming(monkeypatch, mode, has_record) -> None:
+    module = pytest.importorskip("pytrain_ui.qt.ops_controller")
+    scope = CommandScope.SWITCH
+    states = ComponentStateDict(scope)
+    occupant = LcsOccupant(17, ASC2, ASC2.mode_for_pdi_mode(mode), 4, scope=scope).at(19)
+    if has_record:
+        states[19].initialize(scope, 19)
+        states[19].comp_data.road_name = "Yard turnout"
+        states[19].comp_data.road_number = "0080"
+
+    def lookup(_scope, address, create=False):
+        return states[address] if create else states.get(address)
+
+    monkeypatch.setattr(ComponentStateStore, "get_state", lookup)
+    monkeypatch.setattr(ComponentStateStore, "get", Mock(return_value=Mock(get_all=lambda _: list(states.values()))))
+    monkeypatch.setattr(CommandDispatcher, "get", Mock(return_value=Mock()))
+    monkeypatch.setattr(PdiDispatcher, "is_built", lambda: False)
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [occupant] if address == 19 else [])
+    dispatch = Mock()
+    program = Mock()
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", dispatch)
+    monkeypatch.setattr(CommandReq, "build", program)
+    controller = module.OpsController(scope)
+
+    identity = controller.switchIdentity(19)
+    assert identity["asc2Switch"]
+    assert identity["roadName"] == ("Yard turnout" if has_record else "")
+    assert not controller.switchIdentity(22)["asc2Switch"]
+    assert not controller.canProgramSwitchAddress(19)
+    assert controller.programSwitchAddress(19) == "This switch address belongs to an ASC2 port."
+    assert controller.canProgramSwitchAddress(22)
+    assert controller.addSwitch(19, "East yard", "83", True) == ""
+    program.assert_not_called()
+    dispatch.assert_called_once()
+    name, number, refresh_state = dispatch.call_args.args[0]
+    assert name.tmcc_id == number.tmcc_id == 19
+    assert refresh_state is states[19]
+    assert controller.switchIdentity(19)["roadName"] == "East yard"
+    assert controller.switchIdentity(19)["roadNumber"] == "0083"
+    assert controller.programSwitchAddress(22) == ""
+    program.assert_called_once_with(TMCC1SwitchCommandEnum.SET_ADDRESS, 22)
+    program.return_value.send.assert_called_once_with()
+    controller.close()
 
 
 def test_switch_editor_cannot_clear_asc2_switch(monkeypatch) -> None:

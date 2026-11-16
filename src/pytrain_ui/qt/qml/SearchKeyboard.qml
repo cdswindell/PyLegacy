@@ -20,6 +20,7 @@ Popup {
     }
     property var targetField: null
     property bool upperCase: false
+    property bool titleCaseEnabled: false
     property real keyboardInset: 8
 
     function openFor(field) {
@@ -109,17 +110,26 @@ Popup {
             Label { Layout.fillWidth: true; text: root.title; color: "white"; font.pixelSize: 24; font.bold: true }
             KeyboardKey { Layout.fillWidth: false; Layout.preferredWidth: 64; Layout.preferredHeight: 64; text: "×"; Accessible.name: "Close keyboard"; onClicked: root.close() }
         }
-        TextField {
-            id: entry
-            objectName: "searchKeyboardEntry"
+        RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 60
-            font.pixelSize: 24
-            selectByMouse: true
-            maximumLength: root.entryLimit
-            placeholderText: root.targetField ? root.targetField.placeholderText : ""
-            onTextEdited: root.publish()
-            onAccepted: root.finish()
+            spacing: 8
+            TextField {
+                id: entry
+                objectName: "searchKeyboardEntry"
+                Layout.fillWidth: true
+                Layout.preferredHeight: 60
+                font.pixelSize: 24
+                selectByMouse: true
+                maximumLength: root.entryLimit
+                placeholderText: root.targetField ? root.targetField.placeholderText : ""
+                onTextEdited: root.publish()
+                onAccepted: root.finish()
+            }
+            TitleCaseButton {
+                visible: root.titleCaseEnabled
+                field: entry
+                Layout.preferredHeight: entry.Layout.preferredHeight
+            }
         }
         Label {
             visible: text.length > 0

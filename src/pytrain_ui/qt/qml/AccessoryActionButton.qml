@@ -5,12 +5,13 @@ CabButton {
 
     required property var controller
     required property int tmccId
+    required property string deviceKind
     required property string action
     property int heldAddress: 0
-    signal accessoryHoldChanged(bool active)
+    property bool trackingPress: false
+    signal accessoryPressChanged(bool active)
 
     activateOnRelease: true
-    activateOnHold: action === "HOLD"
 
     function releaseAccessory() {
         if (!heldAddress)
@@ -19,21 +20,32 @@ CabButton {
         heldAddress = 0
         if (controller)
             controller.holdQuickAction(address, false)
-        accessoryHoldChanged(false)
     }
 
     onClicked: {
         if (action !== "HOLD")
-            controller.quickAction(action, tmccId)
+            controller.quickAction(action, tmccId, deviceKind)
     }
-    onGestureHeld: {
-        heldAddress = tmccId
-        accessoryHoldChanged(true)
-        controller.holdQuickAction(heldAddress, true)
+    function trackPress(active) {
+        if (trackingPress === active)
+            return
+        trackingPress = active
+        accessoryPressChanged(active)
+    }
+
+    onPressedChanged: {
+        trackPress(pressed)
+        if (pressed && enabled && action === "HOLD" && deviceKind === "ASC2" && !heldAddress) {
+            heldAddress = tmccId
+            controller.holdQuickAction(heldAddress, true)
+        }
     }
     onReleased: releaseAccessory()
     onPressCanceled: releaseAccessory()
     onEnabledChanged: if (!enabled) releaseAccessory()
     onVisibleChanged: if (!visible) releaseAccessory()
-    Component.onDestruction: releaseAccessory()
+    Component.onDestruction: {
+        releaseAccessory()
+        trackPress(false)
+    }
 }

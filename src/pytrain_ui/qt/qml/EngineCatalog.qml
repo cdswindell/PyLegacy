@@ -146,6 +146,7 @@ RosterPanel {
                 onClicked: root.openTmccKeypad()
             }
             RosterSetButton {
+                visible: root.scope === "ENGINE"
                 entryText: searchField.text
                 maximumId: 9999
                 onClicked: root.requestAddress(Number(searchField.text))
@@ -163,14 +164,11 @@ RosterPanel {
         RowLayout {
             Layout.fillWidth: true
             spacing: 7
-            ListView {
-                id: typeList
+            RosterFilterList {
+                selectedKey: root.typeFilter
                 Layout.fillWidth: true
-                Layout.preferredHeight: 84
-                orientation: ListView.Horizontal
+                Layout.preferredHeight: 96
                 spacing: 7
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
                 model: [{ "key": "ALL", "label": "All" }].concat(root.catalog ? root.catalog.typeFilters : [])
                 delegate: ChoiceButton {
                     required property var modelData
@@ -229,15 +227,13 @@ RosterPanel {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
-                        Label {
+                        MarqueeLabel {
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             text: (row.modelData.roadName || (root.scope === "TRAIN" ? "Train" : "Engine")) + (row.modelData.roadNumber ? "  #" + row.modelData.roadNumber : "")
                             color: "#f3f5f7"
                             font.pixelSize: 28
                             font.bold: true
-                            elide: Text.ElideRight
-                            wrapMode: Text.WordWrap
-                            maximumLineCount: 2
                         }
                         Label {
                             Layout.fillWidth: true

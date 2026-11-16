@@ -12,11 +12,12 @@ RosterPanel {
     property int directTmccId: 0
     property string sortMode: "NAME"
     property string typeFilter: "ALL"
-    property bool showUnnamedAccessories: false
-    property int heldQuickActions: 0
+    property bool showUnnamedAccessories: true
+    readonly property bool compact: height < 850
+    property int activeQuickActions: 0
 
     signal accessoryRequested(string key)
-    signal addRequested()
+    signal editRequested(int tmccId)
     signal lcsRequested()
     signal cabMenuRequested()
 
@@ -74,34 +75,22 @@ RosterPanel {
         if (!controller)
             return []
         var needle = searchText.trim().toLowerCase()
-        var sourceRows = []
-        controller.rows.forEach(function(row) {
-            if (typeFilter === "ASC2" && row.componentRows.length > 0) {
-                row.componentRows.forEach(function(component) {
-                    var componentRow = Object.assign({}, row)
-                    componentRow.primaryTmccId = component.tmccId
-                    componentRow.roadName = component.label
-                    componentRow.stateSummary = component.behavior.replace("_", " ").toUpperCase()
-                    componentRow.quickActions = component.quickActions
-                    componentRow.componentEnabled = component.enabled
-                    sourceRows.push(componentRow)
-                })
-            } else {
-                sourceRows.push(row)
-            }
-        })
-        var rows = sourceRows.filter(function(row) {
+        var rows = controller.rows.filter(function(row) {
             if (root.directTmccId > 0)
-                return row.primaryTmccId === root.directTmccId || row.tmccIds.indexOf(root.directTmccId) >= 0
-            if (!root.showUnnamedAccessories && !row.userDefined)
+                return row.tmccIds.indexOf(root.directTmccId) >= 0
+            if (root.typeFilter === "LCS") {
+                if (!["BPC2", "ASC2", "AMC2", "SENSOR"].includes(row.kind))
+                    return false
+            } else if (root.typeFilter !== "ALL" && root.typeFilter !== row.kind) {
                 return false
-            if (typeFilter !== "ALL" && typeFilter !== "OPERATING" && row.lcsTypes.indexOf(typeFilter) < 0)
+            }
+            if (root.typeFilter === "ALL" && !root.showUnnamedAccessories && !row.userDefined)
                 return false
             if (!needle)
                 return true
             return row.roadName.toLowerCase().indexOf(needle) >= 0 ||
                    row.roadNumber.toLowerCase().indexOf(needle) >= 0 ||
-                   String(row.primaryTmccId).indexOf(needle) >= 0 ||
+                   row.tmccIds.some(id => String(id).indexOf(needle) >= 0) ||
                    row.lcsAssociations.toLowerCase().indexOf(needle) >= 0
         })
         rows.sort(function(a, b) {
@@ -139,7 +128,7 @@ RosterPanel {
                 text: "Operating Accessories"
                 onClicked: root.cabMenuRequested()
             }
-            AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: root.controller.halt() }
+            AllStopButton { id: pageAllStop; compact: root.compact; onClicked: root.controller.halt() }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -147,18 +136,17 @@ RosterPanel {
             ChoiceButton {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
-                Layout.preferredHeight: 92
-                text: "Add…"
-                enabled: !lcsConfig.visible
-                onClicked: root.addRequested()
-            }
-            ChoiceButton {
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.preferredHeight: 92
+                Layout.preferredHeight: root.compact ? 54 : 92
                 text: "LCS…"
                 enabled: !lcsConfig.visible
                 onClicked: root.lcsRequested()
+            }
+            CheckBox {
+                Layout.preferredHeight: root.compact ? 54 : 76
+                text: "Show Unnamed"
+                font.pixelSize: 22
+                checked: root.showUnnamedAccessories
+                onToggled: root.showUnnamedAccessories = checked
             }
         }
         RowLayout {
@@ -201,41 +189,31 @@ RosterPanel {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     Layout.preferredWidth: 0
-                    Layout.preferredHeight: 84
+                    Layout.preferredHeight: root.compact ? 54 : 84
                     text: modelData.label
                     selected: root.sortMode === modelData.key
                     onClicked: root.sortMode = modelData.key
                 }
             }
         }
-        ListView {
+        RosterFilterList {
+            selectedKey: root.typeFilter
             Layout.fillWidth: true
-            Layout.preferredHeight: 84
-            orientation: ListView.Horizontal
+            Layout.preferredHeight: root.compact ? 66 : 96
             spacing: 8
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
             model: [
                 {key:"ALL",label:"All"}, {key:"OPERATING",label:"Operating"},
-                {key:"ASC2",label:"ASC2"}, {key:"AMC2",label:"AMC2"},
-                {key:"BPC2",label:"BPC2"}, {key:"SENSOR_TRACK",label:"Sensor Track"}
+                {key:"LCS",label:"LCS"}, {key:"TMCC",label:"TMCC"}, {key:"SENSOR",label:"Sensor"},
+                {key:"BPC2",label:"BPC2"}, {key:"ASC2",label:"ASC2"}, {key:"AMC2",label:"AMC2"}
             ]
             delegate: ChoiceButton {
                 required property var modelData
-                width: modelData.label.length > 8 ? 240 : modelData.label.length > 5 ? 220 : 164
-                height: 84
+                width: 150
+                height: root.compact ? 54 : 84
                 text: modelData.label
                 selected: root.typeFilter === modelData.key
                 onClicked: root.typeFilter = modelData.key
             }
-        }
-        CheckBox {
-            Layout.preferredHeight: 76
-            Layout.minimumHeight: 76
-            text: "Show Unnamed"
-            font.pixelSize: 22
-            checked: root.showUnnamedAccessories
-            onToggled: root.showUnnamedAccessories = checked
         }
         ListView {
             id: listView
@@ -251,8 +229,8 @@ RosterPanel {
             boundsBehavior: Flickable.StopAtBounds
             flickDeceleration: 1800
             Binding on model {
-                // PDI feedback can rebuild the roster while a momentary port is held.
-                when: root.heldQuickActions === 0
+                // Keep the delegate alive through the release click, even if feedback updates the model.
+                when: root.activeQuickActions === 0
                 value: root.visibleRows()
                 restoreMode: Binding.RestoreNone
             }
@@ -262,10 +240,9 @@ RosterPanel {
                 id: row
                 required property var modelData
                 width: listView.width - rosterScrollBar.gutterWidth
-                height: 156
+                height: quickActions.visible ? 146 : 112
                 radius: 8
                 color: tapHandler.pressed ? "#354150" : "#23303d"
-                opacity: row.modelData.componentEnabled === false ? 0.62 : 1.0
                 border.width: 1
                 border.color: "#4b5664"
                 ColumnLayout {
@@ -283,42 +260,51 @@ RosterPanel {
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
                         }
+                        Image {
+                            visible: row.modelData.imageSource.length > 0
+                            source: row.modelData.imageSource
+                            Layout.preferredWidth: visible ? 68 : 0
+                            Layout.preferredHeight: 54
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                        }
                         ColumnLayout {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             spacing: 2
-                            Label {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                text: row.modelData.roadName
-                                color: "#f4f6f8"
-                                font.pixelSize: 28
-                                font.bold: true
-                                elide: Text.ElideRight
+                                spacing: 8
+                                MarqueeLabel {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    text: row.modelData.roadName
+                                    color: "#f4f6f8"
+                                    font.pixelSize: 28
+                                    font.bold: true
+                                }
+                                Label {
+                                    visible: !!row.modelData.roadNumber
+                                    text: "#" + row.modelData.roadNumber
+                                    color: "#b8c0ca"
+                                    font.pixelSize: 20
+                                }
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: (row.modelData.roadNumber ? "Road #" + row.modelData.roadNumber : "") +
-                                      (row.modelData.lcsAssociations ? " · " + row.modelData.lcsAssociations : "")
+                                visible: !!row.modelData.lcsAssociations
+                                text: row.modelData.lcsAssociations
                                 color: "#b8c0ca"
                                 font.pixelSize: 20
                                 elide: Text.ElideRight
                             }
-                            Label {
-                                Layout.fillWidth: true
-                                visible: row.modelData.quickActions.length > 0 && row.modelData.stateSummary.length > 0
-                                text: row.modelData.stateSummary
-                                color: "#8fc9ef"
-                                font.pixelSize: 18
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
                         }
-                        Label { text: "›"; color: "#8fc9ef"; font.pixelSize: 42 }
+                        Label { visible: !quickActions.visible && row.modelData.kind !== "ASC2" && row.modelData.kind !== "BPC2"; text: "›"; color: "#8fc9ef"; font.pixelSize: 42 }
                     }
                     RowLayout {
                         id: quickActions
                         Layout.fillWidth: true
-                        visible: row.modelData.quickActions.length > 0
+                        visible: row.modelData.kind === "ASC2" || row.modelData.kind === "BPC2"
                         spacing: 8
                         Repeater {
                             model: row.modelData.quickActions
@@ -326,24 +312,39 @@ RosterPanel {
                                 required property var modelData
                                 controller: root.controller
                                 tmccId: row.modelData.primaryTmccId
+                                deviceKind: row.modelData.kind
                                 action: modelData.key
-                                onAccessoryHoldChanged: active => root.heldQuickActions += active ? 1 : -1
+                                onAccessoryPressChanged: active => {
+                                    if (active)
+                                        ++root.activeQuickActions
+                                    else
+                                        Qt.callLater(() => --root.activeQuickActions)
+                                }
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
-                                Layout.preferredWidth: (action === "HOLD" || action === "PULSE") ? 208 : 116
+                                Layout.preferredWidth: 102
                                 Layout.preferredHeight: 57
                                 text: modelData.label
-                                font.pixelSize: 26
+                                Accessible.name: modelData.label
+                                font.pixelSize: 23
                                 font.bold: true
-                                selected: modelData.selected
+                                selected: modelData.selected || heldAddress !== 0
                                 enabled: modelData.enabled === undefined || modelData.enabled
                             }
+                        }
+                        CabButton {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 102
+                            Layout.preferredHeight: 57
+                            text: "Edit"
+                            activateOnRelease: true
+                            onClicked: root.editRequested(row.modelData.primaryTmccId)
                         }
                     }
                     Label {
                         Layout.fillWidth: true
-                        visible: row.modelData.quickActions.length === 0
-                        text: row.modelData.stateSummary || row.modelData.availableViews.join(" · ")
+                        visible: !quickActions.visible && !!row.modelData.stateSummary
+                        text: row.modelData.stateSummary
                         color: "#8fc9ef"
                         font.pixelSize: 22
                         elide: Text.ElideRight
@@ -359,9 +360,9 @@ RosterPanel {
                     function overQuickActions() {
                         return quickActions.visible && quickActions.contains(quickActions.mapFromItem(row, point.position))
                     }
-                    onTapped: if (!overQuickActions()) root.accessoryRequested(row.modelData.key)
+                    onTapped: if (!quickActions.visible) root.accessoryRequested(row.modelData.key)
                     onDoubleTapped: {
-                        if (!overQuickActions() && hasAction("ON") && hasAction("OFF")) root.controller.toggleQuickAction(row.modelData.primaryTmccId)
+                        if (!overQuickActions() && hasAction("ON") && hasAction("OFF")) root.controller.toggleQuickAction(row.modelData.primaryTmccId, row.modelData.kind)
                     }
                 }
             }

@@ -25,6 +25,12 @@ RosterPanel {
     property string editingSwitchOriginalName: ""
     property string editingSwitchOriginalNumber: ""
     property int pendingOverwriteSwitchId: 0
+    property bool addCommandControl: true
+    readonly property var addSwitchIdentity: {
+        root.rosterRows
+        return controller && addSwitchId.acceptableInput ? controller.switchIdentity(Number(addSwitchId.text)) : ({})
+    }
+    readonly property bool addingAsc2Switch: !!addSwitchIdentity.asc2Switch
     property string populatedSwitchName: ""
     property string populatedSwitchNumber: ""
     property bool showInactiveSwitches: false
@@ -145,6 +151,11 @@ RosterPanel {
             rosterModel.remove(rosterRows.length, rosterModel.count - rosterRows.length)
     }
 
+    function canSetSwitchAddress(text) {
+        root.rosterRows
+        return controller && /^[0-9]+$/.test(text) && controller.canProgramSwitchAddress(Number(text))
+    }
+
     function openTmccKeypad() {
         tmccKeypad.openFor(searchField.text)
     }
@@ -182,7 +193,7 @@ RosterPanel {
         addSwitchId.text = ""
         addRoadName.text = ""
         addRoadNumber.text = ""
-        commandControlSwitch.checked = true
+        addCommandControl = true
         addError.text = ""
         pendingOverwriteSwitchId = 0
         populatedSwitchName = ""
@@ -203,7 +214,7 @@ RosterPanel {
         if (tmccId < 1 || tmccId > 98)
             return
         const identity = controller.switchIdentity(tmccId)
-        if (!identity.exists) {
+        if (!identity.exists && !identity.asc2Switch) {
             if (!addRoadNumber.text.trim() || addRoadNumber.text === populatedSwitchNumber) {
                 addRoadNumber.text = String(tmccId).padStart(4, "0")
                 populatedSwitchNumber = addRoadNumber.text
@@ -330,7 +341,7 @@ RosterPanel {
     function submitAddSwitch(overwrite) {
         const tmccId = Number(addSwitchId.text)
         const identity = controller.switchIdentity(tmccId)
-        if (identity.exists && !overwrite) {
+        if (identity.exists && !identity.asc2Switch && !overwrite) {
             completeExistingSwitchIdentity()
             pendingOverwriteSwitchId = tmccId
             overwriteSwitchPopup.open()
@@ -520,6 +531,8 @@ RosterPanel {
                 onClicked: root.openTmccKeypad()
             }
             RosterSetButton {
+                visible: !!controller && controller.scope === "SWITCH"
+                addressAllowed: root.canSetSwitchAddress(entryText)
                 entryText: searchField.text
                 maximumId: 98
                 onClicked: root.submitTmccId(true)
@@ -635,14 +648,13 @@ RosterPanel {
                         Layout.minimumWidth: 0
                         spacing: 2
 
-                        Label {
+                        MarqueeLabel {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             text: rowData.roadName || (row.isRoute ? "Route" : "Switch")
                             color: "#f4f6f8"
                             font.pixelSize: 22
                             font.bold: true
-                            elide: Text.ElideRight
                         }
                         Label {
                             visible: !row.isRoute && !!rowData.lcsAssociations
@@ -740,6 +752,7 @@ RosterPanel {
         id: tmccKeypad
         title: (controller && controller.scope === "SWITCH" ? "Switch" : "Route") + " TMCC ID"
         showSetAddress: !!controller && controller.scope === "SWITCH"
+        setAddressAllowed: root.canSetSwitchAddress(entryText)
         onSetAddressRequested: function(tmccId) {
             const error = controller.programSwitchAddress(tmccId)
             if (error)
@@ -835,13 +848,23 @@ RosterPanel {
                         font.pixelSize: routeBuilder.compact ? 16 : 23
                         color: "#aeb5bf"
                     }
-                    TouchSearchField {
-                        id: routeNameField
-                        keyboardTitle: "Route Name"
+                    RowLayout {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: routeBuilder.fieldHeight
-                        maximumLength: 31
-                        font.pixelSize: routeBuilder.compact ? 20 : 28
+                        spacing: 8
+                        TouchSearchField {
+                            id: routeNameField
+                            titleCaseEnabled: true
+                            Layout.minimumWidth: 0
+                            keyboardTitle: "Route Name"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: routeBuilder.fieldHeight
+                            maximumLength: 31
+                            font.pixelSize: routeBuilder.compact ? 20 : 28
+                        }
+                        TitleCaseButton {
+                            field: routeNameField
+                            Layout.preferredHeight: routeNameField.Layout.preferredHeight
+                        }
                     }
                 }
 
@@ -1260,13 +1283,13 @@ RosterPanel {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 1
-                            Label {
+                            MarqueeLabel {
                                 Layout.fillWidth: true
+                                Layout.minimumWidth: 0
                                 text: modelData.name
                                 color: "#f4f6f8"
                                 font.pixelSize: 15
                                 font.bold: true
-                                elide: Text.ElideRight
                             }
                             Label {
                                 Layout.fillWidth: true
@@ -1345,7 +1368,10 @@ RosterPanel {
 
                 CheckBox {
                     id: commandControlSwitch
-                    checked: true
+                    enabled: !root.addingAsc2Switch
+                    checked: enabled && root.addCommandControl
+                    Accessible.name: "Lionel Command Control Switch"
+                    onToggled: root.addCommandControl = checked
                 }
                 Label {
                     Layout.fillWidth: true
@@ -1354,8 +1380,10 @@ RosterPanel {
                     font.pixelSize: 16
                     font.bold: true
 
+                    opacity: commandControlSwitch.enabled ? 1 : 0.5
                     TapHandler {
-                        onTapped: commandControlSwitch.checked = !commandControlSwitch.checked
+                        enabled: commandControlSwitch.enabled
+                        onTapped: root.addCommandControl = !root.addCommandControl
                     }
                 }
             }
@@ -1386,13 +1414,23 @@ RosterPanel {
                 text: "Road Name"
                 color: "#aeb5bf"
             }
-            TouchSearchField {
-                id: addRoadName
-                keyboardTitle: "Road Name"
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 50
-                maximumLength: 31
-                font.pixelSize: 18
+                spacing: 8
+                TouchSearchField {
+                    id: addRoadName
+                    titleCaseEnabled: true
+                    Layout.minimumWidth: 0
+                    keyboardTitle: "Road Name"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    maximumLength: 31
+                    font.pixelSize: 18
+                }
+                TitleCaseButton {
+                    field: addRoadName
+                    Layout.preferredHeight: addRoadName.Layout.preferredHeight
+                }
             }
             Label {
                 text: "Road Number"
@@ -1429,12 +1467,16 @@ RosterPanel {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: 50
-                    text: "Add Switch"
+                    text: root.addingAsc2Switch ? "Save" : "Add Switch"
+                    font.pixelSize: metrics.editorButtonFontSize
                     font.bold: true
-                    enabled: addSwitchId.acceptableInput &&
-                             addRoadName.text.trim().length > 0 &&
-                             addRoadNumber.acceptableInput &&
-                             addRoadNumber.text.trim().length > 0
+                    activateOnRelease: true
+                    enabled: addSwitchId.acceptableInput && (root.addingAsc2Switch
+                             ? (addRoadNumber.text.trim().length === 0 || addRoadNumber.acceptableInput) &&
+                               (addRoadName.text.trim() !== root.addSwitchIdentity.roadName ||
+                                addRoadNumber.text.trim() !== root.addSwitchIdentity.roadNumber)
+                             : addRoadName.text.trim().length > 0 &&
+                               addRoadNumber.acceptableInput && addRoadNumber.text.trim().length > 0)
                     onClicked: root.submitAddSwitch(false)
                 }
             }
@@ -1502,7 +1544,7 @@ RosterPanel {
         id: switchEditor
         x: Math.max(0, (Overlay.overlay.width - width) / 2)
         y: Math.max(76, (Overlay.overlay.height - height) / 2)
-        width: Math.min(root.width - 16, 720)
+        width: Math.min(root.width - 16, 540)
         modal: false
         focus: true
         closePolicy: Popup.NoAutoClose
@@ -1530,14 +1572,24 @@ RosterPanel {
                 color: "#aeb5bf"
                 font.pixelSize: 17
             }
-            TouchSearchField {
-                id: roadNameField
-                keyboardTitle: "Road Name"
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 52
-                font.pixelSize: 22
-                maximumLength: 31
-                selectByMouse: true
+                spacing: 8
+                TouchSearchField {
+                    id: roadNameField
+                    titleCaseEnabled: true
+                    Layout.minimumWidth: 0
+                    keyboardTitle: "Road Name"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 52
+                    font.pixelSize: 22
+                    maximumLength: 31
+                    selectByMouse: true
+                }
+                TitleCaseButton {
+                    field: roadNameField
+                    Layout.preferredHeight: roadNameField.Layout.preferredHeight
+                }
             }
 
             Label {
@@ -1599,10 +1651,13 @@ RosterPanel {
                     enabled: roadNameField.text !== root.editingSwitchOriginalName ||
                              roadNumberField.text !== root.editingSwitchOriginalNumber
                     onClicked: {
-                        controller.saveSwitchIdentity(root.editingSwitchId,
-                                                      roadNameField.text,
-                                                      roadNumberField.text)
-                        switchEditor.close()
+                        const error = controller.saveSwitchIdentity(root.editingSwitchId,
+                                                                    roadNameField.text,
+                                                                    roadNumberField.text)
+                        if (error)
+                            switchEditorError.text = error
+                        else
+                            switchEditor.close()
                     }
                 }
             }

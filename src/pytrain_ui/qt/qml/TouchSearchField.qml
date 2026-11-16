@@ -6,6 +6,7 @@ TextField {
     placeholderTextColor: "#acbfd8"
     property string keyboardTitle: "Search"
     property bool keyboardModal: true
+    property bool titleCaseEnabled: false
     property real keyboardBottomMargin: 8
     property bool touchKeyboardEnabled: Qt.platform.os === "linux"
     // Open on a deliberate tap, not when focus is restored after closing.
@@ -15,6 +16,7 @@ TextField {
     SearchKeyboard {
         id: keyboard
         title: root.keyboardTitle
+        titleCaseEnabled: root.titleCaseEnabled
         modal: root.keyboardModal
         keyboardInset: root.keyboardBottomMargin
     }
