@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum
+from time import monotonic
 
-from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QCoreApplication, QObject, QTimer, QUrl, Signal, Slot
 
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.accessory_state import AccessoryState
@@ -43,6 +44,13 @@ _DEVICE_IMAGES = {
     "AMC2": "LCS-AMC2-6-81641.jpg",
     "SENSOR": "LCS-Sensor-Track-6-81294.jpg",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class Amc2OutputIntent:
+    level: int
+    on: bool
+    deadline: float
 
 
 class AccessoryViewKind(str, Enum):
@@ -106,6 +114,12 @@ class AccessoryCatalogController(QObject):
         super().__init__(parent)
         self._rows: list[dict] = []
         self._held_asc2: set[int] = set()
+        self._amc2_levels: dict[tuple[str, bool, int], int] = {}
+        self._amc2_pending: dict[tuple[str, bool, int], Amc2OutputIntent] = {}
+        self._amc2_timer = QTimer(self)
+        self._amc2_timer.setSingleShot(True)
+        self._amc2_timer.setInterval(1500)
+        self._amc2_timer.timeout.connect(self.changed.emit)
         self._descriptors: dict[str, AccessoryDescriptor] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         self._pdi_dispatcher = PdiDispatcher.get() if PdiDispatcher.is_built() else None
@@ -121,6 +135,7 @@ class AccessoryCatalogController(QObject):
         self.reload()
 
     def close(self) -> None:
+        self._amc2_timer.stop()
         for tmcc_id in tuple(self._held_asc2):
             try:
                 self.holdQuickAction(tmcc_id, False)
@@ -450,33 +465,106 @@ class AccessoryCatalogController(QObject):
                 descriptor.primary_tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=IrdaSequence(value)
             ).send()
 
-    @Slot(str, bool, int, int)
-    def setAmc2Output(self, key: str, motor: bool, output: int, level: int) -> None:
+    def _amc2_descriptor(self, key: str, motor: bool, output: int) -> AccessoryDescriptor | None:
         descriptor = self._descriptors.get(key)
-        if descriptor is None or descriptor.kind != "AMC2":
-            return
-        if not 1 <= output <= (2 if motor else 4) or not 0 <= level <= 100 or level % 5:
+        if descriptor is not None and descriptor.kind == "AMC2" and 1 <= output <= (2 if motor else 4):
+            return descriptor
+        return None
+
+    @staticmethod
+    def _amc2_motor_power(address: int, output: int, on: bool) -> None:
+        CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, output).send()
+        command = TMCC1AuxCommandEnum.AUX1_OPT_ONE if on else TMCC1AuxCommandEnum.AUX2_OPT_ONE
+        CommandReq.build(command, address).send()
+
+    @staticmethod
+    def _amc2_lamp_level(address: int, output: int, level: int) -> None:
+        Amc2Req(address, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=output - 1, level=level).send()
+        CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, output + 2).send()
+
+    def _amc2_reading(self, key: str, state: AccessoryState | None, motor: bool, output: int) -> dict:
+        channel = (key, motor, output)
+        if motor:
+            reading = state.get_motor(output) if state is not None else None
+            level = reading.speed if reading else 0
+            on = bool(reading and state.is_motor_on(reading))
+        else:
+            reading = state.get_lamp(output) if state is not None else None
+            level = reading.level if reading else 0
+            on = level > 0
+
+        pending = self._amc2_pending.get(channel)
+        if pending is not None:
+            if on == pending.on and (not on or level == pending.level):
+                del self._amc2_pending[channel]
+            elif monotonic() < pending.deadline:
+                return {"level": pending.level, "on": pending.on}
+            else:
+                del self._amc2_pending[channel]
+
+        if on:
+            self._amc2_levels[channel] = level
+        return {"level": level if on else self._amc2_levels.get(channel, level), "on": on}
+
+    def _remember_amc2_output(self, key: str, motor: bool, output: int, level: int, on: bool) -> None:
+        channel = (key, motor, output)
+        self._amc2_levels[channel] = level
+        self._amc2_pending[channel] = Amc2OutputIntent(level, on, monotonic() + 1.5)
+        if QCoreApplication.instance() is not None:
+            self._amc2_timer.start()
+        self.changed.emit()
+
+    @Slot(str, bool, int, bool)
+    def setAmc2Power(self, key: str, motor: bool, output: int, on: bool) -> None:
+        descriptor = self._amc2_descriptor(key, motor, output)
+        if descriptor is None:
             return
         address = descriptor.primary_tmcc_id
+        reading = self._amc2_reading(key, self._state(address), motor, output)
+        level = reading["level"]
+        if not on or level:
+            self._send_amc2_level(address, motor, output, level if on else 0)
+        self._remember_amc2_output(key, motor, output, level, on and level > 0)
+
+    @Slot(str, bool, int, int)
+    def setAmc2Output(self, key: str, motor: bool, output: int, level: int) -> None:
+        descriptor = self._amc2_descriptor(key, motor, output)
+        if descriptor is None or not 0 <= level <= 100 or level % 5:
+            return
+        address = descriptor.primary_tmcc_id
+        self._send_amc2_level(address, motor, output, level)
+        self._remember_amc2_output(key, motor, output, level, level > 0)
+
+    def _send_amc2_level(self, address: int, motor: bool, output: int, level: int) -> None:
         if motor:
-            Amc2Req(address, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=output - 1, speed=level).send()
-            CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, output).send()
-            command = TMCC1AuxCommandEnum.AUX1_OPT_ONE if level else TMCC1AuxCommandEnum.AUX2_OPT_ONE
-            CommandReq.build(command, address).send()
+            state = self._state(address)
+            reading = state.get_motor(output) if state is not None else None
+            Amc2Req(
+                address,
+                PdiCommand.AMC2_SET,
+                Amc2Action.MOTOR,
+                motor=output - 1,
+                speed=level,
+                direction=reading.direction if reading else None,
+            ).send()
+            self._amc2_motor_power(address, output, level > 0)
         else:
-            Amc2Req(address, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=output - 1, level=level).send()
-            CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, address, output + 2).send()
+            self._amc2_lamp_level(address, output, level)
 
     @Slot(str, result="QVariantMap")
     def operatingView(self, key: str) -> dict:
         descriptor = self._descriptors.get(key)
         if descriptor is None:
             return {}
+        device_name = "Sensor Track" if descriptor.kind == "SENSOR" else descriptor.kind
+        title = descriptor.name
+        if descriptor.kind in _DEVICE_IMAGES and not title.casefold().startswith(device_name.casefold()):
+            title = f"{device_name} {title}"
         panel = {
             "key": key,
             "kind": descriptor.kind,
             "tmccId": descriptor.primary_tmcc_id,
-            "title": descriptor.name,
+            "title": title,
             "artworkSource": self._image_source(_DEVICE_IMAGES.get(descriptor.kind)),
         }
         if descriptor.configured_accessory is not None:
@@ -494,13 +582,8 @@ class AccessoryCatalogController(QObject):
             panel["sequence"] = state.sequence.value if state and state.sequence is not None else -1
         elif descriptor.kind == "AMC2":
             state = self._state(descriptor.primary_tmcc_id)
-            motors = [state.get_motor(i) if state else None for i in (1, 2)]
-            lamps = [state.get_lamp(i) if state else None for i in (1, 2, 3, 4)]
-            panel["motors"] = [
-                {"level": motor.speed if motor else 0, "on": bool(motor and state.is_motor_on(motor))}
-                for motor in motors
-            ]
-            panel["lights"] = [{"level": lamp.level if lamp else 0, "on": bool(lamp and lamp.level)} for lamp in lamps]
+            panel["motors"] = [self._amc2_reading(key, state, True, i) for i in (1, 2)]
+            panel["lights"] = [self._amc2_reading(key, state, False, i) for i in (1, 2, 3, 4)]
         return panel
 
     @Slot()

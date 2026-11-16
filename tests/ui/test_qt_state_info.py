@@ -12,8 +12,9 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import ComponentState, ComponentStateDict, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import TrainState
-from pytrain.gui.controller.lcs_device_registry import ASC2
+from pytrain.gui.controller.lcs_device_registry import AMC2, ASC2
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
+from pytrain.pdi.amc2_req import Amc2Req
 from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.base_req import BaseReq
 from pytrain.pdi.bpc2_req import Bpc2Req
@@ -130,6 +131,32 @@ def test_state_info_cannot_clear_bpc2_train(state_info, monkeypatch) -> None:
 
     clear.assert_not_called()
     cleared.assert_not_called()
+
+
+def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypatch) -> None:
+    module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
+    scope = CommandScope.ACC
+    config = Amc2Req.from_bytes(bytes.fromhex("d1461903190000000202020303010100000000000000000077df"))
+    state = ComponentStateDict(scope)[config.tmcc_id]
+    state.initialize(scope, state.tmcc_id)
+    state.comp_data.road_name = "Motor Controller"
+    occupant = LcsOccupant(config.tmcc_id, AMC2, AMC2.mode_for_pdi_mode(config.access_type.value), 1, config=config)
+    monkeypatch.setattr(ComponentStateStore, "get_state", Mock(return_value=state))
+    monkeypatch.setitem(vars(module), "occupants_of", lambda *_args, **_kwargs: [occupant])
+    clear = Mock()
+    monkeypatch.setattr(ComponentState, "clear", clear)
+    controller = module.StateInfoController()
+    controller.openFor("ACC", config.tmcc_id, False)
+
+    info = {row["label"]: row["value"] for row in controller.model["lcsConfiguration"]}
+    assert info["Device"] == "AMC2"
+    assert info["Address Type"] == config.access_type.name
+    assert info["Motor 1 Output Type"] == config.motor1.output_type.label
+    assert info["Motor 2 Restore"] == ("On" if config.motor2.restore else "Off")
+    assert {row["key"] for row in controller.model["identity"]} == {"name", "number"}
+    assert not controller.model["canClear"]
+    controller.clear()
+    clear.assert_not_called()
 
 
 @pytest.mark.parametrize("mode,has_record", [(2, True), (3, False)])

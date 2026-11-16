@@ -148,7 +148,7 @@ RosterPanel {
             Layout.fillWidth: true
             spacing: 10
             RosterMenuButton {
-                text: "Operating Accessories"
+                text: "Accessories"
                 onClicked: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.compact; onClicked: root.controller.halt() }

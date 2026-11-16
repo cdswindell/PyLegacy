@@ -7,10 +7,6 @@ Item {
     required property var controller
     required property var accessory
     readonly property string kind: accessory.kind || ""
-    property bool motorsSelected: true
-
-    onKindChanged: motorsSelected = true
-
     ListView {
         anchors.fill: parent
         visible: root.kind === "SENSOR"
@@ -30,97 +26,11 @@ Item {
         }
     }
 
-    ColumnLayout {
+    Amc2Controls {
         anchors.fill: parent
         visible: root.kind === "AMC2"
-        spacing: 10
-
-        RowLayout {
-            Layout.fillWidth: true
-            CabButton {
-                Layout.fillWidth: true
-                text: "Motors"
-                selected: root.motorsSelected
-                onClicked: root.motorsSelected = true
-            }
-            CabButton {
-                Layout.fillWidth: true
-                text: "Lights"
-                selected: !root.motorsSelected
-                onClicked: root.motorsSelected = false
-            }
-        }
-
-        ListView {
-            id: outputs
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 8
-            model: root.kind === "AMC2" ? (root.motorsSelected ? 2 : 4) : 0
-            ScrollBar.vertical: ListScrollBar { id: outputScroll }
-
-            delegate: Rectangle {
-                id: outputRow
-                required property int index
-                readonly property int output: index + 1
-                readonly property var values: (root.motorsSelected ? root.accessory.motors : root.accessory.lights) || []
-                readonly property var observed: values[index] || ({level: 0, on: false})
-                width: outputs.width - outputScroll.gutterWidth
-                height: 116
-                color: "#23303d"
-                radius: 8
-
-                function send(level) {
-                    root.controller.setAmc2Output(root.accessory.key, root.motorsSelected, output, level)
-                }
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    Label {
-                        text: (root.motorsSelected ? "Motor " : "Light ") + outputRow.output
-                        color: "white"
-                        font.bold: true
-                        font.pixelSize: 20
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        CabButton {
-                            text: "On"
-                            Layout.preferredWidth: 68
-                            selected: outputRow.observed.on
-                            activateOnRelease: true
-                            onClicked: outputRow.send(outputRow.observed.level || 100)
-                        }
-                        CabButton {
-                            text: "Off"
-                            Layout.preferredWidth: 68
-                            selected: !outputRow.observed.on
-                            activateOnRelease: true
-                            onClicked: outputRow.send(0)
-                        }
-                        Slider {
-                            id: level
-                            Layout.fillWidth: true
-                            from: 0
-                            to: 100
-                            stepSize: 5
-                            snapMode: Slider.SnapAlways
-                            value: outputRow.observed.level
-                            onMoved: if (!pressed) outputRow.send(Math.round(value))
-                            onPressedChanged: if (!pressed && value !== outputRow.observed.level)
-                                outputRow.send(Math.round(value))
-                        }
-                        Label {
-                            Layout.preferredWidth: 46
-                            text: Math.round(level.value) + "%"
-                            color: "#b5c9e5"
-                        }
-                    }
-                }
-            }
-        }
+        controller: root.controller
+        accessory: root.accessory
     }
 
     RowLayout {

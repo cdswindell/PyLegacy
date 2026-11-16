@@ -11,6 +11,7 @@ pytest.importorskip("PySide6.QtCore")
 from pytrain.db.component_state import ComponentStateDict
 from pytrain.gui.controller.lcs_device_registry import ASC2
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
+from pytrain.pdi.amc2_req import Direction
 from pytrain.pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from pytrain.pdi.irda_req import IrdaSequence
 from pytrain.pdi.pdi_req import PdiReq
@@ -147,6 +148,54 @@ def test_amc2_motor_and_lamp_target_the_selected_outputs(controller, sent, monke
         (TMCC1AuxCommandEnum.AUX1_OPT_ONE, 0),
         (TMCC1AuxCommandEnum.NUMERIC, 6),
     ]
+
+
+@pytest.mark.parametrize("motor", [True, False])
+def test_amc2_power_preserves_the_slider_level_until_set_to_an_endpoint(controller, sent, monkeypatch, motor):
+    key = add_descriptor(controller, monkeypatch, "AMC2")
+    motor_state = SimpleNamespace(speed=65, direction=Direction.FORWARD)
+    lamp_state = SimpleNamespace(level=65)
+    state = SimpleNamespace(
+        get_motor=lambda _channel: motor_state,
+        get_lamp=lambda _channel: lamp_state,
+        is_motor_on=lambda reading: reading.speed > 0,
+    )
+    # Replace only the readback lookup so packet assertions still use the real sender.
+    # noinspection PyProtectedMember
+    monkeypatch.setattr(
+        AccessoryCatalogController, AccessoryCatalogController._state.__name__, staticmethod(lambda _address: state)
+    )
+
+    def reading():
+        return controller.operatingView(key)["motors" if motor else "lights"][0]
+
+    assert reading() == {"level": 65, "on": True}
+    controller.setAmc2Power(key, motor, 1, False)
+    if motor:
+        assert (sent[0].action, sent[0].speed) == (Amc2Action.MOTOR, 0)
+        assert [req.command for req in sent[1:]] == [TMCC1AuxCommandEnum.NUMERIC, TMCC1AuxCommandEnum.AUX2_OPT_ONE]
+    else:
+        assert (sent[0].action, sent[0].level) == (Amc2Action.LAMP, 0)
+    motor_state.speed = lamp_state.level = 0
+    assert reading() == {"level": 65, "on": False}
+
+    sent.clear()
+    controller.setAmc2Power(key, motor, 1, True)
+    if motor:
+        assert (sent[0].speed, sent[0].direction) == (65, Direction.FORWARD)
+    else:
+        assert sent[0].level == 65
+    assert reading() == {"level": 65, "on": True}
+
+    controller.setAmc2Output(key, motor, 1, 0)
+    assert reading() == {"level": 0, "on": False}
+    sent.clear()
+    controller.setAmc2Power(key, motor, 1, True)
+    assert not sent
+    assert reading() == {"level": 0, "on": False}
+
+    controller.setAmc2Output(key, motor, 1, 100)
+    assert reading() == {"level": 100, "on": True}
 
 
 def test_switch_mode_is_excluded_from_accessory_rows_and_mixed_ports_are_discoverable(controller, monkeypatch):

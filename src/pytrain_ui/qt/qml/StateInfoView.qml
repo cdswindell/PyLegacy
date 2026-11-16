@@ -230,6 +230,20 @@ Rectangle {
                 }
 
                 Label {
+                    visible: lcsConfiguration.rows.length > 0
+                    Layout.topMargin: metrics.sectionGap
+                    text: "LCS Configuration"
+                    color: "white"
+                    font.pixelSize: 23
+                    font.bold: true
+                }
+                DetailGrid {
+                    id: lcsConfiguration
+                    Layout.fillWidth: true
+                    rows: root.record.lcsConfiguration || []
+                    visible: rows.length > 0
+                }
+                Label {
                     visible: live.rows.length > 0
                     Layout.topMargin: metrics.sectionGap
                     text: "Real Time Status"

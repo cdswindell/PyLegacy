@@ -6,10 +6,13 @@ from time import monotonic
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state import ComponentStateDict
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import EngineState
 from pytrain.gui.controller.engine_add_session import EngineAddSession
+from pytrain.gui.controller.lcs_id_map import occupants_of
+from pytrain.pdi.amc2_req import Amc2Req
 from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CONTROL_TYPE, LOCO_TYPE, SOUND_TYPE, CommandScope
@@ -149,6 +152,39 @@ class StateInfoController(QObject):
             )
         return rows
 
+    def _amc2_configuration(self, state) -> list[dict]:
+        if self._scope != CommandScope.ACC:
+            return []
+        device = next(
+            (item for item in occupants_of(self._id, scope=CommandScope.ACC) if item.device.key == "amc2"),
+            None,
+        )
+        is_amc2_state = isinstance(state, AccessoryState) and state.is_amc2
+        if device is None and not is_amc2_state:
+            return []
+        config = device.config if device is not None and isinstance(device.config, Amc2Req) else None
+        address_type = config.access_type if config else None
+        rows = [
+            ("Device", "AMC2"),
+            ("TMCC ID", device.base_id if device else self._id),
+            ("Address Type", address_type.name if address_type is not None else None),
+        ]
+        if config is not None:
+            motors = (config.motor1, config.motor2)
+        elif is_amc2_state:
+            motors = (state.get_motor(1), state.get_motor(2))
+        else:
+            motors = ()
+        for number, motor in enumerate(motors, 1):
+            if motor is not None:
+                rows.extend(
+                    (
+                        (f"Motor {number} Output Type", motor.output_type.label),
+                        (f"Motor {number} Restore", "On" if motor.restore else "Off"),
+                    )
+                )
+        return self._rows(rows)
+
     @Slot(bool)
     def refresh(self, editor_open: bool) -> None:
         if not self._id:
@@ -187,12 +223,14 @@ class StateInfoController(QObject):
         live, membership = (
             self._details(state) if isinstance(state, EngineState) and state.comp_data is not None else ([], [])
         )
+        lcs_configuration = self._amc2_configuration(state)
         model = {
             "scopeTitle": self._scope.title,
             "creating": draft is not None,
             "unsaved": bool(draft and draft.edited and self._pending is None),
             "canCreate": bool(draft and draft.can_create and self._pending is None),
-            "canClear": bool(not draft and state and state.is_deletable),
+            "canClear": bool(not draft and not lcs_configuration and state and state.is_deletable),
+            "lcsConfiguration": lcs_configuration,
             "editable": bool(self._pending is None and (draft or (state and state.comp_data))),
             "busy": self._pending is not None,
             "status": self._error or status,
@@ -295,7 +333,7 @@ class StateInfoController(QObject):
     @Slot()
     def clear(self) -> None:
         state = self._lookup()
-        if self._draft or state is None or not state.is_deletable:
+        if self._draft or state is None or not state.is_deletable or self._amc2_configuration(state):
             return
         try:
             if state.clear(notify=True, clear_db=True):

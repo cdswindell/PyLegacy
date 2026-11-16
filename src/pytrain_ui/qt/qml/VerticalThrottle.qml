@@ -14,6 +14,10 @@ Item {
     property bool largeTouch: false
     property bool springReturn: false
     property int scaleStep: 20
+    property int valueStep: 1
+    property string handleCaption: springReturn ? "RELATIVE" : "TARGET"
+    property string valueSuffix: ""
+    property bool muted: false
     readonly property int scaleCount: Math.floor((maximumValue - minimumValue) / scaleStep) + 1
     readonly property bool dragging: pointer.pressed
     readonly property real activeHeight: Math.max(1, height)
@@ -53,7 +57,7 @@ Item {
     function yToValue(y) {
         const travel = Math.max(1, rail.height - handle.height)
         const frac = 1.0 - Math.max(0, Math.min(1, (y - rail.y) / travel))
-        return Math.round(minimumValue + frac * (maximumValue - minimumValue))
+        return clamp(minimumValue + valueStep * Math.round(frac * (maximumValue - minimumValue) / valueStep))
     }
 
     onValueChanged: {
@@ -176,18 +180,18 @@ Item {
         x: 2
         y: root.valueToY(root.displayValue())
         gradient: Gradient {
-            GradientStop { position: 0; color: pointer.pressed ? "#306881" : "#698ba0" }
-            GradientStop { position: 0.45; color: "#365a72" }
-            GradientStop { position: 1; color: "#203e52" }
+            GradientStop { position: 0; color: root.muted ? "#686c72" : pointer.pressed ? "#306881" : "#698ba0" }
+            GradientStop { position: 0.45; color: root.muted ? "#45494f" : "#365a72" }
+            GradientStop { position: 1; color: root.muted ? "#30343a" : "#203e52" }
         }
-        border.color: pointer.pressed ? "#5fb7f2" : "#8ba9bb"
+        border.color: root.muted ? "#969da5" : pointer.pressed ? "#5fb7f2" : "#8ba9bb"
 
         Rectangle {
             anchors.centerIn: parent
             width: parent.width * 0.57
             height: parent.height - 10
             radius: 6
-            color: "#142838"
+            color: root.muted ? "#272b31" : "#142838"
             border.color: "#698492"
 
             Column {
@@ -195,14 +199,15 @@ Item {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.springReturn ? "RELATIVE" : "TARGET"
+                    visible: text.length > 0
+                    text: root.handleCaption
                     font.pixelSize: root.largeTouch ? 10 : 8
                     font.bold: true
                     color: "#d9edf9"
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.displayValue()
+                    text: root.displayValue() + root.valueSuffix
                     font.pixelSize: root.largeTouch ? 23 : 17
                     font.bold: true
                     color: "#ffffff"

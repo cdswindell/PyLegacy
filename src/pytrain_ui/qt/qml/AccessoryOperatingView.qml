@@ -60,6 +60,7 @@ Rectangle {
         }
 
         Rectangle {
+            objectName: "accessoryArtwork"
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(root.height * 0.23, width / Math.max(1, Number(root.accessory.artworkAspectRatio || 3)))
             visible: (root.accessory.artworkSource || "").length > 0
@@ -72,6 +73,13 @@ Rectangle {
                 source: root.accessory.artworkSource || ""
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
+            }
+
+            TapHandler {
+                enabled: root.kind === "AMC2" && !!root.accessory.tmccId
+                gesturePolicy: TapHandler.DragThreshold
+                onDoubleTapped: root.infoRequested(root.accessory.tmccId)
+                onLongPressed: root.infoRequested(root.accessory.tmccId)
             }
         }
 

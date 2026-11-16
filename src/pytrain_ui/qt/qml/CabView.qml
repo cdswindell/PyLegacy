@@ -643,67 +643,17 @@ Rectangle {
                     background: Item {}
                     Repeater {
                         model: ["Controls", cab.isCrane ? "Sound" : cab.isTransformer ? "Speed" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
-                        TabButton {
-                            id: pageTab
+                        CabPageTab {
                             required property int index
                             required property string modelData
                             objectName: index === 0 ? "driveTab" : "speedTab"
-                            implicitWidth: 100
                             width: (pageTabs.availableWidth - pageTabs.spacing) / 2
                             height: pageTabs.height
                             y: 0
-                            padding: 0
-                            topInset: 0
-                            bottomInset: 0
                             text: modelData
                             onClicked: {
                                 root.effectsVisible = index === 1
                                 actionScroll.contentItem.contentY = 0
-                            }
-                            contentItem: Text {
-                                text: parent.text
-                                color: pageTab.checked ? "#ffffff" : "#aeb7c2"
-                                font.pixelSize: 18
-                                font.bold: true
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            background: Item {
-                                Rectangle {
-                                    anchors.fill: parent
-                                    anchors.topMargin: pageTab.checked ? 0 : 5
-                                    radius: 10
-                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#397498" : "#20313e"
-                                    border.width: 1
-                                    border.color: pageTab.checked ? "#9ab2c3" : "#718a9c"
-                                    gradient: pageTab.checked ? selectedTabGradient : inactiveTabGradient
-                                    SelectionGradient {
-                                        id: selectedTabGradient
-                                        selected: true
-                                        depressed: pageTab.down
-                                    }
-                                    Gradient {
-                                        id: inactiveTabGradient
-                                        GradientStop { position: 0; color: pageTab.down ? "#101a25" : "#324553" }
-                                        GradientStop { position: 1; color: pageTab.down ? "#263b50" : "#20313e" }
-                                    }
-                                }
-                                Rectangle {
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.bottom: parent.bottom
-                                    anchors.leftMargin: 1
-                                    anchors.rightMargin: 1
-                                    height: 8
-                                    color: pageTab.down ? "#263b50" : pageTab.checked ? "#397498" : "#20313e"
-                                }
-                                Rectangle {
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.bottom: parent.bottom
-                                    height: 1
-                                    color: pageTab.checked ? "#397498" : "#5275a4"
-                                }
                             }
                         }
                     }
