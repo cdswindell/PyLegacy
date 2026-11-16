@@ -36,12 +36,16 @@ Item {
     }
 
     RowLayout {
+        readonly property int defaultGap: 8
+        // The original pair occupied the panel width minus two margins and one gap.
+        readonly property real motorGap: (root.width - (root.width - 3 * defaultGap) * 0.8) / 3
+
         anchors.fill: parent
         anchors.topMargin: tabs.height + metrics.accessoryTabContentGap
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
-        anchors.bottomMargin: 8
-        spacing: 8
+        anchors.leftMargin: spacing
+        anchors.rightMargin: spacing
+        anchors.bottomMargin: defaultGap
+        spacing: root.motorsSelected ? motorGap : defaultGap
 
         Repeater {
             model: root.visible ? (root.motorsSelected ? 2 : 4) : 0

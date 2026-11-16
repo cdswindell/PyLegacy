@@ -10,8 +10,7 @@ Control {
     property bool activateOnHold: false
     property bool distinguishDoubleClick: false
     // An explicit interval groups taps anywhere within this button.
-    property int doubleTapInterval: 0
-    readonly property bool groupTapsWithinButton: distinguishDoubleClick && doubleTapInterval > 0
+    property int doubleTapInterval: 450
     property bool holdWithinBounds: false
     property bool mouseHoldEnabled: false
     property bool repeatWhileHeld: false
@@ -69,11 +68,8 @@ Control {
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
         longPressThreshold: root.holdWithinBounds ? 0.55 : undefined
-        // Wait for the double-tap interval before dispatching a single tap on these buttons.
-        exclusiveSignals: root.distinguishDoubleClick && !root.groupTapsWithinButton
-            ? TapHandler.SingleTap | TapHandler.DoubleTap : TapHandler.NotExclusive
         onTapped: {
-            if (root.groupTapsWithinButton && !holdTriggered) {
+            if (root.distinguishDoubleClick && !holdTriggered) {
                 if (doubleTapTimer.running) {
                     doubleTapTimer.stop()
                     root.doubleClicked()
@@ -84,14 +80,11 @@ Control {
                 root.clicked()
             }
         }
-        onSingleTapped: {
-            if (root.distinguishDoubleClick && !root.groupTapsWithinButton && !holdTriggered)
-                root.clicked()
-        }
         onLongPressed: {
             if (root.activateOnHold || (root.distinguishDoubleClick &&
                 (root.mouseHoldEnabled || point.device.type === PointerDevice.TouchScreen))) {
                 holdTriggered = true
+                doubleTapTimer.stop()
                 root.gestureHeld()
             }
         }
@@ -104,8 +97,10 @@ Control {
                 root.released()
             }
         }
-        onCanceled: root.pressCanceled()
-        onDoubleTapped: if (!root.groupTapsWithinButton && !holdTriggered) root.doubleClicked()
+        onCanceled: {
+            doubleTapTimer.stop()
+            root.pressCanceled()
+        }
     }
 
     ButtonTapHandler {

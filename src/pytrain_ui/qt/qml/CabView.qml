@@ -369,8 +369,10 @@ Rectangle {
     }
 
     component PairedActions: ColumnLayout {
+        id: pairedActions
         property var actions: []
         property var rows: root.pairedActionRows(actions)
+        property int fittedRowHeight: 0
         Layout.fillWidth: true
         spacing: root.gap
         Repeater {
@@ -378,7 +380,8 @@ Rectangle {
             RowLayout {
                 id: pairedRow
                 required property var modelData
-                readonly property int cellHeight: root.compact && modelData.some(action =>
+                readonly property int cellHeight: pairedActions.fittedRowHeight > 0
+                    ? pairedActions.fittedRowHeight : root.compact && modelData.some(action =>
                     action && (action.key === "car_lights_on" || action.key === "car_lights_off"))
                     ? Math.max(68, root.tileHeight) : root.tileHeight
                 Layout.fillWidth: true
@@ -396,7 +399,10 @@ Rectangle {
                         Layout.maximumHeight: pairedRow.cellHeight
                         Layout.preferredHeight: pairedRow.cellHeight
                         active: cellAction !== undefined && cellAction !== null
-                        sourceComponent: ActionTile { action: actionCell.cellAction }
+                        sourceComponent: ActionTile {
+                            action: actionCell.cellAction
+                            availableTileHeight: pairedRow.cellHeight
+                        }
                     }
                 }
             }
@@ -405,6 +411,7 @@ Rectangle {
 
     component ActionTile: FunctionButton {
         required property var action
+        property int availableTileHeight: root.tileHeight
         readonly property bool emergencyStop: action.key === "EMERGENCY_STOP"
         readonly property bool auxiliary: action.group === "secondary"
         readonly property bool signedSpeaker: ["volume", "volume-down", "rpm-up", "rpm-down"].includes(trialIcon)
@@ -467,7 +474,7 @@ Rectangle {
                        || ["water_injector", "option_one_on", "option_one_off"].includes(action.key)
         padding: root.compact ? 4 : 6
         wideArtwork: action.key === "car_lights_on" || action.key === "car_lights_off"
-        iconSize: (root.compact ? 40 : 72) - (root.preferredTileHeight - root.tileHeight)
+        iconSize: Math.max(12, (root.compact ? 40 : 72) - (root.preferredTileHeight - availableTileHeight))
         compact: auxiliary
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
               : largeLabel ? "Set Address"
@@ -485,7 +492,7 @@ Rectangle {
         iconSource: action.iconSource || ""
         speedChevrons: action.speedChevrons || 0
         additionalHoldAction: (deferForHold && (showGauge || speedChevrons > 0
-                               || ["startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
+                               || ["STOP_HOLD", "startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
                               || (auxiliary && action.key === "sequence" && repeatWhileHeld)
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         faceAccent: emergencyStop ? "#9d2020" : "transparent"
@@ -655,39 +662,19 @@ Rectangle {
                         asynchronous: true
                         cache: false
                     }
-                    Timer {
-                        id: artworkTapWindow
-                        interval: 450
-                    }
-                    TapHandler {
-                        property point firstTapPosition
-
+                    ControlTapHandler {
+                        id: artworkTap
                         enabled: !!root.infoController && cab.tmccId > 0
-                        gesturePolicy: TapHandler.DragThreshold
-                        onCanceled: artworkTapWindow.stop()
-                        onLongPressed: {
-                            artworkTapWindow.stop()
-                            root.stateInfoRequested()
-                        }
-                        onTapped: function(point) {
-                            const position = point.position
-                            if (artworkTapWindow.running
-                                    && Math.hypot(position.x - firstTapPosition.x,
-                                                  position.y - firstTapPosition.y) <= 32) {
-                                artworkTapWindow.stop()
-                                root.stateInfoRequested()
-                            } else {
-                                firstTapPosition = position
-                                artworkTapWindow.restart()
-                            }
-                        }
+                        holdEnabled: true
+                        onTappedTwice: root.stateInfoRequested()
+                        onHeldGesture: root.stateInfoRequested()
                     }
                     DragHandler {
                         id: artworkDrag
                         target: null
                         xAxis.enabled: true
                         yAxis.enabled: false
-                        onActiveChanged: if (active) artworkTapWindow.stop()
+                        onActiveChanged: if (active) artworkTap.cancelPendingTap()
                         enabled: cab.scope === "ENGINE" && root.selection && root.selection.count > 0
                         onGrabChanged: function(transition, point) {
                             if (transition !== PointerDevice.UngrabExclusive)
@@ -760,6 +747,7 @@ Rectangle {
                 ScrollView {
                     id: actionScroll
                     objectName: "cabActionScroll"
+                    visible: !root.effectsVisible
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: artwork.bottom
@@ -771,19 +759,24 @@ Rectangle {
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-                    ColumnLayout {
-                        id: actionContent
+                    PairedActions {
                         width: actionScroll.availableWidth
-                        spacing: root.gap
-                        PairedActions {
-                            visible: !root.effectsVisible
-                            rows: root.driveActionRows()
-                        }
-                        PairedActions {
-                            visible: root.effectsVisible
-                            rows: root.speedActionRows()
-                        }
+                        rows: root.driveActionRows()
                     }
+                }
+
+                PairedActions {
+                    id: speedActions
+                    objectName: "cabSpeedActions"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: artwork.bottom
+                    anchors.topMargin: root.gap
+                    anchors.bottom: parent.bottom
+                    visible: root.effectsVisible
+                    rows: root.speedActionRows()
+                    fittedRowHeight: Math.max(1, Math.min(root.preferredTileHeight,
+                        Math.floor((height - Math.max(0, rows.length - 1) * spacing) / Math.max(1, rows.length))))
                 }
 
                 GridLayout {

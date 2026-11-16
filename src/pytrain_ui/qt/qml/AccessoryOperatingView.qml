@@ -97,11 +97,11 @@ Rectangle {
                         asynchronous: true
                     }
 
-                    TapHandler {
+                    ControlTapHandler {
                         enabled: root.kind === "AMC2" && !!root.accessory.tmccId
-                        gesturePolicy: TapHandler.DragThreshold
-                        onDoubleTapped: root.infoRequested(root.accessory.tmccId)
-                        onLongPressed: root.infoRequested(root.accessory.tmccId)
+                        holdEnabled: true
+                        onTappedTwice: root.infoRequested(root.accessory.tmccId)
+                        onHeldGesture: root.infoRequested(root.accessory.tmccId)
                     }
                 }
             }

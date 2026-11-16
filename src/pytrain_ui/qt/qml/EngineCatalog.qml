@@ -165,6 +165,7 @@ RosterPanel {
         }
 
         RosterSortBar {
+            roster: listView
             compact: root.height < 850
             keys: ["name", "road", "tmcc"]
             selectedKey: root.sortMode

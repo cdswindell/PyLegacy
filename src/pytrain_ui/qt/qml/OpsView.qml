@@ -359,8 +359,8 @@ RosterPanel {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
-        Layout.preferredHeight: 92
-        font.pixelSize: 28
+        Layout.preferredHeight: pageAllStop.height
+        font.pixelSize: 20
     }
 
     component IconActionButton: CabButton {
@@ -478,19 +478,28 @@ RosterPanel {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Item {
-                visible: !addRouteButton.visible
+            RowLayout {
+                Layout.fillWidth: false
                 Layout.preferredWidth: pageAllStop.width
-            }
-            CabButton {
-                id: addRouteButton
-                visible: !!controller && controller.scope === "ROUTE"
-                Layout.preferredWidth: pageAllStop.width
-                Layout.preferredHeight: pageAllStop.height
-                text: "Add…"
-                font.pixelSize: 24
-                enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
-                onClicked: root.openAddRoute()
+                spacing: 6
+                TouchButton {
+                    text: "Add…"
+                    font.pixelSize: switchLcsButton.visible ? 20 : 24
+                    enabled: !!controller && !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
+                    onClicked: {
+                        if (controller.scope === "SWITCH")
+                            root.openAddSwitch()
+                        else
+                            root.openAddRoute()
+                    }
+                }
+                TouchButton {
+                    id: switchLcsButton
+                    visible: !!controller && controller.scope === "SWITCH" && !!root.lcsController
+                    text: "LCS…"
+                    enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
+                    onClicked: lcsConfig.open()
+                }
             }
             CabMenuTitle {
                 rosterTitle: true
@@ -501,22 +510,6 @@ RosterPanel {
                 onActivated: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: controller.halt() }
-        }
-        RowLayout {
-            visible: !!controller && controller.scope === "SWITCH"
-            Layout.fillWidth: true
-            spacing: 10
-            TouchButton {
-                text: "Add…"
-                enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
-                onClicked: root.openAddSwitch()
-            }
-            TouchButton {
-                visible: !!root.lcsController
-                text: "LCS…"
-                enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
-                onClicked: lcsConfig.open()
-            }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -550,6 +543,7 @@ RosterPanel {
             }
         }
         RosterSortBar {
+            roster: roster
             compact: root.height < 850
             selectedKey: root.sortKey
             onSelected: key => root.sortKey = key
@@ -596,37 +590,14 @@ RosterPanel {
                 color: "#23303d"
                 border.width: 1
                 border.color: "#444c57"
-                Timer {
-                    id: rowTapWindow
-                    interval: 450
-                }
-                TapHandler {
-                    property point firstTapPosition
-
+                ControlTapHandler {
                     enabled: roster.enabled && !roster.moving
-                    acceptedButtons: Qt.LeftButton
-                    gesturePolicy: TapHandler.DragThreshold
-                    onEnabledChanged: if (!enabled) rowTapWindow.stop()
-                    onCanceled: rowTapWindow.stop()
-                    onLongPressed: rowTapWindow.stop()
-                    onTapped: function(point) {
-                        const position = point.position
-                        if (rowActions.contains(rowActions.mapFromItem(row, position))) {
-                            rowTapWindow.stop()
-                            return
-                        }
-                        if (rowTapWindow.running
-                                && Math.hypot(position.x - firstTapPosition.x,
-                                              position.y - firstTapPosition.y) <= 32) {
-                            rowTapWindow.stop()
-                            if (row.isRoute)
-                                root.controller.fireRoute(row.rowData.tmccId)
-                            else
-                                root.controller.toggleSwitch(row.rowData.tmccId)
-                        } else {
-                            firstTapPosition = position
-                            rowTapWindow.restart()
-                        }
+                    acceptsTap: position => !rowActions.contains(rowActions.mapFromItem(row, position))
+                    onTappedTwice: {
+                        if (row.isRoute)
+                            root.controller.fireRoute(row.rowData.tmccId)
+                        else
+                            root.controller.toggleSwitch(row.rowData.tmccId)
                     }
                 }
                 RowLayout {
@@ -926,18 +897,11 @@ RosterPanel {
                     border.width: controller && controller.routeComponentIndex === modelData.index ? 2 : 1
                     border.color: controller && controller.routeComponentIndex === modelData.index ? "#55c7ff" : "#444c57"
 
-                    TapHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
-                        onSingleTapped: controller.selectRouteComponent(modelData.index)
-                        onDoubleTapped: routeElement.flipOutTurnout()
-                    }
-                    TapHandler {
-                        acceptedDevices: PointerDevice.TouchScreen
-                        exclusiveSignals: TapHandler.SingleTap | TapHandler.DoubleTap
-                        onSingleTapped: controller.selectRouteComponent(modelData.index)
-                        onDoubleTapped: routeElement.flipOutTurnout()
-                        onLongPressed: routeElement.flipOutTurnout()
+                    ControlTapHandler {
+                        holdEnabled: !!point.device && point.device.type === PointerDevice.TouchScreen
+                        onTappedOnce: controller.selectRouteComponent(modelData.index)
+                        onTappedTwice: routeElement.flipOutTurnout()
+                        onHeldGesture: routeElement.flipOutTurnout()
                     }
 
                     ColumnLayout {
@@ -1258,8 +1222,8 @@ RosterPanel {
                     border.width: 1
                     border.color: "#444c57"
 
-                    TapHandler {
-                        onDoubleTapped: {
+                    ControlTapHandler {
+                        onTappedTwice: {
                             const error = controller.addRouteComponent(modelData.scope, modelData.tmccId)
                             if (error.length > 0)
                                 routePickerError.text = error

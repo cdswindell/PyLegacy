@@ -279,12 +279,19 @@ class StateInfoController(QObject):
         port = occupant.port_index if occupant is not None else getattr(state, "port", None)
         mode = occupant.mode if occupant is not None else device.mode_for_pdi_mode(getattr(state, "mode", None))
         config = occupant.config if occupant is not None else None
+        mode_label = None
+        if mode is not None:
+            address_type, _, description = mode.name.partition(" (")
+            name = description.removesuffix(")").capitalize() if description else f"{mode.ports} ID"
+            if not description and mode.ports != 1:
+                name += "s"
+            mode_label = f"{mode.pdi_mode} — {name} ({address_type})"
         rows = [
             ("Device", device.label),
             ("Base TMCC ID", base_id),
             ("Address Type", self._scope.name if mode is not None else None),
             ("Port", port),
-            ("Mode", mode.name if mode is not None else None),
+            ("Mode", mode_label),
         ]
         if device is ASC2:
             delay = config.delay if isinstance(config, Asc2Req) else None

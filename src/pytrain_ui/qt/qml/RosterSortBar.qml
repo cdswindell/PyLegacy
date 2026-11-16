@@ -6,8 +6,18 @@ RowLayout {
 
     required property string selectedKey
     required property bool compact
+    required property ListView roster
     property var keys: ["roadName", "roadNumber", "tmccId"]
     signal selected(string key)
+
+    function selectAndScrollToTop(key) {
+        selected(key)
+        Qt.callLater(() => {
+            roster.cancelFlick()
+            roster.forceLayout()
+            roster.positionViewAtBeginning()
+        })
+    }
 
     Layout.fillWidth: true
     spacing: 8
@@ -25,7 +35,11 @@ RowLayout {
             text: modelData
             font.pixelSize: 26
             selected: root.selectedKey === root.keys[index]
+            distinguishDoubleClick: true
+            activateOnHold: true
             onClicked: root.selected(root.keys[index])
+            onDoubleClicked: root.selectAndScrollToTop(root.keys[index])
+            onGestureHeld: root.selectAndScrollToTop(root.keys[index])
         }
     }
 }

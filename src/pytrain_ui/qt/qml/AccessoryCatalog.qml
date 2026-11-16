@@ -175,8 +175,8 @@ RosterPanel {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
-        Layout.preferredHeight: 92
-        font.pixelSize: 28
+        Layout.preferredHeight: pageAllStop.height
+        font.pixelSize: 20
     }
 
     ColumnLayout {
@@ -187,7 +187,21 @@ RosterPanel {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Item { Layout.preferredWidth: pageAllStop.width }
+            RowLayout {
+                Layout.fillWidth: false
+                Layout.preferredWidth: pageAllStop.width
+                spacing: 6
+                ChoiceButton {
+                    text: "Add…"
+                    enabled: !lcsConfig || !lcsConfig.visible
+                    onClicked: root.addRequested()
+                }
+                ChoiceButton {
+                    text: "LCS…"
+                    enabled: !lcsConfig || !lcsConfig.visible
+                    onClicked: root.lcsRequested()
+                }
+            }
             CabMenuTitle {
                 rosterTitle: true
                 Layout.fillWidth: true
@@ -197,20 +211,6 @@ RosterPanel {
                 onActivated: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.compact; onClicked: root.controller.halt() }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            ChoiceButton {
-                text: "Add…"
-                enabled: !lcsConfig || !lcsConfig.visible
-                onClicked: root.addRequested()
-            }
-            ChoiceButton {
-                text: "LCS…"
-                enabled: !lcsConfig || !lcsConfig.visible
-                onClicked: root.lcsRequested()
-            }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -244,6 +244,7 @@ RosterPanel {
             }
         }
         RosterSortBar {
+            roster: listView
             compact: root.compact
             keys: ["NAME", "ROAD", "TMCC"]
             selectedKey: root.sortMode
@@ -311,7 +312,7 @@ RosterPanel {
                 width: listView.width - rosterScrollBar.gutterWidth
                 height: quickActions.visible ? 146 : 112
                 radius: 8
-                color: tapHandler.pressed ? "#354150" : "#23303d"
+                color: tapHandler.pressed || quickActionTap.pressed ? "#354150" : "#23303d"
                 border.width: 1
                 border.color: "#4b5664"
                 ColumnLayout {
@@ -421,17 +422,19 @@ RosterPanel {
                 }
                 TapHandler {
                     id: tapHandler
+                    enabled: !quickActions.visible
                     gesturePolicy: TapHandler.DragThreshold
-                    longPressThreshold: 0.75
-                    function hasAction(key) {
-                        return row.modelData.quickActions.some(function(action) { return action.key === key && (action.enabled === undefined || action.enabled) })
-                    }
-                    function overQuickActions() {
-                        return quickActions.visible && quickActions.contains(quickActions.mapFromItem(row, point.position))
-                    }
-                    onTapped: if (!quickActions.visible) root.accessoryRequested(row.modelData.key)
-                    onDoubleTapped: {
-                        if (!overQuickActions() && hasAction("ON") && hasAction("OFF")) root.controller.toggleQuickAction(row.modelData.primaryTmccId, row.modelData.kind)
+                    onTapped: root.accessoryRequested(row.modelData.key)
+                }
+                ControlTapHandler {
+                    id: quickActionTap
+                    enabled: quickActions.visible && !listView.moving
+                    acceptsTap: position => !quickActions.contains(quickActions.mapFromItem(row, position))
+                    onTappedTwice: {
+                        const actions = row.modelData.quickActions
+                        const supports = key => actions.some(action => action.key === key && action.enabled !== false)
+                        if (supports("ON") && supports("OFF"))
+                            root.controller.toggleQuickAction(row.modelData.primaryTmccId, row.modelData.kind)
                     }
                 }
             }

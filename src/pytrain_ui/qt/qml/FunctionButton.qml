@@ -315,7 +315,7 @@ Control {
                 anchors.centerIn: parent
                 text: "STOP"
                 color: "#ffffff"
-                font.pixelSize: Math.round(root.iconSize * 0.25)
+                font.pixelSize: Math.max(1, Math.round(root.iconSize * 0.25))
                 font.bold: true
             }
         }
@@ -483,8 +483,8 @@ Control {
         }
 
         Item {
-            visible: !root.steelFace && ((root.showGauge && root.additionalHoldAction)
-                     || (root.trialFace && (root.additionalHoldAction || root.deferForHold || root.repeatWhileHeld)))
+            visible: !root.steelFace && (root.additionalHoldAction
+                     || (root.trialFace && (root.deferForHold || root.repeatWhileHeld)))
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 7

@@ -92,6 +92,7 @@ Popup {
                 selected: root.controller.deviceKey === modelData.key
                 text: modelData.label + (modelData.blurb.length ? "   " + modelData.blurb : "")
                 font.bold: true
+                distinguishDoubleClick: true
                 onClicked: root.controller.selectDevice(modelData.key)
                 onDoubleClicked: {
                     root.controller.selectDevice(modelData.key)

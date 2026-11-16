@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     property string currentScope: ""
+    property var lastScopeTap: null
     readonly property int buttonInset: 4
     implicitHeight: 84
     signal scopePressed(string scope, bool showKeypad)
@@ -56,16 +57,20 @@ Rectangle {
                     minimumPixelSize: 12
                 }
 
-                TapHandler {
+                ControlTapHandler {
                     id: scopeTap
-                    property bool held: false
                     longPressThreshold: 0.45
-                    onPressedChanged: if (pressed) held = false
-                    onLongPressed: {
-                        held = true
-                        root.scopePressed(scopeButton.modelData, true)
+                    holdEnabled: true
+                    onPressedChanged: {
+                        if (pressed && root.lastScopeTap !== scopeTap) {
+                            if (root.lastScopeTap)
+                                root.lastScopeTap.cancelPendingTap()
+                            root.lastScopeTap = scopeTap
+                        }
                     }
-                    onTapped: if (!held) root.scopePressed(scopeButton.modelData, false)
+                    onTappedOnce: root.scopePressed(scopeButton.modelData, false)
+                    onTappedTwice: root.scopePressed(scopeButton.modelData, true)
+                    onHeldGesture: root.scopePressed(scopeButton.modelData, true)
                 }
             }
         }
