@@ -9,6 +9,9 @@ Control {
     property bool activateOnRelease: false
     property bool activateOnHold: false
     property bool distinguishDoubleClick: false
+    // An explicit interval groups taps anywhere within this button.
+    property int doubleTapInterval: 0
+    readonly property bool groupTapsWithinButton: distinguishDoubleClick && doubleTapInterval > 0
     property bool holdWithinBounds: false
     property bool mouseHoldEnabled: false
     property bool repeatWhileHeld: false
@@ -25,6 +28,14 @@ Control {
 
     Timer { id: pressFlash; interval: 140 }
     onClicked: pressFlash.restart()
+    onEnabledChanged: if (!enabled) doubleTapTimer.stop()
+    onVisibleChanged: if (!visible) doubleTapTimer.stop()
+
+    Timer {
+        id: doubleTapTimer
+        interval: root.doubleTapInterval
+        onTriggered: root.clicked()
+    }
 
     signal clicked()
     signal released()
@@ -59,10 +70,22 @@ Control {
         acceptedButtons: Qt.LeftButton
         longPressThreshold: root.holdWithinBounds ? 0.55 : undefined
         // Wait for the double-tap interval before dispatching a single tap on these buttons.
-        exclusiveSignals: root.distinguishDoubleClick ? TapHandler.SingleTap | TapHandler.DoubleTap : TapHandler.NotExclusive
-        onTapped: if (root.activateOnRelease && !root.distinguishDoubleClick) root.clicked()
+        exclusiveSignals: root.distinguishDoubleClick && !root.groupTapsWithinButton
+            ? TapHandler.SingleTap | TapHandler.DoubleTap : TapHandler.NotExclusive
+        onTapped: {
+            if (root.groupTapsWithinButton && !holdTriggered) {
+                if (doubleTapTimer.running) {
+                    doubleTapTimer.stop()
+                    root.doubleClicked()
+                } else {
+                    doubleTapTimer.start()
+                }
+            } else if (root.activateOnRelease && !root.distinguishDoubleClick) {
+                root.clicked()
+            }
+        }
         onSingleTapped: {
-            if (root.distinguishDoubleClick && !holdTriggered)
+            if (root.distinguishDoubleClick && !root.groupTapsWithinButton && !holdTriggered)
                 root.clicked()
         }
         onLongPressed: {
@@ -82,7 +105,7 @@ Control {
             }
         }
         onCanceled: root.pressCanceled()
-        onDoubleTapped: if (!holdTriggered) root.doubleClicked()
+        onDoubleTapped: if (!root.groupTapsWithinButton && !holdTriggered) root.doubleClicked()
     }
 
     ButtonTapHandler {

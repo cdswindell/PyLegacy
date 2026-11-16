@@ -107,11 +107,11 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 1
-                            Layout.preferredHeight: 60
+                            Layout.preferredHeight: 72
                             text: "On"
-                            font.pixelSize: 16
                             selected: channel.observed.on
                             distinguishDoubleClick: true
+                            doubleTapInterval: 500
                             onClicked: channel.setPower(true)
                             onDoubleClicked: channel.setLevel(100)
                         }
@@ -119,11 +119,11 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 1
-                            Layout.preferredHeight: 60
+                            Layout.preferredHeight: 72
                             text: "Off"
-                            font.pixelSize: 16
                             selected: !channel.observed.on
                             distinguishDoubleClick: true
+                            doubleTapInterval: 500
                             onClicked: channel.setPower(false)
                             onDoubleClicked: channel.setLevel(0)
                         }
