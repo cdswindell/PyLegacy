@@ -132,6 +132,16 @@ RosterPanel {
                    row.lcsAssociations.toLowerCase().indexOf(needle) >= 0
         })
         rows.sort(function(a, b) {
+            if (root.typeFilter === "ALL") {
+                const aOperating = a.kind === "OPERATING"
+                const bOperating = b.kind === "OPERATING"
+                if (aOperating !== bOperating)
+                    return aOperating ? -1 : 1
+                if (aOperating) {
+                    const nameOrder = a.roadName.toLowerCase().localeCompare(b.roadName.toLowerCase())
+                    return nameOrder || a.primaryTmccId - b.primaryTmccId
+                }
+            }
             if (sortMode === "TMCC") {
                 var idResult = a.primaryTmccId - b.primaryTmccId
                 if (idResult !== 0)
@@ -293,7 +303,7 @@ RosterPanel {
                         spacing: 10
                         Label {
                             Layout.preferredWidth: 70
-                            text: row.modelData.primaryTmccId
+                            text: row.modelData.kind === "OPERATING" ? "" : row.modelData.primaryTmccId
                             color: "#55bdf5"
                             font.pixelSize: 36
                             font.bold: true

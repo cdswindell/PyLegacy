@@ -12,6 +12,7 @@ Item {
     property int pendingValue: value
     property bool awaitingConfirmation: false
     property bool largeTouch: false
+    property real thumbScale: 1
     property bool springReturn: false
     property int scaleStep: 20
     property int valueStep: 1
@@ -174,8 +175,8 @@ Item {
     Rectangle {
         id: handle
         objectName: "throttleThumb"
-        width: Math.max(0, Math.min(root.largeTouch ? 144 : 96, root.width - (root.largeTouch ? 31 : 24)))
-        height: Math.round((root.largeTouch ? 74 : 54) * 0.8)
+        width: Math.max(0, Math.min((root.largeTouch ? 144 : 96) * root.thumbScale, root.width - (root.largeTouch ? 31 : 24)))
+        height: Math.round((root.largeTouch ? 74 : 54) * 0.8) * root.thumbScale
         radius: 14
         x: 2
         y: root.valueToY(root.displayValue())

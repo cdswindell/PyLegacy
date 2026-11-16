@@ -9,6 +9,8 @@ from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.constants import CommandScope
 
+from .presentation import format_road_number
+
 
 class SelectedEngineController(QObject):
     """Track engines selected by the operator and engines active on the railroad."""
@@ -189,7 +191,7 @@ class SelectedEngineController(QObject):
         return {
             "tmccId": tmcc_id,
             "roadName": str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip(),
-            "roadNumber": str(getattr(state, "road_number", "") or "").strip(),
+            "roadNumber": format_road_number(getattr(state, "road_number", None)),
             "direction": cls._direction(state),
             "smoke": cls._smoke(state),
             "speed": int(getattr(state, "speed", 0) or 0),

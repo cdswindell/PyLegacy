@@ -19,6 +19,8 @@ from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
 
+from .presentation import format_road_number
+
 
 class OpsController(QObject):
     """Expose a roster and direct operating commands for one scope."""
@@ -62,9 +64,9 @@ class OpsController(QObject):
     def _identity(state) -> tuple[str, str]:
         if isinstance(state, SwitchState) and (data := state.comp_data) is not None:
             # The write helpers update CompData before the Base refresh updates ComponentState.
-            return (data.road_name or "").strip(), (data.road_number or "").strip()
+            return (data.road_name or "").strip(), format_road_number(data.road_number)
         road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
-        road_number = str(getattr(state, "road_number", "") or "").strip()
+        road_number = format_road_number(getattr(state, "road_number", None))
         return road_name, road_number
 
     @staticmethod
@@ -533,7 +535,7 @@ class OpsController(QObject):
 
     @Property(str, notify=changed)
     def routeBuilderNumber(self) -> str:
-        return self._route_draft.road_number if self._route_draft is not None else ""
+        return format_road_number(self._route_draft.road_number) if self._route_draft is not None else ""
 
     @Property(int, notify=changed)
     def routeComponentIndex(self) -> int:

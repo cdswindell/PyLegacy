@@ -85,11 +85,12 @@ Item {
                         Layout.fillHeight: true
                         Layout.preferredHeight: 180
                         Layout.minimumHeight: 76
-                        Layout.preferredWidth: Math.min(132, channel.width - 12)
+                        Layout.preferredWidth: Math.min(144, channel.width - 12)
                         Layout.alignment: Qt.AlignHCenter
                         minimumValue: 0
                         maximumValue: 100
                         scaleStep: 25
+                        thumbScale: 1.25
                         value: channel.observed.level
                         handleCaption: ""
                         valueSuffix: "%"

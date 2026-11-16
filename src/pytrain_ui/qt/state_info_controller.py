@@ -20,6 +20,8 @@ from pytrain.protocol.constants import CONTROL_TYPE, LOCO_TYPE, SOUND_TYPE, Comm
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
+from .presentation import format_road_number
+
 _FIELDS = (
     ("name", "Road Name", "road_name", None, None),
     ("number", "Road Number", "road_number", None, None),
@@ -146,7 +148,7 @@ class StateInfoController(QObject):
         # When they agree apart from capitalization, preserve the spelling in the record.
         name = saved_name if not reported_name or saved_name.casefold() == reported_name.casefold() else reported_name
         number = reported_number or (data.road_number or "" if data else "")
-        return name, number.zfill(4) if number.isdecimal() else number
+        return name, format_road_number(number)
 
     def _identity(self, state, amc2: bool = False) -> list[dict]:
         rows = []
@@ -160,8 +162,8 @@ class StateInfoController(QObject):
             if self._scope == CommandScope.TRAIN and key in {"control", "sound"}:
                 continue
             value = self._draft.values[key] if self._draft else amc2_identity.get(key, getattr(state, attribute, None))
-            if self._scope == CommandScope.ACC and key == "number" and value is not None and str(value).isdecimal():
-                value = str(value).zfill(4)
+            if key == "number":
+                value = format_road_number(value)
             display = (options.get(value, "—") if options else value) or "—"
             if key == "sound" and value == 0:
                 display = "No Sound"
@@ -348,7 +350,14 @@ class StateInfoController(QObject):
                     current = str(current).zfill(4)
                 if value != current:
                     self._draft.edit(key, value)
-            elif state is not None and state.comp_data is not None and value != getattr(state, attribute):
+            elif state is not None and state.comp_data is not None:
+                current = getattr(state, attribute)
+                if key == "number":
+                    current = format_road_number(current)
+                if value == current:
+                    self._error = ""
+                    self.refresh(True)
+                    return True
                 if command:
                     BaseReq.do_update_field(command, value, state, do_async=False)
                 else:

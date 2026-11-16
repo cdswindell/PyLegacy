@@ -8,6 +8,8 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.protocol.constants import CommandScope
 
+from .presentation import format_road_number
+
 
 _ENGINE_TYPE_ALIASES = {
     "FREIGHT_SOUNDS": ("FREIGHT", "Freight"),
@@ -80,7 +82,7 @@ class EngineCatalogController(QObject):
         )
         for state in states:
             road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
-            road_number = str(getattr(state, "road_number", "") or "").strip()
+            road_number = format_road_number(getattr(state, "road_number", None))
             type_key, type_label = self._engine_type(state)
             control_type = getattr(state, "control_type_label", None)
             type_labels[type_key] = type_label

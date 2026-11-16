@@ -9,14 +9,6 @@ Rectangle {
 
     readonly property bool compactTiles: selection ? selection.count > 4 : false
 
-    function roadNumber(number) {
-        const raw = String(number || "")
-        if (raw.length === 0)
-            return ""
-        const stripped = raw.replace(/^0+/, "")
-        return "#" + (stripped.length > 0 ? stripped : "0")
-    }
-
     function shortState(value) {
         const raw = String(value || "-")
         const upper = raw.toUpperCase()
@@ -84,7 +76,7 @@ Rectangle {
                         Layout.preferredHeight: 22
                         text: {
                             const name = card.modelData.roadName || "Engine"
-                            const number = root.roadNumber(card.modelData.roadNumber)
+                            const number = card.modelData.roadNumber ? "#" + card.modelData.roadNumber : ""
                             return number.length > 0 ? name + " " + number : name
                         }
                         color: "#f4f6f8"

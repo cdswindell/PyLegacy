@@ -34,6 +34,7 @@ from ..accessory_contracts import (
     AnimationPolicy,
     animation_policy,
 )
+from .presentation import format_road_number
 
 
 log = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class AccessoryDescriptor:
             "tmccIds": list(self.tmcc_ids),
             "primaryTmccId": self.primary_tmcc_id,
             "roadName": self.name,
-            "roadNumber": self.road_number,
+            "roadNumber": format_road_number(self.road_number),
             "configured": self.configured_accessory is not None,
             "lcsAssociations": " · ".join(self.lcs_labels),
             "lcsTypes": sorted({label.split(" ", 1)[0] for label in self.lcs_labels}),
@@ -590,12 +591,14 @@ class AccessoryCatalogController(QObject):
     def reload(self) -> None:
         configured_set = ConfiguredAccessorySet.from_file()
         descriptors: list[AccessoryDescriptor] = []
+        configured_ids: set[int] = set()
 
         for configured in configured_set.configured_all():
             descriptor = self._configured_descriptor(configured)
             if descriptor is None:
                 continue
             descriptors.append(descriptor)
+            configured_ids.update(descriptor.tmcc_ids)
 
         states = {
             int(state.tmcc_id): state
@@ -622,7 +625,12 @@ class AccessoryCatalogController(QObject):
             labels = tuple(label for label in self._lcs_labels((tmcc_id,)) if label.split(" ", 1)[0] in _DEVICE_IMAGES)
             if labels:
                 descriptors.extend(self._base_descriptor(tmcc_id, state, (label,)) for label in labels)
-            elif state is not None and tmcc_id not in switch_ports and not state.is_sensor_track:
+            elif (
+                state is not None
+                and tmcc_id not in switch_ports
+                and tmcc_id not in configured_ids
+                and not state.is_sensor_track
+            ):
                 descriptors.append(self._base_descriptor(tmcc_id, state, ()))
 
         # Sensor behavior is in IRDA scope; editable identity belongs to the ACC record.
@@ -650,7 +658,7 @@ class AccessoryCatalogController(QObject):
 
         descriptors.sort(key=lambda item: (item.name.lower(), item.primary_tmcc_id))
         self._descriptors = {descriptor.key: descriptor for descriptor in descriptors}
-        self._rows = [descriptor.as_row() for descriptor in descriptors]
+        self._rows = [descriptor.as_row() for descriptor in self._descriptors.values()]
         for row in self._rows:
             if row["key"].startswith("irda:"):
                 state = ComponentStateStore.get_state(CommandScope.IRDA, row["primaryTmccId"], create=False)

@@ -198,6 +198,31 @@ def test_amc2_power_preserves_the_slider_level_until_set_to_an_endpoint(controll
     assert reading() == {"level": 100, "on": True}
 
 
+def test_configured_accessory_appears_once_and_keeps_its_address_search_keys(controller, monkeypatch):
+    configured = SimpleNamespace(instance_id="loading-dock", label="Loading Dock", tmcc_id=24, tmcc_ids=[24, 25])
+    other = SimpleNamespace(instance_id="other-dock", label="Loading Dock", tmcc_id=26, tmcc_ids=[26])
+    monkeypatch.setattr(
+        module.ConfiguredAccessorySet,
+        "from_file",
+        lambda: SimpleNamespace(configured_all=lambda: [configured] * 2 + [other]),
+    )
+    states = ComponentStateDict(CommandScope.ACC)
+    records = [states[address] for address in (24, 25, 26, 27)]
+    monkeypatch.setattr(
+        module.ComponentStateStore,
+        "get",
+        lambda: SimpleNamespace(get_all=lambda scope: records if scope == CommandScope.ACC else []),
+    )
+
+    controller.reload()
+
+    assert [(row["kind"], row["key"], row["tmccIds"]) for row in controller.rows] == [
+        ("TMCC", "acc:27", [27]),
+        ("OPERATING", "configured:loading-dock", [24, 25]),
+        ("OPERATING", "configured:other-dock", [26]),
+    ]
+
+
 def test_switch_mode_is_excluded_from_accessory_rows_and_mixed_ports_are_discoverable(controller, monkeypatch):
     mixed = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(0), 8, scope=CommandScope.ACC)
     switch = LcsOccupant(40, ASC2, ASC2.mode_for_pdi_mode(3), 4, scope=CommandScope.ACC)
@@ -310,7 +335,7 @@ ApplicationWindow {
     PowerButton { objectName: "OFF42BPC2"; x: 525; tmccId: 42; deviceKind: "BPC2"; action: "OFF" }
     Component.onCompleted: {
         const expected = {
-            All: "AMC2,ASC2,BPC2,OPERATING,SENSOR,TMCC",
+            All: "OPERATING,AMC2,ASC2,BPC2,SENSOR,TMCC",
             Operating: "OPERATING", LCS: "AMC2,ASC2,BPC2,SENSOR", TMCC: "TMCC",
             Sensor: "SENSOR", BPC2: "BPC2", ASC2: "ASC2", AMC2: "AMC2"
         }

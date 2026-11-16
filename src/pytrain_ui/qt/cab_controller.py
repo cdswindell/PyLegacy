@@ -29,6 +29,7 @@ from ..adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from ..contracts import EngineViewState
 from ..panels import panel_actions, panel_title
 from .artwork import ArtworkLoader
+from .presentation import format_road_number
 
 _QUICK_ACTION_KEYS = frozenset(
     {"rear_coupler", "front_coupler", "engineer_chatter", "tower_chatter", "conductor", "station", "steward"}
@@ -125,7 +126,7 @@ class CabController(QObject):
         for scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             for state in store.get_all(scope):
                 road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
-                road_number = str(getattr(state, "road_number", "") or "").strip()
+                road_number = format_road_number(getattr(state, "road_number", None))
                 detail = " ".join(part for part in (road_name, road_number) if part)
                 label = f"{scope.label.title()} {state.tmcc_id}"
                 if detail:
@@ -346,7 +347,7 @@ class CabController(QObject):
 
     @Property(str, notify=stateChanged)
     def roadNumber(self) -> str:
-        return self._snapshot.road_number
+        return format_road_number(self._snapshot.road_number)
 
     @Property(list, notify=stateChanged)
     def primaryActionModel(self) -> list[dict]:
