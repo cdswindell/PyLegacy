@@ -244,7 +244,7 @@ class AccessoryCatalogController(QObject):
             lcs_labels=lcs_labels,
             available_views=views,
             preferred_view=AccessoryViewKind.LCS if lcs_labels else AccessoryViewKind.GENERIC,
-            user_defined=bool(lcs_labels or (state and state.is_user_defined)),
+            user_defined=bool(state and state.is_user_defined),
         )
 
     @staticmethod
@@ -638,7 +638,8 @@ class AccessoryCatalogController(QObject):
             if not isinstance(state, IrdaState) or state.is_deleted:
                 continue
             tmcc_id = state.tmcc_id
-            name, road_number = self._identity(self._state(tmcc_id))
+            accessory_state = self._state(tmcc_id)
+            name, road_number = self._identity(accessory_state)
             if not name or name in {"Acc", "NA"}:
                 name = "Sensor Track"
             descriptors.append(
@@ -652,7 +653,7 @@ class AccessoryCatalogController(QObject):
                     lcs_labels=(f"Sensor Track {tmcc_id}",),
                     available_views=(AccessoryViewKind.LCS,),
                     preferred_view=AccessoryViewKind.LCS,
-                    user_defined=True,
+                    user_defined=bool(accessory_state and accessory_state.is_user_defined),
                 )
             )
 

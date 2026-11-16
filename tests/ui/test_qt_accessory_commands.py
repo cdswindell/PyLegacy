@@ -227,7 +227,9 @@ def test_switch_mode_is_excluded_from_accessory_rows_and_mixed_ports_are_discove
     mixed = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(0), 8, scope=CommandScope.ACC)
     switch = LcsOccupant(40, ASC2, ASC2.mode_for_pdi_mode(3), 4, scope=CommandScope.ACC)
     acc_states = ComponentStateDict(CommandScope.ACC)
-    acc_records = [acc_states[address] for address in (40, 41, 55)]
+    acc_records = [acc_states[address] for address in (30, 40, 41, 55)]
+    acc_states[30].initialize(CommandScope.ACC, 30)
+    acc_states[30].comp_data.road_number = "0030"
 
     def get_all(scope):
         return acc_records if scope == CommandScope.ACC else []
@@ -243,6 +245,8 @@ def test_switch_mode_is_excluded_from_accessory_rows_and_mixed_ports_are_discove
     assert set(rows) == {*range(24, 32), 55}
     assert rows[55]["kind"] == "TMCC"
     assert rows[31]["kind"] == "ASC2"
+    assert not rows[31]["userDefined"]
+    assert rows[30]["userDefined"]
     assert [(action["label"], action["selected"]) for action in rows[31]["quickActions"]] == [
         ("On", False),
         ("Off", False),
@@ -281,6 +285,8 @@ ApplicationWindow {
     property string relayFilter: ""
     property int feedbackRevision: 0
     property var missingKinds: []
+    property var unnamedKinds: []
+    property string openedAccessory: ""
     readonly property string filterKeys: roster.typeFilters.map(filter => filter.key).join(",")
     readonly property string selectedFilter: roster.typeFilter
     QtObject {
@@ -288,7 +294,7 @@ ApplicationWindow {
         readonly property var rows: ["OPERATING", "BPC2", "ASC2", "AMC2", "SENSOR", "TMCC"].map((kind, index) => ({
             kind: kind, key: kind, primaryTmccId: index + 10, tmccIds: [index + 10],
             roadName: kind, roadNumber: "0001", lcsAssociations: "Port 1", stateSummary: "",
-            userDefined: true, availableViews: [], imageSource: "",
+            userDefined: !win.unnamedKinds.includes(kind), availableViews: [], imageSource: "",
             quickActions: kind === "BPC2" || kind === "ASC2" ? [
                 {key: "ON", label: "On", selected: win.feedbackRevision > 0},
                 {key: "OFF", label: "Off", selected: false}
@@ -303,6 +309,7 @@ ApplicationWindow {
         height: parent.height - 106
         visible: win.relayFilter.length > 0
         controller: backend
+        onAccessoryRequested: key => win.openedAccessory = key
         Connections {
             target: win
             function onRelayFilterChanged() { roster.typeFilter = win.relayFilter }
@@ -353,6 +360,28 @@ ApplicationWindow {
         roster.sortMode = "TMCC"
         if (roster.visibleRows()[0].primaryTmccId !== 10)
             throw new Error("Address sort failed")
+        if (roster.showUnnamedAccessories)
+            throw new Error("Show Unnamed must be unchecked by default")
+        win.unnamedKinds = ["ASC2", "AMC2", "SENSOR"]
+        for (const filter of ["ALL", "LCS", "ASC2"]) {
+            roster.typeFilter = filter
+            if (roster.visibleRows().some(row => row.kind === "ASC2"))
+                throw new Error("Unnamed ASC2 appeared in " + filter)
+        }
+        roster.showUnnamedAccessories = true
+        if (roster.visibleRows().map(row => row.kind).join(",") !== "ASC2")
+            throw new Error("Show Unnamed did not reveal ASC2")
+        roster.showUnnamedAccessories = false
+        roster.selectTmccId(12, true)
+        if (roster.visibleRows().map(row => row.kind).join(",") !== "ASC2")
+            throw new Error("Exact address did not reveal unnamed ASC2")
+        roster.showRoster()
+        for (const [address, kind] of [[13, "AMC2"], [14, "SENSOR"]]) {
+            roster.selectTmccId(address, true)
+            if (win.openedAccessory !== kind)
+                throw new Error("Exact address did not open unnamed " + kind)
+        }
+        win.unnamedKinds = []
     }
 }
 ''', QUrl.fromLocalFile(str(Path(sys.argv[1]) / "accessory_validation.qml")))

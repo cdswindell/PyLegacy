@@ -35,7 +35,7 @@ RosterPanel {
         if (!typeFilters.some(filter => filter.key === typeFilter))
             typeFilter = "ALL"
     }
-    property bool showUnnamedAccessories: true
+    property bool showUnnamedAccessories: false
     readonly property bool compact: height < 850
     property int activeQuickActions: 0
 
@@ -67,12 +67,14 @@ RosterPanel {
         return true
     }
 
-    function selectTmccId(tmccId, fromSearch) {
+    function selectTmccId(tmccId, fromSearch, reportMissing = true) {
         if (root.openDirectControl(tmccId))
             return
 
         const rows = root.controller ? root.controller.rows : []
         if (!rows.some(row => row.primaryTmccId === tmccId || row.tmccIds.includes(tmccId))) {
+            if (!reportMissing)
+                return
             if (fromSearch) tmccKeypad.openFor(searchField.text)
             tmccKeypad.errorText = "No accessory with TMCC ID " + tmccId + "."
             return
@@ -122,7 +124,7 @@ RosterPanel {
             } else if (root.typeFilter !== "ALL" && root.typeFilter !== row.kind) {
                 return false
             }
-            if (root.typeFilter === "ALL" && !root.showUnnamedAccessories && !row.userDefined)
+            if (!root.showUnnamedAccessories && !row.userDefined)
                 return false
             if (!needle)
                 return true
@@ -217,7 +219,7 @@ RosterPanel {
                 selectByMouse: true
                 text: root.searchText
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
-                onTouchKeyboardFinished: if (/^[0-9]+$/.test(text)) root.openDirectControl(Number(text))
+                onTouchKeyboardFinished: if (/^[0-9]+$/.test(text)) root.selectTmccId(Number(text), true, false)
                 onAccepted: if (/^[0-9]+$/.test(text) && Number(text) > 0 && Number(text) <= 98) root.selectTmccId(Number(text), true)
             }
             RosterBackspaceButton { field: searchField }
