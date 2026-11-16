@@ -107,7 +107,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 1
-                            Layout.preferredHeight: 50
+                            Layout.preferredHeight: 60
                             text: "On"
                             font.pixelSize: 16
                             selected: channel.observed.on
@@ -119,7 +119,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 1
-                            Layout.preferredHeight: 50
+                            Layout.preferredHeight: 60
                             text: "Off"
                             font.pixelSize: 16
                             selected: !channel.observed.on
