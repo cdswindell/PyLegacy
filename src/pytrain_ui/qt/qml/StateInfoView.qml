@@ -268,7 +268,8 @@ Rectangle {
             id: recordFooter
 
             ClearRecordButton {
-                visible: !root.record.creating && !!root.record.canClear
+                visible: !root.record.creating
+                enabled: !!root.record.canClear
                 Layout.preferredHeight: recordFooter.buttonHeight
                 font.pixelSize: 22
                 onActivated: root.controller.clear()
