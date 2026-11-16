@@ -557,42 +557,18 @@ Rectangle {
                 font.bold: true
                 onClicked: cab.reset()
             }
-            ColumnLayout {
+            CabMenuTitle {
                 id: titleControls
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                spacing: 2
-                activeFocusOnTab: !root.stateInfoVisible
-                Accessible.role: Accessible.Button
-                Accessible.name: "Cab menu"
-                Accessible.onPressAction: root.cabMenuRequested()
-                Keys.onReturnPressed: root.cabMenuRequested()
-                Keys.onSpacePressed: root.cabMenuRequested()
-                TapHandler {
-                    enabled: !root.stateInfoVisible
-                    onTapped: root.cabMenuRequested()
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: root.stateInfoVisible && root.stateInfoFromRoster ? (root.stateInfoIdentity.startsWith("ENGINE") ? "Engine record" : "Train record") :
-                          (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "") + (root.stateInfoVisible ? "" : "  ▾")
-                    color: "#f4f6f8"
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 2
-                    font.pixelSize: root.compact ? 20 : 24
-                    font.bold: true
-                }
-                Label {
-                    objectName: "engineIdentity"
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    text: root.stateInfoVisible ? root.stateInfoIdentity : cab.scope + " " + cab.tmccId
-                    color: "#c7d1dd"
-                    horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: root.compact ? 16 : 20
-                }
+                compact: root.compact
+                menuEnabled: !root.stateInfoVisible
+                title: root.stateInfoVisible && root.stateInfoFromRoster
+                       ? (root.stateInfoIdentity.startsWith("ENGINE") ? "Engine record" : "Train record")
+                       : (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
+                identity: root.stateInfoVisible ? root.stateInfoIdentity : cab.scope + " " + cab.tmccId
+                identityObjectName: "engineIdentity"
+                onActivated: root.cabMenuRequested()
             }
             AllStopButton {
                 compact: root.compact

@@ -24,20 +24,34 @@ Popup {
     property string moduleSortKey: "module"
     property int page: 0
     property string configureError: ""
+    property var initialModule: null
+
+    function openForModule(key, baseId, scope) {
+        initialModule = {key: key, baseId: baseId, scope: scope}
+        open()
+    }
     property alias baseIdText: baseIdField.text
 
     function showDeviceDetails() {
         showingModules = false
         page = 1
         baseIdText = String(controller.baseId)
+        detailsScroll.contentItem.contentY = 0
     }
 
     onOpened: {
         showingModules = false
         page = 0
         controller.reset()
+        if (initialModule) {
+            controller.selectConfiguredModule(initialModule.key, initialModule.baseId, initialModule.scope)
+            showDeviceDetails()
+            if (initialModule.key === "amc2")
+                page = 2
+        }
         controller.refreshModules()
     }
+    onClosed: initialModule = null
 
     background: Rectangle {
         color: "#102858"
@@ -51,7 +65,9 @@ Popup {
 
         Label {
             Layout.fillWidth: true
-            text: "LCS Module Configuration"
+            text: root.page > 0 && !root.showingModules && root.controller && root.controller.deviceLabel
+                  ? root.controller.deviceLabel + " Configuration"
+                  : "LCS Module Configuration"
             color: "#f4f6f8"
             font.pixelSize: 26
             font.bold: true
@@ -103,6 +119,7 @@ Popup {
         }
 
         ScrollView {
+            id: detailsScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
@@ -341,12 +358,15 @@ Popup {
                 model: root.controller ? root.controller.options : []
 
                 delegate: ColumnLayout {
+                    id: optionRow
                     required property var modelData
                     Layout.fillWidth: true
+                    Layout.topMargin: modelData.key === "motor2_mode" ? metrics.sectionGap : 0
                     spacing: 6
 
                     Label {
                         Layout.fillWidth: true
+                        visible: modelData.kind !== "CHECKBOX"
                         text: modelData.label
                         color: "#f4f6f8"
                         font.pixelSize: 16
@@ -362,13 +382,16 @@ Popup {
                             Layout.preferredHeight: 48
                             text: modelData.label
                             selected: modelData.selected
-                            onClicked: root.controller.selectOption(parent.parent.modelData.key, modelData.index)
+                            onClicked: root.controller.selectOption(optionRow.modelData.key, modelData.index)
                         }
                     }
 
                     CheckBox {
+                        Layout.fillWidth: true
                         visible: modelData.kind === "CHECKBOX"
                         text: modelData.label
+                        font.pixelSize: 16
+                        font.bold: true
                         checked: modelData.checked
                         onClicked: root.controller.setOptionChecked(modelData.key, checked)
                     }

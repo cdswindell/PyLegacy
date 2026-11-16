@@ -483,9 +483,13 @@ RosterPanel {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            RosterMenuButton {
-                text: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
-                onClicked: root.cabMenuRequested()
+            Item { Layout.preferredWidth: pageAllStop.width }
+            CabMenuTitle {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                compact: root.height < 850
+                title: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
+                onActivated: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: controller.halt() }
         }

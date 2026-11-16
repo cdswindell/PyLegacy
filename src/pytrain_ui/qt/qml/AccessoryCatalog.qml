@@ -7,7 +7,7 @@ RosterPanel {
     readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
 
     property var controller
-    property var lcsController: null
+    property var lcsConfig: null
     property string searchText: ""
     property int directTmccId: 0
     property string sortMode: "NAME"
@@ -49,15 +49,30 @@ RosterPanel {
     }
 
     function openLcsConfiguration() {
-        if (root.lcsController)
+        if (root.lcsConfig)
             lcsConfig.open()
     }
 
+    function openDirectControl(tmccId) {
+        const control = root.controller && root.controller.rows.find(row => row.primaryTmccId === tmccId &&
+            (row.kind === "AMC2" || row.kind === "SENSOR"))
+        if (!control)
+            return false
+
+        root.directTmccId = 0
+        root.searchText = ""
+        searchField.clear()
+        tmccKeypad.close()
+        root.accessoryRequested(control.key)
+        return true
+    }
+
     function selectTmccId(tmccId, fromSearch) {
-        const exists = root.controller && root.controller.rows.some(function(row) {
-            return row.primaryTmccId === tmccId || row.tmccIds.indexOf(tmccId) >= 0
-        })
-        if (!exists) {
+        if (root.openDirectControl(tmccId))
+            return
+
+        const rows = root.controller ? root.controller.rows : []
+        if (!rows.some(row => row.primaryTmccId === tmccId || row.tmccIds.includes(tmccId))) {
             if (fromSearch) tmccKeypad.openFor(searchField.text)
             tmccKeypad.errorText = "No accessory with TMCC ID " + tmccId + "."
             return
@@ -79,7 +94,7 @@ RosterPanel {
 
     function cancelTransientPanels() {
         tmccKeypad.close()
-        lcsConfig.close()
+        if (lcsConfig) lcsConfig.close()
     }
 
     radius: 10
@@ -147,9 +162,13 @@ RosterPanel {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            RosterMenuButton {
-                text: "Accessories"
-                onClicked: root.cabMenuRequested()
+            Item { Layout.preferredWidth: pageAllStop.width }
+            CabMenuTitle {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                compact: root.compact
+                title: "Accessories"
+                onActivated: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.compact; onClicked: root.controller.halt() }
         }
@@ -161,7 +180,7 @@ RosterPanel {
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: root.compact ? 54 : 92
                 text: "LCS…"
-                enabled: !lcsConfig.visible
+                enabled: !lcsConfig || !lcsConfig.visible
                 onClicked: root.lcsRequested()
             }
             CheckBox {
@@ -188,6 +207,7 @@ RosterPanel {
                 selectByMouse: true
                 text: root.searchText
                 onTextEdited: { root.directTmccId = 0; root.searchText = text }
+                onTouchKeyboardFinished: if (/^[0-9]+$/.test(text)) root.openDirectControl(Number(text))
                 onAccepted: if (/^[0-9]+$/.test(text) && Number(text) > 0 && Number(text) <= 98) root.selectTmccId(Number(text), true)
             }
             RosterBackspaceButton { field: searchField }
@@ -236,7 +256,7 @@ RosterPanel {
         }
         ListView {
             id: listView
-            enabled: !lcsConfig.visible
+            enabled: !lcsConfig || !lcsConfig.visible
             objectName: "accessoryRoster"
             Layout.leftMargin: -6
             Layout.rightMargin: Layout.leftMargin
@@ -387,12 +407,6 @@ RosterPanel {
             }
         }
     }
-    LcsConfig {
-        id: lcsConfig
-        controller: root.lcsController
-        editorTop: root.editorTop
-    }
-
     TmccKeypad {
         id: tmccKeypad
         title: "Accessory TMCC ID"

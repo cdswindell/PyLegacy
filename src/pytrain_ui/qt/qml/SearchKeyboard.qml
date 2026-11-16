@@ -14,9 +14,13 @@ Popup {
     property string originalText: ""
     readonly property bool hasUnsavedChanges: visible && entry.text.trim() !== originalText.trim()
 
+    signal finished()
+
     function finish() {
-        if (!saveEntry || saveEntry(entry.text))
+        if (!saveEntry || saveEntry(entry.text)) {
             close()
+            finished()
+        }
     }
     property var targetField: null
     property bool upperCase: false

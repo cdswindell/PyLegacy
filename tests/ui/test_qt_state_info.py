@@ -133,30 +133,84 @@ def test_state_info_cannot_clear_bpc2_train(state_info, monkeypatch) -> None:
     cleared.assert_not_called()
 
 
-def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypatch) -> None:
+@pytest.mark.parametrize("has_base_record", [True, False])
+def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypatch, has_base_record) -> None:
     module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
     scope = CommandScope.ACC
     config = Amc2Req.from_bytes(bytes.fromhex("d1461903190000000202020303010100000000000000000077df"))
     state = ComponentStateDict(scope)[config.tmcc_id]
-    state.initialize(scope, state.tmcc_id)
-    state.comp_data.road_name = "Motor Controller"
+    if has_base_record:
+        state.initialize(scope, state.tmcc_id)
+        state.comp_data.road_name = "Motor Controller"
+    if has_base_record:
+        # A client can receive the reported identity before it receives the Base memory record.
+        # noinspection PyProtectedMember
+        state._road_name = "Wind Turbine #3"
+        # noinspection PyProtectedMember
+        state._road_number = "26"
     occupant = LcsOccupant(config.tmcc_id, AMC2, AMC2.mode_for_pdi_mode(config.access_type.value), 1, config=config)
     monkeypatch.setattr(ComponentStateStore, "get_state", Mock(return_value=state))
     monkeypatch.setitem(vars(module), "occupants_of", lambda *_args, **_kwargs: [occupant])
     clear = Mock()
     monkeypatch.setattr(ComponentState, "clear", clear)
     controller = module.StateInfoController()
+    query = Mock()
+    monkeypatch.setattr(BaseReq, "send", lambda request: query(request))
     controller.openFor("ACC", config.tmcc_id, False)
+    if has_base_record:
+        query.assert_not_called()
+    else:
+        query.assert_called_once()
+        request = query.call_args.args[0]
+        assert (request.tmcc_id, request.scope, request.pdi_command) == (config.tmcc_id, scope, PdiCommand.BASE_MEMORY)
+        assert {row["key"]: row["value"] for row in controller.model["identity"]} == {"name": "", "number": ""}
+        # Simulate identity arriving after the module configuration.
+        # noinspection PyProtectedMember
+        state._road_name = "Wind Turbine #3"
+        # noinspection PyProtectedMember
+        state._road_number = "26"
+        controller.refresh(False)
+        query.assert_called_once()
 
     info = {row["label"]: row["value"] for row in controller.model["lcsConfiguration"]}
     assert info["Device"] == "AMC2"
     assert info["Address Type"] == config.access_type.name
     assert info["Motor 1 Output Type"] == config.motor1.output_type.label
     assert info["Motor 2 Restore"] == ("On" if config.motor2.restore else "Off")
-    assert {row["key"] for row in controller.model["identity"]} == {"name", "number"}
+    fields = {row["key"]: row["value"] for row in controller.model["identity"]}
+    assert fields == {"name": "Wind Turbine #3", "number": "0026"}
+    assert controller.model["editable"]
     assert not controller.model["canClear"]
     controller.clear()
     clear.assert_not_called()
+
+    write = Mock()
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", write)
+    controller.refresh(False)
+    assert not controller.edit("name", "Motor Controller")
+    assert controller.saveAmc2Identity({"number": "0026"})
+    assert not controller.saveAmc2Identity({"name": "Yard motors", "number": "12AB"})
+    write.assert_not_called()
+
+    assert controller.saveAmc2Identity({"number": "42"})
+    write.assert_called_once()
+    number_req, refreshed = write.call_args.args[0]
+    assert number_req.tmcc_id == state.tmcc_id
+    assert refreshed is state
+    assert state.road_name == "Wind Turbine #3"
+    assert state.comp_data.road_name != "Wind Turbine #3"
+    fields = {row["key"]: row["value"] for row in controller.model["identity"]}
+    assert fields == {"name": "Wind Turbine #3", "number": "0042"}
+
+    write.reset_mock()
+    assert controller.saveAmc2Identity({"name": " Yard motors "})
+    write.assert_called_once()
+    name_req, refreshed = write.call_args.args[0]
+    assert name_req.tmcc_id == state.tmcc_id
+    assert refreshed is state
+    fields = {row["key"]: row["value"] for row in controller.model["identity"]}
+    assert fields == {"name": "Yard motors", "number": "0042"}
+    assert controller.model["lcsConfiguration"] == [{"label": label, "value": value} for label, value in info.items()]
 
 
 @pytest.mark.parametrize("mode,has_record", [(2, True), (3, False)])

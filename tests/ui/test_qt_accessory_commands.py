@@ -137,12 +137,12 @@ def test_sensor_sequence_targets_the_irda_device(controller, sent, monkeypatch):
 
 def test_amc2_motor_and_lamp_target_the_selected_outputs(controller, sent, monkeypatch):
     key = add_descriptor(controller, monkeypatch, "AMC2")
-    controller.setAmc2Output(key, True, 2, 35)
-    controller.setAmc2Output(key, False, 4, 45)
+    controller.setAmc2Output(key, True, 2, 37)
+    controller.setAmc2Output(key, False, 4, 46)
     controller.setAmc2Output(key, True, 3, 50)
     motor, select_motor, power_motor, lamp, select_lamp = sent
-    assert (motor.tmcc_id, motor.action, motor.motor, motor.speed) == (24, Amc2Action.MOTOR, 2, 35)
-    assert (lamp.tmcc_id, lamp.action, lamp.lamp, lamp.level) == (24, Amc2Action.LAMP, 4, 45)
+    assert (motor.tmcc_id, motor.action, motor.motor, motor.speed) == (24, Amc2Action.MOTOR, 2, 37)
+    assert (lamp.tmcc_id, lamp.action, lamp.lamp, lamp.level) == (24, Amc2Action.LAMP, 4, 46)
     assert [(req.command, req.data) for req in (select_motor, power_motor, select_lamp)] == [
         (TMCC1AuxCommandEnum.NUMERIC, 2),
         (TMCC1AuxCommandEnum.AUX1_OPT_ONE, 0),

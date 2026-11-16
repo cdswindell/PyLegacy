@@ -529,7 +529,7 @@ class AccessoryCatalogController(QObject):
     @Slot(str, bool, int, int)
     def setAmc2Output(self, key: str, motor: bool, output: int, level: int) -> None:
         descriptor = self._amc2_descriptor(key, motor, output)
-        if descriptor is None or not 0 <= level <= 100 or level % 5:
+        if descriptor is None or not 0 <= level <= 100:
             return
         address = descriptor.primary_tmcc_id
         self._send_amc2_level(address, motor, output, level)

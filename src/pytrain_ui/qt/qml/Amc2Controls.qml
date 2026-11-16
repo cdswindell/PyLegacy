@@ -22,7 +22,9 @@ Item {
         id: tabs
         objectName: "amc2Tabs"
         anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: 10
+        width: parent.width * 2 / 3
         height: 56
         spacing: 6
         padding: 0
@@ -33,7 +35,7 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.topMargin: tabs.height + 10
+        anchors.topMargin: tabs.height + 4
         anchors.leftMargin: 8
         anchors.rightMargin: 8
         anchors.bottomMargin: 8
@@ -68,7 +70,7 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 6
-                    spacing: 6
+                    spacing: 4
 
                     Label {
                         Layout.alignment: Qt.AlignHCenter
@@ -87,7 +89,6 @@ Item {
                         Layout.alignment: Qt.AlignHCenter
                         minimumValue: 0
                         maximumValue: 100
-                        valueStep: 5
                         scaleStep: 25
                         value: channel.observed.level
                         handleCaption: ""
@@ -95,7 +96,7 @@ Item {
                         muted: !channel.observed.on
                         opacity: muted ? 0.66 : 1
                         Accessible.name: channel.label + " level"
-                        onValueMoved: moved => channel.setLevel(moved)
+                        onValueCommitted: level => channel.setLevel(level)
                     }
 
                     RowLayout {

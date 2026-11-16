@@ -266,7 +266,7 @@ ApplicationWindow {
                         visible: !window.accessoryOperatingVisible
                         enabled: !window.stateInfoVisible
                         controller: accessoryCatalogController
-                        lcsController: lcsConfigController
+                        lcsConfig: accessoryLcsConfig
                         onCabMenuRequested: cabMenu.open()
                         onAccessoryRequested: function(key) {
                             window.activeAccessoryKey = key
@@ -277,14 +277,23 @@ ApplicationWindow {
                     }
 
                     AccessoryOperatingView {
+                        id: accessoryOperatingView
                         anchors.fill: parent
                         visible: window.accessoryOperatingVisible
                         enabled: !window.stateInfoVisible
                         controller: accessoryCatalogController
                         accessory: window.activeAccessory
+                        configurationVisible: accessoryLcsConfig.visible
+                        onConfigureRequested: tmccId => accessoryLcsConfig.openForModule("amc2", tmccId, "ACC")
                         onInfoRequested: tmccId => window.openStateInfo("ACC", tmccId, false)
                         onCabMenuRequested: cabMenu.open()
                         onCloseRequested: window.accessoryOperatingVisible = false
+                    }
+
+                    LcsConfig {
+                        id: accessoryLcsConfig
+                        controller: lcsConfigController
+                        editorTop: window.accessoryOperatingVisible ? accessoryOperatingView.editorTop : accessoryCatalog.editorTop
                     }
 
                     Rectangle {
@@ -294,9 +303,33 @@ ApplicationWindow {
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 8
-                            AllStopButton {
-                                Layout.alignment: Qt.AlignRight
-                                onClicked: accessoryCatalogController.halt()
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Item { Layout.preferredWidth: accessoryInfoStop.width }
+                                CabMenuTitle {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    compact: accessoryCatalog.compact
+                                    title: {
+                                        const name = (accessoryInfo.record.identity || []).find(field => field.key === "name")
+                                        const roadName = name && name.value ? String(name.value) : ""
+                                        const amc2 = accessoryInfo.amc2Info
+                                        if (amc2)
+                                            return roadName.toUpperCase().startsWith("AMC2") ? roadName :
+                                                roadName ? "AMC2 " + roadName : "AMC2"
+                                        if (window.accessoryOperatingVisible && window.activeAccessory.tmccId === window.stateInfoId)
+                                            return window.activeAccessory.title
+                                        return roadName || "Accessory"
+                                    }
+                                    identity: window.stateInfoId ? "ACC " + window.stateInfoId : ""
+                                    onActivated: cabMenu.open()
+                                }
+                                AllStopButton {
+                                    id: accessoryInfoStop
+                                    compact: accessoryCatalog.compact
+                                    onClicked: accessoryCatalogController.halt()
+                                }
                             }
                             StateInfoView {
                                 id: accessoryInfo
@@ -401,27 +434,31 @@ ApplicationWindow {
                     text: modelData
                     onClicked: {
                         cabMenu.close()
-                        if (index === 0) {
-                            if (window.activeScope === "SWITCH")
-                                switchOpsView.showRoster()
-                            else if (window.activeScope === "ROUTE")
-                                routeOpsView.showRoster()
-                            else if (window.activeScope === "ACCESSORY") {
-                                window.accessoryOperatingVisible = false
-                                accessoryCatalog.showRoster()
-                            } else
-                                window.engineCatalogVisible = true
-                        } else if (index === 1) {
-                            window.manageVisible = true
-                        } else if (index === 2) {
-                            window.activeScope = "ROUTE"
-                            routeOpsController.reload()
-                            Qt.callLater(routeOpsView.openAddRoute)
-                        } else {
-                            window.activeScope = "SWITCH"
-                            switchOpsController.reload()
-                            Qt.callLater(switchOpsView.openLcsConfiguration)
-                        }
+                        window.requestEditorExit(() => {
+                            if (window.stateInfoVisible)
+                                window.closeStateInfo()
+                            if (index === 0) {
+                                if (window.activeScope === "SWITCH")
+                                    switchOpsView.showRoster()
+                                else if (window.activeScope === "ROUTE")
+                                    routeOpsView.showRoster()
+                                else if (window.activeScope === "ACCESSORY") {
+                                    window.accessoryOperatingVisible = false
+                                    accessoryCatalog.showRoster()
+                                } else
+                                    window.engineCatalogVisible = true
+                            } else if (index === 1) {
+                                window.manageVisible = true
+                            } else if (index === 2) {
+                                window.activeScope = "ROUTE"
+                                routeOpsController.reload()
+                                Qt.callLater(routeOpsView.openAddRoute)
+                            } else {
+                                window.activeScope = "SWITCH"
+                                switchOpsController.reload()
+                                Qt.callLater(switchOpsView.openLcsConfiguration)
+                            }
+                        })
                     }
                 }
             }

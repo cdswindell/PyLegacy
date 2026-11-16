@@ -14,6 +14,7 @@ from pytrain.gui.controller.engine_add_session import EngineAddSession
 from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.pdi.amc2_req import Amc2Req
 from pytrain.pdi.base_req import BaseReq
+from pytrain.pdi.constants import PdiCommand
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CONTROL_TYPE, LOCO_TYPE, SOUND_TYPE, CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -43,6 +44,7 @@ class StateInfoController(QObject):
         self._pending: dict | None = None
         self._error = ""
         self._model: dict = {}
+        self._amc2_saved_values: dict[str, str] = {}
 
     def _lookup(self):
         return ComponentStateStore.get_state(self._scope, self._id, create=False)
@@ -60,6 +62,7 @@ class StateInfoController(QObject):
     def openFor(self, scope: str, tmcc_id: int, create: bool) -> None:
         self._scope = CommandScope[scope]
         self._id = tmcc_id
+        self._amc2_saved_values.clear()
         self._draft = None
         self._pending = None
         self._waiting_until = 0
@@ -68,6 +71,13 @@ class StateInfoController(QObject):
         if create and self._scope == CommandScope.ENGINE and 1 <= tmcc_id <= 9999 and tmcc_id != 99:
             self._draft = EngineAddSession(state or ComponentStateDict(self._scope)[tmcc_id])
         self.refresh(False)
+        if self._model["lcsConfiguration"] and 1 <= tmcc_id <= 98:
+            if state is None or not all(self._amc2_identity(state)):
+                try:
+                    BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ACC).send()
+                except (OSError, RuntimeError) as exc:
+                    self._error = str(exc) or "Unable to read the accessory identity from Base 3."
+                    self.refresh(False)
 
     @Slot()
     def close(self) -> None:
@@ -75,6 +85,7 @@ class StateInfoController(QObject):
         self._pending = None
         self._waiting_until = 0
         self._id = 0
+        self._amc2_saved_values.clear()
         self._model = {}
         self.changed.emit()
 
@@ -125,14 +136,32 @@ class StateInfoController(QObject):
             )
         return live, membership
 
-    def _identity(self, state) -> list[dict]:
+    @staticmethod
+    def _amc2_identity(state: AccessoryState) -> tuple[str, str]:
+        data = state.comp_data
+        reported_name = state.road_name if state.is_road_name else ""
+        reported_number = state.road_number if state.is_road_number else ""
+        saved_name = (data.road_name or "") if data else ""
+        # Use the layout's reported identity when it differs from the cached Base record.
+        # When they agree apart from capitalization, preserve the spelling in the record.
+        name = saved_name if not reported_name or saved_name.casefold() == reported_name.casefold() else reported_name
+        number = reported_number or (data.road_number or "" if data else "")
+        return name, number.zfill(4) if number.isdecimal() else number
+
+    def _identity(self, state, amc2: bool = False) -> list[dict]:
         rows = []
+        amc2_identity = {}
+        if amc2 and state:
+            name, number = self._amc2_identity(state)
+            amc2_identity = {"name": name, "number": number} | self._amc2_saved_values
         for key, label, attribute, options, _ in _FIELDS:
             if self._scope == CommandScope.ACC and key not in {"name", "number"}:
                 continue
             if self._scope == CommandScope.TRAIN and key in {"control", "sound"}:
                 continue
-            value = self._draft.values[key] if self._draft else getattr(state, attribute, None)
+            value = self._draft.values[key] if self._draft else amc2_identity.get(key, getattr(state, attribute, None))
+            if self._scope == CommandScope.ACC and key == "number" and value is not None and str(value).isdecimal():
+                value = str(value).zfill(4)
             display = (options.get(value, "—") if options else value) or "—"
             if key == "sound" and value == 0:
                 display = "No Sound"
@@ -226,15 +255,16 @@ class StateInfoController(QObject):
         lcs_configuration = self._amc2_configuration(state)
         model = {
             "scopeTitle": self._scope.title,
+            "tmccId": self._id,
             "creating": draft is not None,
             "unsaved": bool(draft and draft.edited and self._pending is None),
             "canCreate": bool(draft and draft.can_create and self._pending is None),
             "canClear": bool(not draft and not lcs_configuration and state and state.is_deletable),
             "lcsConfiguration": lcs_configuration,
-            "editable": bool(self._pending is None and (draft or (state and state.comp_data))),
+            "editable": bool(self._pending is None and (draft or (state and (state.comp_data or lcs_configuration)))),
             "busy": self._pending is not None,
             "status": self._error or status,
-            "identity": self._identity(state) if state or draft else [],
+            "identity": self._identity(state, bool(lcs_configuration)) if state or draft else [],
             "live": live,
             "membership": membership,
             "bluetoothId": state.bt_id if isinstance(state, EngineState) and self._scope == CommandScope.ENGINE else "",
@@ -246,10 +276,52 @@ class StateInfoController(QObject):
             self._model = model
             self.changed.emit()
 
+    @Slot("QVariantMap", result=bool)
+    def saveAmc2Identity(self, edits: dict) -> bool:
+        state = self._lookup()
+        if not self._model.get("editable") or not self._model.get("lcsConfiguration") or state is None:
+            return False
+        if edits.keys() - {"name", "number"}:
+            return False
+        current_name, current_number = self._amc2_identity(state)
+        try:
+            changes = {}
+            if "name" in edits:
+                name = edits["name"].strip()
+                if len(name) > 31:
+                    raise ValueError("Road Name must contain no more than 31 characters.")
+                if name != current_name:
+                    changes["name"] = name
+            if "number" in edits:
+                number = edits["number"].strip()
+                if number and (not number.isascii() or not number.isdigit() or len(number) > 4):
+                    raise ValueError("Road Number must contain no more than four digits.")
+                number = number.zfill(4) if number else ""
+                if number != current_number:
+                    changes["number"] = number
+            if changes:
+                if state.comp_data is None:
+                    state.initialize(CommandScope.ACC, self._id)
+                data = state.comp_data
+                requests = []
+                if "name" in changes:
+                    requests.append(data.set_road_name_req(changes["name"]))
+                if "number" in changes:
+                    requests.append(data.set_road_number_req(int(changes["number"]) if changes["number"] else None))
+                BaseReq.process_sync_reqs([*requests, state], deduplicate_writes=True)
+                self._amc2_saved_values.update(changes)
+            self._error = ""
+        except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+            self._error = str(exc) or "Unable to save the accessory identity."
+            self.refresh(True)
+            return False
+        self.refresh(True)
+        return True
+
     @Slot(str, str, result=bool)
     def edit(self, key: str, text: str) -> bool:
         state = self._lookup()
-        if not self._model.get("editable"):
+        if not self._model.get("editable") or self._model.get("lcsConfiguration"):
             return False
         field = next((field for field in _FIELDS if field[0] == key), None)
         if field is None or key not in {row["key"] for row in self._model["identity"]}:
