@@ -46,8 +46,19 @@ RosterPanel {
     property int directTmccId: 0
     property string scope: "ENGINE"
     readonly property var targets: catalog ? (scope === "TRAIN" ? catalog.trains : catalog.engines) : []
-    onScopeChanged: { searchText = ""; directTmccId = 0; typeFilter = "ALL"; tmccKeypad.close() }
-    property string typeFilter: "ALL"
+    onScopeChanged: { searchText = ""; directTmccId = 0; tmccKeypad.close() }
+    property string engineTypeFilter: "ALL"
+    property string trainTypeFilter: "ALL"
+    readonly property var typeFilters: {
+        const availableTypes = new Set(targets.map(target => target.engineType))
+        return [{ key: "ALL", label: "All" }].concat(catalog
+            ? catalog.typeFilters.filter(filter => availableTypes.has(filter.key)) : [])
+    }
+    readonly property string typeFilter: {
+        const selected = scope === "TRAIN" ? trainTypeFilter : engineTypeFilter
+        return typeFilters.some(filter => filter.key === selected) ? selected : "ALL"
+    }
+
 
     function compareRoadNumbers(a, b) {
         var an = Number(a)
@@ -88,11 +99,6 @@ RosterPanel {
             return result !== 0 ? result : a.tmccId - b.tmccId
         })
         return rows
-    }
-
-    component ChoiceButton: CabButton {
-        font.pixelSize: 26
-        font.bold: true
     }
 
     ColumnLayout {
@@ -153,31 +159,22 @@ RosterPanel {
             }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 7
-            ChoiceButton { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0; Layout.preferredHeight: 84; text: "Name"; selected: root.sortMode === "name"; onClicked: root.sortMode = "name" }
-            ChoiceButton { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0; Layout.preferredHeight: 84; text: "Road #"; selected: root.sortMode === "road"; onClicked: root.sortMode = "road" }
-            ChoiceButton { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0; Layout.preferredHeight: 84; text: "TMCC ID"; selected: root.sortMode === "tmcc"; onClicked: root.sortMode = "tmcc" }
+        RosterSortBar {
+            compact: root.height < 850
+            keys: ["name", "road", "tmcc"]
+            selectedKey: root.sortMode
+            onSelected: key => root.sortMode = key
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 7
-            RosterFilterList {
-                selectedKey: root.typeFilter
-                Layout.fillWidth: true
-                Layout.preferredHeight: 96
-                spacing: 7
-                model: [{ "key": "ALL", "label": "All" }].concat(root.catalog ? root.catalog.typeFilters : [])
-                delegate: ChoiceButton {
-                    required property var modelData
-                    width: Math.max(164, implicitWidth + 40)
-                    height: 84
-                    text: modelData.label
-                    selected: root.typeFilter === modelData.key
-                    onClicked: root.typeFilter = modelData.key
-                }
+        RosterFilterTabs {
+            objectName: "engineFilterTabs"
+            selectedKey: root.typeFilter
+            model: root.typeFilters
+            onSelected: key => {
+                if (root.scope === "TRAIN")
+                    root.trainTypeFilter = key
+                else
+                    root.engineTypeFilter = key
             }
         }
 

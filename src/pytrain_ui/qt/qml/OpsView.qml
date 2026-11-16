@@ -19,6 +19,7 @@ RosterPanel {
     signal routeCloseRequested()
 
     property string sortKey: "roadName"
+    property string routeStateFilter: "ALL"
     property int directTmccId: 0
     property var rightHandSwitches: ({})
     property int editingSwitchId: 0
@@ -82,14 +83,6 @@ RosterPanel {
     }
 
     function compareRows(a, b) {
-        if (sortKey === "aligned" || sortKey === "unaligned") {
-            const first = sortKey === "aligned" ? "Aligned" : "Unset"
-            const second = sortKey === "aligned" ? "Unset" : "Aligned"
-            const aRank = a.stateText === first ? 0 : a.stateText === second ? 1 : 2
-            const bRank = b.stateText === first ? 0 : b.stateText === second ? 1 : 2
-            if (aRank !== bRank)
-                return aRank - bRank
-        }
         if (sortKey === "tmccId")
             return a.tmccId - b.tmccId
 
@@ -109,6 +102,8 @@ RosterPanel {
             if (root.directTmccId > 0)
                 return row.tmccId === root.directTmccId
             if (controller.scope === "SWITCH" && row.inactive && !root.showInactiveSwitches)
+                return false
+            if (controller.scope === "ROUTE" && root.routeStateFilter !== "ALL" && row.stateText !== root.routeStateFilter)
                 return false
             return !query ||
                    String(row.tmccId).toLowerCase().indexOf(query) >= 0 ||
@@ -542,38 +537,26 @@ RosterPanel {
                 onClicked: root.submitTmccId(true)
             }
         }
-        GridLayout {
-            Layout.fillWidth: true
-            columns: 3
-            columnSpacing: 8
-            rowSpacing: 8
-            Repeater {
-                model: [
-                    { key: "roadName", label: "Name" },
-                    { key: "roadNumber", label: "Road #" },
-                    { key: "tmccId", label: "TMCC ID" }
-                ].concat(controller && controller.scope === "ROUTE" ? [
-                    { key: "aligned", label: "Aligned" },
-                    { key: "unaligned", label: "Unset" }
-                ] : [])
-                TouchButton {
-                    required property var modelData
-                    Layout.preferredHeight: 76
-                    text: modelData.label
-                    selected: root.sortKey === modelData.key
-                    onClicked: root.sortKey = modelData.key
-                }
-            }
-            CheckBox {
-                visible: controller && controller.scope === "SWITCH"
-                Layout.columnSpan: 3
-                Layout.preferredHeight: 76
-                Layout.minimumHeight: 76
-                text: "Show Unnamed"
-                font.pixelSize: 22
-                checked: root.showInactiveSwitches
-                onToggled: root.showInactiveSwitches = checked
-            }
+        RosterSortBar {
+            compact: root.height < 850
+            selectedKey: root.sortKey
+            onSelected: key => root.sortKey = key
+        }
+        CheckBox {
+            visible: controller && controller.scope === "SWITCH"
+            Layout.preferredHeight: 54
+            Layout.minimumHeight: 54
+            text: "Show Unnamed"
+            font.pixelSize: 22
+            checked: root.showInactiveSwitches
+            onToggled: root.showInactiveSwitches = checked
+        }
+        RosterFilterTabs {
+            objectName: "routeFilterTabs"
+            visible: !!controller && controller.scope === "ROUTE"
+            selectedKey: root.routeStateFilter
+            model: [{ key: "ALL", label: "All" }, { key: "Aligned", label: "Aligned" }, { key: "Unset", label: "Unset" }]
+            onSelected: key => root.routeStateFilter = key
         }
         ListView {
             id: roster

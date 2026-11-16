@@ -234,39 +234,17 @@ RosterPanel {
                 onClicked: root.selectTmccId(Number(searchField.text), true)
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            Repeater {
-                model: [{key:"NAME",label:"Name"},{key:"ROAD",label:"Road #"},{key:"TMCC",label:"TMCC ID"}]
-                ChoiceButton {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: root.compact ? 54 : 84
-                    text: modelData.label
-                    selected: root.sortMode === modelData.key
-                    onClicked: root.sortMode = modelData.key
-                }
-            }
+        RosterSortBar {
+            compact: root.compact
+            keys: ["NAME", "ROAD", "TMCC"]
+            selectedKey: root.sortMode
+            onSelected: key => root.sortMode = key
         }
-        RosterFilterList {
+        RosterFilterTabs {
             objectName: "accessoryFilterTabs"
             selectedKey: root.typeFilter
-            Layout.fillWidth: true
-            Layout.preferredHeight: 68
-            spacing: 8
             model: root.typeFilters
-            delegate: CabPageTab {
-                required property var modelData
-                width: 150
-                height: 56
-                text: modelData.label
-                autoExclusive: true
-                checked: root.typeFilter === modelData.key
-                onClicked: root.typeFilter = modelData.key
-            }
+            onSelected: key => root.typeFilter = key
         }
         ListView {
             id: listView
