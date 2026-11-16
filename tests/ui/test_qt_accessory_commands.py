@@ -206,6 +206,9 @@ ApplicationWindow {
     property bool cover: false
     property string relayFilter: ""
     property int feedbackRevision: 0
+    property var missingKinds: []
+    readonly property string filterKeys: roster.typeFilters.map(filter => filter.key).join(",")
+    readonly property string selectedFilter: roster.typeFilter
     QtObject {
         id: backend
         readonly property var rows: ["OPERATING", "BPC2", "ASC2", "AMC2", "SENSOR", "TMCC"].map((kind, index) => ({
@@ -216,7 +219,7 @@ ApplicationWindow {
                 {key: "ON", label: "On", selected: win.feedbackRevision > 0},
                 {key: "OFF", label: "Off", selected: false}
             ] : []
-        }))
+        })).filter(row => !win.missingKinds.includes(row.kind))
         function holdQuickAction(address, pressed) { win.calls += address + (pressed ? "+" : "-") }
         function quickAction(action, address, kind) { win.calls += action + address + kind }
     }
@@ -338,6 +341,19 @@ for kind, address in (("ASC2", 12), ("BPC2", 11)):
     assert not window.property("calls")
     QTest.mouseRelease(window, Qt.LeftButton, pos=position.toPoint())
     assert window.property("calls") == f"ON{address}{kind}", "Feedback must preserve the in-progress relay click"
+
+assert window.property("filterKeys") == "ALL,OPERATING,LCS,TMCC,SENSOR,BPC2,ASC2,AMC2"
+window.setProperty("missingKinds", ["BPC2", "OPERATING", "SENSOR"])
+QTest.qWait(35)
+assert window.property("filterKeys") == "ALL,LCS,TMCC,ASC2,AMC2"
+assert window.property("selectedFilter") == "ALL"
+
+window.setProperty("missingKinds", ["BPC2", "ASC2", "AMC2", "SENSOR"])
+QTest.qWait(35)
+assert window.property("filterKeys") == "ALL,OPERATING,TMCC"
+window.setProperty("missingKinds", ["BPC2", "ASC2", "AMC2", "SENSOR", "OPERATING"])
+QTest.qWait(35)
+assert window.property("filterKeys") == "ALL,TMCC"
 
 window.close()
 """

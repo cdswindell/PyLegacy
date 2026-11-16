@@ -12,6 +12,29 @@ RosterPanel {
     property int directTmccId: 0
     property string sortMode: "NAME"
     property string typeFilter: "ALL"
+    readonly property var lcsFilterKinds: ["SENSOR", "BPC2", "ASC2", "AMC2"]
+    readonly property string detectedFilterKinds: {
+        const kinds = new Set(controller ? controller.rows.map(row => row.kind) : [])
+        return lcsFilterKinds.concat("OPERATING").filter(kind => kinds.has(kind)).join(",")
+    }
+    readonly property var typeFilters: {
+        const kinds = new Set(detectedFilterKinds.split(","))
+        return [
+            {key: "ALL", label: "All"},
+            {key: "OPERATING", label: "Operating"},
+            {key: "LCS", label: "LCS"},
+            {key: "TMCC", label: "TMCC"},
+            {key: "SENSOR", label: "Sensor"},
+            {key: "BPC2", label: "BPC2"},
+            {key: "ASC2", label: "ASC2"},
+            {key: "AMC2", label: "AMC2"}
+        ].filter(filter => filter.key === "ALL" || filter.key === "TMCC" ||
+            (filter.key === "LCS" ? lcsFilterKinds.some(kind => kinds.has(kind)) : kinds.has(filter.key)))
+    }
+    onTypeFiltersChanged: {
+        if (!typeFilters.some(filter => filter.key === typeFilter))
+            typeFilter = "ALL"
+    }
     property bool showUnnamedAccessories: true
     readonly property bool compact: height < 850
     property int activeQuickActions: 0
@@ -79,7 +102,7 @@ RosterPanel {
             if (root.directTmccId > 0)
                 return row.tmccIds.indexOf(root.directTmccId) >= 0
             if (root.typeFilter === "LCS") {
-                if (!["BPC2", "ASC2", "AMC2", "SENSOR"].includes(row.kind))
+                if (!root.lcsFilterKinds.includes(row.kind))
                     return false
             } else if (root.typeFilter !== "ALL" && root.typeFilter !== row.kind) {
                 return false
@@ -201,11 +224,7 @@ RosterPanel {
             Layout.fillWidth: true
             Layout.preferredHeight: root.compact ? 66 : 96
             spacing: 8
-            model: [
-                {key:"ALL",label:"All"}, {key:"OPERATING",label:"Operating"},
-                {key:"LCS",label:"LCS"}, {key:"TMCC",label:"TMCC"}, {key:"SENSOR",label:"Sensor"},
-                {key:"BPC2",label:"BPC2"}, {key:"ASC2",label:"ASC2"}, {key:"AMC2",label:"AMC2"}
-            ]
+            model: root.typeFilters
             delegate: ChoiceButton {
                 required property var modelData
                 width: 150
