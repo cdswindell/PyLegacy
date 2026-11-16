@@ -8,6 +8,7 @@ RosterPanel {
     required property var cab
     required property var catalog
     required property var selection
+    readonly property bool canOpenCab: cab.rememberedCabScopes.includes(scope)
     property var infoController: null
     signal cabMenuRequested()
     signal engineSelected()
@@ -113,11 +114,12 @@ RosterPanel {
                 Layout.preferredWidth: pageAllStop.width
                 Layout.preferredHeight: pageAllStop.height
                 text: "Cab"
-                enabled: cab.tmccId > 0
+                enabled: root.canOpenCab
                 font.pixelSize: 24
                 onClicked: root.closeRequested()
             }
             CabMenuTitle {
+                rosterTitle: true
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 compact: pageAllStop.compact

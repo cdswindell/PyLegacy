@@ -56,7 +56,8 @@ Rectangle {
         Layout.preferredHeight: root.sliderButtonHeight
         text: delta > 0 ? "+" : "−"
         font.pixelSize: root.compact ? 32 : 38
-        enabled: cab.isCab1 || (!root.standaloneCar && !cab.isCrane && !cab.rampActive)
+        enabled: (delta > 0 ? cab.speed < cab.speedMax : cab.speed > 0)
+                 && (cab.isCab1 || (!root.standaloneCar && !cab.isCrane && !cab.rampActive))
         repeatWhileHeld: !cab.isCab1
         onClicked: {
             if (cab.isCab1)

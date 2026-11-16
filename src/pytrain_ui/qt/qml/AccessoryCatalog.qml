@@ -38,6 +38,15 @@ RosterPanel {
     property bool showUnnamedAccessories: false
     readonly property bool compact: height < 850
     property int activeQuickActions: 0
+    readonly property var rosterRows: visibleRows()
+    onRosterRowsChanged: {
+        if (listView && activeQuickActions === 0)
+            listView.refreshRows()
+    }
+    onActiveQuickActionsChanged: {
+        if (listView && activeQuickActions === 0)
+            listView.refreshRows()
+    }
 
     signal accessoryRequested(string key)
     signal editRequested(int tmccId, string kind)
@@ -180,6 +189,7 @@ RosterPanel {
             spacing: 10
             Item { Layout.preferredWidth: pageAllStop.width }
             CabMenuTitle {
+                rosterTitle: true
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 compact: root.compact
@@ -266,12 +276,33 @@ RosterPanel {
             spacing: 10
             boundsBehavior: Flickable.StopAtBounds
             flickDeceleration: 1800
-            Binding on model {
-                // Keep the delegate alive through the release click, even if feedback updates the model.
-                when: root.activeQuickActions === 0
-                value: root.visibleRows()
-                restoreMode: Binding.RestoreNone
+            // Refresh after the release click so command feedback cannot replace its delegate mid-gesture.
+            function refreshRows() {
+                const rows = root.rosterRows
+                if (model === rows)
+                    return
+
+                // The top of the viewport may fall in the gap between delegates.
+                let index = indexAt(width / 2, contentY)
+                if (index < 0)
+                    index = indexAt(width / 2, contentY + spacing)
+                const item = itemAtIndex(index)
+                const offset = item ? contentY - item.y : 0
+                const anchorIndex = item ? rows.findIndex(entry => entry.key === item.modelData.key) : -1
+
+                model = rows
+                if (anchorIndex >= 0) {
+                    positionViewAtIndex(anchorIndex, ListView.Beginning)
+                    forceLayout()
+                    const anchor = itemAtIndex(anchorIndex)
+                    if (anchor) {
+                        const bottom = originY + Math.max(0, contentHeight - height)
+                        contentY = Math.min(bottom, Math.max(originY, anchor.y + offset))
+                    }
+                }
             }
+            Component.onCompleted: refreshRows()
+
             ScrollBar.vertical: ListScrollBar { id: rosterScrollBar }
 
             delegate: Rectangle {

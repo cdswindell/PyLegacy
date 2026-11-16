@@ -478,29 +478,41 @@ RosterPanel {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Item { Layout.preferredWidth: pageAllStop.width }
+            Item {
+                visible: !addRouteButton.visible
+                Layout.preferredWidth: pageAllStop.width
+            }
+            CabButton {
+                id: addRouteButton
+                visible: !!controller && controller.scope === "ROUTE"
+                Layout.preferredWidth: pageAllStop.width
+                Layout.preferredHeight: pageAllStop.height
+                text: "Add…"
+                font.pixelSize: 24
+                enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
+                onClicked: root.openAddRoute()
+            }
             CabMenuTitle {
+                rosterTitle: true
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 compact: root.height < 850
-                title: controller && controller.scope === "SWITCH" ? "Switch Operations" : "Route Operations"
+                title: controller && controller.scope === "SWITCH" ? "Switches" : "Routes"
                 onActivated: root.cabMenuRequested()
             }
             AllStopButton { id: pageAllStop; compact: root.height < 850; onClicked: controller.halt() }
         }
         RowLayout {
+            visible: !!controller && controller.scope === "SWITCH"
             Layout.fillWidth: true
             spacing: 10
             TouchButton {
                 text: "Add…"
                 enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
-                onClicked: {
-                    if (controller.scope === "SWITCH") root.openAddSwitch()
-                    else root.openAddRoute()
-                }
+                onClicked: root.openAddSwitch()
             }
             TouchButton {
-                visible: controller && controller.scope === "SWITCH" && root.lcsController
+                visible: !!root.lcsController
                 text: "LCS…"
                 enabled: !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
                 onClicked: lcsConfig.open()

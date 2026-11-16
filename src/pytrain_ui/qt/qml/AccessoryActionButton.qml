@@ -23,19 +23,11 @@ CabButton {
         height: 16
         opacity: root.enabled ? 1 : 0.45
 
-        Repeater {
-            model: 2
-            Rectangle {
-                required property int index
-                x: index * 4
-                y: (1 - index) * 4
-                width: 12
-                height: 10
-                radius: 1
-                color: "transparent"
-                border.color: "#ffffff"
-                border.width: 1
-            }
+        Text {
+            anchors.centerIn: parent
+            text: "↻"
+            color: "#ffffff"
+            font.pixelSize: 18
         }
     }
 

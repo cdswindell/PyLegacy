@@ -226,8 +226,8 @@ ApplicationWindow {
                         }
                         onVisibleChanged: if (visible && enabled) engineCatalogController.reload()
                         onCloseRequested: {
-                            window.activeScope = cabController.scope
-                            window.engineCatalogVisible = false
+                            if (cabController.restoreScope(engineCatalog.scope))
+                                window.engineCatalogVisible = false
                         }
                     }
 
@@ -554,11 +554,8 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible && cabController.tmccId > 0
-        onActivated: {
-            window.activeScope = cabController.scope
-            window.engineCatalogVisible = false
-        }
+        enabled: !window.manageVisible && !cabMenu.visible && !window.stateInfoVisible && (window.activeScope === "ENGINE" || window.activeScope === "TRAIN") && window.engineCatalogVisible && engineCatalog.canOpenCab
+        onActivated: engineCatalog.closeRequested()
     }
     Shortcut {
         sequence: "Up"

@@ -9,6 +9,7 @@ ColumnLayout {
     property string identity: ""
     property string identityObjectName: ""
     property bool compact: false
+    property bool rosterTitle: false
     property bool menuEnabled: true
     signal activated()
 
@@ -34,7 +35,7 @@ ColumnLayout {
         elide: Text.ElideRight
         wrapMode: Text.WordWrap
         maximumLineCount: 2
-        font.pixelSize: root.compact ? 20 : 24
+        font.pixelSize: (root.compact ? 20 : 24) + (root.rosterTitle ? 4 : 0)
         font.bold: true
     }
 

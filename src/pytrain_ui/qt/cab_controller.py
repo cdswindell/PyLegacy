@@ -297,6 +297,14 @@ class CabController(QObject):
         self._switch_target(scope, tmcc_id)
         return True
 
+    @Property(list, notify=rosterChanged)
+    def rememberedCabScopes(self) -> list[str]:
+        return [
+            scope.name
+            for scope, tmcc_id in self._last_targets.items()
+            if ComponentStateStore.get_state(scope, tmcc_id, create=False) is not None
+        ]
+
     @Slot(str, result=bool)
     def restoreScope(self, scope_name: str) -> bool:
         scope = CommandScope[scope_name]
@@ -305,6 +313,7 @@ class CabController(QObject):
             return False
         if ComponentStateStore.get_state(scope, tmcc_id, create=False) is None:
             del self._last_targets[scope]
+            self.rosterChanged.emit()
             return False
         if self.scope != scope_name or self.tmccId != tmcc_id:
             self._switch_target(scope, tmcc_id)
@@ -315,6 +324,7 @@ class CabController(QObject):
         scope_key = CommandScope[scope]
         if self._last_targets.get(scope_key) == tmcc_id:
             del self._last_targets[scope_key]
+            self.rosterChanged.emit()
         if self.scope != scope or self.tmccId != tmcc_id:
             return
         self._release_target()
