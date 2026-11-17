@@ -330,13 +330,15 @@ RosterPanel {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
-                        Label {
+                        RosterIdBadge {
+                            readonly property string kind: row.modelData.kind
                             Layout.preferredWidth: 70
-                            text: row.modelData.kind === "OPERATING" ? "" : row.modelData.primaryTmccId
-                            color: "#55bdf5"
-                            font.pixelSize: 36
-                            font.bold: true
-                            horizontalAlignment: Text.AlignHCenter
+                            Layout.preferredHeight: 54
+                            abbreviation: kind === "OPERATING" ? "" : kind === "TMCC" ? "ACC" :
+                                          kind === "SENSOR" ? "IRDA" : kind
+                            tmccId: row.modelData.primaryTmccId
+                            displayValue: kind === "OPERATING" ? "OP" : String(tmccId)
+                            numberSize: 26
                         }
                         Image {
                             visible: row.modelData.imageSource.length > 0

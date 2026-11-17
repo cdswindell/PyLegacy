@@ -6,6 +6,7 @@ Rectangle {
 
     required property string abbreviation
     required property int tmccId
+    property string displayValue: String(tmccId)
     property int numberSize: 36
 
     radius: 7
@@ -17,6 +18,7 @@ Rectangle {
         anchors.centerIn: parent
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
+            visible: root.abbreviation.length > 0
             text: root.abbreviation
             color: "#9ea6b0"
             font.pixelSize: 14
@@ -24,7 +26,7 @@ Rectangle {
         }
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: root.tmccId
+            text: root.displayValue
             color: "white"
             font.pixelSize: root.numberSize
             font.bold: true
