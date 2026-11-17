@@ -10,6 +10,9 @@ import pytest
 pytest.importorskip("PySide6.QtCore")
 
 from pytrain.db.component_state import ComponentStateDict
+from pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
+from pytrain.gui.accessories.accessory_registry import AccessoryRegistry
+from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory
 from pytrain.gui.controller.lcs_device_registry import ASC2
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
 from pytrain.pdi.amc2_req import Direction
@@ -55,6 +58,41 @@ def occupy(monkeypatch, *devices):
         for kind, mode in devices
     ]
     monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_kwargs: occupants if address == 24 else [])
+
+
+def test_configured_boom_slider_replaces_buttons_and_sends_selected_steps(controller, sent, monkeypatch):
+    registry = AccessoryRegistry.get()
+    registry.bootstrap()
+    configured = ConfiguredAccessory(
+        {"gui": "smoke", "tmcc_id": 29, "instance_id": "loader"}, registry, AccessoryGuiCatalog()
+    )
+    monkeypatch.setattr(
+        module.ConfiguredAccessorySet, "from_file", lambda: SimpleNamespace(configured_all=lambda: [configured])
+    )
+    controller.reload()
+    key = "configured:loader"
+
+    operations = controller.operatingView(key)["operations"]
+    assert [operation["key"] for operation in operations] == ["lights", "boom", "dispense"]
+    assert operations[1]["analogInput"] == {
+        "minimum": -5,
+        "maximum": 5,
+        "neutral": 0,
+        "springReturn": True,
+        "orientation": "horizontal",
+        "repeat": 100,
+    }
+    legacy_images = {op.key: op.image for op in configured.operation_assets}
+    assert legacy_images["boom_left"] == "left_arrow.jpg"
+    assert legacy_images["boom_right"] == "right_arrow.jpg"
+
+    for step in (-5, 3, 0, 6):
+        controller.sendAnalogOperation(key, "boom", step)
+    controller.sendAnalogOperation(key, "boom_left", 2)
+    assert [(request.scope, request.address, request.command, request.data) for request in sent] == [
+        (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, -5),
+        (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, 3),
+    ]
 
 
 def test_colocated_bpc2_and_asc2_send_to_the_selected_device(controller, sent, monkeypatch):

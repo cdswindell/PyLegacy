@@ -182,13 +182,18 @@ Rectangle {
             Layout.fillHeight: true
             clip: true
             spacing: 8
-            model: root.accessory.operations || []
+            // Keep delegates alive during command feedback refreshes.
+            readonly property var operations: root.accessory.operations || []
+            model: operations.length
 
             delegate: Rectangle {
                 id: operationRow
-                required property var modelData
+                required property int index
+                readonly property var modelData: operationList.operations[index] || ({})
+                readonly property var analog: modelData.analogInput || null
+                readonly property bool vertical: analog !== null && analog.orientation === "vertical"
                 width: ListView.view.width
-                height: Math.max(104, Math.min(190, Number(modelData.height || 120)))
+                height: vertical ? 250 : Math.max(104, Math.min(190, Number(modelData.height || 120)))
                 radius: 8
                 color: "#272d35"
                 border.width: 1
@@ -240,17 +245,81 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
+                            visible: operationRow.analog === null
                             text: "TMCC " + operationRow.modelData.tmccId + " · " +
-                                  operationRow.modelData.behavior.replace("_", " ")
+                                  (operationRow.modelData.behavior || "").replace("_", " ")
                             color: "#aeb7c2"
                             font.pixelSize: 12
                         }
                         Label {
-                            text: operationRow.modelData.state
+                            visible: operationRow.analog === null
+                            text: operationRow.modelData.state || ""
                             color: operationRow.modelData.state === "ON" ? "#62d98b" :
                                    operationRow.modelData.state === "OFF" ? "#8fc9ef" : "#e9c46a"
                             font.pixelSize: 13
                             font.bold: true
+                        }
+                        Slider {
+                            id: analogSlider
+                            objectName: "accessoryAnalogSlider-" + (operationRow.modelData.key || "")
+                            Accessible.name: operationRow.modelData.label || ""
+                            readonly property var input: operationRow.analog
+                            readonly property int neutral: input ? input.neutral : 0
+                            readonly property string operationIdentity: (root.accessory.key || "") + "/" +
+                                (operationRow.modelData.key || "")
+                            property string pressedIdentity: ""
+                            property int lastSent: neutral
+                            visible: input !== null
+                            enabled: visible && !root.configurationVisible
+                            orientation: operationRow.vertical ? Qt.Vertical : Qt.Horizontal
+                            Layout.fillWidth: !operationRow.vertical
+                            Layout.fillHeight: operationRow.vertical
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredHeight: operationRow.vertical ? -1 : 52
+                            from: input ? input.minimum : 0
+                            to: input ? input.maximum : 1
+                            stepSize: 1
+                            snapMode: Slider.SnapAlways
+                            value: neutral
+
+                            function sendStep(repeated) {
+                                if (!pressed || pressedIdentity !== operationIdentity || !enabled || !visible)
+                                    return
+                                const step = Math.round(value)
+                                if (step !== neutral && (repeated || step !== lastSent) && root.controller)
+                                    root.controller.sendAnalogOperation(root.accessory.key, operationRow.modelData.key, step)
+                                lastSent = step
+                            }
+
+                            function resetGesture() {
+                                pressedIdentity = ""
+                                lastSent = neutral
+                                if (input && input.springReturn)
+                                    value = neutral
+                            }
+
+                            onPressedChanged: {
+                                if (!pressed) {
+                                    resetGesture()
+                                    return
+                                }
+                                pressedIdentity = operationIdentity
+                                sendStep(false)
+                            }
+                            onMoved: sendStep(false)
+                            onOperationIdentityChanged: resetGesture()
+                            onEnabledChanged: if (!enabled) resetGesture()
+                            onVisibleChanged: if (!visible) resetGesture()
+
+                            Timer {
+                                interval: analogSlider.input ? Math.max(1, analogSlider.input.repeat) : 1
+                                repeat: true
+                                running: analogSlider.input !== null && analogSlider.input.repeat > 0 &&
+                                    analogSlider.pressed && analogSlider.enabled && analogSlider.visible &&
+                                    analogSlider.pressedIdentity === analogSlider.operationIdentity &&
+                                    analogSlider.value !== analogSlider.neutral
+                                onTriggered: analogSlider.sendStep(true)
+                            }
                         }
                         Item { Layout.fillHeight: true }
 

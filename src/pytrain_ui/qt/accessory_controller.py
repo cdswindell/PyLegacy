@@ -13,6 +13,7 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.irda_state import IrdaState
+from pytrain.gui.accessories.accessory_registry import OperationAssets
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
 from pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
@@ -357,6 +358,12 @@ class AccessoryCatalogController(QObject):
         authoritative = bool(getattr(state, "_pdi_source", False))
         return value, authoritative
 
+    @staticmethod
+    def _qt_operations(configured: ConfiguredAccessory) -> list[OperationAssets]:
+        operations = configured.operation_assets
+        replaced = {key.strip().lower() for operation in operations for key in operation.replaces}
+        return [operation for operation in operations if operation.key.strip().lower() not in replaced]
+
     @classmethod
     def _configured_operating_state(
         cls,
@@ -367,7 +374,7 @@ class AccessoryCatalogController(QObject):
         spec = registry.get_spec(configured.accessory_type)
         operations: list[AccessoryOperationViewState] = []
 
-        for assets in configured.operation_assets:
+        for assets in cls._qt_operations(configured):
             tmcc_id = configured.tmcc_id_for(assets.key)
             state = cls._state(tmcc_id)
             power, authoritative = cls._power_state(state)
@@ -394,6 +401,8 @@ class AccessoryCatalogController(QObject):
                     animation_running=is_on and policy in {AnimationPolicy.STATE, AnimationPolicy.MOMENTARY},
                     width=assets.width,
                     height=assets.height,
+                    analog_input=assets.analog_input,
+                    repeat=assets.repeat,
                 )
             )
 
@@ -414,6 +423,7 @@ class AccessoryCatalogController(QObject):
 
     @staticmethod
     def _operation_row(operation: AccessoryOperationViewState) -> dict:
+        analog = operation.analog_input
         return {
             "key": operation.key,
             "label": operation.label,
@@ -428,6 +438,16 @@ class AccessoryCatalogController(QObject):
             "animationRunning": operation.animation_running,
             "width": operation.width or 0,
             "height": operation.height or 0,
+            "analogInput": {
+                "minimum": analog.minimum,
+                "maximum": analog.maximum,
+                "neutral": analog.neutral,
+                "springReturn": analog.spring_return,
+                "orientation": analog.orientation.value,
+                "repeat": operation.repeat or 0,
+            }
+            if analog is not None
+            else None,
         }
 
     @Slot()
@@ -463,6 +483,25 @@ class AccessoryCatalogController(QObject):
             Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=int(action == "ON")).send()
         elif kind == "ASC2":
             self._send_asc2(tmcc_id, action == "ON")
+
+    @Slot(str, str, int)
+    def sendAnalogOperation(self, key: str, operation_key: str, value: int) -> None:
+        descriptor = self._descriptors.get(key)
+        if descriptor is None or descriptor.configured_accessory is None:
+            return
+
+        configured = descriptor.configured_accessory
+        operation = next((op for op in self._qt_operations(configured) if op.key == operation_key), None)
+        if operation is None or operation.analog_input is None or operation.command is None:
+            return
+        analog = operation.analog_input
+        if not analog.minimum <= value <= analog.maximum or value == analog.neutral:
+            return
+        if operation.gated_by is not None:
+            gate_id = configured.tmcc_id_for(operation.gated_by)
+            if self._power_state(self._state(gate_id))[0] != AccessoryPowerState.ON:
+                return
+        CommandReq.build(operation.command, configured.tmcc_id_for(operation.key), value).send()
 
     @Slot(str, int, str, int)
     def tmccCommand(self, key: str, tmcc_id: int, name: str, value: int) -> None:

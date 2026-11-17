@@ -7,7 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-from guizero import Box, Text
+from guizero import Box, PushButton, Text
 from guizero.event import EventData
 
 from .accessory_base import AccessoryBase, S
@@ -47,7 +47,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         self._delta = 0.1
 
         self._variant = variant
-        self._lights_button = self._boom_left_button = self._boom_right_button = self.droplet_button = None
+        self._boom_left_button = self._boom_right_button = self.droplet_button = None
         self._title: str | None = None
         self._image: str | None = None
         self._repeat_interval = 100  # milliseconds
@@ -76,25 +76,14 @@ class SmokeFluidLoaderGui(AccessoryBase):
 
     # noinspection PyUnusedLocal
     def update_button(self, tmcc_id: int) -> None:
-        """
-        Sync gui state to accessory state
-        """
-        with self._cv:
-            if self._state.number == 8 and self.is_power_button_on(self._lights_button):
-                self.toggle_power_button_state(self._lights_button)
-            elif self._state.number == 9 and not self.is_power_button_on(self._lights_button):
-                self.toggle_power_button_state(self._lights_button)
+        # Numeric commands do not report the actual light state.
+        pass
 
     def switch_state(self, state: AccessoryState) -> None:
         pass
 
-    def toggle_lights(self) -> None:
-        with self._cv:
-            if self.is_power_button_on(self._lights_button):
-                req = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=8)
-            else:
-                req = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=9)
-            self.submit_request(req)
+    def set_lights(self, on: bool) -> None:
+        self.submit_request(CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=9 if on else 8))
 
     def build_accessory_controls(self, box: Box) -> None:
         lights_label, dispense_label = self.config.labels_for("lights", "dispense")
@@ -105,14 +94,19 @@ class SmokeFluidLoaderGui(AccessoryBase):
         )
 
         col = 0
-        self._lights_button = self.make_power_button(
-            self._state,
-            "Lights",
-            col,
-            max_text_len,
-            box,
-            command=self.toggle_lights,
-        )
+        lights_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
+        _ = Text(lights_box, text=lights_label, align="top", size=self.s_16, underline=True)
+        light_buttons = Box(lights_box, layout="grid", align="top")
+        for column, (image, on) in enumerate(((self.turn_on_image, True), (self.turn_off_image, False))):
+            PushButton(
+                light_buttons,
+                image=image,
+                grid=[column, 0],
+                width=self.s_acc,
+                height=self.s_acc,
+                command=self.set_lights,
+                args=[on],
+            )
 
         col += 1
         boom_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")

@@ -98,6 +98,8 @@ def register_culvert_handler(registry: AccessoryRegistry) -> None:
             behavior=PortBehavior.COMMAND,
             command_on=TMCC1AuxCommandEnum.AUX2_OPT_ONE,
             command_off=TMCC1AuxCommandEnum.AUX2_OPT_ONE,
+            armed=TMCC1AuxCommandEnum.AUX2_ON,
+            disarmed=TMCC1AuxCommandEnum.AUX2_OFF,
             width=72,
             height=72,
         ),

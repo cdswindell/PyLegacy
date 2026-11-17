@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from pytrain.gui.accessories.accessory_registry import PortBehavior
+from pytrain.gui.accessories.accessory_registry import AnalogInputSpec, PortBehavior
 
 
 class AccessoryPowerState(str, Enum):
@@ -42,6 +42,8 @@ class AccessoryOperationViewState:
     animation_running: bool = False
     width: int | None = None
     height: int | None = None
+    analog_input: AnalogInputSpec | None = None
+    repeat: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

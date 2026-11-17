@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from src.pytrain.db.accessory_state import AccessoryState
 from src.pytrain.gui.accessories.accessory_base import AccessoryBase
 from src.pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
 from src.pytrain.gui.accessories.accessory_registry import (
@@ -364,6 +365,10 @@ def test_builtin_power_gates_and_command_bindings_are_exposed_in_resolved_operat
     assert operations["dispense"].command is Aux.BRAKE
     assert operations["dispense"].pulse_duration is None
 
+    (culvert,) = reg.get_definition(AccessoryType.CULVERT_HANDLER, None).operations
+    assert culvert.armed is Aux.AUX2_ON
+    assert culvert.disarmed is Aux.AUX2_OFF
+
 
 @pytest.mark.parametrize("duration", [0, 0.5, 250.0, 251, 2560, True])
 def test_invalid_asc2_pulse_duration_is_rejected(reg: AccessoryRegistry, duration: Any) -> None:
@@ -419,3 +424,32 @@ def test_legacy_culvert_gui_binds_configured_address(
     # Inspect the resolved address without starting Tk or layout communication.
     # noinspection PyProtectedMember
     assert gui._action == expected
+
+
+def test_armed_state_predicate_is_exposed_in_resolved_operations(reg: AccessoryRegistry) -> None:
+    state = AccessoryState()
+    spec = _mk_spec(
+        type_=AccessoryType.STATION,
+        variants=[VariantSpec(key="default", display="Default", title="Station", image="station.jpg", default=True)],
+        operations=[OperationSpec("power", "Power", PortBehavior.LATCH, armed=lambda accessory: accessory is state)],
+    )
+    reg.register(spec)
+
+    (operation,) = reg.get_definition(spec.type, None).operations
+    assert callable(operation.armed)
+    assert operation.armed(state)
+    assert not operation.armed(AccessoryState())
+    assert operation.disarmed is None
+
+
+@pytest.mark.parametrize("field", ["armed", "disarmed"])
+def test_invalid_armed_state_binding_is_rejected(reg: AccessoryRegistry, field: str) -> None:
+    bindings: dict[str, Any] = {field: "AUX2_ON"}
+    spec = _mk_spec(
+        type_=AccessoryType.STATION,
+        variants=[VariantSpec(key="default", display="Default", title="Station", image="station.jpg", default=True)],
+        operations=[OperationSpec("power", "Power", PortBehavior.LATCH, **bindings)],
+    )
+
+    with pytest.raises(ValueError, match=rf"{field} must be a TMCC1AuxCommandEnum or state predicate"):
+        reg.register(spec)

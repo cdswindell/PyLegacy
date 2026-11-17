@@ -11,11 +11,15 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 
 from .accessory_type import AccessoryType
+from ...db.accessory_state import AccessoryState
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.constants import Mixins
+from ...protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ...utils.singleton import singleton
 
 _NORM_TOKEN_RE = re.compile(r"[^a-z0-9]+")
@@ -24,6 +28,8 @@ log = logging.getLogger(__name__)
 
 DEFAULT_OPERATION_REPEAT_MS = 100
 DEFAULT_PULSE_DURATION_MS = 200
+
+AccessoryStateBinding = TMCC1AuxCommandEnum | Callable[[AccessoryState], bool]
 
 
 def _variant_norm(s: str) -> str:
@@ -45,6 +51,20 @@ class PortBehavior(Mixins):
     MOMENTARY_HOLD = "momentary_hold"
     MOMENTARY_PULSE = "momentary_pulse"
     COMMAND = "command"
+
+
+class InputOrientation(str, Enum):
+    HORIZONTAL = "horizontal"
+    VERTICAL = "vertical"
+
+
+@dataclass(frozen=True)
+class AnalogInputSpec:
+    minimum: int
+    maximum: int
+    neutral: int
+    spring_return: bool = False
+    orientation: InputOrientation = InputOrientation.HORIZONTAL
 
 
 @dataclass(frozen=True)
@@ -77,6 +97,12 @@ class OperationSpec:
     command_off: CommandDefEnum | None = None
     command_data: int | None = None
     repeat: int | None = None  # Milliseconds between commands while held.
+
+    # State to match, or a predicate evaluated against the operation's AccessoryState.
+    armed: AccessoryStateBinding | None = None
+    disarmed: AccessoryStateBinding | None = None
+    analog_input: AnalogInputSpec | None = None
+    replaces: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.behavior == PortBehavior.MOMENTARY_PULSE and self.pulse_duration is None:
@@ -154,6 +180,12 @@ class OperationAssets:
     command_off: CommandDefEnum | None = None
     command_data: int | None = None
     repeat: int | None = None  # Milliseconds between commands while held.
+
+    # State to match, or a predicate evaluated against the operation's AccessoryState.
+    armed: AccessoryStateBinding | None = None
+    disarmed: AccessoryStateBinding | None = None
+    analog_input: AnalogInputSpec | None = None
+    replaces: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -481,6 +513,10 @@ class AccessoryRegistry:
             command_off=op.command_off,
             command_data=op.command_data,
             repeat=op.repeat,
+            armed=op.armed,
+            disarmed=op.disarmed,
+            analog_input=op.analog_input,
+            replaces=op.replaces,
         )
 
     @staticmethod
@@ -516,9 +552,17 @@ class AccessoryRegistry:
                 raise ValueError(f"Duplicate operation key '{op.key}' in type '{spec.type}'")
             seen_ops.add(nk)
 
+        replacing_ops = {self._norm(op.key) for op in spec.operations if op.replaces}
         gates: dict[str, str] = {}
         for op in spec.operations:
             self._validate_operation_command(op)
+            if not isinstance(op.replaces, tuple) or any(
+                not isinstance(key, str) or self._norm(key) not in seen_ops - replacing_ops for key in op.replaces
+            ):
+                raise ValueError(f"Operation '{op.key}' replaces must name existing non-replacing operations")
+            for name, binding in (("armed", op.armed), ("disarmed", op.disarmed)):
+                if binding is not None and not (isinstance(binding, TMCC1AuxCommandEnum) or callable(binding)):
+                    raise ValueError(f"Operation '{op.key}' {name} must be a TMCC1AuxCommandEnum or state predicate")
             duration = op.pulse_duration
             if duration is not None:
                 if op.behavior != PortBehavior.MOMENTARY_PULSE:
@@ -564,12 +608,35 @@ class AccessoryRegistry:
     def _validate_operation_command(op: OperationSpec) -> None:
         commands = tuple(command for command in (op.command, op.command_on, op.command_off) if command is not None)
         if op.behavior != PortBehavior.COMMAND:
-            if commands or op.command_data is not None or op.repeat is not None:
+            if commands or op.command_data is not None or op.repeat is not None or op.analog_input is not None:
                 raise ValueError(f"Operation '{op.key}' must use COMMAND for TMCC command metadata")
             return
 
         if any(not isinstance(command, CommandDefEnum) for command in commands):
             raise ValueError(f"Operation '{op.key}' command values must be CommandDefEnum members")
+        if op.analog_input is not None:
+            analog = op.analog_input
+            if op.command is None or not op.command.is_data or op.command_data is not None:
+                raise ValueError(f"Operation '{op.key}' analog_input requires a data command without command_data")
+            if (
+                not isinstance(analog, AnalogInputSpec)
+                or any(type(value) is not int for value in (analog.minimum, analog.maximum, analog.neutral))
+                or not analog.minimum <= analog.neutral <= analog.maximum
+                or analog.minimum == analog.maximum
+                or not isinstance(analog.orientation, InputOrientation)
+                or type(analog.spring_return) is not bool
+            ):
+                raise ValueError(f"Operation '{op.key}' has invalid analog_input settings")
+            valid = op.command.command_def.is_valid_data
+            if (
+                not valid(analog.minimum)
+                or not valid(analog.maximum)
+                or (
+                    op.command.command_def.data_map
+                    and not all(valid(value) for value in range(analog.minimum, analog.maximum + 1))
+                )
+            ):
+                raise ValueError(f"Operation '{op.key}' analog_input range is invalid for its command")
         if op.command is None:
             if op.command_on is None or op.command_off is None:
                 raise ValueError(f"Operation '{op.key}' requires command or both command_on and command_off")
@@ -578,11 +645,12 @@ class AccessoryRegistry:
         else:
             if op.command_on is not None or op.command_off is not None:
                 raise ValueError(f"Operation '{op.key}' cannot combine command with command_on or command_off")
-            if op.command.is_data:
-                if type(op.command_data) is not int or not op.command.command_def.is_valid_data(op.command_data):
-                    raise ValueError(f"Operation '{op.key}' requires valid integer command_data")
-            elif op.command_data is not None:
-                raise ValueError(f"Operation '{op.key}' command does not accept command_data")
+            if op.analog_input is None:
+                if op.command.is_data:
+                    if type(op.command_data) is not int or not op.command.command_def.is_valid_data(op.command_data):
+                        raise ValueError(f"Operation '{op.key}' requires valid integer command_data")
+                elif op.command_data is not None:
+                    raise ValueError(f"Operation '{op.key}' command does not accept command_data")
 
         if op.repeat is not None and (type(op.repeat) is not int or op.repeat <= 0):
             raise ValueError(f"Operation '{op.key}' repeat must be a positive integer in milliseconds")
