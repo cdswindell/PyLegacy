@@ -25,6 +25,11 @@ Popup {
     property int page: 0
     property string configureError: ""
     property var initialModule: null
+    property string originalConfiguration: ""
+    readonly property string draftConfiguration: controller ? JSON.stringify([
+        controller.deviceKey, controller.modeKey, baseIdField.text, controller.options
+    ]) : ""
+    readonly property bool hasUnsavedChanges: visible && draftConfiguration !== originalConfiguration
 
     function openForModule(key, baseId, scope) {
         initialModule = {key: key, baseId: baseId, scope: scope}
@@ -50,6 +55,7 @@ Popup {
                 page = 2
         }
         controller.refreshModules()
+        originalConfiguration = draftConfiguration
     }
     onClosed: initialModule = null
 
@@ -658,6 +664,7 @@ Popup {
                     onTapped: {
                         root.controller.selectConfiguredModule(modelData.deviceKey, modelData.tmccId, modelData.scope)
                         root.showDeviceDetails()
+                        root.originalConfiguration = root.draftConfiguration
                     }
                 }
             }
@@ -743,6 +750,8 @@ Popup {
                         root.page = 3
                     } else {
                         root.configureError = root.controller.configure()
+                        if (!root.configureError)
+                            root.originalConfiguration = root.draftConfiguration
                     }
                 }
             }

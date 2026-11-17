@@ -368,9 +368,10 @@ class StateInfoController(QObject):
             lcs_configuration = self._sensor_configuration(irda_state)
         elif not lcs_configuration:
             lcs_device_type, lcs_configuration, board_state = self._relay_configuration(state)
-        inline_identity = bool(sensor_track or lcs_configuration)
-        board = lcs_board_details(board_state, known_device=inline_identity)
-        if inline_identity and state is None:
+        lcs_identity = bool(sensor_track or lcs_configuration)
+        inline_identity = lcs_identity or (self._scope == CommandScope.ACC and self._device_kind == "TMCC")
+        board = lcs_board_details(board_state, known_device=lcs_identity)
+        if lcs_identity and state is None:
             status = ""
         model = {
             "scopeTitle": self._scope.title,
@@ -378,13 +379,13 @@ class StateInfoController(QObject):
             "creating": draft is not None,
             "unsaved": bool(draft and draft.edited and self._pending is None),
             "canCreate": bool(draft and draft.can_create and self._pending is None),
-            "canClear": bool(not draft and not inline_identity and state and state.is_deletable),
+            "canClear": bool(not draft and not lcs_identity and state and state.is_deletable),
             "lcsConfiguration": lcs_configuration,
             "lcsDeviceType": lcs_device_type,
             "lcsBoard": board,
             "inlineIdentity": inline_identity,
             "sensorTrack": sensor_track,
-            "editable": bool(self._pending is None and (draft or inline_identity or (state and state.comp_data))),
+            "editable": bool(self._pending is None and (draft or lcs_identity or (state and state.comp_data))),
             "busy": self._pending is not None,
             "status": self._error or status,
             "identity": self._identity(state, inline_identity) if state or draft or inline_identity else [],
@@ -588,7 +589,7 @@ class StateInfoController(QObject):
     @Slot()
     def clear(self) -> None:
         state = self._lookup()
-        if self._draft or state is None or not state.is_deletable or self._model.get("inlineIdentity"):
+        if state is None or not state.is_deletable or not self._model.get("canClear"):
             return
         try:
             if state.clear(notify=True, clear_db=True):

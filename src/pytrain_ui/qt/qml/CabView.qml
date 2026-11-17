@@ -1228,6 +1228,17 @@ Rectangle {
         }
     }
 
+    readonly property bool hasUnsavedControlChanges:
+        speedLimitDialog.hasUnsavedChanges || stateValueDialog.hasUnsavedChanges
+
+    function cancelTransientPanels() {
+        closeBellHornOptions()
+        closeDialogPanel()
+        commandPanel.close()
+        speedLimitDialog.close()
+        stateValueDialog.close()
+    }
+
     function closeBellHornOptions() {
         bellHornPanel.close()
     }

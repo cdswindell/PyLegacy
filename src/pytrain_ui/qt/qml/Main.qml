@@ -61,7 +61,9 @@ ApplicationWindow {
     function requestEditorExit(action) {
         if (discardChanges.pendingAction)
             return
-        if (routeOpsView.hasUnsavedRouteChanges ||
+        if (routeOpsView.hasUnsavedRouteChanges || switchOpsView.hasUnsavedSwitchChanges ||
+            switchOpsView.hasUnsavedLcsChanges || accessoryLcsConfig.hasUnsavedChanges ||
+            operatingCabView.hasUnsavedControlChanges ||
             (stateInfoVisible && (stateInfoScope === "ACC" ? accessoryInfo.hasUnsavedChanges : operatingCabView.stateInfoHasUnsavedChanges))) {
             discardChanges.pendingAction = action
             discardChanges.open()
@@ -70,15 +72,20 @@ ApplicationWindow {
         }
     }
 
-    function changeScope(scope, showKeypad) {
+    function closeOpenPanels() {
         window.manageVisible = false
-        operatingCabView.closeBellHornOptions()
-        operatingCabView.closeDialogPanel()
+        operatingCabView.cancelTransientPanels()
+        engineCatalog.cancelTransientPanels()
         if (window.stateInfoVisible)
             window.closeStateInfo()
         switchOpsView.cancelTransientPanels()
         routeOpsView.cancelTransientPanels()
         accessoryCatalog.cancelTransientPanels()
+        window.accessoryOperatingVisible = false
+    }
+
+    function changeScope(scope, showKeypad) {
+        closeOpenPanels()
         if (scope === "SWITCH") {
             switchOpsController.reload()
             window.activeScope = "SWITCH"
@@ -90,7 +97,6 @@ ApplicationWindow {
         } else if (scope === "ACCESSORY") {
             accessoryCatalogController.reload()
             window.activeScope = "ACCESSORY"
-            window.accessoryOperatingVisible = false
             window.engineCatalogVisible = false
         } else if (scope === "ENGINE" || scope === "TRAIN") {
             if (showKeypad || (window.activeScope === scope && !window.engineCatalogVisible))
@@ -106,6 +112,32 @@ ApplicationWindow {
                            scope === "ACCESSORY" ? accessoryCatalog : engineCatalog
             Qt.callLater(roster.openTmccKeypad)
         }
+    }
+
+    function navigateFromMenu(destination) {
+        requestEditorExit(() => {
+            closeOpenPanels()
+            if (destination === "Roster") {
+                if (activeScope === "SWITCH")
+                    switchOpsView.showRoster()
+                else if (activeScope === "ROUTE")
+                    routeOpsView.showRoster()
+                else if (activeScope === "ACCESSORY")
+                    accessoryCatalog.showRoster()
+                else
+                    engineCatalogVisible = true
+            } else if (destination === "Manage PyTrain") {
+                manageVisible = true
+            } else if (destination === "Route Builder") {
+                activeScope = "ROUTE"
+                routeOpsController.reload()
+                Qt.callLater(routeOpsView.openAddRoute)
+            } else if (destination === "LCS Device Manager") {
+                activeScope = "SWITCH"
+                switchOpsController.reload()
+                Qt.callLater(switchOpsView.openLcsConfiguration)
+            }
+        })
     }
 
     Connections {
@@ -260,7 +292,7 @@ ApplicationWindow {
                 OpsView {
                     id: routeOpsView
                     controller: routeOpsController
-                    editorNavigationPending: !!discardChanges.pendingAction
+                    editorNavigationPending: cabMenu.visible || !!discardChanges.pendingAction
                     onRouteCloseRequested: window.requestEditorExit(routeOpsView.discardRouteBuilder)
                     onCabMenuRequested: cabMenu.open()
                 }
@@ -442,39 +474,15 @@ ApplicationWindow {
             Repeater {
                 model: ["Roster", "Manage PyTrain", "Route Builder", "LCS Device Manager"]
                 CabButton {
-                    required property int index
                     required property string modelData
                     Layout.fillWidth: true
                     Layout.preferredHeight: 70
                     font.pixelSize: 22
                     text: modelData
+                    activateOnRelease: true
                     onClicked: {
+                        window.navigateFromMenu(modelData)
                         cabMenu.close()
-                        window.requestEditorExit(() => {
-                            if (window.stateInfoVisible)
-                                window.closeStateInfo()
-                            if (index === 0) {
-                                if (window.activeScope === "SWITCH")
-                                    switchOpsView.showRoster()
-                                else if (window.activeScope === "ROUTE")
-                                    routeOpsView.showRoster()
-                                else if (window.activeScope === "ACCESSORY") {
-                                    window.accessoryOperatingVisible = false
-                                    accessoryCatalog.showRoster()
-                                } else
-                                    window.engineCatalogVisible = true
-                            } else if (index === 1) {
-                                window.manageVisible = true
-                            } else if (index === 2) {
-                                window.activeScope = "ROUTE"
-                                routeOpsController.reload()
-                                Qt.callLater(routeOpsView.openAddRoute)
-                            } else {
-                                window.activeScope = "SWITCH"
-                                switchOpsController.reload()
-                                Qt.callLater(switchOpsView.openLcsConfiguration)
-                            }
-                        })
                     }
                 }
             }

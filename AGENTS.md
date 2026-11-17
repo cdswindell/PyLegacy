@@ -13,3 +13,4 @@
 
 - In PyCab Qt, group double-clicks and double-taps by control and elapsed time. Allow the two completed taps anywhere within the same control’s interactive area, with a maximum of 400 ms between them. Check elapsed time explicitly because a busy UI can delay timer delivery. Exclude nested controls from row-body gestures, and cancel pending taps on drags. Preserve the gestures each control supports, including hold-only actions.
 - In PyCab Qt, reserve space for a tab scrollbar only when the tab strip overflows. Measure the content gap from the visible bottom edge of the tabs.
+- In PyCab Qt, route title-menu selections through the shared panel-exit flow. For unsaved edits, keep the current panel and its draft until the user chooses Discard. Keep Editing or Escape cancels navigation. Close the current panel and its child overlays before opening the destination.

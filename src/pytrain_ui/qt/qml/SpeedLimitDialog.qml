@@ -14,6 +14,8 @@ Popup {
     property string targetText: ""
     property alias entryText: speedEntry.text
     readonly property bool acceptableInput: speedEntry.text.length > 0 && speedEntry.acceptableInput
+    property string initialEntryText: ""
+    readonly property bool hasUnsavedChanges: visible && entryText !== initialEntryText
     signal limitSubmitted(int value)
     signal limitCleared()
 
@@ -22,7 +24,8 @@ Popup {
         maximumSpeed = Math.min(protocolMaximum, engineMaximum ?? protocolMaximum)
         targetText = target
         hasExistingLimit = currentLimit > 0 && currentLimit !== 255
-        speedEntry.text = hasExistingLimit ? String(currentLimit) : ""
+        initialEntryText = hasExistingLimit ? String(currentLimit) : ""
+        speedEntry.text = initialEntryText
         limitSlider.value = hasExistingLimit ? Number(speedEntry.text) : maximumSpeed
         open()
         speedEntry.forceActiveFocus()

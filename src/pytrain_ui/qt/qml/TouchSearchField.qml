@@ -11,6 +11,12 @@ TextField {
     property bool titleCaseEnabled: false
     property real keyboardBottomMargin: 8
     readonly property alias keyboardOpen: keyboard.visible
+    readonly property alias keyboardDirty: keyboard.hasUnsavedChanges
+
+    function closeTouchKeyboard() {
+        keyboard.close()
+    }
+
     property bool touchKeyboardEnabled: Qt.platform.os === "linux"
     // Open on a deliberate tap, not when focus is restored after closing.
     TapHandler {

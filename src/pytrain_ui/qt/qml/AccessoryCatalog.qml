@@ -108,6 +108,7 @@ RosterPanel {
 
     function cancelTransientPanels() {
         tmccKeypad.close()
+        searchField.closeTouchKeyboard()
         if (lcsConfig) lcsConfig.close()
     }
 

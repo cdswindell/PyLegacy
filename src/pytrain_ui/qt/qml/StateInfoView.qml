@@ -14,6 +14,8 @@ Rectangle {
     readonly property bool inlineIdentity: !!record.inlineIdentity
     readonly property bool amc2Info: record.lcsDeviceType === "AMC2"
     readonly property bool addingAccessory: !!record.addingAccessory
+    readonly property bool compactAccessoryIdentity: inlineIdentity && !addingAccessory
+        && ["", "ASC2", "BPC2"].includes(record.lcsDeviceType || "")
     readonly property string newAccessoryAddressStatus: {
         root.record
         return addingAccessory && accessoryId.acceptableInput
@@ -162,6 +164,9 @@ Rectangle {
 
         ScrollView {
             id: details
+            Layout.topMargin: root.compactAccessoryIdentity
+                ? Math.max(0, recordFooter.buttonHeight - panelLayout.spacing
+                    - accessoryRoadNameLabel.implicitHeight - accessoryFields.spacing) : 0
             Layout.fillWidth: true
             Layout.preferredHeight: detailsContent.implicitHeight
             Layout.fillHeight: true
@@ -176,6 +181,7 @@ Rectangle {
                 spacing: 8
 
                 ColumnLayout {
+                    id: accessoryFields
                     visible: root.inlineIdentity
                     Layout.fillWidth: true
                     spacing: 8
@@ -220,6 +226,7 @@ Rectangle {
                     }
 
                     Label {
+                        id: accessoryRoadNameLabel
                         text: "Road Name"
                         color: root.fieldLabelColor
                         font.pixelSize: 17
@@ -431,7 +438,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: metrics.footerOffset(implicitHeight, parent.spacing)
+            Layout.topMargin: metrics.footerOffset(root.compactAccessoryIdentity ? buttonHeight : implicitHeight, parent.spacing)
             spacing: 18
             readonly property int buttonHeight: 70
             id: recordFooter
@@ -491,6 +498,12 @@ Rectangle {
                 selected: true
                 onClicked: root.controller.create()
             }
+        }
+
+        Item {
+            visible: root.compactAccessoryIdentity
+            Layout.fillHeight: true
+            Layout.preferredHeight: 0
         }
     }
 

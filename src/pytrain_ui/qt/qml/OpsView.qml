@@ -12,10 +12,17 @@ RosterPanel {
     property var lcsController: null
     property bool editorNavigationPending: false
     readonly property bool hasUnsavedRouteChanges: routeBuilder.visible && controller.routeBuilderOpen &&
-        (controller.routeBuilderDirty ||
+        (controller.routeBuilderDirty || routeNameField.keyboardDirty ||
          routeIdField.text.trim() !== (controller.routeBuilderId ? String(controller.routeBuilderId) : "") ||
          routeNameField.text.trim() !== controller.routeBuilderName ||
          routeNumberField.text.trim() !== controller.routeBuilderNumber)
+    readonly property bool hasUnsavedSwitchChanges:
+        (switchEditor.visible && (roadNameField.keyboardDirty ||
+            roadNameField.text.trim() !== editingSwitchOriginalName.trim() ||
+            roadNumberField.text.trim() !== editingSwitchOriginalNumber.trim())) ||
+        (addSwitchPopup.visible && (addSwitchId.text.trim() !== "" || addRoadName.text.trim() !== "" ||
+            addRoadNumber.text.trim() !== "" || addRoadName.keyboardDirty || !addCommandControl))
+    readonly property bool hasUnsavedLcsChanges: lcsConfig.hasUnsavedChanges
     signal routeCloseRequested()
 
     property string sortKey: "roadName"
@@ -326,6 +333,7 @@ RosterPanel {
 
     function cancelTransientPanels() {
         tmccKeypad.close()
+        searchField.closeTouchKeyboard()
         discardRouteBuilder()
         addSwitchPopup.close()
         overwriteSwitchPopup.close()

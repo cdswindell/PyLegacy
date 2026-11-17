@@ -10,6 +10,8 @@ Popup {
     property string kind: "Mom"
     property bool legacy: true
     property int draftValue: -1
+    property int initialDraftValue: -1
+    readonly property bool hasUnsavedChanges: visible && hasSetButton && draftValue !== initialDraftValue
     property string targetText: ""
     property string currentText: ""
     readonly property var titles: ({Mom: "Momentum", Brake: "Train Brake", Smoke: "Smoke",
@@ -37,7 +39,8 @@ Popup {
         kind = field
         legacy = isLegacy
         targetText = target
-        draftValue = current === null || current === undefined ? -1 : current
+        initialDraftValue = current === null || current === undefined ? -1 : current
+        draftValue = initialDraftValue
         currentText = description(draftValue)
         valueSlider.value = kind === "Mom" ? (medium ?? 3) : Math.max(0, draftValue)
         open()

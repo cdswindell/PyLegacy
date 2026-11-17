@@ -20,6 +20,11 @@ RosterPanel {
         tmccKeypad.openFor(root.searchText)
     }
 
+    function cancelTransientPanels() {
+        tmccKeypad.close()
+        searchField.closeTouchKeyboard()
+    }
+
     function requestAddress(tmccId) {
         if (scope === "ENGINE" && infoController && infoController.needsEngineRecord(tmccId))
             stateInfoRequested(scope, tmccId)

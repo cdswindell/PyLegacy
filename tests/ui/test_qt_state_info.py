@@ -214,6 +214,39 @@ def test_amc2_state_info_reads_module_configuration_and_protects_clear(monkeypat
     assert controller.model["lcsConfiguration"] == [{"label": label, "value": value} for label, value in info.items()]
 
 
+def test_tmcc_accessory_state_info_edits_identity_inline_and_can_clear(monkeypatch) -> None:
+    module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
+    scope = CommandScope.ACC
+    address = 60
+    accessory = ComponentStateDict(scope)[address]
+    accessory.initialize(scope, address)
+    accessory.comp_data.road_name = "Culvert Unloader"
+    accessory.comp_data.road_number = "345"
+    monkeypatch.setattr(ComponentStateStore, "get_state", Mock(return_value=accessory))
+    write = Mock()
+    monkeypatch.setattr(BaseReq, "process_sync_reqs", write)
+    clear = Mock(return_value=True)
+    monkeypatch.setattr(ComponentState, "clear", clear)
+    controller = module.StateInfoController()
+
+    controller.openFor("ACC", address, False, "TMCC")
+
+    assert controller.model["inlineIdentity"] and controller.model["editable"] and controller.model["canClear"]
+    assert not controller.model["lcsConfiguration"]
+    assert not controller.model["lcsBoard"]
+    assert {row["key"]: row["value"] for row in controller.model["identity"]} == {
+        "name": "Culvert Unloader",
+        "number": "0345",
+    }
+    write.assert_not_called()
+    assert controller.saveAccessoryIdentity({"name": "Culvert Loader", "number": "12"})
+    requests = write.call_args.args[0]
+    assert len(requests) == 3 and requests[-1] is accessory
+    assert all(req.scope == scope and req.tmcc_id == address for req in requests[:-1])
+    controller.clear()
+    clear.assert_called_once_with(notify=True, clear_db=True)
+
+
 def test_sensor_track_state_info_edits_accessory_identity_and_uses_sensor_board(monkeypatch) -> None:
     module = pytest.importorskip("pytrain_ui.qt.state_info_controller")
     address = 50
