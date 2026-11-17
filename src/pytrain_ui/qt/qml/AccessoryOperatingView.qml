@@ -116,7 +116,7 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 10
             enabled: !root.configurationVisible
-            visible: root.hasArtwork || !!root.accessory.tmccId
+            visible: root.hasArtwork || (!!root.accessory.tmccId && root.kind !== "TMCC")
             Item {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
@@ -153,7 +153,7 @@ Rectangle {
             }
 
             ColumnLayout {
-                visible: root.kind !== "OPERATING"
+                visible: root.kind !== "OPERATING" && root.kind !== "TMCC" && root.kind !== "SENSOR"
                 Layout.preferredWidth: root.compact ? 108 : 132
                 Layout.minimumWidth: Layout.preferredWidth
                 Layout.maximumWidth: Layout.preferredWidth
@@ -164,6 +164,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: (root.compact ? 48 : 56) * 1.1
                     text: "Info"
+                    visible: root.kind !== "AMC2"
                     font.pixelSize: root.compact ? 17 : 20
                     enabled: !!root.accessory.tmccId
                     onClicked: root.infoRequested(root.accessory.tmccId)
@@ -192,6 +193,7 @@ Rectangle {
             controller: root.controller
             accessory: root.accessory
             compact: root.compact
+            onInfoRequested: root.infoRequested(root.accessory.tmccId)
         }
 
         ColumnLayout {
@@ -426,6 +428,7 @@ Rectangle {
                                             spacing: operationGrid.controlGap
                                             visible: operationRow.analog === null && operationRow.controlKind !== ""
                                             readonly property real buttonSize: Math.max(0, Math.min(operationGrid.targetButtonSize,
+                                                operationGrid.columnWidth - 2 * operationGrid.cardInset,
                                                 operationRow.paired ? (operationRow.controlsWidth - spacing) / 2 : operationRow.controlsWidth))
 
                                             Repeater {
@@ -438,6 +441,10 @@ Rectangle {
                                                     objectName: "accessoryOperation-" + (operationRow.modelData.key || "") + "-" + modelData
                                                     Layout.preferredWidth: operationControls.buttonSize
                                                     Layout.preferredHeight: operationControls.buttonSize
+                                                    Layout.minimumWidth: operationControls.buttonSize
+                                                    Layout.maximumWidth: operationControls.buttonSize
+                                                    Layout.minimumHeight: operationControls.buttonSize
+                                                    Layout.maximumHeight: operationControls.buttonSize
                                                     enabled: operationRow.canOperate
                                                     text: (operationRow.toggles ? operationRow.modelData.actionLabel : "")
                                                         || (action === "on" ? "On" : "Off")
@@ -459,6 +466,10 @@ Rectangle {
                                                 visible: !operationRow.powerButton
                                                 Layout.preferredWidth: operationControls.buttonSize
                                                 Layout.preferredHeight: operationControls.buttonSize
+                                                Layout.minimumWidth: operationControls.buttonSize
+                                                Layout.maximumWidth: operationControls.buttonSize
+                                                Layout.minimumHeight: operationControls.buttonSize
+                                                Layout.maximumHeight: operationControls.buttonSize
                                                 enabled: operationRow.canOperate
                                                 Accessible.name: operationRow.modelData.label || ""
                                                 text: operationRow.artworkOnButton ? "" : (operationRow.modelData.label || "")
@@ -541,7 +552,7 @@ Rectangle {
                                             handle: Item {
                                                 id: boomThumb
                                                 width: operationRow.vertical ? 34 : 96
-                                                height: operationRow.vertical ? 34 : 62
+                                                height: operationRow.vertical ? 34 : 65
                                                 x: operationRow.vertical ? (analogSlider.width - width) / 2
                                                     : analogSlider.leftPadding + analogSlider.visualPosition *
                                                         (analogSlider.availableWidth - width)
@@ -551,12 +562,13 @@ Rectangle {
 
                                                 Rectangle {
                                                     visible: !operationRow.vertical
-                                                    anchors.horizontalCenter: parent.horizontalCenter
-                                                    width: 12
-                                                    height: 24
-                                                    radius: 4
-                                                    color: "#46687f"
-                                                    border.color: "#829eaf"
+                                                    anchors.horizontalCenter: boomGrip.horizontalCenter
+                                                    anchors.verticalCenter: boomGrip.verticalCenter
+                                                    width: 18
+                                                    height: boomGrip.height + 22
+                                                    radius: 8
+                                                    color: "#111e28"
+                                                    border.color: "#698492"
                                                 }
                                                 Rectangle {
                                                     anchors.left: parent.left
@@ -575,10 +587,12 @@ Rectangle {
                                                     }
                                                 }
                                                 ThrottleGrip {
+                                                    id: boomGrip
                                                     visible: !operationRow.vertical
                                                     anchors.left: parent.left
                                                     anchors.right: parent.right
                                                     anchors.bottom: parent.bottom
+                                                    anchors.bottomMargin: 11
                                                     height: 43
                                                     caption: "RELATIVE"
                                                     valueText: Math.round(analogSlider.value).toString()
@@ -653,12 +667,13 @@ Rectangle {
                         Layout.fillWidth: true
                         spacing: 4
                         readonly property bool sharedCommandAddress: root.accessory.sharedCommandAddress === true
-                        readonly property real operationWidth: width * 0.40
+                        readonly property real operationWidth: width * (sharedCommandAddress ? 0.40 : 0.27)
 
                         component MappingRow: Rectangle {
                             id: mappingRow
                             required property string operationText
                             required property string mappingText
+                            property string keyText: ""
                             property bool heading: false
                             Layout.fillWidth: true
                             implicitHeight: mappingLayout.implicitHeight + 16
@@ -671,6 +686,15 @@ Rectangle {
                                 anchors.margins: 8
                                 spacing: 12
 
+                                Label {
+                                    visible: !infoMappings.sharedCommandAddress
+                                    Layout.preferredWidth: infoMappings.width * 0.18
+                                    text: mappingRow.keyText
+                                    color: mappingRow.heading ? "#aeb7c2" : "white"
+                                    font.pixelSize: root.compact ? 16 : 20
+                                    font.bold: mappingRow.heading
+                                    wrapMode: Text.Wrap
+                                }
                                 Label {
                                     Layout.preferredWidth: infoMappings.operationWidth
                                     text: mappingRow.operationText
@@ -702,12 +726,12 @@ Rectangle {
                         }
 
                         Label {
-                            visible: infoMappings.sharedCommandAddress && text.length > 0
+                            visible: (root.accessory.accessoryTypeName || "").length > 0
                             Layout.fillWidth: true
                             Layout.leftMargin: 8
                             Layout.rightMargin: 8
                             Layout.bottomMargin: 8
-                            text: root.accessory.accessoryTypeName || ""
+                            text: "Type: " + (root.accessory.accessoryTypeName || "")
                             color: "#aeb7c2"
                             font.pixelSize: root.compact ? 16 : 20
                             wrapMode: Text.Wrap
@@ -716,6 +740,7 @@ Rectangle {
                         MappingRow {
                             heading: true
                             operationText: "Operation"
+                            keyText: "Key"
                             mappingText: infoMappings.sharedCommandAddress ? "Accessory Panel Keys" : "Assignment"
                         }
 
@@ -726,6 +751,7 @@ Rectangle {
                                 readonly property var assignments: modelData.lcsLabels || []
                                 readonly property string keys: modelData.accessoryKeys || ""
                                 operationText: modelData.label
+                                keyText: modelData.key || ""
                                 mappingText: infoMappings.sharedCommandAddress ? keys
                                     : ["TMCC " + modelData.tmccId].concat(assignments).concat(keys ? [keys] : []).join(" · ")
                             }

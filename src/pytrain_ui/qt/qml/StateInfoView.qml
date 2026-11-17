@@ -8,6 +8,7 @@ Rectangle {
     PanelMetrics { id: metrics }
     required property var controller
     signal closeRequested()
+    property bool showCloseButton: true
     readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
     readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible ||
         accessoryName.keyboardOpen || accessoryNumberPad.visible || accessoryIdPad.visible || overwriteAccessory.visible
@@ -174,6 +175,7 @@ Rectangle {
 
         ScrollView {
             id: details
+            objectName: "stateInfoDetails"
             Layout.topMargin: root.compactAccessoryIdentity
                 ? Math.max(0, recordFooter.buttonHeight - panelLayout.spacing
                     - accessoryRoadNameLabel.implicitHeight - accessoryFields.spacing) : 0
@@ -441,6 +443,7 @@ Rectangle {
                 }
                 StateInfoGrid {
                     id: membership
+                    objectName: "consistDetails"
                     Layout.fillWidth: true
                     rows: root.record.membership || []
                     visible: rows.length > 0
@@ -463,6 +466,8 @@ Rectangle {
                 onActivated: root.controller.clear()
             }
             FooterButton {
+                objectName: "closeStateInfoButton"
+                visible: root.showCloseButton || root.addingAccessory || root.record.creating
                 Layout.preferredHeight: recordFooter.buttonHeight
                 text: root.addingAccessory || (root.record.creating && !root.record.busy) ? "Cancel" : "Close"
                 onClicked: root.closeRequested()
@@ -592,6 +597,7 @@ Rectangle {
 
     Popup {
         id: fieldEditor
+        objectName: "stateInfoFieldEditor"
         property var field: ({})
         property string errorText: ""
         readonly property bool roadName: field.key === "name"
@@ -717,6 +723,7 @@ Rectangle {
                 Layout.fillWidth: true
                 TextField {
                     id: entry
+                    objectName: "stateInfoFieldEntry"
                     Layout.fillWidth: true
                     Layout.preferredHeight: fieldEditor.numeric ? 68 : 52
                     maximumLength: fieldEditor.numeric ? 4 : 31

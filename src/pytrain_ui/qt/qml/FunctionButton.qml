@@ -116,11 +116,22 @@ Control {
             transform: Translate { y: root.visualPressed ? 2 : 0 }
         }
 
+        PowerIcon {
+            visible: root.trialIcon === "power-on" || root.trialIcon === "power-off"
+            powerOn: root.trialIcon === "power-on"
+            depressed: root.visualPressed
+            opacity: root.iconOpacity
+            Layout.alignment: Qt.AlignCenter
+            Layout.preferredWidth: Math.min(root.iconSize, root.availableWidth)
+            Layout.preferredHeight: Layout.preferredWidth
+        }
+
         Canvas {
             id: trialArtwork
             readonly property bool raisedIcon: root.trialIcon !== "clack"
 
             visible: root.trialIcon !== "" && root.detailedIcon === ""
+                && root.trialIcon !== "power-on" && root.trialIcon !== "power-off"
             transform: [
                 Scale {
                     origin.x: trialArtwork.width / 2
@@ -150,13 +161,11 @@ Control {
                 ctx.strokeStyle = ctx.fillStyle
                 if (raisedIcon) {
                     const relief = ctx.createLinearGradient(10, 7, 51, 58)
-                    const on = root.trialIcon === "power-on"
-                    const off = root.trialIcon === "power-off"
                     const bell = root.trialIcon === "bell"
-                    relief.addColorStop(0, on ? "#a2edaa" : off ? "#ffb3af" : "#ffffff")
-                    relief.addColorStop(0.37, on ? "#5ed671" : off ? "#f16a64" : "#f7faff")
-                    relief.addColorStop(0.75, on ? "#3cc357" : off ? "#dd4946" : "#e7edf4")
-                    relief.addColorStop(1, on ? "#229840" : off ? "#ad302e" : "#dce4ec")
+                    relief.addColorStop(0, "#ffffff")
+                    relief.addColorStop(0.37, "#f7faff")
+                    relief.addColorStop(0.75, "#e7edf4")
+                    relief.addColorStop(1, "#dce4ec")
                     ctx.fillStyle = relief
                     ctx.strokeStyle = relief
                     ctx.shadowColor = bell ? "rgba(18, 27, 36, 0.7)" : "rgba(11, 19, 28, 0.85)"
@@ -201,14 +210,6 @@ Control {
                 }
 
                 switch (root.trialIcon) {
-                case "power-on":
-                case "power-off":
-                    ctx.lineWidth = 6
-                    ctx.beginPath()
-                    ctx.arc(32, 33, 20, -Math.PI / 3, 4 * Math.PI / 3)
-                    ctx.stroke()
-                    line([[32, 8], [32, 33]])
-                    break
                 case "tower":
                     polygon([[13, 17], [51, 17], [46, 34], [18, 34]])
                     ctx.save()

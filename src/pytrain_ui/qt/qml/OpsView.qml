@@ -11,6 +11,11 @@ RosterPanel {
     required property var controller
     property var lcsController: null
     property bool editorNavigationPending: false
+    readonly property string activePanelTitle: lcsConfig.visible ? "LCS Device Manager"
+        : routeBuilder.visible ? "Route Builder"
+        : addSwitchPopup.visible ? "Add Switch"
+        : switchEditor.visible ? "Edit Switch " + editingSwitchId
+        : controller && controller.scope === "SWITCH" ? "Switches" : "Routes"
     readonly property bool hasUnsavedRouteChanges: routeBuilder.visible && controller.routeBuilderOpen &&
         (controller.routeBuilderDirty || routeNameField.keyboardDirty ||
          routeIdField.text.trim() !== (controller.routeBuilderId ? String(controller.routeBuilderId) : "") ||

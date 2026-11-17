@@ -10,6 +10,8 @@ Item {
     required property var accessory
     readonly property string accessoryKey: accessory.key || ""
     readonly property bool motorsSelected: tabs.currentIndex === 0
+    readonly property real tabTop: motorsTab.parent
+        ? motorsTab.parent.mapToItem(root, 0, motorsTab.y).y : tabs.y
     onAccessoryKeyChanged: tabs.currentIndex = 0
 
     Rectangle {
@@ -31,7 +33,7 @@ Item {
         spacing: 6
         padding: 0
         background: Item {}
-        CabPageTab { text: "Motors"; height: tabs.height }
+        CabPageTab { id: motorsTab; text: "Motors"; height: tabs.height }
         CabPageTab { text: "Lights"; height: tabs.height }
     }
 

@@ -161,12 +161,17 @@ Popup {
 
             TextField {
                 id: baseIdField
+                objectName: "lcsBaseTmccId"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
                 text: root.controller ? String(root.controller.baseId) : "1"
                 font.pixelSize: 20
                 inputMethodHints: Qt.ImhDigitsOnly
                 validator: IntValidator { bottom: 1; top: 98 }
+                onTextChanged: {
+                    if (root.controller && acceptableInput)
+                        root.controller.setBaseId(Number(text))
+                }
                 onEditingFinished: {
                     if (root.controller)
                         root.controller.setBaseId(Number(text))

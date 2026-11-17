@@ -20,7 +20,31 @@ ApplicationWindow {
     palette.buttonText: "#ffffff"
     palette.highlight: "#246aa0"
     palette.highlightedText: "#ffffff"
-    title: "PyTrain — " + activeScope
+    readonly property string activePanelTitle: {
+        if (manageVisible)
+            return "Manage PyTrain"
+        if (accessoryLcsConfig.visible)
+            return "LCS Device Manager"
+        if (stateInfoVisible) {
+            const model = stateInfoController.model
+            if (model.addingAccessory)
+                return "Add Accessory"
+            if (model.creating)
+                return "Create Engine"
+            return (model.scopeTitle || stateInfoScope) + " Information"
+        }
+        if (activeScope === "SWITCH")
+            return switchOpsView.activePanelTitle
+        if (activeScope === "ROUTE")
+            return routeOpsView.activePanelTitle
+        if (activeScope === "ACCESSORY")
+            return accessoryOperatingVisible ? (activeAccessory.title || "Accessory Controls") : "Accessories"
+        if (engineCatalogVisible)
+            return activeScope === "TRAIN" ? "Trains" : "Engines"
+        return (activeScope === "TRAIN" ? "Train " : "Engine ")
+            + (operatingCabView.effectsVisible ? operatingCabView.effectsPageTitle : "Controls")
+    }
+    title: "PyTrain — " + activePanelTitle
     onClosing: Qt.quit()
 
     property bool manageVisible: false
@@ -47,23 +71,26 @@ ApplicationWindow {
     property string stateInfoScope: "ENGINE"
     property int stateInfoId: 0
     property bool stateInfoFromRoster: false
+    property bool stateInfoFromTab: false
 
     Connections {
         target: accessoryCatalogController
         function onChanged() { window.accessoryRevision++ }
     }
 
-    function openStateInfo(scope, tmccId, fromRoster, deviceKind = "") {
+    function openStateInfo(scope, tmccId, fromRoster, deviceKind = "", fromTab = false) {
         operatingCabView.closeDialogPanel()
         stateInfoScope = scope
         stateInfoId = tmccId
         stateInfoFromRoster = fromRoster
+        stateInfoFromTab = fromTab
         stateInfoVisible = true
         stateInfoController.openFor(scope, tmccId, fromRoster, deviceKind)
     }
 
     function closeStateInfo() {
         stateInfoVisible = false
+        stateInfoFromTab = false
         stateInfoController.close()
         if (stateInfoScope === "ACC") accessoryCatalogController.reload()
     }
@@ -95,6 +122,9 @@ ApplicationWindow {
     }
 
     function changeScope(scope, showKeypad) {
+        const sameAccessoryScope = scope === "ACCESSORY" && window.activeScope === "ACCESSORY"
+        const showAccessoryRoster = sameAccessoryScope && window.accessoryOperatingVisible
+        const selectedAccessoryKey = sameAccessoryScope ? window.activeAccessoryKey : ""
         closeOpenPanels()
         if (scope === "SWITCH") {
             switchOpsController.reload()
@@ -108,11 +138,15 @@ ApplicationWindow {
             accessoryCatalogController.reload()
             window.activeScope = "ACCESSORY"
             window.engineCatalogVisible = false
-            if (!showKeypad && window.lastOperatedAccessoryKey) {
-                const key = window.lastOperatedAccessoryKey
+            const key = selectedAccessoryKey || window.lastOperatedAccessoryKey
+            if (!showKeypad && key) {
                 if (!accessoryCatalogController.descriptor(key).key) {
-                    window.lastOperatedAccessoryKey = ""
-                } else if (window.lastAccessoryOperationFromRoster) {
+                    if (window.activeAccessoryKey === key)
+                        window.activeAccessoryKey = ""
+                    if (window.lastOperatedAccessoryKey === key)
+                        window.lastOperatedAccessoryKey = ""
+                } else if (showAccessoryRoster ||
+                           (!selectedAccessoryKey && window.lastAccessoryOperationFromRoster)) {
                     Qt.callLater(accessoryCatalog.restoreRosterPosition, key)
                 } else {
                     window.activeAccessoryKey = key
@@ -321,8 +355,17 @@ ApplicationWindow {
                         infoController: stateInfoController
                         stateInfoVisible: window.stateInfoVisible
                         stateInfoFromRoster: window.stateInfoFromRoster
+                        stateInfoFromTab: window.stateInfoFromTab
                         stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
-                        onStateInfoRequested: window.openStateInfo(cabController.scope, cabController.tmccId, false)
+                        onStateInfoRequested: window.requestEditorExit(() =>
+                            window.openStateInfo(cabController.scope, cabController.tmccId, false))
+                        onStateInfoTabRequested: window.requestEditorExit(() =>
+                            window.openStateInfo(cabController.scope, cabController.tmccId, false, "", true))
+                        onControlPageRequested: index => window.requestEditorExit(() => {
+                            if (window.stateInfoVisible)
+                                window.closeStateInfo()
+                            operatingCabView.selectControlPage(index)
+                        })
                         onStateInfoClosed: window.requestEditorExit(window.closeStateInfo)
                         onCabMenuRequested: cabMenu.open()
                     }

@@ -10,16 +10,31 @@ Rectangle {
     property var infoController: null
     property bool stateInfoVisible: false
     property bool stateInfoFromRoster: false
+    property bool stateInfoFromTab: false
     property string stateInfoIdentity: ""
     readonly property bool stateInfoEditorOpen: stateInfo.editorOpen
     readonly property bool stateInfoHasUnsavedChanges: stateInfo.hasUnsavedChanges
     signal cabMenuRequested()
     signal stateInfoRequested()
+    signal stateInfoTabRequested()
+    signal controlPageRequested(int index)
     signal stateInfoClosed()
     property bool effectsVisible: false
+    readonly property string effectsPageTitle: cab.isCrane ? "Sound" : cab.isTransformer ? "Speed"
+        : cab.isElectric ? "Speed & Effects" : "Speed/Volume"
     property string selectedAnalogMode: "Horn"
     readonly property bool dialogPanelOpen: dialogPanel.visible
     readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible || bellHornPanel.visible || dialogPanelOpen
+    readonly property int currentPageIndex: root.stateInfoVisible && !root.stateInfoFromRoster
+        ? (cab.isAccessoryEngine ? 1 : 2) : root.effectsVisible && !cab.isAccessoryEngine ? 1 : 0
+    onCurrentPageIndexChanged: pageTabs.currentIndex = currentPageIndex
+
+    function selectControlPage(index) {
+        effectsVisible = index === 1 && !cab.isAccessoryEngine
+        pageTabs.currentIndex = currentPageIndex
+        actionScroll.contentItem.contentY = 0
+    }
+
     property string requestedDirection: ""
     readonly property string reportedDirection: cab.direction
     readonly property string targetKey: cab.scope + ":" + cab.tmccId
@@ -574,7 +589,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 compact: root.compact
-                menuEnabled: !root.stateInfoVisible
+                menuEnabled: !root.stateInfoVisible || !root.stateInfoFromRoster
                 title: root.stateInfoVisible && root.stateInfoFromRoster
                        ? (root.stateInfoIdentity.startsWith("ENGINE") ? "Engine record" : "Train record")
                        : (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
@@ -619,30 +634,36 @@ Rectangle {
 
                 TabBar {
                     id: pageTabs
+                    parent: root.stateInfoVisible && !root.stateInfoFromRoster ? infoTabSlot : operatingColumns
                     objectName: "cabPageTabs"
                     implicitWidth: 0
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
                     height: 56
-                    currentIndex: root.effectsVisible && !cab.isAccessoryEngine ? 1 : 0
+                    currentIndex: root.currentPageIndex
                     spacing: 6
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: cab.isAccessoryEngine ? ["Controls"]
-                            : ["Controls", cab.isCrane ? "Sound" : cab.isTransformer ? "Speed" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
+                        model: cab.isAccessoryEngine ? ["Controls", "Info"]
+                            : ["Controls", root.effectsPageTitle, "Info"]
                         CabPageTab {
                             required property int index
                             required property string modelData
-                            objectName: index === 0 ? "driveTab" : "speedTab"
-                            width: (pageTabs.availableWidth - pageTabs.spacing) / 2
+                            objectName: modelData === "Info" ? "cabInfoTab" : index === 0 ? "driveTab" : "speedTab"
+                            width: (pageTabs.availableWidth - pageTabs.spacing * (pageTabs.count - 1)) / pageTabs.count
                             height: pageTabs.height
                             y: 0
                             text: modelData
                             onClicked: {
-                                root.effectsVisible = index === 1
-                                actionScroll.contentItem.contentY = 0
+                                pageTabs.currentIndex = root.currentPageIndex
+                                if (modelData === "Info") {
+                                    if (!root.stateInfoVisible)
+                                        root.stateInfoTabRequested()
+                                } else {
+                                    root.controlPageRequested(index)
+                                }
                             }
                         }
                     }
@@ -1087,6 +1108,17 @@ Rectangle {
             }
         }
 
+        Item {
+            id: infoTabSlot
+            visible: root.stateInfoVisible && !root.stateInfoFromRoster
+            Layout.preferredWidth: operatingColumns.width
+            Layout.maximumWidth: Layout.preferredWidth
+            Layout.preferredHeight: pageTabs.height
+            Layout.minimumHeight: Layout.preferredHeight
+            Layout.maximumHeight: Layout.preferredHeight
+            Layout.topMargin: 16
+        }
+
         RowLayout {
             visible: root.stateInfoVisible
             Layout.fillWidth: true
@@ -1137,18 +1169,13 @@ Rectangle {
         StateInfoView {
             id: stateInfo
             visible: root.stateInfoVisible
+            showCloseButton: !root.stateInfoFromTab
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
             Layout.maximumHeight: implicitHeight
             controller: root.infoController
             onCloseRequested: root.stateInfoClosed()
-        }
-
-        Item {
-            visible: root.stateInfoVisible
-            Layout.fillHeight: true
-            Layout.preferredHeight: Math.max(0, cabLayout.height - cabHeader.height - stateInfo.implicitHeight - 140)
         }
 
         Connections {

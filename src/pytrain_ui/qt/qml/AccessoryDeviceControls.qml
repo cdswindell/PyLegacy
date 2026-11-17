@@ -11,6 +11,7 @@ Item {
     required property bool compact
     property bool showTmccTab: true
     property bool fillTmccKeypad: false
+    signal infoRequested()
     readonly property string kind: accessory.kind || ""
     TabBar {
         id: sensorTabs
@@ -93,6 +94,7 @@ Item {
     }
 
     Amc2Controls {
+        id: amcControls
         anchors.fill: parent
         visible: root.kind === "AMC2"
         controller: root.controller
@@ -115,6 +117,23 @@ Item {
             text: "Controls"
             height: tmccTabs.height
         }
+    }
+
+    CabButton {
+        objectName: "accessoryDeviceInfo"
+        visible: tmccTabs.visible || root.kind === "SENSOR" || root.kind === "AMC2"
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: root.kind === "AMC2" ? amcControls.tabTop
+            : root.kind === "SENSOR" && actionTab.parent
+                ? actionTab.parent.mapToItem(root, 0, actionTab.y).y
+                : controlsTab.parent ? controlsTab.parent.mapToItem(root, 0, controlsTab.y).y
+                : metrics.accessoryTabInset
+        width: root.compact ? 108 : 132
+        height: tmccTabs.height
+        text: "Info"
+        enabled: !!root.accessory.tmccId
+        onClicked: root.infoRequested()
     }
 
     RowLayout {

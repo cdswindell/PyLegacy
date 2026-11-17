@@ -13,6 +13,8 @@ TabButton {
         color: root.checked ? "#ffffff" : "#aeb7c2"
         font.pixelSize: 18
         font.bold: true
+        fontSizeMode: Text.HorizontalFit
+        minimumPixelSize: 12
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }

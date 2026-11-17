@@ -1,5 +1,9 @@
 """Verify Qt LCS configuration readback without hardware or wall-clock delays."""
 
+import os
+from pathlib import Path
+import subprocess
+import sys
 from unittest.mock import Mock
 
 import pytest
@@ -106,3 +110,108 @@ def test_reply_in_other_switch_mode_reports_mode_mismatch(lcs_readback) -> None:
     assert controller.configureState == "error"
     assert "not set as sent: Mode" in controller.configureStatus
     dispatcher.unsubscribe.assert_called_once()
+
+
+# Embedded Qt identifiers retain their API spelling.
+# noinspection SpellCheckingInspection
+LIVE_ADDRESS_CHILD = r"""
+from pathlib import Path
+import sys
+from unittest.mock import Mock, patch
+
+from PySide6.QtCore import QMetaObject, QObject, Qt, QUrl
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickItem
+from PySide6.QtQuickControls2 import QQuickStyle
+
+from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.protocol.constants import CommandScope
+from pytrain.gui.controller.lcs_device_registry import ASC2, BPC2
+from pytrain.gui.controller.lcs_id_map import LcsOccupant
+from pytrain_ui.qt import lcs_controller as module
+
+QQuickStyle.setStyle("Basic")
+app = QGuiApplication([])
+devices = (
+    LcsOccupant(1, BPC2, BPC2.mode_for_pdi_mode(2), 8, scope=CommandScope.ACC),
+    LcsOccupant(20, ASC2, ASC2.mode_for_pdi_mode(0), 8, scope=CommandScope.ACC),
+)
+
+def occupants(address, scope):
+    return [item for item in devices if item.base_id <= address <= item.last_id and item.effective_scope == scope]
+
+def overlaps(address, count, scope):
+    return [item for item in devices
+            if item.base_id <= address + count - 1 and address <= item.last_id and item.effective_scope == scope]
+
+with (
+    patch.object(module, "occupants_of", occupants),
+    patch.object(module, "overlaps", overlaps),
+    patch.object(ComponentStateStore, "get_state", Mock(return_value=None)),
+    patch.object(module.PdiDispatcher, "is_built", return_value=False),
+):
+    controller = module.LcsConfigController()
+    engine = QQmlEngine()
+    engine.rootContext().setContextProperty("lcsController", controller)
+    component = QQmlComponent(engine)
+    component.setData(b'''
+import QtQuick
+import QtQuick.Controls
+import "."
+ApplicationWindow {
+    width: 720
+    height: 1280
+    visible: true
+    LcsConfig { controller: lcsController }
+}
+''', QUrl.fromLocalFile(str(Path(sys.argv[1]) / "LiveLcsAddress.qml")))
+    window = component.create()
+    assert window is not None, component.errorString()
+    panel = window.findChild(QObject, "lcsDeviceManager")
+    assert panel is not None
+    assert QMetaObject.invokeMethod(panel, "open", Qt.DirectConnection)
+    controller.selectDevice("asc2")
+    controller.selectMode("acc_8")
+    panel.setProperty("page", 1)
+    app.processEvents()
+    field = window.findChild(QQuickItem, "lcsBaseTmccId")
+    assert field is not None
+    field.forceActiveFocus()
+    assert controller.assignments == [{"text": "BPC2 ACC 1 - 8"}]
+
+    field.setProperty("text", "17")
+    assert field.hasActiveFocus()
+    assert controller.baseId == 17
+    assert controller.assignments == []
+    assert controller.conflicts == [{"text": "ASC2 ACC 20 - 27"}]
+
+    field.setProperty("text", "22")
+    assert field.hasActiveFocus()
+    assert controller.baseId == 22
+    assert controller.assignments == [{"text": "ASC2 ACC 20 - 27"}]
+    assert controller.conflicts == []
+
+    field.setProperty("text", "")
+    assert controller.baseId == 22
+    panel.setProperty("baseIdText", "40")
+    assert controller.baseId == 40
+    assert controller.assignments == [] and controller.conflicts == []
+    assert QMetaObject.invokeMethod(panel, "close", Qt.DirectConnection)
+    controller.clearConfigureStatus()
+    window.close()
+"""
+
+
+def test_lcs_assignments_and_overlaps_refresh_while_editing_the_address() -> None:
+    pytest.importorskip("PySide6")
+    qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
+    result = subprocess.run(
+        [sys.executable, "-c", LIVE_ADDRESS_CHILD, str(qml_directory)],
+        env=dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software"),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

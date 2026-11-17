@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 CabButton {
     id: root
@@ -12,6 +14,27 @@ CabButton {
     signal accessoryPressChanged(bool active)
 
     activateOnRelease: true
+
+    contentItem: RowLayout {
+        spacing: 6
+        Item { Layout.fillWidth: true }
+        PowerIcon {
+            visible: root.action === "ON" || root.action === "OFF"
+            powerOn: root.action === "ON"
+            depressed: root.visualPressed
+            opacity: root.enabled ? 1 : 0.5
+            Layout.preferredWidth: 32
+            Layout.preferredHeight: 32
+        }
+        Label {
+            text: root.text
+            font: root.font
+            color: root.enabled ? "#ffffff" : "#7d8591"
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+        }
+        Item { Layout.fillWidth: true }
+    }
 
     Item {
         objectName: "asc2HoldDecoration"

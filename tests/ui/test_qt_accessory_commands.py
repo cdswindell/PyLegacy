@@ -971,3 +971,78 @@ def test_operating_panel_disables_gated_buttons_and_preserves_gesture_lifecycle(
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Error:" not in result.stderr, result.stderr
+
+
+# Embedded JavaScript uses Qt's required identifier spelling.
+# noinspection SpellCheckingInspection
+SCOPE_NAVIGATION_CHILD = r"""
+from pathlib import Path
+import sys
+
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtQml import QJSEngine
+
+app = QCoreApplication([])
+engine = QJSEngine()
+source = Path(sys.argv[1]).read_text()
+function = source.split("    function changeScope(", 1)[1].split("    function navigateFromMenu(", 1)[0]
+result = engine.evaluate('''
+var window = {
+    activeScope: "ACCESSORY", activeAccessoryKey: "configured:loader",
+    lastOperatedAccessoryKey: "", lastAccessoryOperationFromRoster: false,
+    accessoryOperatingVisible: true, engineCatalogVisible: false
+};
+var valid = true;
+var restored = "";
+var keypadCount = 0;
+var accessoryCatalogController = {
+    reload: function() {},
+    descriptor: function(key) { return valid ? {key: key} : {}; }
+};
+var accessoryCatalog = {
+    restoreRosterPosition: function(key) { restored = key; },
+    openTmccKeypad: function() { keypadCount++; }
+};
+var Qt = {callLater: function(callback, argument) { callback(argument); }};
+function closeOpenPanels() { window.accessoryOperatingVisible = false; }
+function check(condition, message) { if (!condition) throw new Error(message); }
+''' + "function changeScope(" + function + '''
+changeScope("ACCESSORY", false);
+check(!window.accessoryOperatingVisible, "Controls should return to the roster");
+check(restored === "configured:loader", "The roster should reveal the selected accessory");
+changeScope("ACCESSORY", false);
+check(window.accessoryOperatingVisible, "The roster should return to the selected controls");
+changeScope("ACCESSORY", true);
+check(!window.accessoryOperatingVisible && keypadCount === 1, "The keypad gesture should open the keypad");
+changeScope("ACCESSORY", false);
+check(window.accessoryOperatingVisible, "The keypad should preserve the selected accessory");
+valid = false;
+changeScope("ACCESSORY", false);
+check(!window.accessoryOperatingVisible && !window.activeAccessoryKey, "Deleted selections should be cleared");
+changeScope("ACCESSORY", false);
+check(!window.accessoryOperatingVisible, "An empty selection should stay on the roster");
+valid = true;
+window.activeScope = "ENGINE";
+window.lastOperatedAccessoryKey = "configured:loader";
+changeScope("ACCESSORY", false);
+check(window.accessoryOperatingVisible, "Returning from another scope should recall the last accessory");
+window.activeScope = "ENGINE";
+window.lastOperatedAccessoryKey = "relay:30";
+window.lastAccessoryOperationFromRoster = true;
+changeScope("ACCESSORY", false);
+check(!window.accessoryOperatingVisible && restored === "relay:30", "Relay recall should restore its roster row");
+''')
+assert not result.isError(), result.toString()
+"""
+
+
+def test_accessory_scope_toggles_controls_roster_and_preserves_keypad_navigation() -> None:
+    main_qml = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml" / "Main.qml"
+    result = subprocess.run(
+        [sys.executable, "-c", SCOPE_NAVIGATION_CHILD, str(main_qml)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

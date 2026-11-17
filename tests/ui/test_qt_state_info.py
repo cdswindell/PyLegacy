@@ -530,3 +530,171 @@ def test_state_info_clear_button_tracks_record_permissions() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# Embedded Qt identifiers retain their API spelling.
+# noinspection SpellCheckingInspection
+INFO_TABS_CHILD = r"""
+import sys
+import traceback
+from unittest.mock import Mock, patch
+
+from PySide6.QtCore import QObject, QTimer, Qt
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlEngine, QQmlExpression
+
+from PySide6.QtTest import QTest
+from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.protocol.constants import CommandScope
+from pytrain_ui.qt.app import run_cab
+
+store = ComponentStateStore.build()
+for scope in (CommandScope.ENGINE, CommandScope.TRAIN):
+    state = store.get_state(scope, 1)
+    state.initialize(scope, 1)
+    state.comp_data.road_name = "Test Engine" if scope == CommandScope.ENGINE else "Test Train"
+    state.comp_data.road_number = "0001"
+    state.comp_data.engine_type = 0
+    state.comp_data.control_type = 1
+
+failures = []
+
+def app_factory(argv):
+    app = QGuiApplication(argv)
+
+    def checks():
+        try:
+            window = next(w for w in app.allWindows() if w.property("activeScope") is not None)
+
+            def evaluate(source, target=window):
+                expression = QQmlExpression(QQmlEngine.contextForObject(target), target, source)
+                result = expression.evaluate()
+                assert not expression.hasError(), expression.error().toString()
+                return result[0] if isinstance(result, tuple) else result
+
+            def descendants(item):
+                yield item
+                for child in item.childItems():
+                    yield from descendants(child)
+
+            def visible(name):
+                return next(item for item in descendants(window.contentItem())
+                            if item.isVisible() and item.objectName() == name)
+
+            def click(item):
+                QTest.mouseClick(window, Qt.LeftButton,
+                                 pos=item.mapToScene(item.boundingRect().center()).toPoint())
+                QTest.qWait(60)
+
+            def click_label(label):
+                click(next(item for item in descendants(window.contentItem())
+                           if item.isVisible() and item.property("text") == label
+                           and item.metaObject().indexOfSignal("clicked()") >= 0))
+
+            for scope in ("ENGINE", "TRAIN"):
+                evaluate('window.activeScope = "' + scope + '"; window.engineCatalogVisible = false')
+                assert evaluate('cabController.selectAddress("' + scope + '", 1)')
+                QTest.qWait(100)
+                click(visible("cabInfoTab"))
+                assert evaluate("window.stateInfoVisible")
+                expected_title = "PyTrain — " + ("Train" if scope == "TRAIN" else "Engine") + " Information"
+                assert window.property("title") == expected_title
+                assert visible("cabInfoTab").property("checked")
+                assert not any(item.isVisible() for item in descendants(window.contentItem())
+                               if item.objectName() == "closeStateInfoButton")
+                assert visible("driveTab").isVisible() and visible("speedTab").isVisible()
+                details = visible("stateInfoDetails")
+                membership = visible("consistDetails")
+                bottom = membership.mapToItem(details, membership.boundingRect().bottomLeft()).y()
+                assert bottom <= details.height() + 1, (bottom, details.height())
+                click(visible("speedTab"))
+                assert not evaluate("window.stateInfoVisible")
+                assert visible("speedTab").property("checked")
+                expected_title = "PyTrain — " + ("Train" if scope == "TRAIN" else "Engine") + " Speed/Volume"
+                assert window.property("title") == expected_title
+                click(visible("cabInfoTab"))
+                assert visible("cabInfoTab").property("checked")
+                click(visible("driveTab"))
+                assert not evaluate("window.stateInfoVisible")
+                assert visible("driveTab").property("checked")
+
+                evaluate('window.openStateInfo("' + scope + '", 1, false)')
+                QTest.qWait(60)
+                click(visible("closeStateInfoButton"))
+                assert not evaluate("window.stateInfoVisible")
+
+                for destination in ("tab", "menu"):
+                    click(visible("cabInfoTab"))
+                    editor = next(obj for obj in window.findChildren(QObject)
+                                  if obj.objectName() == "stateInfoFieldEditor")
+                    evaluate('openFor(root.record.identity.find(field => field.key === "number"))', editor)
+                    QTest.qWait(30)
+                    entry = visible("stateInfoFieldEntry")
+                    entry.setProperty("text", "1234")
+                    if destination == "tab":
+                        click(visible("driveTab"))
+                    else:
+                        evaluate('window.navigateFromMenu("Manage PyTrain")')
+                    confirmation = next(obj for obj in window.findChildren(QObject)
+                                        if obj.objectName() == "discardChangesConfirmation")
+                    assert confirmation.property("visible")
+                    assert evaluate("window.stateInfoVisible")
+                    assert visible("cabInfoTab").property("checked")
+                    click_label("Keep Editing")
+                    assert evaluate("window.stateInfoVisible") and entry.property("text") == "1234"
+                    if destination == "tab":
+                        click(visible("driveTab"))
+                    else:
+                        evaluate('window.navigateFromMenu("Manage PyTrain")')
+                    click_label("Discard")
+                    assert not evaluate("window.stateInfoVisible")
+                    if destination == "tab":
+                        assert visible("driveTab").property("checked")
+                    else:
+                        assert evaluate("window.manageVisible")
+                        assert window.property("title") == "PyTrain — Manage PyTrain"
+                        evaluate("window.manageVisible = false")
+            evaluate('window.navigateFromMenu("Route Builder")')
+            QTest.qWait(60)
+            assert window.property("title") == "PyTrain — Route Builder"
+            evaluate('window.navigateFromMenu("LCS Device Manager")')
+            QTest.qWait(60)
+            assert window.property("title") == "PyTrain — LCS Device Manager"
+            evaluate('window.changeScope("SWITCH", false)')
+            assert window.property("title") == "PyTrain — Switches"
+            evaluate('window.changeScope("ACCESSORY", false)')
+            assert window.property("title") == "PyTrain — Accessories"
+        except Exception as error:
+            traceback.print_exc()
+            failures.append(error)
+        finally:
+            app.exit(1 if failures else 0)
+
+    QTimer.singleShot(150, checks)
+    return app
+
+with (
+    patch("PySide6.QtGui.QGuiApplication", side_effect=app_factory),
+    patch("pytrain.comm.command_listener.CommandDispatcher.get", return_value=Mock()),
+    patch("pytrain_ui.qt.session.restore_engine", return_value=None),
+    patch("pytrain_ui.qt.session.save_engine"),
+    patch("pytrain.protocol.command_req.CommandReq.send"),
+    patch("pytrain.comm.comm_buffer.CommBuffer.build", return_value=Mock()),
+    patch("pytrain.pdi.base_req.BaseReq.process_sync_reqs"),
+):
+    result = run_cab(CommandScope.ENGINE, 1, [])
+sys.exit(result)
+"""
+
+
+def test_engine_and_train_info_tabs_preserve_navigation_and_confirm_discard() -> None:
+    pytest.importorskip("PySide6")
+    result = subprocess.run(
+        [sys.executable, "-c", INFO_TABS_CHILD],
+        env=dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software"),
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

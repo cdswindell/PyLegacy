@@ -290,6 +290,8 @@ class AccessoryCatalogController(QObject):
 
     @staticmethod
     def _state_summary(descriptor: AccessoryDescriptor) -> str:
+        if descriptor.kind == "TMCC" or (descriptor.kind == "OPERATING" and not descriptor.lcs_labels):
+            return ""
         summaries: list[str] = []
         component_names = dict(descriptor.component_names)
         for tmcc_id in descriptor.tmcc_ids:
