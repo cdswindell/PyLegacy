@@ -16,6 +16,7 @@ Control {
     property bool auxFace: false
     property bool steelFace: false
     property bool largeLabel: false
+    property int labelSideInset: 0
     readonly property int largeLabelSize: font.pixelSize + 6
     property string subtitle: ""
     readonly property bool trialFace: steelFace || auxFace || largeLabel || trialIcon !== "" || speedFace
@@ -368,6 +369,8 @@ Control {
             visible: root.labelChevron === 0 && !root.auxFace
             text: root.displayLabel
             wrapMode: root.wrapLabel ? Text.WordWrap : Text.NoWrap
+            Layout.leftMargin: root.labelSideInset
+            Layout.rightMargin: root.labelSideInset
             fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
             minimumPixelSize: 10
             color: root.enabled ? (root.trialFace ? "#ffffff" : root.textColor) : "#858c96"

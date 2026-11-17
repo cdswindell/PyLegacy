@@ -74,9 +74,10 @@ GridLayout {
                 stacked: true
                 padding: 3
                 fitLabelWidth: true
+                labelSideInset: metrics.cabActionLabelInset
                 iconSize: Math.max(10, Math.min(width - 8,
                     metrics.cabActionIconSize(height, root.compact) * (key.small ? 0.65 : 1)))
-                font.pixelSize: (root.compact ? 14 : 18) + (key.label && !key.icon ? 6 : 0) - (root.accScope ? 1 : 0)
+                font.pixelSize: metrics.cabActionLabelSize(root.compact) + (key.label && !key.icon ? 6 : 0)
                 font.bold: key.command === "SET_ADDRESS" || /^Aux [123]$/.test(text)
                 showRepeatDecorator: repeatWhileHeld
                 repeatWhileHeld: numeric || !!key.interval

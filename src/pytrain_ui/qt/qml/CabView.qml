@@ -475,6 +475,7 @@ Rectangle {
         wrapLabel: !fitLabelWidth
         fitLabelWidth: action.key.endsWith("_coupler")
                        || ["water_injector", "option_one_on", "option_one_off"].includes(action.key)
+        labelSideInset: fitLabelWidth ? metrics.cabActionLabelInset : 0
         padding: root.compact ? 4 : 6
         wideArtwork: action.key === "car_lights_on" || action.key === "car_lights_off"
         iconSize: metrics.cabActionIconSize(availableTileHeight, root.compact)
@@ -502,7 +503,7 @@ Rectangle {
         enabled: !action.disabled && (!action.speedPreset || root.speedPresetsEnabled)
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
-        font.pixelSize: root.compact ? (wideArtwork ? 12 : 14) : 18
+        font.pixelSize: metrics.cabActionLabelSize(root.compact)
         font.bold: auxFace || largeLabel
         deferForHold: action.hold || false
         holdThreshold: action.holdThreshold || 1000

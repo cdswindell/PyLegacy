@@ -15,6 +15,10 @@ QtObject {
     function cabActionTileHeight(compact) {
         return compact ? 72 : 112
     }
+    readonly property int cabActionLabelInset: 4
+    function cabActionLabelSize(compact) {
+        return compact ? 13 : 17
+    }
     function cabActionIconSize(tileHeight, compact) {
         // Reserve the same space for the label and padding at both sizes.
         return Math.max(12, Math.min(compact ? 40 : 72, tileHeight - (compact ? 32 : 40)))
