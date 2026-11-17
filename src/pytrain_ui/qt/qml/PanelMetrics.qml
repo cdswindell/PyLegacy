@@ -8,5 +8,9 @@ QtObject {
     function footerOffset(rowHeight, layoutSpacing) {
         return Math.max(0, rowHeight - layoutSpacing)
     }
+    function cabActionIconSize(tileHeight, compact) {
+        // Reserve the same space for the label and padding at both sizes.
+        return Math.max(12, Math.min(compact ? 40 : 72, tileHeight - (compact ? 32 : 40)))
+    }
     readonly property int editorButtonFontSize: 20
 }

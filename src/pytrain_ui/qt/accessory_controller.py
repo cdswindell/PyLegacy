@@ -450,6 +450,9 @@ class AccessoryCatalogController(QObject):
         elif name in {
             "BOOST",
             "BRAKE",
+            "SET_ADDRESS",
+            "AUX1_ON",
+            "AUX1_OFF",
             "AUX1_OPT_ONE",
             "AUX2_OPT_ONE",
             "FRONT_COUPLER",

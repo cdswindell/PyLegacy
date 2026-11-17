@@ -167,6 +167,7 @@ Rectangle {
             visible: root.kind !== "" && root.kind !== "OPERATING"
             controller: root.controller
             accessory: root.accessory
+            compact: root.compact
         }
 
         ListView {

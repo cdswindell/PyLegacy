@@ -32,6 +32,9 @@ Control {
     readonly property bool speedFace: speedChevrons > 0 || trialIcon === "boost" || trialIcon === "brake"
     property int speedChevrons: 0
     property bool stopSign: false
+    property string octagonLabel: "STOP"
+    property string iconGlyph: ""
+    property bool showRepeatDecorator: false
     property color faceAccent: "transparent"
     property bool selected: false
     property bool compact: false
@@ -271,6 +274,15 @@ Control {
                     ctx.fillRect(4, 51, 24, 5)
                     ctx.fillRect(36, 51, 24, 5)
                     break
+                case "numeric-down":
+                    ctx.translate(64, 64)
+                    ctx.rotate(Math.PI)
+                    // Fall through to the shared thin arrow.
+                case "numeric-up":
+                    ctx.lineWidth = 5
+                    line([[32, 56], [32, 8]])
+                    line([[15, 25], [32, 8], [49, 25]])
+                    break
                 case "brake":
                     ctx.translate(64, 64)
                     ctx.rotate(Math.PI)
@@ -280,6 +292,18 @@ Control {
                     break
                 }
             }
+        }
+
+        Label {
+            visible: root.iconGlyph.length > 0
+            Layout.preferredHeight: root.iconSize
+            Layout.alignment: Qt.AlignCenter
+            verticalAlignment: Text.AlignVCenter
+            opacity: root.iconOpacity
+            text: root.iconGlyph
+            color: "white"
+            font.pixelSize: root.iconSize
+            font.bold: true
         }
 
         Canvas {
@@ -304,7 +328,7 @@ Control {
                 context.lineTo(2, height - cut)
                 context.lineTo(2, cut)
                 context.closePath()
-                context.fillStyle = "#b51f2a"
+                context.fillStyle = root.octagonLabel === "STOP" ? "#b51f2a" : "#101010"
                 context.strokeStyle = "#ffffff"
                 context.lineWidth = 2
                 context.fill()
@@ -313,9 +337,9 @@ Control {
 
             Text {
                 anchors.centerIn: parent
-                text: "STOP"
+                text: root.octagonLabel
                 color: "#ffffff"
-                font.pixelSize: Math.max(1, Math.round(root.iconSize * 0.25))
+                font.pixelSize: Math.max(1, Math.round(root.iconSize * (root.octagonLabel === "STOP" ? 0.25 : 0.46)))
                 font.bold: true
             }
         }
@@ -347,7 +371,7 @@ Control {
             fontSizeMode: root.fitLabelWidth ? Text.HorizontalFit : Text.FixedSize
             minimumPixelSize: 10
             color: root.enabled ? (root.trialFace ? "#ffffff" : root.textColor) : "#858c96"
-            font: root.largeLabel ? Qt.font({family: root.font.family, pixelSize: root.largeLabelSize, bold: true}) : root.font
+            font: root.largeLabel ? Qt.font({family: root.font.family, pixelSize: root.largeLabelSize, bold: root.font.bold}) : root.font
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
@@ -365,7 +389,7 @@ Control {
                 text: root.displayLabel
                 color: root.enabled ? "#ffffff" : "#858c96"
                 font.pixelSize: root.largeLabelSize
-                font.bold: true
+                font.bold: root.font.bold
                 horizontalAlignment: Text.AlignHCenter
             }
 
@@ -483,7 +507,7 @@ Control {
         }
 
         Item {
-            visible: !root.steelFace && (root.additionalHoldAction
+            visible: !root.steelFace && (root.additionalHoldAction || root.showRepeatDecorator
                      || (root.trialFace && (root.deferForHold || root.repeatWhileHeld)))
             anchors.top: parent.top
             anchors.right: parent.right

@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -16,8 +17,9 @@ from pytrain.pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction
 from pytrain.pdi.irda_req import IrdaSequence
 from pytrain.pdi.pdi_req import PdiReq
 from pytrain.protocol.command_req import CommandReq
-from pytrain.protocol.constants import CommandScope
-from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from pytrain.protocol.constants import LOCO_ACCESSORY, CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
+from pytrain_ui.adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from pytrain_ui.qt import accessory_controller as module
 from pytrain_ui.qt.accessory_controller import AccessoryCatalogController, AccessoryDescriptor, AccessoryViewKind
 
@@ -111,6 +113,11 @@ def test_tmcc_keypad_and_relative_speed_target_the_selected_address(controller, 
     controller.tmccCommand(key, 24, "RELATIVE_SPEED", -5)
     controller.tmccCommand(key, 24, "RELATIVE_SPEED", 0)
     controller.tmccCommand(key, 24, "BOOST", 0)
+    controller.tmccCommand(key, 24, "SET_ADDRESS", 0)
+    controller.tmccCommand(key, 24, "AUX1_ON", 0)
+    controller.tmccCommand(key, 24, "AUX1_OFF", 0)
+    for unsupported in ("HORN", "BELL", "AUX3_OPT_ONE"):
+        controller.tmccCommand(key, 24, unsupported, 0)
     controller.tmccCommand(key, 25, "BRAKE", 0)
     controller.tmccCommand(key, 24, "RELATIVE_SPEED", 6)
     assert [(req.address, req.command, req.data) for req in sent] == [
@@ -118,7 +125,40 @@ def test_tmcc_keypad_and_relative_speed_target_the_selected_address(controller, 
         (24, TMCC1AuxCommandEnum.RELATIVE_SPEED, -5),
         (24, TMCC1AuxCommandEnum.RELATIVE_SPEED, 0),
         (24, TMCC1AuxCommandEnum.BOOST, 0),
+        (24, TMCC1AuxCommandEnum.SET_ADDRESS, 0),
+        (24, TMCC1AuxCommandEnum.AUX1_ON, 0),
+        (24, TMCC1AuxCommandEnum.AUX1_OFF, 0),
     ]
+
+
+def test_accessory_engine_panel_uses_current_address_and_tmcc1_engine_scope(sent):
+    state = SimpleNamespace(scope=CommandScope.ENGINE, tmcc_id=39, engine_type=LOCO_ACCESSORY, is_legacy=True)
+    adapter = PyTrainCabCommandAdapter(Mock(spec=PyTrainCabStateAdapter, state=state))
+    assert adapter.is_cab1
+    adapter.accessory_engine_command("NUMERIC", 0)
+    adapter.accessory_engine_command("NUMERIC", 9)
+    adapter.accessory_engine_command("HORN", 0)
+    adapter.accessory_engine_command("BELL", 0)
+    adapter.accessory_engine_command("SET_ADDRESS", 0)
+    adapter.accessory_engine_command("NUMERIC", 10)
+    adapter.accessory_engine_command("START_UP_IMMEDIATE", 0)
+    adapter.accessory_engine_command("SHUTDOWN_IMMEDIATE", 0)
+    assert adapter.supports_smoke()
+    adapter.set_smoke(1)
+    adapter.set_momentum(3)
+    assert [(req.scope, req.address, req.command, req.data) for req in sent] == [
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.NUMERIC, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.NUMERIC, 9),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.BLOW_HORN_ONE, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.RING_BELL, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.SET_ADDRESS, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.START_UP_IMMEDIATE, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.SMOKE_ON, 0),
+        (CommandScope.ENGINE, 39, TMCC1EngineCommandEnum.MOMENTUM_MEDIUM, 0),
+    ]
+    assert all(req.command_def.is_aux1_prefixed for req in sent[5:7])
+    assert [req.as_bytes[-1] & 0x0F for req in sent[5:7]] == [3, 5]
 
 
 def test_sensor_sequence_targets_the_irda_device(controller, sent, monkeypatch):
@@ -158,7 +198,7 @@ def test_amc2_power_preserves_the_slider_level_until_set_to_an_endpoint(controll
     state = SimpleNamespace(
         get_motor=lambda _channel: motor_state,
         get_lamp=lambda _channel: lamp_state,
-        is_motor_on=lambda reading: reading.speed > 0,
+        is_motor_on=lambda motor_readback: motor_readback.speed > 0,
     )
     # Replace only the readback lookup so packet assertions still use the real sender.
     # noinspection PyProtectedMember

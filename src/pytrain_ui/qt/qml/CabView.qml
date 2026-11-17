@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    PanelMetrics { id: metrics }
     required property var cab
     required property var selection
     property var infoController: null
@@ -30,6 +31,8 @@ Rectangle {
     onReportedDirectionChanged: requestedDirection = ""
     onTargetKeyChanged: {
         requestedDirection = ""
+        if (cab.isAccessoryEngine)
+            effectsVisible = false
         selectedAnalogMode = "Horn"
         Qt.callLater(root.syncAnalogMode)
         if (actionScroll && actionScroll.contentItem) {
@@ -56,8 +59,8 @@ Rectangle {
         Layout.preferredHeight: root.sliderButtonHeight
         text: delta > 0 ? "+" : "−"
         font.pixelSize: root.compact ? 32 : 38
-        enabled: (delta > 0 ? cab.speed < cab.speedMax : cab.speed > 0)
-                 && (cab.isCab1 || (!root.standaloneCar && !cab.isCrane && !cab.rampActive))
+        enabled: cab.isCab1 || ((delta > 0 ? cab.speed < cab.speedMax : cab.speed > 0)
+                 && !root.standaloneCar && !cab.isCrane && !cab.rampActive)
         repeatWhileHeld: !cab.isCab1
         onClicked: {
             if (cab.isCab1)
@@ -93,7 +96,7 @@ Rectangle {
             editSpeedLimit()
             return
         }
-        stateValueDialog.openFor(label, cab.isLegacy, cab.stateEditValues[label], cab.scope + " " + cab.tmccId,
+        stateValueDialog.openFor(label, cab.isLegacy && !cab.isAccessoryEngine, cab.stateEditValues[label], cab.scope + " " + cab.tmccId,
                                  label === "Mom" ? cab.mediumMomentum() : 3)
     }
 
@@ -474,7 +477,7 @@ Rectangle {
                        || ["water_injector", "option_one_on", "option_one_off"].includes(action.key)
         padding: root.compact ? 4 : 6
         wideArtwork: action.key === "car_lights_on" || action.key === "car_lights_off"
-        iconSize: Math.max(12, (root.compact ? 40 : 72) - (root.preferredTileHeight - availableTileHeight))
+        iconSize: metrics.cabActionIconSize(availableTileHeight, root.compact)
         compact: auxiliary
         text: showGauge ? action.label + " " + (gaugeLevel >= 0 ? gaugeLevel + "%" : "—")
               : largeLabel ? "Set Address"
@@ -501,6 +504,7 @@ Rectangle {
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
         font.pixelSize: root.compact ? (wideArtwork ? 12 : 14) : 18
+        font.bold: auxFace || largeLabel
         deferForHold: action.hold || false
         holdThreshold: action.holdThreshold || 1000
         repeatWhileHeld: action.repeat || false
@@ -621,7 +625,7 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     height: 56
-                    currentIndex: root.effectsVisible ? 1 : 0
+                    currentIndex: root.effectsVisible && !cab.isAccessoryEngine ? 1 : 0
                     spacing: 6
                     padding: 0
                     background: Item {}
@@ -631,6 +635,7 @@ Rectangle {
                             required property int index
                             required property string modelData
                             objectName: index === 0 ? "driveTab" : "speedTab"
+                            enabled: index === 0 || !cab.isAccessoryEngine
                             width: (pageTabs.availableWidth - pageTabs.spacing) / 2
                             height: pageTabs.height
                             y: 0
@@ -744,10 +749,22 @@ Rectangle {
                     }
                 }
 
+                AccessoryCabKeys {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: artwork.bottom
+                    anchors.topMargin: root.gap
+                    anchors.bottom: parent.bottom
+                    visible: cab.isAccessoryEngine
+                    tmccId: cab.tmccId
+                    compact: root.compact
+                    onCommandRequested: (command, value) => cab.accessoryEngineCommand(command, value)
+                }
+
                 ScrollView {
                     id: actionScroll
                     objectName: "cabActionScroll"
-                    visible: !root.effectsVisible
+                    visible: !cab.isAccessoryEngine && !root.effectsVisible
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: artwork.bottom
@@ -773,7 +790,7 @@ Rectangle {
                     anchors.top: artwork.bottom
                     anchors.topMargin: root.gap
                     anchors.bottom: parent.bottom
-                    visible: root.effectsVisible
+                    visible: !cab.isAccessoryEngine && root.effectsVisible
                     rows: root.speedActionRows()
                     fittedRowHeight: Math.max(1, Math.min(root.preferredTileHeight,
                         Math.floor((height - Math.max(0, rows.length - 1) * spacing) / Math.max(1, rows.length))))
@@ -784,7 +801,7 @@ Rectangle {
                     objectName: "auxiliaryGrid"
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    visible: !root.effectsVisible
+                    visible: !cab.isAccessoryEngine && !root.effectsVisible
                     height: root.tileHeight
                     y: visible
                         ? Math.min(parent.height - height, actionScroll.y + 5 * (height + root.gap))
@@ -813,7 +830,8 @@ Rectangle {
                 readonly property int extraSliderSpacing: cab.analogModes.length > 0 ? 8 : 0
                 readonly property int extraSecondaryWidth: cab.analogModes.length > 0 ? 8 + cabLayout.edgeExpansion : 0
                 readonly property real originalAreaWidth: cabLayout.width - 2 * cabLayout.edgeExpansion
-                width: (originalAreaWidth - root.gap - cabLayout.extraOperatingWidth) * 2 / 5 + extraSliderSpacing + extraSecondaryWidth
+                width: cab.isAccessoryEngine ? Math.max(108, Math.min(164, drivingArea.width * 0.22))
+                    : (originalAreaWidth - root.gap - cabLayout.extraOperatingWidth) * 2 / 5 + extraSliderSpacing + extraSecondaryWidth
                 radius: 10
                 color: "#102858"
                 border.color: "#496b9d"
@@ -1152,7 +1170,10 @@ Rectangle {
                 Rectangle {
                     id: stateTile
                     required property var modelData
-                    readonly property bool editable: !root.standaloneCar && !cab.isCrane && !cab.isCab1 && (
+                    readonly property bool editable: cab.isAccessoryEngine
+                        ? ((modelData.label === "Mom" && cab.supportsMomentum)
+                           || (modelData.label === "Smoke" && cab.supportsSmoke))
+                        : !root.standaloneCar && !cab.isCrane && !cab.isCab1 && (
                         !cab.isTransformer || modelData.label === "Speed Lim") && (
                         (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||

@@ -6,7 +6,7 @@ from threading import Thread
 
 from pytrain.pdi.base_req import BaseReq
 from pytrain.protocol.command_req import CommandReq
-from pytrain.protocol.constants import CAB1_CONTROL_TYPE, TMCC_CONTROL_TYPE, CommandScope
+from pytrain.protocol.constants import CAB1_CONTROL_TYPE, LOCO_ACCESSORY, TMCC_CONTROL_TYPE, CommandScope
 from pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2RailSoundsDialogControl
 from pytrain.protocol.sequence.labor_effect import LaborEffectDownReq, LaborEffectUpReq
 from pytrain.protocol.sequence.ramp_speed_req import RampSpeedDialogReq, RampSpeedReq
@@ -43,8 +43,38 @@ class PyTrainCabCommandAdapter:
         return self.controller_type_key == "t"
 
     @property
+    def is_accessory_engine(self) -> bool:
+        return self.state.scope == CommandScope.ENGINE and getattr(self.state, "engine_type", None) == LOCO_ACCESSORY
+
+    @property
     def is_cab1(self) -> bool:
-        return not self.is_transformer and getattr(self.state, "control_type", None) == CAB1_CONTROL_TYPE
+        return self.is_accessory_engine or (
+            not self.is_transformer and getattr(self.state, "control_type", None) == CAB1_CONTROL_TYPE
+        )
+
+    def accessory_engine_command(self, name: str, value: int) -> None:
+        state = self.state
+        if not self.is_accessory_engine or not 1 <= state.tmcc_id <= 98:
+            return
+        if name == "NUMERIC" and 0 <= value <= 9:
+            CommandReq.build(TMCC1EngineCommandEnum.NUMERIC, state.tmcc_id, value).send()
+            return
+        command_names = {
+            "SET_ADDRESS": "SET_ADDRESS",
+            "START_UP_IMMEDIATE": "START_UP_IMMEDIATE",
+            "SHUTDOWN_IMMEDIATE": "SHUTDOWN_IMMEDIATE",
+            "AUX1_OPT_ONE": "AUX1_OPTION_ONE",
+            "AUX2_OPT_ONE": "AUX2_OPTION_ONE",
+            "AUX3_OPT_ONE": "AUX3_OPTION_ONE",
+            "FRONT_COUPLER": "FRONT_COUPLER",
+            "REAR_COUPLER": "REAR_COUPLER",
+            "BOOST": "BOOST_SPEED",
+            "BRAKE": "BRAKE_SPEED",
+            "HORN": "BLOW_HORN_ONE",
+            "BELL": "RING_BELL",
+        }
+        if name in command_names:
+            CommandReq.build(TMCC1EngineCommandEnum[command_names[name]], state.tmcc_id).send()
 
     @property
     def _enum_type(self):
@@ -325,12 +355,12 @@ class PyTrainCabCommandAdapter:
         return True
 
     def supports_smoke(self) -> bool:
-        if self.state.is_legacy:
+        if self.state.is_legacy and not self.is_accessory_engine:
             return self.supports_effect("SMOKE_OFF") and self.supports_effect("SMOKE_HIGH")
         return self.supports_named("SMOKE_OFF") and self.supports_named("SMOKE_ON")
 
     def set_smoke(self, value: int) -> None:
-        if not self.state.is_legacy:
+        if self.is_accessory_engine or not self.state.is_legacy:
             self.send_named("SMOKE_ON" if value > 0 else "SMOKE_OFF")
             return
         levels = (

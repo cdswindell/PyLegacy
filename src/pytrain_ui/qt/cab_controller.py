@@ -468,6 +468,15 @@ class CabController(QObject):
         return self._command_port is not None and self._command_port.is_transformer
 
     @Property(bool, notify=stateChanged)
+    def isAccessoryEngine(self) -> bool:
+        return self._command_port is not None and self._command_port.is_accessory_engine
+
+    @Slot(str, int)
+    def accessoryEngineCommand(self, name: str, value: int) -> None:
+        if self._command_port is not None:
+            self._command_port.accessory_engine_command(name, value)
+
+    @Property(bool, notify=stateChanged)
     def isCab1(self) -> bool:
         return self._command_port is not None and self._command_port.is_cab1
 
@@ -483,7 +492,7 @@ class CabController(QObject):
 
     @Property(list, notify=stateChanged)
     def analogModes(self) -> list[str]:
-        if self._command_port is None:
+        if self._command_port is None or self.isAccessoryEngine:
             return []
         if self.isCab1 or self.isCrane or self.isStandalonePassenger or self.isStandaloneFreight:
             return ["Horn"]
@@ -549,7 +558,9 @@ class CabController(QObject):
 
     @Property(bool, notify=stateChanged)
     def supportsMomentum(self) -> bool:
-        return bool(self._command_port is not None and self._command_port.control_profile.supports_momentum)
+        return self.isAccessoryEngine or bool(
+            self._command_port is not None and self._command_port.control_profile.supports_momentum
+        )
 
     @Property(bool, notify=stateChanged)
     def supportsTrainBrake(self) -> bool:
