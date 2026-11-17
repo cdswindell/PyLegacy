@@ -17,6 +17,7 @@ from .base_defs import (
     variant_key_from_filename,
 )
 from ..accessory_registry import (
+    DEFAULT_OPERATION_REPEAT_MS,
     AccessoryRegistry,
     AccessoryTypeSpec,
     OperationSpec,
@@ -24,6 +25,7 @@ from ..accessory_registry import (
     VariantSpec,
 )
 from ..accessory_type import AccessoryType
+from ....protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 
 """
 Smoke Fluid Loader accessory definition (GUI-agnostic).
@@ -55,6 +57,8 @@ def register_smoke_fluid_loader(registry: AccessoryRegistry) -> None:
             key="lights",
             label="Lights",
             behavior=PortBehavior.COMMAND,
+            command_on=TMCC1AuxCommandEnum.AUX_NUMBER_9,
+            command_off=TMCC1AuxCommandEnum.AUX_NUMBER_8,
             off_image="off_button.jpg",
             on_image="on_button.jpg",
             width=72,
@@ -65,6 +69,9 @@ def register_smoke_fluid_loader(registry: AccessoryRegistry) -> None:
             label="Boom Left",
             image="left_arrow.jpg",
             behavior=PortBehavior.COMMAND,
+            command=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+            command_data=2,
+            repeat=DEFAULT_OPERATION_REPEAT_MS,
             width=72,
             height=72,
         ),
@@ -73,6 +80,9 @@ def register_smoke_fluid_loader(registry: AccessoryRegistry) -> None:
             label="Boom Right",
             image="right_arrow.jpg",
             behavior=PortBehavior.COMMAND,
+            command=TMCC1AuxCommandEnum.RELATIVE_SPEED,
+            command_data=-2,
+            repeat=DEFAULT_OPERATION_REPEAT_MS,
             width=72,
             height=72,
         ),
@@ -81,6 +91,7 @@ def register_smoke_fluid_loader(registry: AccessoryRegistry) -> None:
             label="Dispense",
             image="smoke-fluid.png",
             behavior=PortBehavior.COMMAND,
+            command=TMCC1AuxCommandEnum.BRAKE,
             width=72,
             height=72,
         ),

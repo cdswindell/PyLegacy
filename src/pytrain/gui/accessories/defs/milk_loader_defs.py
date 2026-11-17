@@ -89,6 +89,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
             key="eject",
             label="Eject",
             behavior=PortBehavior.MOMENTARY_HOLD,
+            gated_by="power",
             image="depot-milk-can-eject.jpeg",
             width=72,
             height=72,

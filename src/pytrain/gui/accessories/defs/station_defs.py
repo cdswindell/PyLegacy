@@ -162,6 +162,7 @@ def register_station(registry: AccessoryRegistry) -> None:
             key="platform",
             label="Load/Unload",
             behavior=PortBehavior.LATCH,
+            gated_by="power",
             # Default latch images (can be overridden per-variant)
             off_image="loaded.png",  # unloaded
             on_image="freight-waiting.jpg",  # loaded (freight default)

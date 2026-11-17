@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from src.pytrain.gui.accessories.accessory_registry import (
@@ -10,6 +12,7 @@ from src.pytrain.gui.accessories.accessory_registry import (
     VariantSpec,
 )
 from src.pytrain.gui.accessories.accessory_type import AccessoryType
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 
 
 @pytest.fixture()
@@ -219,3 +222,174 @@ def test_operation_label_override(reg: AccessoryRegistry) -> None:
     labels = reg.operation_labels(d)
     assert labels["action"] == "Do Thing"
     assert labels["power"] == "Power"
+
+
+@pytest.mark.parametrize(
+    ("gates", "message"),
+    [
+        (("missing", None), "unknown key 'missing'"),
+        (("   ", None), "unknown key"),
+        ((42, None), "unknown key"),
+        ((" POWER ", None), "Power gate cycle"),
+        (("action", "power"), "Power gate cycle"),
+    ],
+)
+def test_invalid_power_gates_are_rejected(reg: AccessoryRegistry, gates: tuple[Any, str | None], message: str) -> None:
+    spec = _mk_spec(
+        type_=AccessoryType.PLAYGROUND,
+        variants=[],
+        operations=[
+            OperationSpec("power", "Power", PortBehavior.LATCH, gated_by=gates[0]),
+            OperationSpec("action", "Action", PortBehavior.LATCH, gated_by=gates[1]),
+        ],
+    )
+    with pytest.raises(ValueError, match=message):
+        reg.register(spec)
+
+
+def test_power_gate_resolves_case_insensitively_even_when_declared_later(reg: AccessoryRegistry) -> None:
+    spec = _mk_spec(
+        type_=AccessoryType.PLAYGROUND,
+        variants=[VariantSpec(key="v1", display="V1", title="V1", image="v1.jpg")],
+        operations=[
+            OperationSpec("action", "Action", PortBehavior.LATCH, gated_by=" POWER "),
+            OperationSpec("power", "Power", PortBehavior.LATCH),
+        ],
+    )
+    reg.register(spec)
+    definition = reg.get_definition(spec.type, None)
+    assert definition.operations[0].gated_by == " POWER "
+
+
+@pytest.mark.parametrize(
+    ("behavior", "metadata", "message"),
+    [
+        (PortBehavior.COMMAND, {}, "requires command"),
+        (PortBehavior.COMMAND, {"command_on": Aux.AUX_NUMBER_9}, "requires command"),
+        (PortBehavior.COMMAND, {"command_off": Aux.AUX_NUMBER_8}, "requires command"),
+        (
+            PortBehavior.COMMAND,
+            {"command_on": "AUX_NUMBER_9", "command_off": Aux.AUX_NUMBER_8},
+            "CommandDefEnum members",
+        ),
+        (
+            PortBehavior.COMMAND,
+            {"command_on": Aux.AUX_NUMBER_9, "command_off": 8},
+            "CommandDefEnum members",
+        ),
+        (PortBehavior.COMMAND, {"command": "BRAKE"}, "CommandDefEnum members"),
+        (
+            PortBehavior.COMMAND,
+            {"command": Aux.BRAKE, "command_on": Aux.AUX_NUMBER_9, "command_off": Aux.AUX_NUMBER_8},
+            "cannot combine",
+        ),
+        (PortBehavior.COMMAND, {"command": Aux.RELATIVE_SPEED}, "requires valid integer command_data"),
+        (
+            PortBehavior.COMMAND,
+            {"command": Aux.RELATIVE_SPEED, "command_data": True},
+            "requires valid integer command_data",
+        ),
+        (
+            PortBehavior.COMMAND,
+            {"command": Aux.RELATIVE_SPEED, "command_data": 20},
+            "requires valid integer command_data",
+        ),
+        (PortBehavior.COMMAND, {"command": Aux.BRAKE, "command_data": 1}, "does not accept command_data"),
+        (
+            PortBehavior.COMMAND,
+            {"command_on": Aux.NUMERIC, "command_off": Aux.AUX_NUMBER_8},
+            "must encode their own data",
+        ),
+        (PortBehavior.COMMAND, {"command": Aux.BRAKE, "repeat": 0}, "positive integer in milliseconds"),
+        (PortBehavior.COMMAND, {"command": Aux.BRAKE, "repeat": True}, "positive integer in milliseconds"),
+        (PortBehavior.COMMAND, {"command": Aux.BRAKE, "repeat": 100.5}, "positive integer in milliseconds"),
+        (PortBehavior.COMMAND, {"command": Aux.BRAKE, "repeat": -100}, "positive integer in milliseconds"),
+        (PortBehavior.LATCH, {"command": Aux.BRAKE}, "must use COMMAND"),
+        (
+            PortBehavior.MOMENTARY_PULSE,
+            {"command_on": Aux.AUX_NUMBER_9, "command_off": Aux.AUX_NUMBER_8},
+            "must use COMMAND",
+        ),
+        (PortBehavior.LATCH, {"command_data": 1}, "must use COMMAND"),
+        (PortBehavior.MOMENTARY_HOLD, {"repeat": 100}, "must use COMMAND"),
+    ],
+)
+def test_invalid_command_metadata_is_rejected(
+    reg: AccessoryRegistry, behavior: PortBehavior, metadata: dict[str, Any], message: str
+) -> None:
+    spec = _mk_spec(
+        type_=AccessoryType.PLAYGROUND,
+        variants=[],
+        operations=[OperationSpec("action", "Action", behavior, **metadata)],
+    )
+    with pytest.raises(ValueError, match=message):
+        reg.register(spec)
+
+
+def test_builtin_power_gates_and_command_bindings_are_exposed_in_resolved_operations(reg: AccessoryRegistry) -> None:
+    reg.bootstrap()
+    for accessory_type, action in (
+        (AccessoryType.FIRE_STATION, "alarm"),
+        (AccessoryType.GAS_STATION, "action"),
+        (AccessoryType.CONTROL_TOWER, "action"),
+        (AccessoryType.FREIGHT_DEPOT, "load"),
+        (AccessoryType.HOBBY_SHOP, "action"),
+        (AccessoryType.MILK_LOADER, "eject"),
+        (AccessoryType.STATION, "platform"),
+    ):
+        operations = {op.key: op for op in reg.get_definition(accessory_type, None).operations}
+        assert operations[action].gated_by == "power"
+        assert operations["power"].gated_by is None
+        assert operations["power"].pulse_duration is None
+        if "conveyor" in operations:
+            assert operations["conveyor"].gated_by is None
+
+    station = reg.get_definition(AccessoryType.STATION, None)
+    platform = next(op for op in station.operations if op.key == "platform")
+    assert platform.behavior == PortBehavior.LATCH
+    assert platform.pulse_duration is None
+
+    operations = {op.key: op for op in reg.get_definition(AccessoryType.SMOKE_FLUID_LOADER, None).operations}
+    assert operations["lights"].command_on is Aux.AUX_NUMBER_9
+    assert operations["lights"].command_off is Aux.AUX_NUMBER_8
+    assert operations["lights"].repeat is None
+    for key, speed in (("boom_left", 2), ("boom_right", -2)):
+        assert operations[key].command is Aux.RELATIVE_SPEED
+        assert operations[key].command_data == speed
+        assert operations[key].repeat == 100
+    assert operations["dispense"].command is Aux.BRAKE
+    assert operations["dispense"].pulse_duration is None
+
+
+@pytest.mark.parametrize("duration", [0, 0.5, 250.0, 251, 2560, True])
+def test_invalid_asc2_pulse_duration_is_rejected(reg: AccessoryRegistry, duration: Any) -> None:
+    spec = _mk_spec(
+        type_=AccessoryType.FIRE_STATION,
+        variants=[],
+        operations=[OperationSpec("alarm", "Alarm", PortBehavior.MOMENTARY_PULSE, pulse_duration=duration)],
+    )
+    with pytest.raises(ValueError, match="pulse_duration must be"):
+        reg.register(spec)
+
+
+def test_pulse_duration_requires_pulse_behavior(reg: AccessoryRegistry) -> None:
+    spec = _mk_spec(
+        type_=AccessoryType.FIRE_STATION,
+        variants=[],
+        operations=[OperationSpec("power", "Power", PortBehavior.LATCH, pulse_duration=250)],
+    )
+    with pytest.raises(ValueError, match="must use MOMENTARY_PULSE"):
+        reg.register(spec)
+
+
+@pytest.mark.parametrize("duration", [None, 10, 250, 2550])
+def test_resolved_operation_keeps_pulse_duration(reg: AccessoryRegistry, duration: int | None) -> None:
+    spec = _mk_spec(
+        type_=AccessoryType.FIRE_STATION,
+        variants=[VariantSpec(key="v1", display="V1", title="V1", image="v1.jpg")],
+        operations=[OperationSpec("alarm", "Alarm", PortBehavior.MOMENTARY_PULSE, pulse_duration=duration)],
+    )
+    reg.register(spec)
+    expected = 200 if duration is None else duration
+    assert spec.operations[0].pulse_duration == expected
+    assert reg.get_definition(spec.type, None).operations[0].pulse_duration == expected

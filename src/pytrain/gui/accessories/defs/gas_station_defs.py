@@ -100,6 +100,7 @@ def register_gas_station(registry: AccessoryRegistry) -> None:
             key="action",
             label="Garage",
             behavior=PortBehavior.MOMENTARY_PULSE,
+            gated_by="power",
             image="gas-station-car.png",
             width=72,
             height=72,

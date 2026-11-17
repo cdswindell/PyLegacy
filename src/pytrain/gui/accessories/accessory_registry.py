@@ -14,12 +14,16 @@ import re
 from dataclasses import dataclass
 
 from .accessory_type import AccessoryType
+from ...protocol.command_def import CommandDefEnum
 from ...protocol.constants import Mixins
 from ...utils.singleton import singleton
 
 _NORM_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 
 log = logging.getLogger(__name__)
+
+DEFAULT_OPERATION_REPEAT_MS = 100
+DEFAULT_PULSE_DURATION_MS = 200
 
 
 def _variant_norm(s: str) -> str:
@@ -33,7 +37,7 @@ class PortBehavior(Mixins):
 
     - LATCH: on/off toggle (stateful)
     - MOMENTARY_HOLD: press=on, release=off
-    - MOMENTARY_PULSE: press triggers an action (no release behavior)
+    - MOMENTARY_PULSE: press activates the relay for a configured duration
     - COMMAND: tmcc command
     """
 
@@ -46,7 +50,7 @@ class PortBehavior(Mixins):
 @dataclass(frozen=True)
 class OperationSpec:
     """
-    Describes one operation (one ASC2 connection usage) for an accessory type.
+    Describes one relay or TMCC command operation for an accessory type.
 
     Each accessory instance provides a TMCC id per operation key.
     """
@@ -65,6 +69,18 @@ class OperationSpec:
     # Optional UI sizing hints
     width: int | None = None
     height: int | None = None
+
+    gated_by: str | None = None
+    pulse_duration: int | None = None  # Milliseconds for a timed ASC2 activation.
+    command: CommandDefEnum | None = None
+    command_on: CommandDefEnum | None = None
+    command_off: CommandDefEnum | None = None
+    command_data: int | None = None
+    repeat: int | None = None  # Milliseconds between commands while held.
+
+    def __post_init__(self) -> None:
+        if self.behavior == PortBehavior.MOMENTARY_PULSE and self.pulse_duration is None:
+            object.__setattr__(self, "pulse_duration", DEFAULT_PULSE_DURATION_MS)
 
 
 @dataclass(frozen=True)
@@ -130,6 +146,14 @@ class OperationAssets:
     # Pass-through UI hints
     width: int | None = None
     height: int | None = None
+
+    gated_by: str | None = None
+    pulse_duration: int | None = None  # Milliseconds for a timed ASC2 activation.
+    command: CommandDefEnum | None = None
+    command_on: CommandDefEnum | None = None
+    command_off: CommandDefEnum | None = None
+    command_data: int | None = None
+    repeat: int | None = None  # Milliseconds between commands while held.
 
 
 @dataclass(frozen=True)
@@ -450,6 +474,13 @@ class AccessoryRegistry:
             on_image=on_image,
             width=op.width,
             height=op.height,
+            gated_by=op.gated_by,
+            pulse_duration=op.pulse_duration,
+            command=op.command,
+            command_on=op.command_on,
+            command_off=op.command_off,
+            command_data=op.command_data,
+            repeat=op.repeat,
         )
 
     @staticmethod
@@ -485,6 +516,30 @@ class AccessoryRegistry:
                 raise ValueError(f"Duplicate operation key '{op.key}' in type '{spec.type}'")
             seen_ops.add(nk)
 
+        gates: dict[str, str] = {}
+        for op in spec.operations:
+            self._validate_operation_command(op)
+            duration = op.pulse_duration
+            if duration is not None:
+                if op.behavior != PortBehavior.MOMENTARY_PULSE:
+                    raise ValueError(f"Operation '{op.key}' must use MOMENTARY_PULSE for pulse_duration")
+                # ASC2 CONTROL1 encodes the duration as one byte in hundredths of a second.
+                if type(duration) is not int or not 10 <= duration <= 2550 or duration % 10:
+                    raise ValueError(f"Operation '{op.key}' pulse_duration must be 10–2550 ms in steps of 10 ms")
+            if op.gated_by is not None:
+                if not isinstance(op.gated_by, str) or self._norm(op.gated_by) not in seen_ops:
+                    raise ValueError(f"Operation '{op.key}' in type '{spec.type}' gates on unknown key {op.gated_by!r}")
+                gates[self._norm(op.key)] = self._norm(op.gated_by)
+
+        for operation in gates:
+            path: set[str] = set()
+            key = operation
+            while key in gates:
+                if key in path:
+                    raise ValueError(f"Power gate cycle for operation '{operation}' in type '{spec.type}'")
+                path.add(key)
+                key = gates[key]
+
         seen_vars: set[str] = set()
         for vs in spec.variants:
             nk = self._norm(vs.key)
@@ -492,11 +547,10 @@ class AccessoryRegistry:
                 raise ValueError(f"Duplicate variant key '{vs.key}' in type '{spec.type}'")
             seen_vars.add(nk)
 
-        valid_ops = {self._norm(op.key) for op in spec.operations}
         for vs in spec.variants:
             if vs.operation_labels:
                 for k in vs.operation_labels.keys():
-                    if self._norm(k) not in valid_ops:
+                    if self._norm(k) not in seen_ops:
                         log.warning(f"{spec.type} variant '{vs.key}' overrides unknown label op '{k}'")
 
         # check for default variant
@@ -505,3 +559,30 @@ class AccessoryRegistry:
             log.warning(f"Accessory type '{spec.type}' should define exactly one default variant")
         if len(defaults) > 1:
             raise ValueError(f"Accessory type '{spec.type}' defines multiple default variants")
+
+    @staticmethod
+    def _validate_operation_command(op: OperationSpec) -> None:
+        commands = tuple(command for command in (op.command, op.command_on, op.command_off) if command is not None)
+        if op.behavior != PortBehavior.COMMAND:
+            if commands or op.command_data is not None or op.repeat is not None:
+                raise ValueError(f"Operation '{op.key}' must use COMMAND for TMCC command metadata")
+            return
+
+        if any(not isinstance(command, CommandDefEnum) for command in commands):
+            raise ValueError(f"Operation '{op.key}' command values must be CommandDefEnum members")
+        if op.command is None:
+            if op.command_on is None or op.command_off is None:
+                raise ValueError(f"Operation '{op.key}' requires command or both command_on and command_off")
+            if op.command_data is not None or any(command.is_data for command in commands):
+                raise ValueError(f"Operation '{op.key}' command_on and command_off must encode their own data")
+        else:
+            if op.command_on is not None or op.command_off is not None:
+                raise ValueError(f"Operation '{op.key}' cannot combine command with command_on or command_off")
+            if op.command.is_data:
+                if type(op.command_data) is not int or not op.command.command_def.is_valid_data(op.command_data):
+                    raise ValueError(f"Operation '{op.key}' requires valid integer command_data")
+            elif op.command_data is not None:
+                raise ValueError(f"Operation '{op.key}' command does not accept command_data")
+
+        if op.repeat is not None and (type(op.repeat) is not int or op.repeat <= 0):
+            raise ValueError(f"Operation '{op.key}' repeat must be a positive integer in milliseconds")

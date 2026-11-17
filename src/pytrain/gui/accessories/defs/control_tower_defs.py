@@ -89,6 +89,7 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
             key="action",
             label="Action",
             behavior=PortBehavior.MOMENTARY_PULSE,
+            gated_by="power",
             image="control_tower_animation.gif",
             width=72,
             height=72,

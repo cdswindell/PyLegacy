@@ -83,6 +83,7 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
             key="action",
             label="Action",
             behavior=PortBehavior.LATCH,
+            gated_by="power",
         ),
     )
 

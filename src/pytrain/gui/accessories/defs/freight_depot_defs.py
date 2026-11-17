@@ -62,6 +62,7 @@ def register_freight_depot(registry: AccessoryRegistry) -> None:
             key="load",
             label="Load",
             behavior=PortBehavior.MOMENTARY_PULSE,
+            gated_by="power",
             # image can be overridden per-variant later if needed
             image="Man-With-Handcart.png",
             width=72,
