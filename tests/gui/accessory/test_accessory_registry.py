@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
+from src.pytrain.gui.accessories.accessory_base import AccessoryBase
+from src.pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
 from src.pytrain.gui.accessories.accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -12,6 +15,7 @@ from src.pytrain.gui.accessories.accessory_registry import (
     VariantSpec,
 )
 from src.pytrain.gui.accessories.accessory_type import AccessoryType
+from src.pytrain.gui.accessories.configured_accessory import ConfiguredAccessory
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 
 
@@ -393,3 +397,25 @@ def test_resolved_operation_keeps_pulse_duration(reg: AccessoryRegistry, duratio
     expected = 200 if duration is None else duration
     assert spec.operations[0].pulse_duration == expected
     assert reg.get_definition(spec.type, None).operations[0].pulse_duration == expected
+
+
+@pytest.mark.parametrize(
+    ("addresses", "expected"),
+    [
+        ({"tmcc_id": 60}, 60),
+        ({"tmcc_ids": {"action": 61}}, 61),
+        ({"tmcc_id": 60, "tmcc_ids": {"action": 61}}, 61),
+    ],
+)
+def test_legacy_culvert_gui_binds_configured_address(
+    reg: AccessoryRegistry, addresses: dict[str, Any], expected: int
+) -> None:
+    reg.bootstrap()
+    configured = ConfiguredAccessory({"gui": "culvert", **addresses}, reg, AccessoryGuiCatalog())
+
+    with patch.object(AccessoryBase, "__init__", return_value=None):
+        gui = configured.create_gui(aggregator=None)
+
+    # Inspect the resolved address without starting Tk or layout communication.
+    # noinspection PyProtectedMember
+    assert gui._action == expected

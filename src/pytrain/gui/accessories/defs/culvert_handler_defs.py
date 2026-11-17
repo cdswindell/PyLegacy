@@ -25,13 +25,13 @@ from ..accessory_registry import (
     VariantSpec,
 )
 from ..accessory_type import AccessoryType
+from ....protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 
 """
 Culvert Loader/Unloader accessory definition (GUI-agnostic).
 
 Ports / operations:
-  - power:  latch (on/off)
-  - action: momentary_hold (press/release)
+  - action: AUX2 toggles armed state
 
 Per-variant metadata:
   - flavor: "loader" or "unloader"
@@ -95,8 +95,9 @@ def register_culvert_handler(registry: AccessoryRegistry) -> None:
         OperationSpec(
             key="action",
             label="Action",
-            behavior=PortBehavior.MOMENTARY_HOLD,
-            # image/label can be overridden later if you add per-variant assets
+            behavior=PortBehavior.COMMAND,
+            command_on=TMCC1AuxCommandEnum.AUX2_OPT_ONE,
+            command_off=TMCC1AuxCommandEnum.AUX2_OPT_ONE,
             width=72,
             height=72,
         ),

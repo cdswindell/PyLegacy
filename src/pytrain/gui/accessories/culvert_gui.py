@@ -21,23 +21,29 @@ class CulvertGui(AccessoryBase):
 
     def __init__(
         self,
-        action: int,
+        action: int | None = None,
         variant: str = None,
         *,
+        tmcc_id: int | None = None,
         aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a Lionel Command Control Culvert Loader/Unloader.
 
         :param int action:
+            Legacy operation address. Takes precedence when both addresses are provided.
+
+        :param int tmcc_id:
             TMCC ID of the culvert loader/unloader.
 
         :param str variant:
             Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
         """
 
-        # identify the accessory
-        self._action = action
+        address = action if action is not None else tmcc_id
+        if address is None:
+            raise TypeError("CulvertGui requires tmcc_id or action")
+        self._action = address
         self._variant = variant
         self._action_button = None
         self._action_state = None
