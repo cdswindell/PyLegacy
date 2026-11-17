@@ -467,7 +467,7 @@ Rectangle {
             }
             FooterButton {
                 objectName: "closeStateInfoButton"
-                visible: root.showCloseButton || root.addingAccessory || root.record.creating
+                visible: root.showCloseButton || root.addingAccessory || !!root.record.creating
                 Layout.preferredHeight: recordFooter.buttonHeight
                 text: root.addingAccessory || (root.record.creating && !root.record.busy) ? "Cancel" : "Close"
                 onClicked: root.closeRequested()

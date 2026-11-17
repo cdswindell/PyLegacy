@@ -21,6 +21,7 @@ PyCab is the touchscreen cab for operating a Lionel layout through PyTrain. This
 13. [Route Operations and Route Builder](#route-operations-and-route-builder)
 14. [Manage PyTrain](#manage-pytrain)
 15. [LCS Device Manager](#lcs-device-manager)
+16. [Steam Deck](#steam-deck)
 
 ## Start PyCab
 
@@ -31,7 +32,7 @@ python -m pip install -e '.[qt-gui]'
 pycab --qt -client
 ```
 
-PyCab starts fullscreen on a detected Raspberry Pi or Steam Deck. Use **Manage PyTrain → Quit** to exit from the touchscreen. The desktop app also supports the normal window close action.
+PyCab starts fullscreen on a detected Raspberry Pi or an installation configured for Steam Deck. Use **Manage PyTrain → Quit** to exit from the touchscreen. The desktop app also supports the normal window close action.
 
 | Startup option | What it does |
 | --- | --- |
@@ -46,6 +47,9 @@ PyCab starts fullscreen on a detected Raspberry Pi or Steam Deck. Use **Manage P
 | `-port PORT` | Sets the serial device. The default is `/dev/ttyUSB0`. |
 | `-baudrate RATE` | Sets serial baud rate. Supported values are 9600, 19200, 38400, 57600, and 115200. The default is 9600. |
 | `-echo` | Prints received TMCC and PDI commands in the terminal. |
+| `--deck` | Opens the two-pane Qt Steam Deck host explicitly. `PYTRAIN_PLATFORM=steamdeck` also selects this host. |
+| `--width`, `--height` | Set the Deck host dimensions; defaults are 1280 × 800. |
+| `--controller-profile` | Loads a Steam Deck controller profile JSON file. |
 
 ```sh
 pycab --qt -client -server 192.168.1.20 -echo
@@ -58,9 +62,10 @@ If the shell reports that `pycab` was not found, activate the same environment y
 
 ## Navigate the Cab
 
-- Tap a scope button along the bottom to switch rosters or return to the last selected engine. Tap **Engine** again while operating an engine to return to its roster.
-- Hold a scope button to open its roster with the TMCC ID keypad ready.
-- Tap the title chevron for **Roster**, **Manage PyTrain**, **Route Builder**, and **LCS Device Manager**.
+- Tap a scope button along the bottom to change scope. **Engine**, **Train**, and **Acc** return to the current selected cab or accessory, when available. Tapping the active scope again toggles between its controls and roster. A previously operated roster-based accessory returns to its roster entry.
+- Hold or quickly double-tap a scope button to open its TMCC ID keypad. A double-tap consists of two taps within 400 ms anywhere on that same button. Dragging is not a double-tap.
+- **Cab** returns from the Engine or Train roster to its current selection; it is disabled when no selection exists.
+- Tap the title chevron for **Roster**, **Manage PyTrain**, **Route Builder**, and **LCS Device Manager**. Choosing a menu destination closes the current panel and its child dialogs. If a draft has unsaved changes, **Keep Editing** or Escape cancels navigation; **Discard** continues to the destination.
 - **ALL STOP** sends the layout-wide halt command. The **Emergency** stop on the Speed/Volume tab targets the selected engine.
 - **Reset** is the selected engine's reset control. Leave a dialog with **Close**, **Cancel**, or **Back**, as shown on that screen.
 - On a Mac, the device preview controls let you inspect the layout at a target size. A displayed percentage below 100% means the preview is scaled to fit.
@@ -69,7 +74,9 @@ If the shell reports that `pycab` was not found, activate the same environment y
 
 ## Engine Roster and Keypads
 
-Search by name, road number, TMCC ID, or engine type. Use **Name**, **Road #**, or **TMCC ID** to sort, and swipe the type filters horizontally for more choices. Swipe the roster vertically to see more rows. Each row shows the address, name, road number, engine type, and control type where available.
+Search by name, road number, TMCC ID, or engine type. All rosters use equal-size sort buttons in the order **TMCC ID / Name / Road #**, with **TMCC ID** selected initially. Swipe the type-filter tabs horizontally for more choices; the selected tab stays visible when the roster opens. The horizontal scrollbar appears only when the tabs overflow. Swipe the roster vertically to see more rows. Long names scroll within their row. Address badges show **ENG** or **TRN** above the ID, and road numbers retain their leading zeros.
+
+Tap a sort button to change order. Double-tap or hold a sort button to apply that order and return to the first row. The same behavior applies across scopes. Train and Route rosters leave the **Set** position blank so the search field, delete key, and keypad key remain aligned with the other scopes.
 
 Tap a row to open its cab. Enter a numeric TMCC ID with the keypad or the search field and use **Set** to go directly to it. If the engine is missing, PyCab opens Engine Information for that ID. The engine keypad accepts up to four digits. **Set Address** is a programming command, separate from selecting a roster entry.
 
@@ -83,6 +90,8 @@ On the Pi, tap the search field to open the on-screen keyboard. Use the backspac
 
 The cab shows the selected engine's name, road number, and TMCC ID above the locomotive image. **Current Speed** shows reported speed. The throttle thumb shows the target. Drag or tap the throttle track to set a target, or use **+** and **−** for individual speed steps when ramping is idle. The second slider controls the selected function, such as horn, brake, or momentum. A single supported function appears as a label. The horn slider returns to zero on release. The throttle scale uses 20-step labels for Legacy and 5-step labels for TMCC. While ramping, the trough shows the remaining span between reported speed and target.
 
+For absolute-speed throttles, **−** is disabled at zero and **+** at the maximum speed step. Cab-1 relative throttles keep both available because zero is the center.
+
 The **Controls** tab changes with engine and control type. Corner marks show what happens on a hold. See [Button Decorators](#button-decorators).
 
 Swipe the locomotive image to cycle through active engine tiles. Tap a tile to select its engine or tap its **×** to remove the tile. Double-tap the locomotive image to open **Engine Information**. On a Mac, use a double-click.
@@ -95,6 +104,7 @@ Swipe the locomotive image to cycle through active engine tiles. Tap a tile to s
 | Passenger and FreightSounds | Car-specific sound and lighting controls. A standalone car has no active throttle. |
 | Track Crane | Boom/Cab, Main/Roll, Aux Hook, outriggers, and work lights. Cab-1 uses a centered relative throttle and a direction toggle. The throttle returns to center on release. |
 | Transformer | **Full On**, **Shut Down**, direction toggle, and track power controlled through speed steps. Its second tab is **Speed**. |
+| Accessory engine type | A four-column Lionel-style numeric/function keypad and a narrow Cab-1 relative throttle. The **Speed/Volume** tab is omitted. Numeric keys and Horn repeat every 100 ms while held. Startup/shutdown are single actions; Aux 1 repeats while held. |
 
 <img src="screens/steam.png" width="280" alt="Steam Controls tab"> <img src="screens/electric.png" width="280" alt="Electric Controls tab">
 
@@ -106,17 +116,19 @@ Swipe the locomotive image to cycle through active engine tiles. Tap a tile to s
 
 <img src="screens/steam-switcher.png" width="225" alt="Steam Switcher"> <img src="screens/steam-pullmor.png" width="225" alt="Steam Pullmor">
 
+<img src="screens/accessory-engine.png" width="300" alt="Accessory engine type with repeating numeric keys, couplers, Aux controls, and relative throttle">
+
 ## Button Decorators
 
-<img src="screens/button-decorators.png" width="900" alt="Enlarged button corner markers beside the original Crew, Aux 1, and Boost buttons">
+<img src="screens/button-decorators.png" width="900" alt="Enlarged button corner markers beside the original Crew, Start Up, and Boost buttons">
 
 | Corner Mark | What Holding Does |
 | --- | --- |
 | Overlapping squares | Opens a panel, such as Crew Dialogs or Lights. On Horn or Whistle, it selects that function on the secondary slider. |
-| Plus sign | Runs an alternate action. Aux 1 runs a Lionel sequence, a railroad speed preset adds spoken dialog to the speed change, and an enabled gauge refills its resource. |
-| Circular arrow | Repeats the command while held, as on Boost and Brake. |
+| Plus sign | Runs an alternate hold action, such as extended startup/shutdown, railroad speed dialog, or resource refill, where supported. |
+| Clockwise circular arrow | Marks a held/repeating action, as on Boost, Brake, repeating numeric keys, and Aux 1. Aux 1 repeats at 100 ms on Engine, Train, and TMCC Accessory panels. ASC2 **Hold** stays on while pressed and sends Off on release. |
 
-The progress bar shows hold progress on buttons that wait for a hold threshold.
+The progress bar shows hold progress on buttons that wait for a hold threshold. A hold-only control does not automatically gain a double-tap action.
 
 ## Throttle and Secondary Slider
 
@@ -155,6 +167,8 @@ Tap an enabled state tile below the controls to edit its value. Dimmed tiles are
 <img src="screens/momentum.png" width="225" alt="Momentum"> <img src="screens/train-brake.png" width="225" alt="Train Brake"> <img src="screens/smoke.png" width="225" alt="Smoke">
 
 <img src="screens/speed-limit.png" width="225" alt="Speed Limit"> <img src="screens/effort.png" width="225" alt="Effort"> <img src="screens/rpm.png" width="225" alt="RPM">
+
+**Info** is an Engine/Train cab tab and shows roster fields, live status, and consist details. The other tabs remain available; Info opened this way has no redundant **Close** button. Double-tapping the image also opens information. Leaving a tab or choosing a title-menu destination with a pending draft prompts before discarding it.
 
 **Engine Information** shows roster fields, live status, and consist details. Tap a field to edit it. On the Pi, **Road Name** opens a touchscreen keyboard with **Save**. **Road Number** opens a numeric editor. **Engine Type**, **Control Type**, and **Sound Type** show selectable choices. Scroll the engine type list as needed. For an existing engine, confirm the field editor to write the change. For a new engine, field edits are staged until you tap **Create**. Hold **Clear** for three seconds to clear an existing record. Leaving with pending changes can prompt you to keep editing or discard them.
 
@@ -195,7 +209,7 @@ On desktop, **Road Name** opens a text editor for the physical keyboard.
 
 ## Train Operations
 
-Tap **Train** to browse the roster or return to the last train you operated. Select a train from the list or use its TMCC ID keypad. The cab includes **Controls**, **Speed/Volume**, and **Train Information**, with the fields and controls available for the selected train.
+Tap **Train** to browse the roster or return to the last train you operated. Select a train from the list or use its TMCC ID keypad. The cab includes **Controls**, **Speed/Volume**, and **Info**, with the fields and controls available for the selected train. Train rosters use the same searchable list, sort order, and horizontally scrollable type tabs as Engine rosters.
 
 <img src="screens/train-roster.png" width="225" alt="Train Roster"> <img src="screens/train-keypad.png" width="225" alt="Train Keypad"> <img src="screens/train-controls.png" width="225" alt="Train Controls">
 
@@ -205,18 +219,80 @@ Tap **Train** to browse the roster or return to the last train you operated. Sel
 
 ## Accessory Operations
 
-Tap **Acc** for the accessory roster. Search by name, road number, or TMCC ID. Use the keypad to enter an address. Select a configured accessory to open its operating view and use the controls assigned to that accessory.
+Tap **Acc** for **Accessories**. Search by name, road number, or TMCC ID, or use its numeric keypad. The filter tabs are **All**, **Operating**, **LCS**, **TMCC**, **Sensor**, **BPC2**, **ASC2**, and **AMC2**. Only module types reported in the layout appear; **Operating** is omitted when no configured operating accessories exist. **LCS** includes BPC2, ASC2, AMC2, and IR Sensor Track. ASC2 devices operating as switches appear in Switch scope instead.
 
-<img src="screens/accessory-roster.png" width="225" alt="Accessory Roster"> <img src="screens/accessory-keypad.png" width="225" alt="Accessory Keypad"> <img src="screens/accessory-operating.png" width="225" alt="Accessory Operating">
+**Show Unnamed** follows the same user-defined-record rule as Switches; an LCS association does not make an unnamed record named. Entering an exact TMCC ID can still reach a hidden device. For AMC2, Sensor Track, and TMCC/Command Control accessories, submitting an ID opens its controls directly.
+
+Operating accessories appear first, alphabetically, under **All**. Each configured instance appears once, with its image as a badge and no road number. Other rows use a rounded address badge with an LCS type or **ACC** prefix. A long name scrolls within its row. TMCC rows omit raw AUX state dumps.
+
+<img src="screens/accessory-roster.png" width="300" alt="Accessories roster with configured artwork badges, sort buttons, and scrollable filter tabs"> <img src="screens/accessory-keypad.png" width="300" alt="Accessory address keypad">
+
+### ASC2 and BPC2 roster controls
+
+<img src="screens/accessory-lcs-roster.png" width="300" alt="LCS accessory roster with power icons, ASC2 Hold, and state feedback">
+
+Operate relay-backed accessories directly from their row. **On** and **Off** use the standard power icons, and their filled backgrounds show the reported state. ASC2 mixed-mode ports also have **Hold** with the clockwise-arrow decorator: pressing sends On, releasing sends Off. BPC2 rows offer On/Off. Unknown state highlights neither action. Operation feedback keeps your place in the roster.
+
+**Edit** opens State Info with direct Road Name and Road Number fields, configuration details, board information, and firmware. **Aa** title-cases the name. On a Mac, type with the system keyboard; on Pi/Deck, tap for the touch keyboard or numeric keypad. LCS-backed records show **Clear** disabled. Changes are written only with **Save**.
+
+<img src="screens/asc2-info.png" width="280" alt="ASC2 accessory State Info with direct identity fields, mixed mode, port, and firmware"> <img src="screens/bpc2-info.png" width="280" alt="BPC2 State Info with numeric and named mode and board details">
+
+### Configured operating accessories
+
+Select a configured row for its larger accessory image and metadata-driven controls. **Controls** and **Info** are tabs below the image. Each operation has its own compact labeled frame. A known latching operation uses one button showing the next action: a green On graphic while off, and a red Off graphic while on. A pending indicator can appear while waiting for state feedback.
+
+Dependent actions remain disabled until their power operation is on. The Fire Station, for example, has Power and Alarm; Alarm is unavailable while Power is off. Held, pulse, and repeating actions follow their registry definitions and decorators. Animated artwork plays according to the operation's hold, latch, or animation duration; a command pulse and visual animation duration are separate.
+
+Stations use Power and a second latched operation. Passenger variants show **Arrive/Depart**; freight and brewery variants show **Load/Unload**. Those same operation names appear in roster status summaries.
+
+<img src="screens/operating-fire-gated.png" width="280" alt="Fire Station with Alarm disabled while power is off"> <img src="screens/operating-fire.png" width="280" alt="Fire Station with enabled Alarm after power is on">
+
+<img src="screens/operating-passenger.png" width="280" alt="Passenger station Power and Arrive/Depart controls"> <img src="screens/operating-brewery.png" width="280" alt="Brewery Power and Load/Unload controls">
+
+**Info** for a configured operating accessory is read-only. It shows **Type:** from the registry and a table of **Key / Operation / Assignment**, including component TMCC IDs and LCS ports. These are configured instances from `accessory_config.json`; changing their definition is separate from editing a Base accessory record.
+
+<img src="screens/operating-passenger-info.png" width="300" alt="Read-only Station Info with port keys, operations, and LCS assignments"> <img src="screens/accessory-operating.png" width="300" alt="Construction accessory controls from the registry">
+
+### TMCC/Command Control accessories
+
+Unassigned TMCC accessories open a four-column numeric/function keypad with coupler, Boost/Brake, Aux, Set, and Cab-1 relative throttle controls. Numeric keys and Aux 1 repeat at 100 ms while held, marked with clockwise arrows. These commands address **ACC**, not Engine scope. Horn, Bell, Startup, and Shutdown positions are not supplied for TMCC accessories. **Set** programs the current address. **Info** sits beside the Controls tab and opens editable State Info.
+
+<img src="screens/tmcc-accessory.png" width="280" alt="TMCC accessory keypad and relative throttle with Info in tab space"> <img src="screens/tmcc-accessory-info.png" width="280" alt="TMCC accessory State Info with direct name and road-number inputs">
+
+A configured TMCC operating accessory has **Controls / ACC / Info** tabs. **ACC** exposes that same full accessory keypad without replacing the surrounding accessory page. **Info** shows its overall TMCC ID once, the registry type, and the panel keys that operate each function.
+
+For the Smoke Fluid Loader, Lights use numeric 9 On and 8 Off. Because reliable light state is unavailable, separate On/Off buttons do not pretend to indicate feedback. The horizontal Fluid Boom control is spring-centered −5…+5, with its current relative command value in the throttle-style handle. Dispense sends Brake.
+
+<img src="screens/operating-smoke-loader.png" width="280" alt="Smoke Fluid Loader Lights, Dispense, and horizontal relative boom control"> <img src="screens/operating-smoke-acc.png" width="280" alt="Smoke Fluid Loader ACC tab with full keypad and throttle"> <img src="screens/operating-smoke-info.png" width="280" alt="Smoke Fluid Loader Info with overall ID, registry type, and command-key table">
+
+### AMC2 motors and lights
+
+**Motors** and **Lights** are separate tabs. Each channel has a vertical 0–100% slider and On/Off buttons. Off keeps the remembered slider level; On returns to it. Double-tap On to set 100%, or Off to set 0%, regardless of the previous value. An off channel's slider is dimmed but remains movable; moving it turns the channel on at the new level. Slider commands are sent on release.
+
+**Info** is beside the tabs and shows editable name/number plus read-only AMC2 configuration, board information, and firmware. **Configure**, beside the image, opens the current AMC2 configuration options, including output type and restore-on-power-up settings. Double-tapping or holding the AMC2 image also opens State Info.
+
+<img src="screens/amc2.png" width="280" alt="AMC2 Motors tab with vertical sliders and remembered On/Off levels"> <img src="screens/amc2-lights.png" width="280" alt="AMC2 Lights tab with four separate lamp controls"> <img src="screens/amc2-info.png" width="280" alt="AMC2 State Info with identity and underlying configuration">
+
+### IR Sensor Track
+
+The **Action** tab contains the available track actions in a scrolling list, with paired Right ➟ Left and Left ➟ Right entries aligned in columns. The selected action has a filled background. **Info** sits in the tab space; it shows editable name/number, current configuration, board information, and firmware. There is no redundant Configure button for the action list.
+
+<img src="screens/sensor.png" width="280" alt="IR Sensor Track Action list with aligned directional labels"> <img src="screens/sensor-info.png" width="280" alt="Sensor Track State Info including action configuration and firmware">
+
+### Add an accessory
+
+**Add…** opens a creation panel for TMCC ID, Road Name, and Road Number. For a TMCC/Command Control accessory, follow the PROGRAM-mode tip before **Add Accessory**. That action sends SET ADDRESS and writes the identity fields. If the road number is blank, it follows the entered TMCC ID when that ID loses focus or is accepted from its keypad. Once you supply your own road number, later ID changes preserve it.
+
+<img src="screens/accessory-add.png" width="300" alt="Add Accessory with address, name, number, and programming instructions">
 
 ## Switch Operations
 
-Search or sort the switch roster by **Name**, **Road #**, or **TMCC ID**. Enable **Show Unnamed** to include unnamed switches. Where known, LCS module information appears under the road name.
+Search the switch roster by name, road number, or TMCC ID. Sort with **TMCC ID / Name / Road #**, initially TMCC ID. The **All / Thru / Out** tabs filter by reported position and update as switch feedback arrives. Enable **Show Unnamed** to include records that are not user-defined. Where known, LCS module information appears under the road name.
 
-- Tap **Thru** for the straight path or **Out** for the diverging path. The highlighted button shows the reported position. Neither is highlighted when the position is unknown.
+- Tap **Thru** for the straight path or **Out** for the diverging path. The selected action and rounded **SW** badge use green for Thru and amber for Out. Unknown state uses a neutral badge and highlights neither action. Unselected buttons retain their standard background.
 - Double-tap the body of a tile to toggle the switch. An unknown switch goes to **Thru**. Swipe to scroll.
 - Tap **Edit…** to change the road name or number, then **Save**. On the Pi, tap **Road Name** for the on-screen keyboard or **Road Number** for the four-digit keypad. **Add Switch** also opens a numeric keypad for its TMCC ID. Hold **Clear** for three seconds to clear the record.
-- Tap **Add…** to create a record. For a Lionel Command Control switch, follow the panel's instruction to put the device in PROGRAM mode before adding. **Set Address** also appears on the switch keypad.
+- Tap **Add…** to create a record. For a Lionel Command Control switch, follow the PROGRAM-mode instruction before adding. If its address belongs to an ASC2 switch port, programming is disabled: the Command Control checkbox is unchecked/disabled and the action becomes **Save** for identity fields. **Set** is also disabled for ASC2 switch ports on the roster/keypad.
 
 <img src="screens/switch-roster.png" width="225" alt="Switch roster"> <img src="screens/switch-keypad.png" width="225" alt="Switch keypad with Set Address"> <img src="screens/switch-edit.png" width="225" alt="Edit Switch"> <img src="screens/switch-add.png" width="225" alt="Add Switch">
 
@@ -226,7 +302,7 @@ Search or sort the switch roster by **Name**, **Road #**, or **TMCC ID**. Enable
 
 ## Route Operations and Route Builder
 
-The roster shows **Aligned** or **Unset** when alignment is known. A blank status means alignment is unknown. Sort by name, road number, TMCC ID, or alignment. Tap **Fire** or double-tap the body of a tile to fire the route. Swipe to scroll the roster.
+The roster shows **Aligned** or **Unset** when alignment is known. Rounded **RTE** badges use green for Aligned and amber for Unset; unknown alignment has a neutral badge and blank status. Sort with **TMCC ID / Name / Road #**, initially TMCC ID. **All / Aligned / Unset** tabs filter the roster rather than changing its sort order. Tap **Fire** or double-tap the body of a tile to fire the route. Swipe to scroll the roster. **Add…** sits to the left of the title. The unused Set-key position remains blank to align search controls across scopes.
 
 1. Tap **Edit…** on a route, **Add…** on the roster, or **Route Builder** in the title menu.
 2. Enter the route TMCC ID (1–98), name, and route number. Tap a field on the Pi for its keyboard or keypad.
@@ -253,10 +329,18 @@ Open **Manage PyTrain** from the title menu. The panel shows the layout name, lo
 
 ## LCS Device Manager
 
-Open **LCS Device Manager** from the title menu or **LCS…** in Switch Operations. **My Modules** shows modules that have reported themselves. Sort by TMCC ID, module type, or scope.
+Open **LCS Device Manager** from the title menu or **LCS…** in Switches or Accessories. **My Modules** shows modules that have reported themselves. Sort by TMCC ID, module type, or scope.
 
-To configure a module, select its type and tap **Next**. Choose its base TMCC ID and mode, then review the assigned addresses, any overlaps, and the options for that device. Follow the programming instructions on **Review and Configure** before tapping **Configure**. Use **Back** to revise a choice or **Cancel** to leave.
+To configure a module, select its type and tap **Next**. Choose its base TMCC ID and mode, then review the assigned addresses, any overlaps, and the options for that device. Changing the address recalculates the current assignment and overlap information. Follow the programming instructions on **Review and Configure** before tapping **Configure**. Use **Back** to revise a choice or **Cancel** to leave.
 
 <img src="screens/lcs.png" width="280" alt="LCS module type selection"> <img src="screens/lcs-modules.png" width="280" alt="My LCS Modules inventory">
 
 <img src="screens/lcs-device.png" width="225" alt="LCS device address and mode"> <img src="screens/lcs-options.png" width="225" alt="LCS configuration options"> <img src="screens/lcs-review.png" width="225" alt="LCS Review and Configure">
+
+## Steam Deck
+
+A Steam Deck installation opens a single 1280 × 800 Qt window with two independent cab panes. Each pane uses the same rosters, controls, Info pages, and tools described above. The focused pane has a cyan border, starts on the right, and changes when a pane is touched or a profile focus binding is used. Keyboard shortcuts apply to the focused pane.
+
+The Qt adapter uses the existing Steam Deck controller profile and input provider/router. Left/right stick targets, focused controls, repeating actions, catalog navigation, and profile help are supported. Changing focus, scope, or selection, disconnecting, or exiting releases held/repeating actions. Admin chords retain the normal hold guard. Deep choosers, Route Builder, and LCS wizard navigation currently use the touchscreen; these editors block engine commands.
+
+The primary Deck deployment is Flatpak. That external package must include the Qt extra/platform plugins, preserve controller/device access, and set `PYTRAIN_PLATFORM=steamdeck` or launch with `--deck`. This checkout does not contain its Flatpak manifest, so these captures and Python tests do not verify the installed Flatpak. Physical controller, Gamescope, font, and touch behavior still need a Deck test. The legacy frontend remains available with `--legacy` or `PYTRAIN_LEGACY_GUI=1`.
