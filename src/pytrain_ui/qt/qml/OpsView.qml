@@ -41,6 +41,7 @@ RosterPanel {
     readonly property bool addingAsc2Switch: !!addSwitchIdentity.asc2Switch
     property string populatedSwitchName: ""
     property string populatedSwitchNumber: ""
+    property string populatedRouteNumber: ""
     property bool showInactiveSwitches: false
     property string routeCandidateScope: "SWITCH"
     property string routeCandidateSearch: ""
@@ -216,20 +217,13 @@ RosterPanel {
         if (tmccId < 1 || tmccId > 98)
             return
         const identity = controller.switchIdentity(tmccId)
-        if (!identity.exists && !identity.asc2Switch) {
-            if (!addRoadNumber.text.trim() || addRoadNumber.text === populatedSwitchNumber) {
-                addRoadNumber.text = String(tmccId).padStart(4, "0")
-                populatedSwitchNumber = addRoadNumber.text
-            }
-            return
-        }
-        if (!addRoadName.text.trim()) {
+        if ((identity.exists || identity.asc2Switch) && !addRoadName.text.trim()) {
             addRoadName.text = identity.roadName
             populatedSwitchName = identity.roadName
         }
         if (!addRoadNumber.text.trim()) {
-            addRoadNumber.text = identity.roadNumber
-            populatedSwitchNumber = identity.roadNumber
+            addRoadNumber.text = identity.roadNumber || String(tmccId).padStart(4, "0")
+            populatedSwitchNumber = addRoadNumber.text
         }
     }
 
@@ -238,6 +232,7 @@ RosterPanel {
         routeIdField.text = ""
         routeNameField.text = ""
         routeNumberField.text = ""
+        populatedRouteNumber = ""
         routeBuilderError.text = ""
         routeBuilder.open()
         routeIdField.forceActiveFocus()
@@ -252,6 +247,7 @@ RosterPanel {
         routeIdField.text = String(controller.routeBuilderId)
         routeNameField.text = controller.routeBuilderName
         routeNumberField.text = controller.routeBuilderNumber
+        populatedRouteNumber = ""
         routeBuilderError.text = ""
         return true
     }
@@ -273,8 +269,21 @@ RosterPanel {
             routeBuilderError.text = "Route ID must be an integer from 1 to 98."
             return
         }
-        if (tmccId !== controller.routeBuilderId)
-            root.loadRouteBuilder(tmccId)
+        if (controller.routeExists(tmccId)) {
+            if (tmccId !== controller.routeBuilderId)
+                root.loadRouteBuilder(tmccId)
+        } else {
+            const error = controller.assignRouteBuilderId(tmccId)
+            if (error) {
+                routeBuilderError.text = error
+                return
+            }
+            routeBuilderError.text = ""
+            if (!routeNumberField.text.trim() || routeNumberField.text === populatedRouteNumber) {
+                populatedRouteNumber = String(tmccId).padStart(4, "0")
+                routeNumberField.text = populatedRouteNumber
+            }
+        }
     }
 
     function routeCandidateRows() {
@@ -877,6 +886,8 @@ RosterPanel {
                     IdentityNumberField {
                         id: routeNumberField
                         keypadTitle: "Route Number"
+                        onTextEdited: root.populatedRouteNumber = ""
+                        onKeypadAccepted: root.populatedRouteNumber = ""
                         Layout.fillWidth: true
                         Layout.preferredHeight: routeBuilder.fieldHeight
                         font.pixelSize: routeBuilder.compact ? 20 : 28
@@ -1429,6 +1440,8 @@ RosterPanel {
             IdentityNumberField {
                 id: addRoadNumber
                 keypadTitle: "Road Number"
+                onTextEdited: root.populatedSwitchNumber = ""
+                onKeypadAccepted: root.populatedSwitchNumber = ""
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
                 font.pixelSize: 18

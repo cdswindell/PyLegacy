@@ -76,7 +76,7 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 10
             enabled: !root.configurationVisible
-            visible: root.hasArtwork || !!root.accessory.tmccId
+            visible: root.hasArtwork || (root.kind !== "OPERATING" && !!root.accessory.tmccId)
             Item {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
@@ -108,6 +108,7 @@ Rectangle {
             }
 
             ColumnLayout {
+                visible: root.kind !== "OPERATING"
                 Layout.preferredWidth: root.compact ? 108 : 132
                 Layout.minimumWidth: Layout.preferredWidth
                 Layout.maximumWidth: Layout.preferredWidth

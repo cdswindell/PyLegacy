@@ -76,6 +76,7 @@ class AccessoryDescriptor:
     available_views: tuple[AccessoryViewKind, ...]
     preferred_view: AccessoryViewKind
     user_defined: bool
+    component_names: tuple[tuple[int, str], ...] = ()
 
     @property
     def kind(self) -> str:
@@ -94,6 +95,7 @@ class AccessoryDescriptor:
             "roadNumber": format_road_number(self.road_number),
             "configured": self.configured_accessory is not None,
             "lcsAssociations": " · ".join(self.lcs_labels),
+            "componentNames": " · ".join(name for _, name in self.component_names),
             "lcsTypes": sorted({label.split(" ", 1)[0] for label in self.lcs_labels}),
             "availableViews": [view.value for view in self.available_views],
             "preferredView": self.preferred_view.value,
@@ -101,7 +103,9 @@ class AccessoryDescriptor:
             "stateSummary": AccessoryCatalogController._state_summary(self),
             "quickActions": AccessoryCatalogController._quick_actions(self),
             "kind": self.kind,
-            "imageSource": AccessoryCatalogController._image_source(_DEVICE_IMAGES.get(self.kind)),
+            "imageSource": AccessoryCatalogController._image_source(
+                self.configured_accessory.image_path if self.configured_accessory else _DEVICE_IMAGES.get(self.kind)
+            ),
         }
 
 
@@ -209,8 +213,20 @@ class AccessoryCatalogController(QObject):
         if not tmcc_ids:
             return None
         primary = int(configured.tmcc_id if configured.tmcc_id is not None else tmcc_ids[0])
-        state = cls._state(primary)
-        _base_name, road_number = cls._identity(state)
+        definition = configured.definition
+        registry = configured.registry
+        spec = registry.get_spec(definition.type)
+        component_names: dict[int, list[str]] = {}
+        for operation in spec.operations:
+            try:
+                tmcc_id = configured.tmcc_id_for(operation.key)
+            except (KeyError, ValueError):
+                continue
+            label = registry.get_operation_label_for_state(spec, operation.key, variant=definition.variant)
+            names = component_names.setdefault(tmcc_id, [])
+            if label and label not in names:
+                names.append(label)
+
         lcs_labels = cls._lcs_labels(tmcc_ids)
         views = cls._views(configured, lcs_labels)
         return AccessoryDescriptor(
@@ -218,12 +234,13 @@ class AccessoryCatalogController(QObject):
             tmcc_ids=tmcc_ids,
             primary_tmcc_id=primary,
             name=configured.label,
-            road_number=road_number,
+            road_number="",
             configured_accessory=configured,
             lcs_labels=lcs_labels,
             available_views=views,
             preferred_view=AccessoryViewKind.CONFIGURED,
             user_defined=True,
+            component_names=tuple((tmcc_id, " / ".join(names)) for tmcc_id, names in component_names.items() if names),
         )
 
     @classmethod
@@ -250,11 +267,18 @@ class AccessoryCatalogController(QObject):
     @staticmethod
     def _state_summary(descriptor: AccessoryDescriptor) -> str:
         summaries: list[str] = []
+        component_names = dict(descriptor.component_names)
         for tmcc_id in descriptor.tmcc_ids:
             state = AccessoryCatalogController._state(tmcc_id)
             if state is None or not state.is_known:
                 continue
-            value = str(state.payload or "").strip()
+            label = component_names.get(tmcc_id)
+            if label and (state.is_asc2 or state.is_bpc2):
+                value = f"{label}: {'ON' if state.is_aux_on else 'OFF'}"
+            else:
+                value = str(state.payload or "").strip()
+                if label and value:
+                    value = f"{label}: {value}"
             if value and value not in summaries:
                 summaries.append(value)
         return " · ".join(summaries)

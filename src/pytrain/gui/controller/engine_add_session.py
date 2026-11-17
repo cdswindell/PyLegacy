@@ -68,7 +68,7 @@ class EngineAddSession:
             )
         for key, value in self.baseline.items():
             if key not in self.edited:
-                self.values[key] = value
+                self.values[key] = str(self.tmcc_id) if key == "number" and not str(value or "").strip() else value
         return True
 
     def awaiting_empty_record(self, state: EngineState) -> bool:

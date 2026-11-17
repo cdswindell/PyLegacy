@@ -144,7 +144,8 @@ RosterPanel {
             return row.roadName.toLowerCase().indexOf(needle) >= 0 ||
                    row.roadNumber.toLowerCase().indexOf(needle) >= 0 ||
                    row.tmccIds.some(id => String(id).indexOf(needle) >= 0) ||
-                   row.lcsAssociations.toLowerCase().indexOf(needle) >= 0
+                   row.lcsAssociations.toLowerCase().indexOf(needle) >= 0 ||
+                   (row.componentNames || "").toLowerCase().indexOf(needle) >= 0
         })
         rows.sort(function(a, b) {
             if (root.typeFilter === "ALL") {
@@ -338,11 +339,12 @@ RosterPanel {
                                           kind === "SENSOR" ? "IRDA" : kind
                             tmccId: row.modelData.primaryTmccId
                             displayValue: kind === "OPERATING" ? "OP" : String(tmccId)
+                            imageSource: kind === "OPERATING" ? row.modelData.imageSource : ""
                             numberSize: 26
                         }
                         Image {
-                            visible: row.modelData.imageSource.length > 0
-                            source: row.modelData.imageSource
+                            visible: row.modelData.kind !== "OPERATING" && row.modelData.imageSource.length > 0
+                            source: visible ? row.modelData.imageSource : ""
                             Layout.preferredWidth: visible ? 68 : 0
                             Layout.preferredHeight: 54
                             fillMode: Image.PreserveAspectFit

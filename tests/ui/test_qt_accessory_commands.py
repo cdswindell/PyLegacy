@@ -13,6 +13,7 @@ from pytrain.db.component_state import ComponentStateDict
 from pytrain.gui.controller.lcs_device_registry import ASC2
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
 from pytrain.pdi.amc2_req import Direction
+from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from pytrain.pdi.irda_req import IrdaSequence
 from pytrain.pdi.pdi_req import PdiReq
@@ -238,9 +239,44 @@ def test_amc2_power_preserves_the_slider_level_until_set_to_an_endpoint(controll
     assert reading() == {"level": 100, "on": True}
 
 
-def test_configured_accessory_appears_once_and_keeps_its_address_search_keys(controller, monkeypatch):
-    configured = SimpleNamespace(instance_id="loading-dock", label="Loading Dock", tmcc_id=24, tmcc_ids=[24, 25])
-    other = SimpleNamespace(instance_id="other-dock", label="Loading Dock", tmcc_id=26, tmcc_ids=[26])
+def test_configured_accessory_appears_once_with_its_artwork_and_address_search_keys(controller, monkeypatch, tmp_path):
+    artwork = tmp_path / "loading-dock.png"
+    artwork.touch()
+    monkeypatch.setattr(
+        "pytrain_ui.qt.accessory_controller.find_file", lambda filename: artwork if filename == artwork.name else None
+    )
+    registry = Mock()
+    registry.get_spec.return_value = SimpleNamespace(
+        operations=[SimpleNamespace(key=key) for key in ("power", "alarm", "optional")]
+    )
+    registry.get_operation_label_for_state.side_effect = lambda _spec, key, **_kwargs: key.title()
+    definition = SimpleNamespace(type="test", variant=None)
+    configured = SimpleNamespace(
+        instance_id="loading-dock",
+        label="Loading Dock",
+        tmcc_id=24,
+        tmcc_ids=[24, 25],
+        image_path=artwork.name,
+        registry=registry,
+        definition=definition,
+        tmcc_id_for={"power": 24, "alarm": 25}.__getitem__,
+    )
+    other = SimpleNamespace(
+        instance_id="other-dock",
+        label="Loading Dock",
+        tmcc_id=26,
+        tmcc_ids=[26],
+        image_path=None,
+        registry=Mock(get_spec=Mock(return_value=SimpleNamespace(operations=[]))),
+        definition=definition,
+    )
+    ports = {
+        address: LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(0), 8, port_index=address - 23, scope=CommandScope.ACC)
+        for address in (24, 25)
+    }
+    monkeypatch.setitem(
+        vars(module), "occupants_of", lambda address, **_kwargs: [ports[address]] if address in ports else []
+    )
     monkeypatch.setattr(
         module.ConfiguredAccessorySet,
         "from_file",
@@ -248,6 +284,11 @@ def test_configured_accessory_appears_once_and_keeps_its_address_search_keys(con
     )
     states = ComponentStateDict(CommandScope.ACC)
     records = [states[address] for address in (24, 25, 26, 27)]
+    states[24].initialize(CommandScope.ACC, 24)
+    states[24].comp_data.road_number = "0024"
+    states[24].update(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL1, values=0))
+    states[25].update(Asc2Req(25, PdiCommand.ASC2_RX, Asc2Action.CONTROL1, values=1))
+    monkeypatch.setattr(module.ComponentStateStore, "get_state", lambda _scope, address, **_kwargs: states.get(address))
     monkeypatch.setattr(
         module.ComponentStateStore,
         "get",
@@ -256,11 +297,19 @@ def test_configured_accessory_appears_once_and_keeps_its_address_search_keys(con
 
     controller.reload()
 
-    assert [(row["kind"], row["key"], row["tmccIds"]) for row in controller.rows] == [
+    rows = [row for row in controller.rows if row["kind"] != "ASC2"]
+    assert [(row["kind"], row["key"], row["tmccIds"]) for row in rows] == [
         ("TMCC", "acc:27", [27]),
         ("OPERATING", "configured:loading-dock", [24, 25]),
         ("OPERATING", "configured:other-dock", [26]),
     ]
+    assert rows[1]["imageSource"] == artwork.as_uri()
+    assert rows[1]["roadNumber"] == ""
+    assert rows[2]["imageSource"] == ""
+    assert rows[1]["lcsAssociations"] == "ASC2 24 Port 1 · ASC2 24 Port 2"
+    assert rows[1]["stateSummary"] == "Power: OFF · Alarm: ON"
+    assert rows[1]["componentNames"] == "Power · Alarm"
+    assert rows[2]["componentNames"] == ""
 
 
 def test_switch_mode_is_excluded_from_accessory_rows_and_mixed_ports_are_discoverable(controller, monkeypatch):

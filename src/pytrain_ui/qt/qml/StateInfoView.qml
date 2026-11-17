@@ -24,6 +24,7 @@ Rectangle {
     property int accessoryDraftId: -1
     property string initialAccessoryName: ""
     property string initialAccessoryNumber: ""
+    property string populatedAccessoryNumber: ""
     readonly property bool accessoryIdentityDirty: inlineIdentity && accessoryDraftId === record.tmccId &&
         (accessoryName.text !== initialAccessoryName || accessoryNumber.text !== initialAccessoryNumber)
     readonly property bool hasUnsavedChanges: !!record.unsaved || fieldEditor.hasUnsavedChanges || roadNameKeyboard.hasUnsavedChanges || accessoryIdentityDirty || (addingAccessory && accessoryId.text.length > 0)
@@ -33,6 +34,14 @@ Rectangle {
     color: "#102858"
     radius: 10
     border.color: "#496b9d"
+
+    function completeNewAccessoryAddress() {
+        if (addingAccessory && accessoryId.acceptableInput &&
+                (!accessoryNumber.text.trim() || accessoryNumber.text === populatedAccessoryNumber)) {
+            populatedAccessoryNumber = String(Number(accessoryId.text)).padStart(4, "0")
+            accessoryNumber.text = populatedAccessoryNumber
+        }
+    }
 
     function loadAccessoryIdentity() {
         const fields = record.identity || []
@@ -75,6 +84,7 @@ Rectangle {
             accessoryNumberPad.close()
             accessoryIdPad.close()
             overwriteAccessory.close()
+            populatedAccessoryNumber = ""
             accessoryId.clear()
             accessoryDraftId = -1
         } else {
@@ -212,6 +222,7 @@ Rectangle {
                         selectByMouse: true
                         inputMethodHints: Qt.ImhDigitsOnly
                         Accessible.name: "Accessory TMCC ID"
+                        onEditingFinished: if (!root.useTouchKeyboard) root.completeNewAccessoryAddress()
                         TapHandler {
                             enabled: root.useTouchKeyboard
                             onTapped: accessoryIdPad.openFor(accessoryId.text)
@@ -274,6 +285,7 @@ Rectangle {
                         selectByMouse: true
                         inputMethodHints: Qt.ImhDigitsOnly
                         Accessible.name: "Road Number"
+                        onTextEdited: root.populatedAccessoryNumber = ""
                         TapHandler {
                             enabled: root.useTouchKeyboard && !accessoryNumber.readOnly
                             onTapped: accessoryNumberPad.openFor(accessoryNumber.text)
@@ -518,6 +530,7 @@ Rectangle {
         title: "Accessory TMCC ID"
         onSubmitted: tmccId => {
             accessoryId.text = String(tmccId)
+            root.completeNewAccessoryAddress()
             accessoryIdPad.close()
         }
     }
@@ -558,6 +571,7 @@ Rectangle {
         maximumId: 9999
         allowEmpty: true
         onSubmitted: {
+            root.populatedAccessoryNumber = ""
             accessoryNumber.text = entryText
             close()
         }
