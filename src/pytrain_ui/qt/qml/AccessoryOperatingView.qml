@@ -23,14 +23,6 @@ Rectangle {
     color: "#102858"
     radius: 10
 
-    function operationSource(operation) {
-        if (operation.state === "ON" && operation.onImageSource)
-            return operation.onImageSource
-        if (operation.state === "OFF" && operation.offImageSource)
-            return operation.offImageSource
-        return operation.imageSource || operation.onImageSource || operation.offImageSource || ""
-    }
-
     ColumnLayout {
         id: pageLayout
         anchors.fill: parent
@@ -192,6 +184,31 @@ Rectangle {
                 readonly property var modelData: operationList.operations[index] || ({})
                 readonly property var analog: modelData.analogInput || null
                 readonly property bool vertical: analog !== null && analog.orientation === "vertical"
+                readonly property bool operationActive: modelData.state === "ON"
+                readonly property bool playbackRequested: modelData.animationRunning === true
+                readonly property int playbackDuration: modelData.animationDuration || 0
+                readonly property bool artworkActive: playbackDuration > 0 ? playbackTimer.running : operationActive
+                readonly property string artworkSource: (artworkActive ? modelData.onImageSource : modelData.offImageSource)
+                    || modelData.imageSource || ""
+                readonly property bool gifArtwork: artworkSource.toLowerCase().endsWith(".gif")
+                readonly property string artworkIdentity: (root.accessory.key || "") + "/" + (modelData.key || "")
+
+                function startTimedPlayback() {
+                    if (playbackRequested && playbackDuration > 0 && root.visible)
+                        playbackTimer.restart()
+                }
+
+                Component.onCompleted: startTimedPlayback()
+                onPlaybackRequestedChanged: startTimedPlayback()
+                onArtworkIdentityChanged: {
+                    playbackTimer.stop()
+                    startTimedPlayback()
+                }
+
+                Timer {
+                    id: playbackTimer
+                    interval: Math.max(1, operationRow.playbackDuration)
+                }
                 width: ListView.view.width
                 height: vertical ? 250 : Math.max(104, Math.min(190, Number(modelData.height || 120)))
                 radius: 8
@@ -207,26 +224,27 @@ Rectangle {
                     Rectangle {
                         Layout.preferredWidth: Math.min(230, operationRow.width * 0.34)
                         Layout.fillHeight: true
-                        visible: root.operationSource(operationRow.modelData).length > 0
+                        visible: operationRow.artworkSource.length > 0
                         color: "#11151a"
                         radius: 6
                         clip: true
 
                         AnimatedImage {
                             anchors.fill: parent
-                            source: root.operationSource(operationRow.modelData)
+                            source: operationRow.gifArtwork ? operationRow.artworkSource : ""
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
-                            playing: operationRow.modelData.animationRunning === true
-                            visible: source.toString().toLowerCase().endsWith(".gif")
+                            playing: root.visible &&
+                                (operationRow.playbackDuration > 0 ? playbackTimer.running : operationRow.playbackRequested)
+                            visible: operationRow.gifArtwork
                         }
 
                         Image {
                             anchors.fill: parent
-                            source: root.operationSource(operationRow.modelData)
+                            source: operationRow.gifArtwork ? "" : operationRow.artworkSource
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
-                            visible: !source.toString().toLowerCase().endsWith(".gif")
+                            visible: !operationRow.gifArtwork
                         }
                     }
 

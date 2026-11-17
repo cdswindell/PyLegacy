@@ -79,10 +79,10 @@ class OperationSpec:
     label: str
     behavior: PortBehavior
 
-    # Default / momentary image
+    # Shared artwork when a state-specific image is absent.
     image: str | None = None
 
-    # LATCH-specific images (optional; GUI supplies global defaults if None)
+    # Optional artwork overrides for the inactive and active states.
     off_image: str | None = None
     on_image: str | None = None
 
@@ -103,6 +103,7 @@ class OperationSpec:
     disarmed: AccessoryStateBinding | None = None
     analog_input: AnalogInputSpec | None = None
     replaces: tuple[str, ...] = ()
+    animation_duration: int | None = None  # Milliseconds of visual playback.
 
     def __post_init__(self) -> None:
         if self.behavior == PortBehavior.MOMENTARY_PULSE and self.pulse_duration is None:
@@ -162,10 +163,10 @@ class OperationAssets:
     key: str
     behavior: PortBehavior
 
-    # For momentary/default use
+    # Shared artwork when a state-specific image is absent.
     image: str | None = None
 
-    # For latch use
+    # Optional artwork overrides for the inactive and active states.
     off_image: str | None = None
     on_image: str | None = None
 
@@ -186,6 +187,7 @@ class OperationAssets:
     disarmed: AccessoryStateBinding | None = None
     analog_input: AnalogInputSpec | None = None
     replaces: tuple[str, ...] = ()
+    animation_duration: int | None = None  # Milliseconds of visual playback.
 
 
 @dataclass(frozen=True)
@@ -517,6 +519,7 @@ class AccessoryRegistry:
             disarmed=op.disarmed,
             analog_input=op.analog_input,
             replaces=op.replaces,
+            animation_duration=op.animation_duration,
         )
 
     @staticmethod
@@ -563,6 +566,9 @@ class AccessoryRegistry:
             for name, binding in (("armed", op.armed), ("disarmed", op.disarmed)):
                 if binding is not None and not (isinstance(binding, TMCC1AuxCommandEnum) or callable(binding)):
                     raise ValueError(f"Operation '{op.key}' {name} must be a TMCC1AuxCommandEnum or state predicate")
+            animation_duration = op.animation_duration
+            if animation_duration is not None and (type(animation_duration) is not int or animation_duration <= 0):
+                raise ValueError(f"Operation '{op.key}' animation_duration must be a positive integer in milliseconds")
             duration = op.pulse_duration
             if duration is not None:
                 if op.behavior != PortBehavior.MOMENTARY_PULSE:

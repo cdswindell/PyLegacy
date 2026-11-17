@@ -17,7 +17,7 @@ from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar, cast
 
 # noinspection PyPackageRequirements
-from PIL import Image
+from PIL import Image, ImageTk
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 from guizero.event import EventData
@@ -70,6 +70,36 @@ def _common_button_image_path(filename: str) -> str | None:
 
 def preload_accessory_button_image_paths() -> None:
     _common_button_image_paths()
+
+
+class PowerGatedArtwork:
+    """Dim the rendered image while preserving the original button artwork."""
+
+    _power_gated = False
+    _original_tk_image = None
+    _dimmed_tk_image = None
+
+    def set_power_gated_artwork(self, gated: bool) -> None:
+        if self._power_gated != gated:
+            self._power_gated = gated
+            if self._original_tk_image is not None and self.image is not None:
+                self._update_tk_image(self._original_tk_image)
+
+    def _update_tk_image(self, tk_image) -> None:
+        self._original_tk_image = tk_image
+        if self._power_gated:
+            image = ImageTk.getimage(tk_image)
+            grey = image.convert("L").point(lambda shade: (shade + 255) // 2)
+            dimmed = Image.merge("RGBA", (grey, grey, grey, image.getchannel("A")))
+            self._dimmed_tk_image = ImageTk.PhotoImage(dimmed, master=self.tk)
+            super()._update_tk_image(self._dimmed_tk_image)
+        else:
+            super()._update_tk_image(tk_image)
+            self._dimmed_tk_image = None
+
+
+class AccessoryHoldButton(PowerGatedArtwork, HoldButton):
+    pass
 
 
 class AccessoryBase(GuiZeroBase, Generic[S], ABC):
@@ -237,12 +267,30 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         """Enables/disables widget based on power state"""
         if widget is None:
             return
-        on_enable = on_enable or widget.enable
-        on_disable = on_disable or widget.disable
-        if power_state.is_aux_on:
-            self.queue_message(on_enable)
+        enabled = power_state.is_aux_on
+        self.queue_message(self._apply_power_gate, widget, enabled, on_enable if enabled else on_disable)
+
+    def _apply_power_gate(self, widget: PushButton, enabled: bool, callback: Callable | None) -> None:
+        if not widget.tk.winfo_exists():
+            return
+        buttons = (widget, widget.sibling) if isinstance(widget, PowerButton) and widget.sibling else (widget,)
+        if callback is not None:
+            callback()
         else:
-            self.queue_message(on_disable)
+            for button in buttons:
+                if enabled:
+                    button.enable()
+                else:
+                    button.disable()
+
+        for button in buttons:
+            if isinstance(button, PowerGatedArtwork):
+                button.set_power_gated_artwork(not enabled)
+
+        for child in widget.master.children:
+            if isinstance(child, Text) and child.tk.winfo_exists():
+                child.text_color = self._enabled_text if enabled else self._disabled_text
+                child.underline = enabled
 
     @property
     def config(self) -> ConcreteAccessory:
@@ -535,7 +583,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         image: str | None = None,
         width: int | None = None,
         height: int | None = None,
-        button_cls=HoldButton,
+        button_cls=AccessoryHoldButton,
         is_momentary: bool = True,
     ) -> PushButton:
         if label:
@@ -701,7 +749,7 @@ class MomentaryActionHandler(Thread, Generic[S]):
                 break
 
 
-class PowerButton(PushButton):
+class PowerButton(PowerGatedArtwork, PushButton):
     def __init__(self, *args, **kwargs):
         self.turn_on_image = kwargs.pop("turn_on_image", None) or _common_button_image_path(TURN_ON_IMAGE)
         self.turn_off_image = kwargs.pop("turn_off_image", None) or _common_button_image_path(TURN_OFF_IMAGE)
@@ -709,7 +757,7 @@ class PowerButton(PushButton):
         self.sibling: PowerButton | None = None
 
 
-class AnimatedButton(PushButton):
+class AnimatedButton(PowerGatedArtwork, PushButton):
     def start_animation(self) -> None:
         if self._image_player:
             self._image_player.start()

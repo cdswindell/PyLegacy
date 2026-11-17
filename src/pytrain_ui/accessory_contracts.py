@@ -44,6 +44,7 @@ class AccessoryOperationViewState:
     height: int | None = None
     analog_input: AnalogInputSpec | None = None
     repeat: int | None = None
+    animation_duration: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

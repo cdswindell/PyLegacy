@@ -82,6 +82,8 @@ def register_fire_station(registry: AccessoryRegistry) -> None:
             behavior=PortBehavior.MOMENTARY_PULSE,
             gated_by="power",
             image="red_light_off.jpg",
+            on_image="Breaking-News-Emoji.gif",
+            animation_duration=5000,
             width=72,
             height=72,
         ),

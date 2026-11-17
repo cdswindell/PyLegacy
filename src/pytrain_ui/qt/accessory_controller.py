@@ -398,11 +398,13 @@ class AccessoryCatalogController(QObject):
                     off_image=cls._image_source(assets.off_image),
                     on_image=cls._image_source(assets.on_image),
                     animation_policy=policy,
-                    animation_running=is_on and policy in {AnimationPolicy.STATE, AnimationPolicy.MOMENTARY},
+                    animation_running=is_on
+                    and (policy != AnimationPolicy.NONE or assets.animation_duration is not None),
                     width=assets.width,
                     height=assets.height,
                     analog_input=assets.analog_input,
                     repeat=assets.repeat,
+                    animation_duration=assets.animation_duration,
                 )
             )
 
@@ -436,6 +438,7 @@ class AccessoryCatalogController(QObject):
             "onImageSource": operation.on_image,
             "animationPolicy": operation.animation_policy.value,
             "animationRunning": operation.animation_running,
+            "animationDuration": operation.animation_duration or 0,
             "width": operation.width or 0,
             "height": operation.height or 0,
             "analogInput": {
