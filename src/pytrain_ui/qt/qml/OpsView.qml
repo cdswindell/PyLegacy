@@ -411,6 +411,7 @@ RosterPanel {
         property int iconSpacing: 8
         property int turnoutIconWidth: 23
         readonly property bool turnout: symbol === "thru" || symbol === "out"
+        selectedAccent: symbol === "thru" ? "#23694c" : symbol === "out" ? "#4b3920" : "transparent"
 
         Accessible.role: Accessible.Button
         Accessible.name: text
@@ -664,8 +665,8 @@ RosterPanel {
                         objectName: "operationsIdBadge"
                         readonly property bool aligned: rowData.stateText === "THRU" || rowData.stateText === "Aligned"
                         readonly property bool unaligned: rowData.stateText === "OUT" || rowData.stateText === "Unset"
-                        color: aligned ? "#173e34" : unaligned ? "#4b3920" : "#18232e"
-                        border.color: aligned ? "#508b70" : unaligned ? "#bd914b" : "#596574"
+                        color: aligned ? "#23694c" : unaligned ? "#4b3920" : "#18232e"
+                        border.color: aligned ? "#6abb86" : unaligned ? "#bd914b" : "#596574"
                         Layout.preferredWidth: 56
                         Layout.fillHeight: true
                         abbreviation: row.isRoute ? "RTE" : "SW"

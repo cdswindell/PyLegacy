@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 
 from pytrain.cli import CliBase
 from pytrain.protocol.command_base import CommandBase
@@ -12,6 +12,13 @@ from pytrain.utils.argument_parser import PyTrainArgumentParser
 from pytrain.utils.ip_tools import find_base_address
 
 from .app import run_cab
+
+
+def _positive_dimension(value: str) -> int:
+    dimension = int(value)
+    if dimension <= 0:
+        raise ArgumentTypeError("Window dimensions must be greater than zero")
+    return dimension
 
 
 class QtCabCommand(CommandBase):
@@ -63,6 +70,18 @@ class QtCabCommand(CommandBase):
             self.wait_for_sync()
             if self.pytrain is not None and self.pytrain.admin_exit_requested:
                 return 0
+            options = getattr(self._cli, "args", None)
+            if getattr(options, "deck", False) is True:
+                from .app import run_deck
+
+                return run_deck(
+                    self._cli.scope,
+                    self._cli.tmcc_id,
+                    [],
+                    width=options.width,
+                    height=options.height,
+                    controller_profile=options.controller_profile,
+                )
             return run_cab(self._cli.scope, self._cli.tmcc_id, [])
         finally:
             if self.pytrain is not None:
@@ -99,6 +118,10 @@ class QtCabCli(CliBase):
             action="store_true",
             help="Start on a train instead of an engine",
         )
+        parser.add_argument("--deck", action="store_true", help="Open the two-pane Steam Deck Qt interface")
+        parser.add_argument("--width", type=_positive_dimension, default=1280, help="Steam Deck window width")
+        parser.add_argument("--height", type=_positive_dimension, default=800, help="Steam Deck window height")
+        parser.add_argument("--controller-profile", help="Steam Deck controller profile JSON file")
         parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
         parser = PyTrainArgumentParser("Qt cab options", parents=[parser, cls.cli_parser()], conflict_handler="resolve")
         parser.add_argument(
@@ -137,3 +160,7 @@ def main(args: list[str] | None = None) -> int:
         return 130
     except Exception as exc:
         sys.exit(f"{__file__}: error: {exc}\n")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

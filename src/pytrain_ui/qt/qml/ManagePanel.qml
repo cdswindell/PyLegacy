@@ -121,6 +121,7 @@ Rectangle {
 
     component AdminButton: PanelButton {
         required property string command
+        objectName: "adminCommand-" + command
         enabled: {
             root.revision
             return root.admin.canRun(command, root.allNodes)

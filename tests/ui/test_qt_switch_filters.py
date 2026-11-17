@@ -63,7 +63,12 @@ def app_factory(argv):
             window.resize(720, 1280)
 
             def evaluate(source, target=window):
-                expression = QQmlExpression(QQmlEngine.contextForObject(target), target, source)
+                if target is window:
+                    target = window.property("workspace")
+                    context = QQmlEngine.contextForObject(target.childItems()[0])
+                else:
+                    context = QQmlEngine.contextForObject(target)
+                expression = QQmlExpression(context, target, source)
                 result = expression.evaluate()
                 assert not expression.hasError(), expression.error().toString()
                 return result[0] if isinstance(result, tuple) else result
@@ -104,7 +109,7 @@ def app_factory(argv):
             assert colors[40] == "#18232e"
             click(tab("Thru"))
             assert set(ids()) == set(range(1, 40, 2))
-            assert set(badge_colors().values()) == {"#173e34"}
+            assert set(badge_colors().values()) == {"#23694c"}
             click(tab("Out"))
             assert set(ids()) == set(range(2, 40, 2))
             assert set(badge_colors().values()) == {"#4b3920"}
@@ -162,11 +167,11 @@ def app_factory(argv):
             store.get_state(CommandScope.SWITCH, 2).update(CommandReq.build(TMCC1SwitchCommandEnum.OUT, 2))
             evaluate('window.changeScope("ROUTE", false)')
             QTest.qWait(100)
-            assert badge_colors() == {1: "#173e34", 2: "#4b3920", 3: "#18232e"}, badge_colors()
+            assert badge_colors() == {1: "#23694c", 2: "#4b3920", 3: "#18232e"}, badge_colors()
             source = store.get_state(CommandScope.SWITCH, 2)
             source.update(CommandReq.build(TMCC1SwitchCommandEnum.THRU, 2))
             QTest.qWait(120)
-            assert badge_colors()[2] == "#173e34"
+            assert badge_colors()[2] == "#23694c"
             evaluate('window.changeScope("SWITCH", false)')
             click(tab("All"))
             created = store.get_state(CommandScope.SWITCH, 42)

@@ -1031,7 +1031,7 @@ assert not result.isError(), result.toString()
 
 
 def test_accessory_scope_toggles_controls_roster_and_preserves_keypad_navigation() -> None:
-    main_qml = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml" / "Main.qml"
+    main_qml = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml" / "CabWorkspace.qml"
     result = subprocess.run(
         [sys.executable, "-c", SCOPE_NAVIGATION_CHILD, str(main_qml)],
         capture_output=True,

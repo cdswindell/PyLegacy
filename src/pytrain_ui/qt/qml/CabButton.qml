@@ -15,6 +15,7 @@ Control {
     property int repeatInterval: 250
     property color normalColor: "transparent"
     property color selectedColor: "#246aa0"
+    property color selectedAccent: "transparent"
     property color pressedColor: "#5c9fc6"
     readonly property bool pressed: isPointerPressed()
 
@@ -59,6 +60,7 @@ Control {
         selected: root.selected
         focused: root.activeFocus
         accent: root.normalColor
+        selectedAccent: root.selectedAccent
     }
 
     component ButtonTapHandler: TapHandler {

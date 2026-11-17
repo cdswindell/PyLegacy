@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 RosterPanel {
     id: root
+    readonly property Item inputRoster: listView
+
 
     required property var cab
     required property var catalog

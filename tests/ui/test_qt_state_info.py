@@ -567,7 +567,12 @@ def app_factory(argv):
             window = next(w for w in app.allWindows() if w.property("activeScope") is not None)
 
             def evaluate(source, target=window):
-                expression = QQmlExpression(QQmlEngine.contextForObject(target), target, source)
+                if target is window:
+                    target = window.property("workspace")
+                    context = QQmlEngine.contextForObject(target.childItems()[0])
+                else:
+                    context = QQmlEngine.contextForObject(target)
+                expression = QQmlExpression(context, target, source)
                 result = expression.evaluate()
                 assert not expression.hasError(), expression.error().toString()
                 return result[0] if isinstance(result, tuple) else result
@@ -687,6 +692,8 @@ sys.exit(result)
 """
 
 
+# Keep this native Qt application scenario isolated and retain its own subprocess diagnostics.
+# noinspection DuplicatedCode
 def test_engine_and_train_info_tabs_preserve_navigation_and_confirm_discard() -> None:
     pytest.importorskip("PySide6")
     result = subprocess.run(

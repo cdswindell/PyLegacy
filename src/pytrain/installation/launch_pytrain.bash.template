@@ -76,5 +76,7 @@ if [ -z "$DISPLAY" ]; then
   export DISPLAY=:0
 fi
 
+# Select the Qt Deck on the main thread; the legacy buttons loader uses a worker.
+___QT_DECK_LAUNCH___
 # run the program with appropriate arguments
 ___PYTRAIN___  -headless___CLIENT______LIONELBASE______LCSSER2______ECHO______CACHE_SYNC___ $START $BUTTONS_FILE

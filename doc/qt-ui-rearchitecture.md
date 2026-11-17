@@ -40,6 +40,39 @@ Steam Deck launchers identify the platform with `PYTRAIN_PLATFORM=steamdeck`;
 use that environment variable when launching directly from a terminal as well.
 Mac and other desktop installs open in a normal window.
 
+## Steam Deck host
+
+On Steam Deck, Qt opens a single 1280 × 800 window containing two independent
+cab workspaces. Each pane uses the same Engine, Train, Switch, Route, Accessory,
+Info, and Manage components as the normal Qt cab. The focused pane has a cyan
+border; focus starts on the right and changes when either pane is touched or a
+profile focus binding is pressed. Only the focused pane handles keyboard shortcuts.
+The panes share one scope-state notification bridge and the synchronized PyTrain
+runtime, while keeping selections, filters, editors, and controller state separate.
+
+Use `pycab-qt --deck --width 1280 --height 800` to request the two-pane host
+explicitly, and `--controller-profile /path/to/profile.json` for a custom profile.
+Platform-aware `pycab` launches select it automatically when
+`PYTRAIN_PLATFORM=steamdeck` is set.
+
+The Deck input adapter reuses `ControlProfile`, `SteamDeckInputProvider`, and
+`DeckInputRouter`. The bundled profile retains left/right stick targets, focused
+face buttons and triggers, trackpad input, controller repeats, and catalog navigation.
+Changing focus, changing the active scope or selection, disconnecting, or exiting
+cancels controller repeats and releases momentary accessory outputs. Admin chords
+press the existing Qt admin button, including its three-second hold guard, rather
+than bypassing it. The profile help chord opens Qt help across both panes.
+
+Deep chooser, Route Builder, and LCS wizard navigation currently uses the touchscreen;
+those editors block engine commands. The existing legacy Deck frontend remains
+available through `--legacy` or `PYTRAIN_LEGACY_GUI=1`. Real Deck validation is still
+required for Gamescope sizing, SDL/hidraw access, touchpad behavior, and every
+physical binding. Qt code and profile JSON are included by the existing package-data
+globs. This checkout contains no Flatpak manifest: the external Flatpak must install
+the `qt-gui` extra and its Qt platform plugins, preserve the `pycab` entrypoint and
+`PYTRAIN_PLATFORM=steamdeck`, and retain its existing device permissions and update
+integration. A successful Python wheel test does not verify that external bundle.
+
 ## Device previews on macOS
 
 The engine/train pages include Raspberry Pi (720 × 1280), PyCab (800 × 1280), and

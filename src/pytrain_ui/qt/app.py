@@ -13,6 +13,39 @@ log = logging.getLogger(__name__)
 
 def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     """Run the Qt cab for an already-initialized PyTrain runtime."""
+    from pytrain.utils.host_info import is_steam_deck
+
+    if is_steam_deck():
+        return run_deck(scope, tmcc_id, args)
+    return _run(scope, tmcc_id, args)
+
+
+def run_deck(
+    scope,
+    tmcc_id: int,
+    args: list[str] | None = None,
+    *,
+    width: int = 1280,
+    height: int = 800,
+    controller_profile: str | None = None,
+    full_screen: bool = True,
+) -> int:
+    """Run two independent cabs in one Steam Deck window and one Qt event loop."""
+    if width <= 0 or height <= 0:
+        raise ValueError("Steam Deck dimensions must be positive")
+    return _run(
+        scope,
+        tmcc_id,
+        args,
+        deck=True,
+        width=width,
+        height=height,
+        controller_profile=controller_profile,
+        full_screen=full_screen,
+    )
+
+
+def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller_profile=None, full_screen=None) -> int:
     try:
         from PySide6.QtCore import QTimer, QUrl
         from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
@@ -67,31 +100,49 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         tmcc_id = restored_id
 
     state_bridge = QtStateChangeBridge({CommandScope.SWITCH, CommandScope.ROUTE}, app)
-    cab = CabController(scope, tmcc_id, remember_initial=not show_catalog)
-    accessories = AccessoryCatalogController()
-    catalog = EngineCatalogController()
-    selection = SelectedEngineController(cab)
-    switches = OpsController(CommandScope.SWITCH)
-    routes = OpsController(CommandScope.ROUTE)
-    state_bridge.changesReady.connect(switches.applyStateChanges)
-    state_bridge.changesReady.connect(routes.applyStateChanges)
-    lcs = LcsConfigController()
-    gamepad = QtGamepadInput(QtCabInputSink(cab), cab)
     engine = QQmlApplicationEngine()
-    engine.rootContext().setContextProperty("cabController", cab)
-    admin = AdminController()
-    admin.exitRequested.connect(app.quit)
-    engine.rootContext().setContextProperty("managePyTrainController", admin)
-    state_info = StateInfoController()
-    engine.rootContext().setContextProperty("stateInfoController", state_info)
-    engine.rootContext().setContextProperty("accessoryCatalogController", accessories)
-    engine.rootContext().setContextProperty("engineCatalogController", catalog)
-    engine.rootContext().setContextProperty("selectedEngineController", selection)
-    engine.rootContext().setContextProperty("switchOpsController", switches)
-    engine.rootContext().setContextProperty("routeOpsController", routes)
-    engine.rootContext().setContextProperty("lcsConfigController", lcs)
-    engine.rootContext().setContextProperty("showCatalogAtStartup", show_catalog)
-    engine.rootContext().setContextProperty("startFullscreen", is_linux() and (is_steam_deck() or HostInfo().is_pi))
+    bundles = []
+    for side in ("left", "right") if deck else ("",):
+        cab = CabController(scope, tmcc_id, remember_initial=not show_catalog)
+        accessories = AccessoryCatalogController()
+        catalog = EngineCatalogController()
+        selection = SelectedEngineController(cab)
+        switches = OpsController(CommandScope.SWITCH)
+        routes = OpsController(CommandScope.ROUTE)
+        state_bridge.changesReady.connect(switches.applyStateChanges)
+        state_bridge.changesReady.connect(routes.applyStateChanges)
+        lcs = LcsConfigController()
+        admin = AdminController()
+        admin.exitRequested.connect(app.quit)
+        state_info = StateInfoController()
+        bundle = {
+            "cabController": cab,
+            "managePyTrainController": admin,
+            "stateInfoController": state_info,
+            "accessoryCatalogController": accessories,
+            "engineCatalogController": catalog,
+            "selectedEngineController": selection,
+            "switchOpsController": switches,
+            "routeOpsController": routes,
+            "lcsConfigController": lcs,
+            "showCatalogAtStartup": show_catalog,
+        }
+        bundles.append(bundle)
+        for name, controller in bundle.items():
+            context_name = side + name[0].upper() + name[1:] if side else name
+            engine.rootContext().setContextProperty(context_name, controller)
+    engine.rootContext().setContextProperty(
+        "startFullscreen",
+        full_screen if full_screen is not None else is_linux() and (is_steam_deck() or HostInfo().is_pi),
+    )
+    gamepad = None if deck else QtGamepadInput(QtCabInputSink(cab), cab)
+    if deck:
+        from .deck import QtDeckController
+
+        gamepad = QtDeckController(bundles[0], bundles[1], controller_profile, app)
+        engine.rootContext().setContextProperty("deckController", gamepad)
+        engine.rootContext().setContextProperty("deckWindowWidth", width)
+        engine.rootContext().setContextProperty("deckWindowHeight", height)
 
     def remember_current_engine() -> None:
         if cab.scope == CommandScope.ENGINE.name:
@@ -99,9 +150,11 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
 
     cab.stateChanged.connect(remember_current_engine)
 
-    qml = files("pytrain_ui.qt.qml").joinpath("Main.qml")
+    qml = files("pytrain_ui.qt.qml").joinpath("SteamDeckMain.qml" if deck else "Main.qml")
     with as_file(qml) as qml_path:
         engine.load(QUrl.fromLocalFile(str(qml_path)))
+    if deck and engine.rootObjects():
+        gamepad.attach(engine.rootObjects()[0])
 
     def process_python_signals() -> None:
         # Returning to Python lets pending SIGINT handlers run while Qt is idle.
@@ -117,7 +170,8 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     pdi_dispatcher = PdiDispatcher.get() if PdiDispatcher.is_built() else None
     try:
         if pdi_dispatcher is not None:
-            pdi_dispatcher.subscribe(state_info.receive_record_deletion, DELETE_TOPIC)
+            for bundle in bundles:
+                pdi_dispatcher.subscribe(bundle["stateInfoController"].receive_record_deletion, DELETE_TOPIC)
             pdi_dispatcher.subscribe(state_bridge.receiveRecordChange, CREATE_TOPIC)
         if not engine.rootObjects():
             return 1
@@ -133,14 +187,19 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
             ("state-change bridge", state_bridge.close),
             ("session preferences", remember_current_engine),
             ("gamepad", gamepad.close),
-            ("LCS readback", lcs.clearConfigureStatus),
-            ("accessories", accessories.close),
-            ("routes", routes.close),
-            ("switches", switches.close),
-            ("selection", selection.close),
-            ("catalog", catalog.close),
-            ("cab", cab.close),
         ]
+        for bundle in bundles:
+            cleanup.extend(
+                [
+                    ("LCS readback", bundle["lcsConfigController"].clearConfigureStatus),
+                    ("accessories", bundle["accessoryCatalogController"].close),
+                    ("routes", bundle["routeOpsController"].close),
+                    ("switches", bundle["switchOpsController"].close),
+                    ("selection", bundle["selectedEngineController"].close),
+                    ("catalog", bundle["engineCatalogController"].close),
+                    ("cab", bundle["cabController"].close),
+                ]
+            )
         if pdi_dispatcher is not None:
             cleanup.insert(
                 0,
@@ -149,13 +208,15 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
                     lambda: pdi_dispatcher.unsubscribe(state_bridge.receiveRecordChange, CREATE_TOPIC),
                 ),
             )
-            cleanup.insert(
-                0,
-                (
-                    "record deletion notifications",
-                    lambda: pdi_dispatcher.unsubscribe(state_info.receive_record_deletion, DELETE_TOPIC),
-                ),
-            )
+            for bundle in bundles:
+                callback = bundle["stateInfoController"].receive_record_deletion
+                cleanup.insert(
+                    0,
+                    (
+                        "record deletion notifications",
+                        lambda callback=callback: pdi_dispatcher.unsubscribe(callback, DELETE_TOPIC),
+                    ),
+                )
         for name, close in cleanup:
             try:
                 close()

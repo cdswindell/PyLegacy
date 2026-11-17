@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -656,6 +657,29 @@ class MakeGui(_MakeBase):
             parents=[parent, parser],
         )
 
+    def qt_deck_launch(self) -> str:
+        """Choose Qt on the main thread before starting the legacy buttons loader."""
+        if self._gui_class is not SteamDeckGui:
+            return ""
+        args = getattr(self, "_args", None)
+        options = [
+            "--deck",
+            "--width",
+            str(getattr(args, "width", 1280)),
+            "--height",
+            str(getattr(args, "height", 800)),
+        ]
+        profile = getattr(args, "controller_profile", None)
+        if profile:
+            options.extend(["--controller-profile", str(profile)])
+        probe = "import sys; from pytrain_ui.launcher import select_backend; sys.exit(select_backend([])[0] != 'qt')"
+        return (
+            "# Preserve legacy SER2 and no-cache-sync configurations.\n"
+            f'if [ -z "___LCSSER2______CACHE_SYNC___" ] && python -c {shlex.quote(probe)}; then\n'
+            f"  exec python -m pytrain_ui.qt.pycab {shlex.join(options)}___CLIENT______LIONELBASE______ECHO___\n"
+            "fi\n"
+        )
+
     def make_shell_script(self) -> Path | None:
         template = self.find_installation_file(LAUNCH_TEMPLATE)
         if template is None:
@@ -664,6 +688,7 @@ class MakeGui(_MakeBase):
         template_data = ""
         with open(template, "r") as f:
             template_data = f.read()
+        template_data = template_data.replace("___QT_DECK_LAUNCH___", self.qt_deck_launch())
         for key, value in self.config.items():
             template_data = template_data.replace(key, value)
         path = self._launch_path
