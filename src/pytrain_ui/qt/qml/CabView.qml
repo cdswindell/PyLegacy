@@ -630,12 +630,12 @@ Rectangle {
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: ["Controls", cab.isCrane ? "Sound" : cab.isTransformer ? "Speed" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
+                        model: cab.isAccessoryEngine ? ["Controls"]
+                            : ["Controls", cab.isCrane ? "Sound" : cab.isTransformer ? "Speed" : cab.isElectric ? "Speed & Effects" : "Speed/Volume"]
                         CabPageTab {
                             required property int index
                             required property string modelData
                             objectName: index === 0 ? "driveTab" : "speedTab"
-                            enabled: index === 0 || !cab.isAccessoryEngine
                             width: (pageTabs.availableWidth - pageTabs.spacing) / 2
                             height: pageTabs.height
                             y: 0

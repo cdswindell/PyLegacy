@@ -41,7 +41,7 @@ GridLayout {
             {digit: 0, description: "Reset"},
             root.accScope ? null : {label: "Bell", command: "BELL", icon: "bell"},
             {label: "Brake", command: "BRAKE", icon: "brake", interval: 250},
-            {label: "Aux 1", command: "AUX1_OPT_ONE"},
+            {label: "Aux 1", command: "AUX1_OPT_ONE", interval: root.accScope ? 0 : 250},
             {label: "Aux 2", command: "AUX2_OPT_ONE"},
             {label: "Aux 3", command: "AUX3_OPT_ONE"},
             null
