@@ -3,7 +3,6 @@ import QtQuick
 TapHandler {
     id: root
 
-    property int doubleTapInterval: 450
     property bool holdEnabled: false
     property var acceptsTap: null
     property bool holdTriggered: false
@@ -14,9 +13,9 @@ TapHandler {
     acceptedButtons: Qt.LeftButton
     gesturePolicy: TapHandler.DragThreshold
 
-    property Timer tapWindow: Timer {
-        interval: root.doubleTapInterval
-        onTriggered: root.tappedOnce()
+    property DoubleTapWindow tapWindow: DoubleTapWindow {
+        onSingleTap: root.tappedOnce()
+        onDoubleTap: root.tappedTwice()
     }
 
     function cancelPendingTap() {
@@ -37,11 +36,6 @@ TapHandler {
             cancelPendingTap()
             return
         }
-        if (tapWindow.running) {
-            cancelPendingTap()
-            tappedTwice()
-        } else {
-            tapWindow.start()
-        }
+        tapWindow.registerTap()
     }
 }

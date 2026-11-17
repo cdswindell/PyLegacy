@@ -11,6 +11,7 @@ ColumnLayout {
     property bool compact: false
     property bool rosterTitle: false
     property bool menuEnabled: true
+    readonly property font titleFont: titleLabel.font
     signal activated()
 
     spacing: 2
@@ -27,6 +28,7 @@ ColumnLayout {
     }
 
     Label {
+        id: titleLabel
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         text: root.title + (root.menuEnabled ? "  ▾" : "")

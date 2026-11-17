@@ -176,7 +176,7 @@ RosterPanel {
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
         Layout.preferredHeight: pageAllStop.height
-        font.pixelSize: 20
+        font.pixelSize: pageAllStop.font.pixelSize
     }
 
     ColumnLayout {
@@ -185,12 +185,15 @@ RosterPanel {
         anchors.margins: 12
         spacing: 10
         RowLayout {
+            id: rosterHeader
             Layout.fillWidth: true
             spacing: 10
-            RowLayout {
-                Layout.fillWidth: false
-                Layout.preferredWidth: pageAllStop.width
-                spacing: 6
+            RosterHeaderActions {
+                id: headerActions
+                headerWidth: pageLayout.width
+                headerSpacing: rosterHeader.spacing
+                stopWidth: pageAllStop.Layout.preferredWidth
+                titleFont: rosterTitle.titleFont
                 ChoiceButton {
                     text: "Add…"
                     enabled: !lcsConfig || !lcsConfig.visible
@@ -203,9 +206,11 @@ RosterPanel {
                 }
             }
             CabMenuTitle {
+                id: rosterTitle
                 rosterTitle: true
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                Layout.rightMargin: headerActions.titleRightMargin
                 compact: root.compact
                 title: "Accessories"
                 onActivated: root.cabMenuRequested()

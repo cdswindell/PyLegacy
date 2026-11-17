@@ -9,8 +9,6 @@ Control {
     property bool activateOnRelease: false
     property bool activateOnHold: false
     property bool distinguishDoubleClick: false
-    // An explicit interval groups taps anywhere within this button.
-    property int doubleTapInterval: 450
     property bool holdWithinBounds: false
     property bool mouseHoldEnabled: false
     property bool repeatWhileHeld: false
@@ -30,10 +28,10 @@ Control {
     onEnabledChanged: if (!enabled) doubleTapTimer.stop()
     onVisibleChanged: if (!visible) doubleTapTimer.stop()
 
-    Timer {
+    DoubleTapWindow {
         id: doubleTapTimer
-        interval: root.doubleTapInterval
-        onTriggered: root.clicked()
+        onSingleTap: root.clicked()
+        onDoubleTap: root.doubleClicked()
     }
 
     signal clicked()
@@ -70,12 +68,7 @@ Control {
         longPressThreshold: root.holdWithinBounds ? 0.55 : undefined
         onTapped: {
             if (root.distinguishDoubleClick && !holdTriggered) {
-                if (doubleTapTimer.running) {
-                    doubleTapTimer.stop()
-                    root.doubleClicked()
-                } else {
-                    doubleTapTimer.start()
-                }
+                doubleTapTimer.registerTap()
             } else if (root.activateOnRelease && !root.distinguishDoubleClick) {
                 root.clicked()
             }

@@ -118,7 +118,6 @@ Item {
                             text: "On"
                             selected: channel.observed.on
                             distinguishDoubleClick: true
-                            doubleTapInterval: 500
                             onClicked: channel.setPower(true)
                             onDoubleClicked: channel.setLevel(100)
                         }
@@ -130,7 +129,6 @@ Item {
                             text: "Off"
                             selected: !channel.observed.on
                             distinguishDoubleClick: true
-                            doubleTapInterval: 500
                             onClicked: channel.setPower(false)
                             onDoubleClicked: channel.setLevel(0)
                         }

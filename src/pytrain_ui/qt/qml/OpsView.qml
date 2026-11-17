@@ -360,7 +360,7 @@ RosterPanel {
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
         Layout.preferredHeight: pageAllStop.height
-        font.pixelSize: 20
+        font.pixelSize: pageAllStop.font.pixelSize
     }
 
     component IconActionButton: CabButton {
@@ -476,15 +476,19 @@ RosterPanel {
         spacing: 10
 
         RowLayout {
+            id: rosterHeader
             Layout.fillWidth: true
             spacing: 10
-            RowLayout {
-                Layout.fillWidth: false
-                Layout.preferredWidth: pageAllStop.width
-                spacing: 6
+            RosterHeaderActions {
+                id: headerActions
+                headerWidth: pageLayout.width
+                headerSpacing: rosterHeader.spacing
+                stopWidth: pageAllStop.Layout.preferredWidth
+                titleFont: rosterTitle.titleFont
+                paired: switchLcsButton.visible
                 TouchButton {
                     text: "Add…"
-                    font.pixelSize: switchLcsButton.visible ? 20 : 24
+                    font.pixelSize: controller && controller.scope === "ROUTE" ? 24 : pageAllStop.font.pixelSize
                     enabled: !!controller && !(lcsConfig.visible || routeBuilder.visible || routePicker.visible)
                     onClicked: {
                         if (controller.scope === "SWITCH")
@@ -502,9 +506,11 @@ RosterPanel {
                 }
             }
             CabMenuTitle {
+                id: rosterTitle
                 rosterTitle: true
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                Layout.rightMargin: headerActions.titleRightMargin
                 compact: root.height < 850
                 title: controller && controller.scope === "SWITCH" ? "Switches" : "Routes"
                 onActivated: root.cabMenuRequested()
@@ -535,7 +541,7 @@ RosterPanel {
                 onClicked: root.openTmccKeypad()
             }
             RosterSetButton {
-                visible: !!controller && controller.scope === "SWITCH"
+                showButton: !!controller && controller.scope === "SWITCH"
                 addressAllowed: root.canSetSwitchAddress(entryText)
                 entryText: searchField.text
                 maximumId: 98
@@ -605,13 +611,12 @@ RosterPanel {
                     anchors.margins: 6
                     spacing: row.isRoute ? 5 : 8
 
-                    Label {
-                        Layout.preferredWidth: 42
-                        text: rowData.tmccId
-                        color: "#f4f6f8"
-                        font.pixelSize: 26
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
+                    RosterIdBadge {
+                        Layout.preferredWidth: 56
+                        Layout.fillHeight: true
+                        abbreviation: row.isRoute ? "RTE" : "SW"
+                        tmccId: rowData.tmccId
+                        numberSize: 26
                     }
                     ColumnLayout {
                         Layout.fillWidth: true

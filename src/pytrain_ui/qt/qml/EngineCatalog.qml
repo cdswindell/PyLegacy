@@ -132,10 +132,11 @@ RosterPanel {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 6
+            spacing: 8
             TouchSearchField {
                 id: searchField
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.minimumHeight: 54
                 Layout.maximumHeight: 54
                 Layout.preferredHeight: 54
@@ -157,7 +158,7 @@ RosterPanel {
                 onClicked: root.openTmccKeypad()
             }
             RosterSetButton {
-                visible: root.scope === "ENGINE"
+                showButton: root.scope === "ENGINE"
                 entryText: searchField.text
                 maximumId: 9999
                 onClicked: root.requestAddress(Number(searchField.text))
@@ -214,18 +215,11 @@ RosterPanel {
                     anchors.leftMargin: 14
                     anchors.rightMargin: 14
                     spacing: 14
-                    Rectangle {
+                    RosterIdBadge {
                         Layout.preferredWidth: 132
                         Layout.preferredHeight: 92
-                        radius: 7
-                        color: "#18232e"
-                        border.width: 1
-                        border.color: "#596574"
-                        Column {
-                            anchors.centerIn: parent
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: root.scope === "TRAIN" ? "TRN" : "ENG"; color: "#9ea6b0"; font.pixelSize: 14; font.bold: true }
-                            Label { anchors.horizontalCenter: parent.horizontalCenter; text: row.modelData.tmccId; color: "white"; font.pixelSize: 36; font.bold: true }
-                        }
+                        abbreviation: root.scope === "TRAIN" ? "TRN" : "ENG"
+                        tmccId: row.modelData.tmccId
                     }
                     ColumnLayout {
                         Layout.fillWidth: true
