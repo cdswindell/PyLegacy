@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from time import monotonic
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
 
 from pytrain.db.accessory_state import AccessoryState
-from pytrain.db.component_state import ComponentStateDict
+from pytrain.db.component_state import ComponentState, ComponentStateDict
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.engine_state import EngineState
 from pytrain.db.irda_state import IrdaState
@@ -42,6 +42,7 @@ class StateInfoController(QObject):
     changed = Signal()
     recordReady = Signal(str, int)
     recordCleared = Signal(str, int)
+    _deletionReceived = Signal(str, int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -55,6 +56,16 @@ class StateInfoController(QObject):
         self._error = ""
         self._model: dict = {}
         self._accessory_saved_values: dict[str, str] = {}
+        self._deletionReceived.connect(self._on_record_deleted, Qt.ConnectionType.QueuedConnection)
+
+    def receive_record_deletion(self, state: ComponentState) -> None:
+        self._deletionReceived.emit(state.scope.name, state.tmcc_id)
+
+    @Slot(str, int)
+    def _on_record_deleted(self, scope: str, tmcc_id: int) -> None:
+        # A new record may already have been synchronized at the same address.
+        if ComponentStateStore.get_state(CommandScope[scope], tmcc_id, create=False) is None:
+            self.recordCleared.emit(scope, tmcc_id)
 
     def _lookup(self):
         return ComponentStateStore.get_state(self._scope, self._id, create=False)

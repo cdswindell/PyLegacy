@@ -156,17 +156,42 @@ ApplicationWindow {
             window.closeStateInfo()
         }
         function onRecordCleared(scope, tmccId) {
+            const editingRecord = window.stateInfoVisible && window.stateInfoScope === scope
+                && window.stateInfoId === tmccId
             if (scope === "ACC") {
-                window.accessoryOperatingVisible = false
-                window.closeStateInfo()
-                return
+                const operatingRecord = window.accessoryOperatingVisible
+                    && window.activeAccessory.tmccId === tmccId
+                if (operatingRecord) {
+                    window.accessoryOperatingVisible = false
+                    window.activeAccessoryKey = ""
+                }
+                if (operatingRecord || editingRecord)
+                    accessoryCatalog.showRoster()
+                if (!editingRecord)
+                    accessoryCatalogController.reload()
+            } else if (scope === "SWITCH" || scope === "ROUTE") {
+                const ops = scope === "SWITCH" ? switchOpsView : routeOpsView
+                if (ops.handleRecordDeletion(tmccId))
+                    discardChanges.close()
+            } else if (scope === "ENGINE" || scope === "TRAIN") {
+                const operatingRecord = window.activeScope === scope
+                    && cabController.scope === scope && cabController.tmccId === tmccId
+                if (operatingRecord || editingRecord) {
+                    window.engineCatalogVisible = true
+                    operatingCabView.cancelTransientPanels()
+                    if (!window.stateInfoVisible)
+                        discardChanges.close()
+                }
+                cabController.forgetClearedTarget(scope, tmccId)
+                if (scope === "ENGINE")
+                    selectedEngineController.pruneDeleted()
+                engineCatalogController.reload()
+                cabController.refreshRoster()
             }
-            window.engineCatalogVisible = true
-            window.closeStateInfo()
-            cabController.forgetClearedTarget(scope, tmccId)
-            selectedEngineController.pruneDeleted()
-            engineCatalogController.reload()
-            cabController.refreshRoster()
+            if (editingRecord) {
+                discardChanges.close()
+                window.closeStateInfo()
+            }
         }
     }
 

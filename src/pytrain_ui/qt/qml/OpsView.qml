@@ -324,6 +324,20 @@ RosterPanel {
         roster.positionViewAtBeginning()
     }
 
+    function handleRecordDeletion(tmccId) {
+        const edited = (routeBuilder.visible && controller.routeBuilderId === tmccId)
+            || (switchEditor.visible && editingSwitchId === tmccId)
+            || (overwriteSwitchPopup.visible && pendingOverwriteSwitchId === tmccId)
+        if (edited) {
+            showRoster()
+        } else if (directTmccId === tmccId) {
+            directTmccId = 0
+            searchField.clear()
+        }
+        controller.reload()
+        return edited
+    }
+
     function discardRouteBuilder() {
         routePicker.close()
         routeBuilder.close()

@@ -22,7 +22,8 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         raise SystemExit("The Qt UI is not installed. Install PyTrain with the 'qt-gui' extra.") from exc
 
     from pytrain.cli.pytrain import PyTrain
-    from pytrain.protocol.constants import CommandScope
+    from pytrain.pdi.pdi_listener import PdiDispatcher
+    from pytrain.protocol.constants import DELETE_TOPIC, CommandScope
     from pytrain.utils.host_info import HostInfo, is_linux, is_steam_deck
 
     from .accessory_controller import AccessoryCatalogController
@@ -109,7 +110,10 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     signal_timer.timeout.connect(process_python_signals)
     previous_sigint = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGINT, interrupt)
+    pdi_dispatcher = PdiDispatcher.get() if PdiDispatcher.is_built() else None
     try:
+        if pdi_dispatcher is not None:
+            pdi_dispatcher.subscribe(state_info.receive_record_deletion, DELETE_TOPIC)
         if not engine.rootObjects():
             return 1
         runtime = PyTrain.current(raise_exception=False)
@@ -131,6 +135,14 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
             ("catalog", catalog.close),
             ("cab", cab.close),
         ]
+        if pdi_dispatcher is not None:
+            cleanup.insert(
+                0,
+                (
+                    "record deletion notifications",
+                    lambda: pdi_dispatcher.unsubscribe(state_info.receive_record_deletion, DELETE_TOPIC),
+                ),
+            )
         for name, close in cleanup:
             try:
                 close()
