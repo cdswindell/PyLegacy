@@ -47,7 +47,7 @@ RosterPanel {
 
     radius: 10
 
-    property string sortMode: "name"
+    property string sortMode: "tmcc"
     property string searchText: ""
     property int directTmccId: 0
     property string scope: "ENGINE"
@@ -173,7 +173,7 @@ RosterPanel {
         RosterSortBar {
             roster: listView
             compact: root.height < 850
-            keys: ["name", "road", "tmcc"]
+            keys: ["tmcc", "name", "road"]
             selectedKey: root.sortMode
             onSelected: key => root.sortMode = key
         }

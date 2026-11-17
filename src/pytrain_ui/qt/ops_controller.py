@@ -9,6 +9,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.state_changes import StateChange
 from pytrain.gui.controller.lcs_id_map import occupants_of
 from pytrain.gui.controller.route_draft import RouteDraft
 from pytrain.pdi.base_req import BaseReq
@@ -33,6 +34,7 @@ class OpsController(QObject):
             raise ValueError(f"Unsupported operations scope: {scope}")
         super().__init__(parent)
         self._scope = scope
+        self._closed = False
         self._rows: list[dict] = []
         self._selected_id = 0
         self._route_draft: RouteDraft | None = None
@@ -48,12 +50,29 @@ class OpsController(QObject):
         self.reload()
 
     def close(self) -> None:
+        self._closed = True
         self._dispatcher.unsubscribe(self._command_received, self._scope)
         if self._scope == CommandScope.ROUTE:
             self._dispatcher.unsubscribe(self._command_received, CommandScope.SWITCH)
         if self._pdi_dispatcher is not None:
             self._pdi_dispatcher.unsubscribe(self._pdi_received, CommandScope.SWITCH)
             self._pdi_dispatcher = None
+
+    @Slot(object)
+    def applyStateChanges(self, changes: frozenset[StateChange]) -> None:
+        """Refresh completed updates, including newly created or deleted states."""
+        if self._closed:
+            return
+        addresses = {change.address for change in changes if change.scope == self._scope}
+        if not addresses:
+            return
+        existing = {row["tmccId"] for row in self._rows}
+        states = [ComponentStateStore.get_state(self._scope, address, create=False) for address in addresses]
+        if any(state is None or state.is_deleted for state in states) or not addresses <= existing:
+            self.reload()
+        else:
+            for address in addresses:
+                self._refresh_row(address)
 
     def _state(self):
         if not self._selected_id:
@@ -106,10 +125,11 @@ class OpsController(QObject):
 
     def _refresh_row(self, tmcc_id: int) -> None:
         state = ComponentStateStore.get_state(self._scope, tmcc_id, create=False)
-        if state is None:
+        if state is None or state.is_deleted:
             self.reload()
             return
-        row = self._row(state)
+        with state.synchronizer:
+            row = self._row(state)
         for index, existing in enumerate(self._rows):
             if existing["tmccId"] == tmcc_id:
                 self._rows[index] = row
@@ -119,7 +139,7 @@ class OpsController(QObject):
         self.reload()
 
     def _command_received(self, command: CommandReq) -> None:
-        """Queue UI refresh until dispatcher subscribers have processed the command."""
+        """Queue a roster refresh for command traffic; state-change notifications confirm completion."""
         tmcc_id = int(getattr(command, "address", 0) or 0)
         scope = getattr(command, "scope", None)
         if tmcc_id and scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
@@ -133,7 +153,9 @@ class OpsController(QObject):
 
     @Slot(int, str)
     def _refresh_after_command(self, tmcc_id: int, scope_name: str) -> None:
-        """Read state on the Qt thread after ComponentStateStore has handled the command."""
+        """Read state on the Qt thread after packet or completed-state notifications."""
+        if self._closed:
+            return
         if self._scope == CommandScope.ROUTE and scope_name == CommandScope.SWITCH.name:
             self.reload()
         elif scope_name == self._scope.name:
@@ -141,8 +163,17 @@ class OpsController(QObject):
 
     @Slot()
     def reload(self) -> None:
-        states = sorted(ComponentStateStore.get().get_all(self._scope), key=lambda item: item.tmcc_id)
-        self._rows = [self._row(state) for state in states]
+        if self._closed:
+            return
+        states = sorted(
+            (state for state in ComponentStateStore.get().get_all(self._scope) if not state.is_deleted),
+            key=lambda item: item.tmcc_id,
+        )
+        self._rows = []
+        for state in states:
+            with state.synchronizer:
+                if not state.is_deleted:
+                    self._rows.append(self._row(state))
         state_ids = {int(state.tmcc_id) for state in states}
         if self._selected_id and self._selected_id not in state_ids:
             self._selected_id = 0

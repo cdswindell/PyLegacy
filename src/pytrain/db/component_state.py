@@ -16,11 +16,12 @@ import threading
 from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
 from enum import Enum, auto
-from threading import Condition, Event, RLock
+from threading import Condition, Event
 from time import monotonic
 from typing import Any, Dict, List, Self, Set, TextIO, TypeVar
 
 from .comp_data import CompData, CompDataMixin
+from .state_changes import StateChangeCondition, state_changes
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
 from ..pdi.d4_req import D4Req
@@ -96,7 +97,7 @@ class ComponentState(ABC, CompDataMixin):
         from .component_state_store import DependencyCache
 
         super().__init__()
-        self._cv: Condition = Condition(RLock())
+        self._cv: Condition = StateChangeCondition(self)
         self._ev = Event()
         self._is_known: bool = False
         self._scope = scope
@@ -424,6 +425,9 @@ class ComponentState(ABC, CompDataMixin):
             if notify:
                 self.changed.set()
                 self.synchronizer.notify_all()
+            else:
+                # Deletion still invalidates scope subscribers when legacy wakeups are suppressed.
+                state_changes.publish(self.scope, self.address)
 
         if clear_db:
             self.clear_record(self)
@@ -1192,6 +1196,7 @@ class ComponentStateDict(ThreadSafeDefaultDict):
             value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)
             value._address = key
             self[key] = value
+            state_changes.publish(value.scope, value.address)
             return self[key]
 
 

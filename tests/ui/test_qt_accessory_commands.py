@@ -192,6 +192,8 @@ def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkey
         {"gui": "culvert", "instance_id": "culvert", "tmcc_id": 60},
         {"gui": "smoke", "instance_id": "smoke", "tmcc_id": 29},
     )
+    # Exercise the legacy overall-ID call, which accepts None for unused port mappings.
+    # noinspection PyTypeChecker
     legacy_smoke = configure_accessory(smoke.definition, tmcc_ids=None, tmcc_id=29)
     assert legacy_smoke.images_for("boom_left", "boom_right") == ("left_arrow.jpg", "right_arrow.jpg")
 
@@ -250,8 +252,8 @@ def test_quick_operations_remember_the_exact_roster_row(controller, sent, monkey
     bpc2 = AccessoryDescriptor(
         "bpc2:24", (24,), 24, "Power", "", None, ("BPC2 24",), (AccessoryViewKind.LCS,), AccessoryViewKind.LCS, True
     )
-    # Provide colocated rows to prove the operation retains device identity.
-    # noinspection PyProtectedMember
+    # Inject colocated rows into the private index to verify retained device identity.
+    # noinspection PyProtectedMember,PyUnresolvedReferences
     monkeypatch.setattr(controller, "_descriptors", {asc2.key: asc2, bpc2.key: bpc2})
     operations = []
     controller.operated.connect(lambda key, roster: operations.append((key, roster)))
@@ -641,8 +643,8 @@ ApplicationWindow {
     PowerButton { objectName: "OFF42BPC2"; x: 525; tmccId: 42; deviceKind: "BPC2"; action: "OFF" }
     Component.onCompleted: {
         const expected = {
-            All: "OPERATING,AMC2,ASC2,BPC2,SENSOR,TMCC",
-            Operating: "OPERATING", LCS: "AMC2,ASC2,BPC2,SENSOR", TMCC: "TMCC",
+            All: "OPERATING,BPC2,ASC2,AMC2,SENSOR,TMCC",
+            Operating: "OPERATING", LCS: "BPC2,ASC2,AMC2,SENSOR", TMCC: "TMCC",
             Sensor: "SENSOR", BPC2: "BPC2", ASC2: "ASC2", AMC2: "AMC2"
         }
         for (const label of Object.keys(expected)) {
@@ -778,12 +780,12 @@ window.close()
 """
 
 
-def test_roster_filters_and_momentary_pointer_behavior() -> None:
+def assert_qml_scenario(source: str) -> None:
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
     environment = dict(os.environ)
     environment.setdefault("QT_QPA_PLATFORM", "offscreen")
     result = subprocess.run(
-        [sys.executable, "-c", ROSTER_CHILD, str(qml_directory)],
+        [sys.executable, "-c", source, str(qml_directory)],
         env=environment,
         capture_output=True,
         text=True,
@@ -792,6 +794,10 @@ def test_roster_filters_and_momentary_pointer_behavior() -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Error:" not in result.stderr, result.stderr
+
+
+def test_roster_filters_and_momentary_pointer_behavior() -> None:
+    assert_qml_scenario(ROSTER_CHILD)
 
 
 # The embedded Qt API identifiers retain their exact spelling.
@@ -958,19 +964,7 @@ window.close()
 
 
 def test_operating_panel_disables_gated_buttons_and_preserves_gesture_lifecycle() -> None:
-    qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
-    environment = dict(os.environ)
-    environment.setdefault("QT_QPA_PLATFORM", "offscreen")
-    result = subprocess.run(
-        [sys.executable, "-c", OPERATING_CHILD, str(qml_directory)],
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=15,
-        check=False,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "Error:" not in result.stderr, result.stderr
+    assert_qml_scenario(OPERATING_CHILD)
 
 
 # Embedded JavaScript uses Qt's required identifier spelling.

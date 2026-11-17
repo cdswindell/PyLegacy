@@ -23,7 +23,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
 
     from pytrain.cli.pytrain import PyTrain
     from pytrain.pdi.pdi_listener import PdiDispatcher
-    from pytrain.protocol.constants import DELETE_TOPIC, CommandScope
+    from pytrain.protocol.constants import CREATE_TOPIC, DELETE_TOPIC, CommandScope
     from pytrain.utils.host_info import HostInfo, is_linux, is_steam_deck
 
     from .accessory_controller import AccessoryCatalogController
@@ -35,6 +35,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     from .ops_controller import OpsController
     from .selection_controller import SelectedEngineController
     from .session import restore_engine, save_engine
+    from .state_change_bridge import QtStateChangeBridge
     from .state_info_controller import StateInfoController
 
     # PyTrain supplies custom backgrounds/content for its controls. The native macOS
@@ -65,12 +66,15 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         scope = CommandScope.ENGINE
         tmcc_id = restored_id
 
+    state_bridge = QtStateChangeBridge({CommandScope.SWITCH, CommandScope.ROUTE}, app)
     cab = CabController(scope, tmcc_id, remember_initial=not show_catalog)
     accessories = AccessoryCatalogController()
     catalog = EngineCatalogController()
     selection = SelectedEngineController(cab)
     switches = OpsController(CommandScope.SWITCH)
     routes = OpsController(CommandScope.ROUTE)
+    state_bridge.changesReady.connect(switches.applyStateChanges)
+    state_bridge.changesReady.connect(routes.applyStateChanges)
     lcs = LcsConfigController()
     gamepad = QtGamepadInput(QtCabInputSink(cab), cab)
     engine = QQmlApplicationEngine()
@@ -114,6 +118,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
     try:
         if pdi_dispatcher is not None:
             pdi_dispatcher.subscribe(state_info.receive_record_deletion, DELETE_TOPIC)
+            pdi_dispatcher.subscribe(state_bridge.receiveRecordChange, CREATE_TOPIC)
         if not engine.rootObjects():
             return 1
         runtime = PyTrain.current(raise_exception=False)
@@ -125,6 +130,7 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
         signal_timer.stop()
         signal.signal(signal.SIGINT, previous_sigint)
         cleanup = [
+            ("state-change bridge", state_bridge.close),
             ("session preferences", remember_current_engine),
             ("gamepad", gamepad.close),
             ("LCS readback", lcs.clearConfigureStatus),
@@ -136,6 +142,13 @@ def run_cab(scope, tmcc_id: int, args: list[str] | None = None) -> int:
             ("cab", cab.close),
         ]
         if pdi_dispatcher is not None:
+            cleanup.insert(
+                0,
+                (
+                    "record creation notifications",
+                    lambda: pdi_dispatcher.unsubscribe(state_bridge.receiveRecordChange, CREATE_TOPIC),
+                ),
+            )
             cleanup.insert(
                 0,
                 (

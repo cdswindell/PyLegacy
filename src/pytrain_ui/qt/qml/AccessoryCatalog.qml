@@ -10,7 +10,7 @@ RosterPanel {
     property var lcsConfig: null
     property string searchText: ""
     property int directTmccId: 0
-    property string sortMode: "NAME"
+    property string sortMode: "TMCC"
     property string typeFilter: "ALL"
     readonly property var lcsFilterKinds: ["SENSOR", "BPC2", "ASC2", "AMC2"]
     readonly property string detectedFilterKinds: {
@@ -287,7 +287,7 @@ RosterPanel {
         RosterSortBar {
             roster: listView
             compact: root.compact
-            keys: ["NAME", "ROAD", "TMCC"]
+            keys: ["TMCC", "NAME", "ROAD"]
             selectedKey: root.sortMode
             onSelected: key => root.sortMode = key
         }

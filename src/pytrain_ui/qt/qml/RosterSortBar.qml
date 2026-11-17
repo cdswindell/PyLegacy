@@ -7,7 +7,7 @@ RowLayout {
     required property string selectedKey
     required property bool compact
     required property ListView roster
-    property var keys: ["roadName", "roadNumber", "tmccId"]
+    property var keys: ["tmccId", "roadName", "roadNumber"]
     signal selected(string key)
 
     function selectAndScrollToTop(key) {
@@ -23,7 +23,7 @@ RowLayout {
     spacing: 8
 
     Repeater {
-        model: ["Name", "Road #", "TMCC ID"]
+        model: ["TMCC ID", "Name", "Road #"]
         delegate: CabButton {
             required property string modelData
             required property int index

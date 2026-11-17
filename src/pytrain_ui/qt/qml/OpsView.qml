@@ -30,8 +30,9 @@ RosterPanel {
     readonly property bool hasUnsavedLcsChanges: lcsConfig.hasUnsavedChanges
     signal routeCloseRequested()
 
-    property string sortKey: "roadName"
+    property string sortKey: "tmccId"
     property string routeStateFilter: "ALL"
+    property string switchStateFilter: "ALL"
     property int directTmccId: 0
     property var rightHandSwitches: ({})
     property int editingSwitchId: 0
@@ -50,7 +51,7 @@ RosterPanel {
     property bool showInactiveSwitches: false
     property string routeCandidateScope: "SWITCH"
     property string routeCandidateSearch: ""
-    property string routeCandidateSortKey: "roadName"
+    property string routeCandidateSortKey: "tmccId"
     property bool showUnnamedRouteSwitches: false
     signal closeRequested()
     signal cabMenuRequested()
@@ -115,6 +116,8 @@ RosterPanel {
             if (root.directTmccId > 0)
                 return row.tmccId === root.directTmccId
             if (controller.scope === "SWITCH" && row.inactive && !root.showInactiveSwitches)
+                return false
+            if (controller.scope === "SWITCH" && root.switchStateFilter !== "ALL" && row.stateText !== root.switchStateFilter)
                 return false
             if (controller.scope === "ROUTE" && root.routeStateFilter !== "ALL" && row.stateText !== root.routeStateFilter)
                 return false
@@ -319,7 +322,7 @@ RosterPanel {
     function openRoutePicker() {
         routeCandidateScope = "SWITCH"
         routeCandidateSearch = ""
-        routeCandidateSortKey = "roadName"
+        routeCandidateSortKey = "tmccId"
         showUnnamedRouteSwitches = false
         routeCandidateSearchField.text = ""
         routePickerError.text = ""
@@ -600,11 +603,19 @@ RosterPanel {
             onToggled: root.showInactiveSwitches = checked
         }
         RosterFilterTabs {
-            objectName: "routeFilterTabs"
-            visible: !!controller && controller.scope === "ROUTE"
-            selectedKey: root.routeStateFilter
-            model: [{ key: "ALL", label: "All" }, { key: "Aligned", label: "Aligned" }, { key: "Unset", label: "Unset" }]
-            onSelected: key => root.routeStateFilter = key
+            objectName: controller && controller.scope === "SWITCH" ? "switchFilterTabs" : "routeFilterTabs"
+            visible: !!controller
+            roster: roster
+            selectedKey: controller && controller.scope === "SWITCH" ? root.switchStateFilter : root.routeStateFilter
+            model: controller && controller.scope === "SWITCH"
+                ? [{ key: "ALL", label: "All" }, { key: "THRU", label: "Thru" }, { key: "OUT", label: "Out" }]
+                : [{ key: "ALL", label: "All" }, { key: "Aligned", label: "Aligned" }, { key: "Unset", label: "Unset" }]
+            onSelected: key => {
+                if (controller.scope === "SWITCH")
+                    root.switchStateFilter = key
+                else
+                    root.routeStateFilter = key
+            }
         }
         ListView {
             id: roster
@@ -648,6 +659,11 @@ RosterPanel {
                     spacing: row.isRoute ? 5 : 8
 
                     RosterIdBadge {
+                        objectName: "operationsIdBadge"
+                        readonly property bool aligned: rowData.stateText === "THRU" || rowData.stateText === "Aligned"
+                        readonly property bool unaligned: rowData.stateText === "OUT" || rowData.stateText === "Unset"
+                        color: aligned ? "#173e34" : unaligned ? "#4b3920" : "#18232e"
+                        border.color: aligned ? "#508b70" : unaligned ? "#bd914b" : "#596574"
                         Layout.preferredWidth: 56
                         Layout.fillHeight: true
                         abbreviation: row.isRoute ? "RTE" : "SW"
@@ -1214,9 +1230,9 @@ RosterPanel {
                 }
                 Repeater {
                     model: [
+                        { key: "tmccId", label: "TMCC ID" },
                         { key: "roadName", label: "Name" },
-                        { key: "roadNumber", label: "Road #" },
-                        { key: "tmccId", label: "TMCC ID" }
+                        { key: "roadNumber", label: "Road #" }
                     ]
                     CabButton {
                         required property var modelData

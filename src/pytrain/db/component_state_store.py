@@ -32,6 +32,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
 from .comp_data import CompDataMixin
+from .state_changes import state_changes
 from .component_state import (
     SCOPE_TO_STATE_MAP,
     ComponentState,
@@ -90,6 +91,7 @@ class ComponentStateStore:
             raise AttributeError("ComponentStateStore not built")
         cls._instance._state[scope][address] = state
         cls._instance._deleted_addresses.discard((scope, address))
+        state_changes.publish(scope, state.address)
 
     @classmethod
     def delete_state(cls, state: T) -> None:
@@ -480,6 +482,7 @@ class ComponentStateStore:
                         del entries[key]
                 if not entries:
                     del self._bt_index[bt_id]
+            state_changes.publish(scope, state.address)
 
 
 # noinspection DuplicatedCode
