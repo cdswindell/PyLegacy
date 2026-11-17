@@ -29,6 +29,7 @@ from pytrain.pdi.bpc2_req import Bpc2Req
 from pytrain.pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from pytrain.pdi.irda_req import IrdaReq, IrdaSequence
 from pytrain.pdi.pdi_listener import PdiDispatcher
+from pytrain.protocol.command_def import CommandDefEnum
 from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1HaltCommandEnum
@@ -387,6 +388,18 @@ class AccessoryCatalogController(QObject):
         return [operation for operation in operations if operation.key.strip().lower() not in replaced]
 
     @classmethod
+    def _has_shared_command_address(cls, descriptor: AccessoryDescriptor) -> bool:
+        configured = descriptor.configured_accessory
+        if configured is None or not descriptor.primary_tmcc_id:
+            return False
+        operations = cls._qt_operations(configured)
+        return bool(operations) and all(
+            operation.behavior == PortBehavior.COMMAND
+            and configured.tmcc_id_for(operation.key) == descriptor.primary_tmcc_id
+            for operation in operations
+        )
+
+    @classmethod
     def _operation_feedback(cls, operation: OperationAssets, address: int) -> tuple[AccessoryPowerState, bool]:
         if operation.behavior != PortBehavior.COMMAND:
             return cls._power_state(cls._relay_feedback(address))
@@ -412,6 +425,31 @@ class AccessoryCatalogController(QObject):
             if cls._operation_feedback(operation, configured.tmcc_id_for(operation.key))[0] != AccessoryPowerState.ON:
                 return False
         return True
+
+    @staticmethod
+    def _accessory_key_label(command: CommandDefEnum, data: int | None = None) -> str:
+        if command.is_alias:
+            alias = command.alias
+            if isinstance(alias, tuple) and alias[0] == TMCC1AuxCommandEnum.NUMERIC:
+                return str(alias[1])
+        if command == TMCC1AuxCommandEnum.NUMERIC and data is not None:
+            return str(data)
+        return {
+            TMCC1AuxCommandEnum.RELATIVE_SPEED: "Throttle",
+            TMCC1AuxCommandEnum.AUX1_OPT_ONE: "Aux 1",
+            TMCC1AuxCommandEnum.AUX2_OPT_ONE: "Aux 2",
+            TMCC1AuxCommandEnum.TOGGLE_DIRECTION: "Direction",
+        }.get(command, command.name.replace("_", " ").title())
+
+    @classmethod
+    def _accessory_keys(cls, operation: OperationAssets) -> str:
+        if operation.command is not None:
+            return cls._accessory_key_label(operation.command, operation.command_data)
+        if operation.command_on is not None and operation.command_off is not None:
+            on_key = cls._accessory_key_label(operation.command_on)
+            off_key = cls._accessory_key_label(operation.command_off)
+            return on_key if on_key == off_key else f"{off_key} (Off) · {on_key} (On)"
+        return ""
 
     def _configured_operating_state(
         self,
@@ -474,6 +512,7 @@ class AccessoryCatalogController(QObject):
                     action_label=action_label,
                     held=held,
                     lcs_labels=self._lcs_labels((tmcc_id,)),
+                    accessory_keys=self._accessory_keys(assets),
                 )
             )
 
@@ -515,6 +554,7 @@ class AccessoryCatalogController(QObject):
             "held": operation.held,
             "repeat": operation.repeat or 0,
             "lcsLabels": list(operation.lcs_labels),
+            "accessoryKeys": operation.accessory_keys,
             "width": operation.width or 0,
             "height": operation.height or 0,
             "analogInput": {
@@ -681,7 +721,9 @@ class AccessoryCatalogController(QObject):
     @Slot(str, int, str, int)
     def tmccCommand(self, key: str, tmcc_id: int, name: str, value: int) -> None:
         descriptor = self._descriptors.get(key)
-        if descriptor is None or descriptor.kind != "TMCC" or descriptor.primary_tmcc_id != tmcc_id:
+        if descriptor is None or descriptor.primary_tmcc_id != tmcc_id:
+            return
+        if descriptor.kind != "TMCC" and not self._has_shared_command_address(descriptor):
             return
         if (name == "NUMERIC" and 0 <= value <= 9) or (name == "RELATIVE_SPEED" and -5 <= value <= 5):
             CommandReq.build(TMCC1AuxCommandEnum[name], tmcc_id, value).send()
@@ -816,13 +858,16 @@ class AccessoryCatalogController(QObject):
             "artworkSource": self._image_source(_DEVICE_IMAGES.get(descriptor.kind)),
         }
         if descriptor.configured_accessory is not None:
-            view = self._configured_operating_state(key, descriptor.configured_accessory)
+            configured = descriptor.configured_accessory
+            view = self._configured_operating_state(key, configured)
             panel.update(
+                accessoryTypeName=configured.registry.get_spec(configured.accessory_type).display_name,
                 artworkSource=view.artwork,
                 artworkAspectRatio=view.artwork_aspect_ratio,
                 powerState=view.power_state.value,
                 powerStateAuthoritative=view.power_state_authoritative,
                 operations=[self._operation_row(operation) for operation in view.operations],
+                sharedCommandAddress=self._has_shared_command_address(descriptor),
             )
         elif descriptor.kind == "SENSOR":
             state = ComponentStateStore.get_state(CommandScope.IRDA, descriptor.primary_tmcc_id, create=False)

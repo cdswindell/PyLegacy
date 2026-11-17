@@ -9,6 +9,8 @@ Item {
     required property var controller
     required property var accessory
     required property bool compact
+    property bool showTmccTab: true
+    property bool fillTmccKeypad: false
     readonly property string kind: accessory.kind || ""
     TabBar {
         id: sensorTabs
@@ -103,7 +105,7 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.topMargin: metrics.accessoryTabInset
-        visible: root.kind === "TMCC"
+        visible: root.kind === "TMCC" && root.showTmccTab
         width: parent.width / 3
         height: 56
         padding: 0
@@ -119,11 +121,11 @@ Item {
         id: tmcc
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: tmccTabs.top
+        anchors.top: root.showTmccTab ? tmccTabs.top : parent.top
         // Measure the visible tab edge instead of inheriting the tab bar's style inset.
-        anchors.topMargin: metrics.accessoryTabContentGap + (controlsTab.parent
+        anchors.topMargin: root.showTmccTab ? metrics.accessoryTabContentGap + (controlsTab.parent
             ? controlsTab.parent.mapToItem(tmccTabs, 0, controlsTab.y + controlsTab.height).y
-            : tmccTabs.height)
+            : tmccTabs.height) : 0
         anchors.bottom: parent.bottom
         visible: root.kind === "TMCC"
         spacing: 8
@@ -176,7 +178,8 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                height: Math.min(parent.height, rows * metrics.cabActionTileHeight(root.compact) + (rows - 1) * rowSpacing)
+                height: root.fillTmccKeypad ? parent.height
+                    : Math.min(parent.height, rows * metrics.cabActionTileHeight(root.compact) + (rows - 1) * rowSpacing)
                 tmccId: root.accessory.tmccId || 0
                 accScope: true
                 compact: root.compact
@@ -228,7 +231,7 @@ Item {
                     Layout.fillHeight: true
                     minimumValue: -5
                     maximumValue: 5
-                    scaleStep: 1
+                    scaleStep: !root.showTmccTab && height < 170 ? 5 : 1
                     springReturn: true
                     value: tmcc.step
                     onGestureStarted: tmcc.beginThrottle()

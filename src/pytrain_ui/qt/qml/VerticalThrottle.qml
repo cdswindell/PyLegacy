@@ -172,64 +172,18 @@ Item {
         border.color: "#698492"
     }
 
-    Rectangle {
+    ThrottleGrip {
         id: handle
         objectName: "throttleThumb"
         width: Math.max(0, Math.min((root.largeTouch ? 144 : 96) * root.thumbScale, root.width - (root.largeTouch ? 31 : 24)))
         height: Math.round((root.largeTouch ? 74 : 54) * 0.8) * root.thumbScale
-        radius: 14
         x: 2
         y: root.valueToY(root.displayValue())
-        gradient: Gradient {
-            GradientStop { position: 0; color: root.muted ? "#686c72" : pointer.pressed ? "#306881" : "#698ba0" }
-            GradientStop { position: 0.45; color: root.muted ? "#45494f" : "#365a72" }
-            GradientStop { position: 1; color: root.muted ? "#30343a" : "#203e52" }
-        }
-        border.color: root.muted ? "#969da5" : pointer.pressed ? "#5fb7f2" : "#8ba9bb"
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.57
-            height: parent.height - 10
-            radius: 6
-            color: root.muted ? "#272b31" : "#142838"
-            border.color: "#698492"
-
-            Column {
-                anchors.centerIn: parent
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: text.length > 0
-                    text: root.handleCaption
-                    font.pixelSize: root.largeTouch ? 10 : 8
-                    font.bold: true
-                    color: "#d9edf9"
-                }
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.displayValue() + root.valueSuffix
-                    font.pixelSize: root.largeTouch ? 23 : 17
-                    font.bold: true
-                    color: "#ffffff"
-                }
-            }
-        }
-
-        Repeater {
-            model: 6
-            Rectangle {
-                required property int index
-                width: 2
-                height: parent.height * 0.58
-                anchors.verticalCenter: parent.verticalCenter
-                x: index < 3 ? parent.width * 0.07 + index * 4
-                             : parent.width * 0.81 + (index - 3) * 4
-                radius: 1
-                color: "#152a3a"
-                border.color: "#587d93"
-            }
-        }
+        valueText: root.displayValue() + root.valueSuffix
+        caption: root.handleCaption
+        largeTouch: root.largeTouch
+        muted: root.muted
+        pressed: pointer.pressed
     }
 
     MouseArea {

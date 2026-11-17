@@ -51,6 +51,7 @@ class AccessoryOperationViewState:
     enabled: bool = False
     held: bool = False
     lcs_labels: tuple[str, ...] = ()
+    accessory_keys: str = ""
 
 
 @dataclass(frozen=True, slots=True)

@@ -158,7 +158,7 @@ def test_configured_asc2_gate_pulse_and_hold_cleanup(controller, sent, monkeypat
     assert controller.activateConfiguredOperation(fire_key, "power", "on")
     update_power(True)
     alarm = controller.operatingView(fire_key)["operations"][1]
-    assert alarm["enabled"]
+    assert alarm["enabled"] and not controller.operatingView(fire_key)["sharedCommandAddress"]
     assert alarm["animationDuration"] == 5000
     assert alarm["lcsLabels"] == ["ASC2 30 Port 2"]
     assert controller.activateConfiguredOperation(fire_key, "alarm", "fire")
@@ -207,7 +207,16 @@ def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkey
     assert controller.activateConfiguredOperation(smoke_key, "lights", "on")
     assert controller.activateConfiguredOperation(smoke_key, "lights", "off")
     assert controller.activateConfiguredOperation(smoke_key, "dispense", "fire")
-    lights = controller.operatingView(smoke_key)["operations"][0]
+    smoke_view = controller.operatingView(smoke_key)
+    assert smoke_view["sharedCommandAddress"] and smoke_view["tmccId"] == 29
+    assert [(op["label"], op["accessoryKeys"]) for op in smoke_view["operations"]] == [
+        ("Lights", "8 (Off) · 9 (On)"),
+        ("Fluid Boom", "Throttle"),
+        ("Dispense", "Brake"),
+    ]
+    culvert_view = controller.operatingView(culvert)
+    assert culvert_view["sharedCommandAddress"] and culvert_view["operations"][0]["accessoryKeys"] == "Aux 2"
+    lights = smoke_view["operations"][0]
     assert lights["enabled"] and lights["state"] == "UNKNOWN" and lights["control"] == "command_pair"
     assert [(req.address, req.command, req.data) for req in sent] == [
         (60, TMCC1AuxCommandEnum.AUX2_OPT_ONE, 0),
@@ -219,6 +228,17 @@ def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkey
 
     assert [req.as_bytes for req in sent[2:4]] == [
         CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, 29, digit).as_bytes for digit in (9, 8)
+    ]
+
+    sent.clear()
+    controller.tmccCommand(smoke_key, 29, "NUMERIC", 9)
+    controller.tmccCommand(smoke_key, 29, "RELATIVE_SPEED", -5)
+    controller.tmccCommand(culvert, 60, "AUX2_OPT_ONE", 0)
+    controller.tmccCommand(smoke_key, 60, "NUMERIC", 8)
+    assert [(req.address, req.command, req.data) for req in sent] == [
+        (29, TMCC1AuxCommandEnum.NUMERIC, 9),
+        (29, TMCC1AuxCommandEnum.RELATIVE_SPEED, -5),
+        (60, TMCC1AuxCommandEnum.AUX2_OPT_ONE, 0),
     ]
 
 
@@ -809,7 +829,7 @@ ApplicationWindow {
     QtObject {
         id: backend
         function activateConfiguredOperation(key, operation, action) {
-            if (action === "release" && !window.held)
+            if (operation === "hold" && action === "release" && !window.held)
                 return false
             window.calls += operation + ":" + action + ";"
             if (operation === "hold")
@@ -921,6 +941,18 @@ assert center(power).y() == center(platform).y() == center(eject).y()
 assert center(power).x() < center(platform).x() < center(eject).x()
 assert center(eject).x() + eject.width() / 2 <= window.width()
 assert power.width() == power.height() == platform.width() == eject.width()
+
+tabs = find_item(window.contentItem(), "operatingAccessoryTabs")
+controls_tab = find_item(window.contentItem(), "operatingControlsTab")
+info_tab = find_item(window.contentItem(), "operatingInfoTab")
+assert tabs is not None and controls_tab is not None and info_tab is not None
+QTest.mousePress(window, Qt.LeftButton, pos=center(eject))
+tabs.setProperty("currentIndex", 1)
+QTest.mouseRelease(window, Qt.LeftButton, pos=center(eject))
+assert info_tab.property("checked") and not eject.isVisible()
+assert window.property("calls").endswith("eject:press;eject:release;")
+QTest.mouseClick(window, Qt.LeftButton, pos=center(controls_tab))
+assert controls_tab.property("checked") and eject.isVisible()
 window.close()
 """
 
