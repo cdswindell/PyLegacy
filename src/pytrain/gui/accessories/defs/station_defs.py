@@ -178,6 +178,9 @@ def register_station(registry: AccessoryRegistry) -> None:
 
         # Per-variant override for the LOAD button ON image (loaded)
         load_on = _load_on_image_for_flavor(flavor)
+        platform_labels = (
+            {"on": "Arrive", "off": "Depart"} if flavor == FLAVOR_PASSENGER else {"off": "Load", "on": "Unload"}
+        )
         default = filename == DEFAULT_STATION
 
         variants.append(
@@ -200,9 +203,7 @@ def register_station(registry: AccessoryRegistry) -> None:
                 operation_images={
                     "platform": {"off": "loaded.png", "on": load_on},
                 },
-                operation_labels={
-                    "platform": {"off": "Depart", "on": "Arrive"},
-                },
+                operation_labels={"platform": platform_labels},
             )
         )
 

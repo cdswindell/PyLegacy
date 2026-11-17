@@ -13,7 +13,13 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.accessory_state import AccessoryState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.irda_state import IrdaState
-from pytrain.gui.accessories.accessory_registry import OperationAssets
+from pytrain.gui.accessories.accessory_registry import (
+    AccessoryRegistry,
+    AccessoryTypeSpec,
+    OperationAssets,
+    PortBehavior,
+    VariantSpec,
+)
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
 from pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
@@ -115,11 +121,13 @@ class AccessoryCatalogController(QObject):
 
     changed = Signal()
     commandReceived = Signal()
+    operated = Signal(str, bool)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._rows: list[dict] = []
         self._held_asc2: set[int] = set()
+        self._configured_holds: dict[tuple[str, str], int] = {}
         self._amc2_levels: dict[tuple[str, bool, int], int] = {}
         self._amc2_pending: dict[tuple[str, bool, int], Amc2OutputIntent] = {}
         self._amc2_timer = QTimer(self)
@@ -142,6 +150,7 @@ class AccessoryCatalogController(QObject):
 
     def close(self) -> None:
         self._amc2_timer.stop()
+        self._release_invalid_configured_holds(release_all=True)
         for tmcc_id in tuple(self._held_asc2):
             try:
                 self.holdQuickAction(tmcc_id, False)
@@ -208,6 +217,19 @@ class AccessoryCatalogController(QObject):
         views.append(AccessoryViewKind.GENERIC)
         return tuple(views)
 
+    @staticmethod
+    def _operation_heading(registry: AccessoryRegistry, spec: AccessoryTypeSpec, variant: VariantSpec, key: str) -> str:
+        override = registry.variant_operation_label_override(variant, key)
+        if isinstance(override, dict):
+            labels = [
+                label
+                for state, label in override.items()
+                if state in {"on", "off"} and isinstance(label, str) and label
+            ]
+            if len(labels) == 2:
+                return "/".join(dict.fromkeys(labels))
+        return registry.get_operation_label_for_state(spec, key, variant=variant)
+
     @classmethod
     def _configured_descriptor(cls, configured: ConfiguredAccessory) -> AccessoryDescriptor | None:
         tmcc_ids = tuple(configured.tmcc_ids)
@@ -223,7 +245,7 @@ class AccessoryCatalogController(QObject):
                 tmcc_id = configured.tmcc_id_for(operation.key)
             except (KeyError, ValueError):
                 continue
-            label = registry.get_operation_label_for_state(spec, operation.key, variant=definition.variant)
+            label = cls._operation_heading(registry, spec, definition.variant, operation.key)
             names = component_names.setdefault(tmcc_id, [])
             if label and label not in names:
                 names.append(label)
@@ -365,26 +387,63 @@ class AccessoryCatalogController(QObject):
         return [operation for operation in operations if operation.key.strip().lower() not in replaced]
 
     @classmethod
+    def _operation_feedback(cls, operation: OperationAssets, address: int) -> tuple[AccessoryPowerState, bool]:
+        if operation.behavior != PortBehavior.COMMAND:
+            return cls._power_state(cls._relay_feedback(address))
+        state = cls._state(address)
+        if state is None:
+            return AccessoryPowerState.UNKNOWN, False
+
+        def matches(binding):
+            if callable(binding):
+                return bool(binding(state))
+            return binding is not None and binding in (state.aux_state, state.aux1_state, state.aux2_state)
+
+        armed, disarmed = matches(operation.armed), matches(operation.disarmed)
+        if armed != disarmed:
+            return (AccessoryPowerState.ON if armed else AccessoryPowerState.OFF), False
+        return AccessoryPowerState.UNKNOWN, False
+
+    @classmethod
+    def _gate_open(cls, configured: ConfiguredAccessory, operation: OperationAssets) -> bool:
+        operations = {item.key.strip().lower(): item for item in configured.operation_assets}
+        while operation.gated_by is not None:
+            operation = operations[operation.gated_by.strip().lower()]
+            if cls._operation_feedback(operation, configured.tmcc_id_for(operation.key))[0] != AccessoryPowerState.ON:
+                return False
+        return True
+
     def _configured_operating_state(
-        cls,
+        self,
         key: str,
         configured: ConfiguredAccessory,
     ) -> AccessoryOperatingViewState:
         registry = configured.registry
         spec = registry.get_spec(configured.accessory_type)
         operations: list[AccessoryOperationViewState] = []
+        variant = configured.definition.variant
 
-        for assets in cls._qt_operations(configured):
+        for assets in self._qt_operations(configured):
             tmcc_id = configured.tmcc_id_for(assets.key)
-            state = cls._state(tmcc_id)
-            power, authoritative = cls._power_state(state)
+            power, authoritative = self._operation_feedback(assets, tmcc_id)
+            held = (key, assets.key) in self._configured_holds
+            if assets.behavior != PortBehavior.COMMAND:
+                control = assets.behavior.value
+                supported = self._supports_relay(tmcc_id, "ASC2")
+            else:
+                control = "command"
+                if assets.command_on is not None:
+                    control = (
+                        "command_toggle" if assets.armed is not None or assets.disarmed is not None else "command_pair"
+                    )
+                supported = True
             is_on = power == AccessoryPowerState.ON
-            label = registry.get_operation_label_for_state(
-                spec,
-                assets.key,
-                variant=configured.definition.variant,
-                is_on=is_on if power != AccessoryPowerState.UNKNOWN else None,
-            )
+            label = self._operation_heading(registry, spec, variant, assets.key)
+            action_label = ""
+            if isinstance(registry.variant_operation_label_override(variant, assets.key), dict):
+                action_label = registry.get_operation_label_for_state(spec, assets.key, variant=variant, is_on=is_on)
+                if action_label == registry.get_operation_label_for_state(spec, assets.key, variant=variant):
+                    action_label = ""
             policy = animation_policy(assets.behavior)
             operations.append(
                 AccessoryOperationViewState(
@@ -394,17 +453,27 @@ class AccessoryCatalogController(QObject):
                     behavior=assets.behavior,
                     state=power,
                     state_authoritative=authoritative,
-                    image=cls._image_source(assets.image),
-                    off_image=cls._image_source(assets.off_image),
-                    on_image=cls._image_source(assets.on_image),
+                    image=self._image_source(assets.image),
+                    off_image=self._image_source(assets.off_image),
+                    on_image=self._image_source(assets.on_image),
                     animation_policy=policy,
-                    animation_running=is_on
-                    and (policy != AnimationPolicy.NONE or assets.animation_duration is not None),
+                    animation_running=held
+                    or (
+                        is_on
+                        and assets.behavior != PortBehavior.MOMENTARY_PULSE
+                        and (policy != AnimationPolicy.NONE or assets.animation_duration is not None)
+                    ),
                     width=assets.width,
                     height=assets.height,
                     analog_input=assets.analog_input,
                     repeat=assets.repeat,
                     animation_duration=assets.animation_duration,
+                    pulse_duration=assets.pulse_duration,
+                    enabled=supported and self._gate_open(configured, assets),
+                    control=control,
+                    action_label=action_label,
+                    held=held,
+                    lcs_labels=self._lcs_labels((tmcc_id,)),
                 )
             )
 
@@ -416,7 +485,7 @@ class AccessoryCatalogController(QObject):
         return AccessoryOperatingViewState(
             key=key,
             title=configured.label,
-            artwork=cls._image_source(configured.image_path),
+            artwork=self._image_source(configured.image_path),
             artwork_aspect_ratio=3.0,
             power_state=power,
             power_state_authoritative=authoritative,
@@ -439,6 +508,13 @@ class AccessoryCatalogController(QObject):
             "animationPolicy": operation.animation_policy.value,
             "animationRunning": operation.animation_running,
             "animationDuration": operation.animation_duration or 0,
+            "pulseDuration": operation.pulse_duration or 0,
+            "control": operation.control,
+            "actionLabel": operation.action_label,
+            "enabled": operation.enabled,
+            "held": operation.held,
+            "repeat": operation.repeat or 0,
+            "lcsLabels": list(operation.lcs_labels),
             "width": operation.width or 0,
             "height": operation.height or 0,
             "analogInput": {
@@ -461,6 +537,12 @@ class AccessoryCatalogController(QObject):
     def _send_asc2(tmcc_id: int, on: bool) -> None:
         Asc2Req(tmcc_id, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=int(on), time=0).send()
 
+    def _remember_roster_operation(self, tmcc_id: int, kind: str) -> None:
+        for descriptor in self._descriptors.values():
+            if descriptor.primary_tmcc_id == tmcc_id and descriptor.kind == kind:
+                self.operated.emit(descriptor.key, True)
+                break
+
     @Slot(int, str)
     def toggleQuickAction(self, tmcc_id: int, kind: str) -> None:
         state = self._relay_feedback(tmcc_id)
@@ -469,16 +551,23 @@ class AccessoryCatalogController(QObject):
     @Slot(int, bool)
     def holdQuickAction(self, tmcc_id: int, pressed: bool) -> None:
         if pressed:
-            if tmcc_id not in self._held_asc2 and self._supports_relay(tmcc_id, "ASC2"):
+            if (
+                tmcc_id not in self._held_asc2
+                and tmcc_id not in self._configured_holds.values()
+                and self._supports_relay(tmcc_id, "ASC2")
+            ):
                 self._send_asc2(tmcc_id, True)
                 self._held_asc2.add(tmcc_id)
+                self._remember_roster_operation(tmcc_id, "ASC2")
         elif tmcc_id in self._held_asc2:
             self._send_asc2(tmcc_id, False)
             self._held_asc2.remove(tmcc_id)
 
     @Slot(str, int, str)
     def quickAction(self, action: str, tmcc_id: int, kind: str) -> None:
-        if action not in {"ON", "OFF"} or (kind == "ASC2" and tmcc_id in self._held_asc2):
+        if action not in {"ON", "OFF"} or (
+            kind == "ASC2" and (tmcc_id in self._held_asc2 or tmcc_id in self._configured_holds.values())
+        ):
             return
         if not self._supports_relay(tmcc_id, kind):
             return
@@ -486,25 +575,108 @@ class AccessoryCatalogController(QObject):
             Bpc2Req(tmcc_id, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=int(action == "ON")).send()
         elif kind == "ASC2":
             self._send_asc2(tmcc_id, action == "ON")
+        else:
+            return
+        self._remember_roster_operation(tmcc_id, kind)
+
+    def _configured_operation(
+        self, key: str, operation_key: str
+    ) -> tuple[ConfiguredAccessory, OperationAssets, int] | None:
+        descriptor = self._descriptors.get(key)
+        if descriptor is None or descriptor.configured_accessory is None:
+            return None
+        configured = descriptor.configured_accessory
+        operation = next((op for op in self._qt_operations(configured) if op.key == operation_key), None)
+        if operation is None:
+            return None
+        return configured, operation, configured.tmcc_id_for(operation.key)
+
+    def _release_configured_hold(self, identity: tuple[str, str]) -> bool:
+        address = self._configured_holds.get(identity)
+        if address is None:
+            return False
+        self._send_asc2(address, False)
+        del self._configured_holds[identity]
+        return True
+
+    def _release_invalid_configured_holds(self, *, release_all: bool = False) -> None:
+        for identity, address in tuple(self._configured_holds.items()):
+            try:
+                resolved = None if release_all else self._configured_operation(*identity)
+                if resolved is None or resolved[2] != address or not self._gate_open(resolved[0], resolved[1]):
+                    self._release_configured_hold(identity)
+            except Exception:
+                log.exception("Unable to release configured ASC2 accessory %s", address)
+
+    @Slot(str)
+    def releaseConfiguredHolds(self, key: str) -> None:
+        changed = False
+        for identity in tuple(self._configured_holds):
+            if identity[0] == key:
+                changed = self._release_configured_hold(identity) or changed
+        if changed:
+            self.changed.emit()
+
+    @Slot(str, str, str, result=bool)
+    def activateConfiguredOperation(self, key: str, operation_key: str, action: str) -> bool:
+        identity = (key, operation_key)
+        if action == "release":
+            if self._release_configured_hold(identity):
+                self.changed.emit()
+                return True
+            return False
+
+        resolved = self._configured_operation(key, operation_key)
+        if resolved is None:
+            return False
+        configured, operation, address = resolved
+        if not self._gate_open(configured, operation):
+            return False
+        if operation.behavior == PortBehavior.COMMAND:
+            if operation.analog_input is not None:
+                return False
+            command = {"fire": operation.command, "on": operation.command_on, "off": operation.command_off}.get(action)
+            if command is None:
+                return False
+            CommandReq.build(command, address, operation.command_data or 0).send()
+            self.operated.emit(key, False)
+            return True
+
+        if (
+            not self._supports_relay(address, "ASC2")
+            or address in self._held_asc2
+            or address in self._configured_holds.values()
+        ):
+            return False
+        if operation.behavior == PortBehavior.LATCH and action in {"on", "off"}:
+            self._send_asc2(address, action == "on")
+        elif operation.behavior == PortBehavior.MOMENTARY_HOLD and action == "press":
+            self._send_asc2(address, True)
+            self._configured_holds[identity] = address
+            self.changed.emit()
+        elif operation.behavior == PortBehavior.MOMENTARY_PULSE and action == "fire":
+            Asc2Req(
+                address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1, time=operation.pulse_duration / 1000
+            ).send()
+        else:
+            return False
+        self.operated.emit(key, False)
+        return True
 
     @Slot(str, str, int)
     def sendAnalogOperation(self, key: str, operation_key: str, value: int) -> None:
-        descriptor = self._descriptors.get(key)
-        if descriptor is None or descriptor.configured_accessory is None:
+        resolved = self._configured_operation(key, operation_key)
+        if resolved is None:
             return
-
-        configured = descriptor.configured_accessory
-        operation = next((op for op in self._qt_operations(configured) if op.key == operation_key), None)
-        if operation is None or operation.analog_input is None or operation.command is None:
-            return
+        configured, operation, address = resolved
         analog = operation.analog_input
+        if analog is None or operation.command is None:
+            return
         if not analog.minimum <= value <= analog.maximum or value == analog.neutral:
             return
-        if operation.gated_by is not None:
-            gate_id = configured.tmcc_id_for(operation.gated_by)
-            if self._power_state(self._state(gate_id))[0] != AccessoryPowerState.ON:
-                return
-        CommandReq.build(operation.command, configured.tmcc_id_for(operation.key), value).send()
+        if self._gate_open(configured, operation):
+            CommandReq.build(operation.command, address, value).send()
+            self.operated.emit(key, False)
 
     @Slot(str, int, str, int)
     def tmccCommand(self, key: str, tmcc_id: int, name: str, value: int) -> None:
@@ -526,6 +698,9 @@ class AccessoryCatalogController(QObject):
             "TOGGLE_DIRECTION",
         }:
             CommandReq.build(TMCC1AuxCommandEnum[name], tmcc_id).send()
+        else:
+            return
+        self.operated.emit(key, False)
 
     @Slot(str, int)
     def setSensorSequence(self, key: str, value: int) -> None:
@@ -534,6 +709,7 @@ class AccessoryCatalogController(QObject):
             IrdaReq(
                 descriptor.primary_tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=IrdaSequence(value)
             ).send()
+            self.operated.emit(key, False)
 
     def _amc2_descriptor(self, key: str, motor: bool, output: int) -> AccessoryDescriptor | None:
         descriptor = self._descriptors.get(key)
@@ -594,6 +770,7 @@ class AccessoryCatalogController(QObject):
         level = reading["level"]
         if not on or level:
             self._send_amc2_level(address, motor, output, level if on else 0)
+            self.operated.emit(key, False)
         self._remember_amc2_output(key, motor, output, level, on and level > 0)
 
     @Slot(str, bool, int, int)
@@ -603,6 +780,7 @@ class AccessoryCatalogController(QObject):
             return
         address = descriptor.primary_tmcc_id
         self._send_amc2_level(address, motor, output, level)
+        self.operated.emit(key, False)
         self._remember_amc2_output(key, motor, output, level, level > 0)
 
     def _send_amc2_level(self, address: int, motor: bool, output: int, level: int) -> None:
@@ -728,6 +906,7 @@ class AccessoryCatalogController(QObject):
 
         descriptors.sort(key=lambda item: (item.name.lower(), item.primary_tmcc_id))
         self._descriptors = {descriptor.key: descriptor for descriptor in descriptors}
+        self._release_invalid_configured_holds()
         self._rows = [descriptor.as_row() for descriptor in self._descriptors.values()]
         for row in self._rows:
             if row["key"].startswith("irda:"):

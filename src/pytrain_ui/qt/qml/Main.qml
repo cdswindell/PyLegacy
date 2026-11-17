@@ -27,6 +27,16 @@ ApplicationWindow {
     property bool engineCatalogVisible: showCatalogAtStartup
     property string activeScope: "ENGINE"
     property string activeAccessoryKey: ""
+    property string lastOperatedAccessoryKey: ""
+    property bool lastAccessoryOperationFromRoster: false
+
+    Connections {
+        target: accessoryCatalogController
+        function onOperated(key, fromRoster) {
+            window.lastOperatedAccessoryKey = key
+            window.lastAccessoryOperationFromRoster = fromRoster
+        }
+    }
     property int accessoryRevision: 0
     readonly property var activeAccessory: {
         accessoryRevision
@@ -98,6 +108,17 @@ ApplicationWindow {
             accessoryCatalogController.reload()
             window.activeScope = "ACCESSORY"
             window.engineCatalogVisible = false
+            if (!showKeypad && window.lastOperatedAccessoryKey) {
+                const key = window.lastOperatedAccessoryKey
+                if (!accessoryCatalogController.descriptor(key).key) {
+                    window.lastOperatedAccessoryKey = ""
+                } else if (window.lastAccessoryOperationFromRoster) {
+                    Qt.callLater(accessoryCatalog.restoreRosterPosition, key)
+                } else {
+                    window.activeAccessoryKey = key
+                    window.accessoryOperatingVisible = true
+                }
+            }
         } else if (scope === "ENGINE" || scope === "TRAIN") {
             if (showKeypad || (window.activeScope === scope && !window.engineCatalogVisible))
                 window.engineCatalogVisible = true

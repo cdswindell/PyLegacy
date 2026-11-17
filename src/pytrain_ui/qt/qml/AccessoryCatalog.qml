@@ -97,8 +97,40 @@ RosterPanel {
         tmccKeypad.close()
     }
 
+    function rosterRowHeight(row) {
+        return row.kind === "ASC2" || row.kind === "BPC2" ? 146 : 112
+    }
+
+    function restoreRosterPosition(key) {
+        const target = controller.rows.find(row => row.key === key)
+        if (!target || !visible)
+            return
+        if (!rosterRows.some(row => row.key === key)) {
+            directTmccId = 0
+            searchText = ""
+            searchField.clear()
+            typeFilter = "ALL"
+            if (!target.userDefined)
+                showUnnamedAccessories = true
+        }
+
+        listView.refreshRows()
+        const index = listView.model.findIndex(row => row.key === key)
+        if (index < 0)
+            return
+
+        // Reserve only the extra space needed to top-align a row near the end.
+        const tail = listView.model.slice(index)
+        const tailHeight = tail.reduce((height, row) => height + rosterRowHeight(row), 0)
+            + (tail.length - 1) * listView.spacing
+        listView.returnSpace = Math.max(0, listView.height - tailHeight)
+        listView.forceLayout()
+        listView.positionViewAtIndex(index, ListView.Beginning)
+    }
+
     function showRoster() {
         cancelTransientPanels()
+        listView.returnSpace = 0
         directTmccId = 0
         searchText = ""
         searchField.clear()
@@ -277,6 +309,8 @@ RosterPanel {
             id: listView
             enabled: !lcsConfig || !lcsConfig.visible
             objectName: "accessoryRoster"
+            property real returnSpace: 0
+            footer: Item { height: listView.returnSpace }
             Layout.leftMargin: -6
             Layout.rightMargin: Layout.leftMargin
             Layout.fillWidth: true
@@ -318,8 +352,9 @@ RosterPanel {
             delegate: Rectangle {
                 id: row
                 required property var modelData
+                objectName: "accessoryRosterRow-" + modelData.key
                 width: listView.width - rosterScrollBar.gutterWidth
-                height: quickActions.visible ? 146 : 112
+                height: root.rosterRowHeight(modelData)
                 radius: 8
                 color: tapHandler.pressed || quickActionTap.pressed ? "#354150" : "#23303d"
                 border.width: 1

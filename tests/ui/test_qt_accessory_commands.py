@@ -10,8 +10,9 @@ import pytest
 pytest.importorskip("PySide6.QtCore")
 
 from pytrain.db.component_state import ComponentStateDict
-from pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
+from pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog, GuiCatalogEntry
 from pytrain.gui.accessories.accessory_registry import AccessoryRegistry
+from pytrain.gui.accessories.config import configure_accessory
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory
 from pytrain.gui.controller.lcs_device_registry import ASC2
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
@@ -93,6 +94,155 @@ def test_configured_boom_slider_replaces_buttons_and_sends_selected_steps(contro
         (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, -5),
         (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, 3),
     ]
+
+
+def install_configured_accessories(controller, monkeypatch, *entries):
+    registry = AccessoryRegistry.get()
+    registry.bootstrap()
+    catalog = AccessoryGuiCatalog()
+    configured = [ConfiguredAccessory(entry, registry, catalog) for entry in entries]
+    monkeypatch.setattr(
+        module.ConfiguredAccessorySet, "from_file", lambda: SimpleNamespace(configured_all=lambda: configured)
+    )
+    controller.reload()
+    return configured
+
+
+def test_configured_asc2_gate_pulse_and_hold_cleanup(controller, sent, monkeypatch):
+    operations = []
+    controller.operated.connect(lambda key, roster: operations.append((key, roster)))
+    ports = {
+        address: LcsOccupant(30, ASC2, ASC2.mode_for_pdi_mode(0), 8, port_index=address - 29, scope=CommandScope.ACC)
+        for address in (30, 31, 32, 33)
+    }
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [ports[address]] if address in ports else [])
+    states = ComponentStateDict(CommandScope.ACC)
+    monkeypatch.setattr(module.ComponentStateStore, "get_state", lambda _scope, address, **_: states.get(address))
+
+    def update_power(on):
+        states[30].update(Asc2Req(30, PdiCommand.ASC2_RX, Asc2Action.CONTROL1, values=int(on)))
+
+    def reject_legacy_import(_entry):
+        raise AssertionError("Qt must not load a legacy GUI class")
+
+    monkeypatch.setattr(GuiCatalogEntry, "load_class", reject_legacy_import)
+    fire, milk, station = install_configured_accessories(
+        controller,
+        monkeypatch,
+        {"gui": "fire", "instance_id": "fire", "tmcc_ids": {"power": 30, "alarm": 31}},
+        {"gui": "milk", "instance_id": "milk", "tmcc_ids": {"power": 30, "conveyor": 32, "eject": 33}},
+        {
+            "gui": "station",
+            "instance_id": "station",
+            "variant": "middletown_passenger_station_30_9125",
+            "tmcc_ids": {"power": 30, "platform": 32},
+        },
+    )
+    states[32].update(Asc2Req(32, PdiCommand.ASC2_RX, Asc2Action.CONTROL1, values=0))
+    update_power(True)
+    controller.reload()
+    row = controller.descriptor(f"configured:{station.instance_id}")
+    assert row["stateSummary"] == "Power: ON · Arrive/Depart: OFF"
+    legacy_fire = configure_accessory(fire.definition, tmcc_ids={"power": 30, "alarm": 31})
+    assert legacy_fire.image_for("alarm") == "red_light_off.jpg"
+    legacy_milk = configure_accessory(milk.definition, tmcc_ids={"power": 30, "conveyor": 32, "eject": 33})
+    assert legacy_milk.tmcc_id_for("eject") == 33
+
+    fire_key = "configured:fire"
+    milk_key = "configured:milk"
+    update_power(False)
+    assert not controller.operatingView(fire_key)["operations"][1]["enabled"]
+    assert not controller.activateConfiguredOperation(fire_key, "alarm", "fire")
+    assert not controller.activateConfiguredOperation(milk_key, "eject", "press")
+    assert sent == [] and operations == []
+    assert controller.activateConfiguredOperation(fire_key, "power", "on")
+    update_power(True)
+    alarm = controller.operatingView(fire_key)["operations"][1]
+    assert alarm["enabled"]
+    assert alarm["animationDuration"] == 5000
+    assert alarm["lcsLabels"] == ["ASC2 30 Port 2"]
+    assert controller.activateConfiguredOperation(fire_key, "alarm", "fire")
+    assert controller.activateConfiguredOperation(milk_key, "eject", "press")
+    controller.reload()
+    assert controller.operatingView(milk_key)["operations"][2]["held"]
+    update_power(False)
+    controller.reload()
+    assert not controller.activateConfiguredOperation(milk_key, "eject", "release")
+    assert [(req.tmcc_id, req.action, req.values, req.time) for req in sent] == [
+        (30, Asc2Action.CONTROL1, 1, 0),
+        (31, Asc2Action.CONTROL1, 1, alarm["pulseDuration"] / 1000),
+        (33, Asc2Action.CONTROL1, 1, 0),
+        (33, Asc2Action.CONTROL1, 0, 0),
+    ]
+    update_power(True)
+    assert controller.activateConfiguredOperation(milk_key, "eject", "press")
+    controller.releaseConfiguredHolds(milk_key)
+    controller.releaseConfiguredHolds(milk_key)
+    assert [(req.tmcc_id, req.values) for req in sent[4:]] == [(33, 1), (33, 0)]
+
+    assert operations == [(fire_key, False), (fire_key, False), (milk_key, False), (milk_key, False)]
+
+
+def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkeypatch):
+    states = ComponentStateDict(CommandScope.ACC)
+    monkeypatch.setattr(module.ComponentStateStore, "get_state", lambda _scope, address, **_: states.get(address))
+    _, smoke = install_configured_accessories(
+        controller,
+        monkeypatch,
+        {"gui": "culvert", "instance_id": "culvert", "tmcc_id": 60},
+        {"gui": "smoke", "instance_id": "smoke", "tmcc_id": 29},
+    )
+    legacy_smoke = configure_accessory(smoke.definition, tmcc_ids=None, tmcc_id=29)
+    assert legacy_smoke.images_for("boom_left", "boom_right") == ("left_arrow.jpg", "right_arrow.jpg")
+
+    culvert = "configured:culvert"
+    smoke_key = "configured:smoke"
+    assert controller.operatingView(culvert)["operations"][0]["state"] == "UNKNOWN"
+    states[60].update(CommandReq.build(TMCC1AuxCommandEnum.AUX2_ON, 60))
+    assert controller.operatingView(culvert)["operations"][0]["state"] == "ON"
+    states[60].update(CommandReq.build(TMCC1AuxCommandEnum.AUX2_OFF, 60))
+    assert controller.operatingView(culvert)["operations"][0]["state"] == "OFF"
+    assert controller.activateConfiguredOperation(culvert, "action", "on")
+    assert controller.activateConfiguredOperation(culvert, "action", "off")
+    assert controller.activateConfiguredOperation(smoke_key, "lights", "on")
+    assert controller.activateConfiguredOperation(smoke_key, "lights", "off")
+    assert controller.activateConfiguredOperation(smoke_key, "dispense", "fire")
+    lights = controller.operatingView(smoke_key)["operations"][0]
+    assert lights["enabled"] and lights["state"] == "UNKNOWN" and lights["control"] == "command_pair"
+    assert [(req.address, req.command, req.data) for req in sent] == [
+        (60, TMCC1AuxCommandEnum.AUX2_OPT_ONE, 0),
+        (60, TMCC1AuxCommandEnum.AUX2_OPT_ONE, 0),
+        (29, TMCC1AuxCommandEnum.AUX_NUMBER_9, 0),
+        (29, TMCC1AuxCommandEnum.AUX_NUMBER_8, 0),
+        (29, TMCC1AuxCommandEnum.BRAKE, 0),
+    ]
+
+    assert [req.as_bytes for req in sent[2:4]] == [
+        CommandReq.build(TMCC1AuxCommandEnum.NUMERIC, 29, digit).as_bytes for digit in (9, 8)
+    ]
+
+
+def test_quick_operations_remember_the_exact_roster_row(controller, sent, monkeypatch):
+    occupy(monkeypatch, ("ASC2", "acc_8"), ("BPC2", "acc_8"))
+    asc2 = AccessoryDescriptor(
+        "asc2:24", (24,), 24, "Relay", "", None, ("ASC2 24",), (AccessoryViewKind.LCS,), AccessoryViewKind.LCS, True
+    )
+    bpc2 = AccessoryDescriptor(
+        "bpc2:24", (24,), 24, "Power", "", None, ("BPC2 24",), (AccessoryViewKind.LCS,), AccessoryViewKind.LCS, True
+    )
+    # Provide colocated rows to prove the operation retains device identity.
+    # noinspection PyProtectedMember
+    monkeypatch.setattr(controller, "_descriptors", {asc2.key: asc2, bpc2.key: bpc2})
+    operations = []
+    controller.operated.connect(lambda key, roster: operations.append((key, roster)))
+
+    controller.holdQuickAction(24, True)
+    controller.holdQuickAction(24, False)
+    controller.quickAction("ON", 24, "BPC2")
+    controller.quickAction("OFF", 25, "BPC2")
+
+    assert operations == [(asc2.key, True), (bpc2.key, True)]
+    assert len(sent) == 3
 
 
 def test_colocated_bpc2_and_asc2_send_to_the_selected_device(controller, sent, monkeypatch):
@@ -410,6 +560,7 @@ ApplicationWindow {
     property string calls: ""
     property bool cover: false
     property string relayFilter: ""
+    property string recalledRow: ""
     property int feedbackRevision: 0
     property var missingKinds: []
     property var unnamedKinds: []
@@ -440,6 +591,7 @@ ApplicationWindow {
         Connections {
             target: win
             function onRelayFilterChanged() { roster.typeFilter = win.relayFilter }
+            function onRecalledRowChanged() { roster.restoreRosterPosition(win.recalledRow) }
         }
     }
 
@@ -592,6 +744,16 @@ window.setProperty("missingKinds", ["BPC2", "ASC2", "AMC2", "SENSOR", "OPERATING
 QTest.qWait(35)
 assert window.property("filterKeys") == "ALL,TMCC"
 
+window.setProperty("missingKinds", [])
+window.setProperty("relayFilter", "ASC2")
+QTest.qWait(40)
+window.setProperty("recalledRow", "TMCC")
+QTest.qWait(80)
+viewport = window.findChild(QQuickItem, "accessoryRoster")
+target = next(item for item in descendants(viewport) if item.objectName() == "accessoryRosterRow-TMCC")
+assert abs(target.mapToItem(viewport, 0, 0).y()) <= 1, "Recall must top-align the last row"
+assert window.property("selectedFilter") == "ALL", "Recall must reveal a row excluded by the current filter"
+
 window.close()
 """
 
@@ -602,6 +764,173 @@ def test_roster_filters_and_momentary_pointer_behavior() -> None:
     environment.setdefault("QT_QPA_PLATFORM", "offscreen")
     result = subprocess.run(
         [sys.executable, "-c", ROSTER_CHILD, str(qml_directory)],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Error:" not in result.stderr, result.stderr
+
+
+# The embedded Qt API identifiers retain their exact spelling.
+# noinspection SpellCheckingInspection
+OPERATING_CHILD = r"""
+from pathlib import Path
+import sys
+
+from PySide6.QtCore import QPointF, Qt, QUrl
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtTest import QTest
+
+QQuickStyle.setStyle("Basic")
+app = QGuiApplication([])
+engine = QQmlEngine()
+component = QQmlComponent(engine)
+component.setData(b'''
+import QtQuick
+import QtQuick.Controls
+import "."
+ApplicationWindow {
+    id: window
+    width: 720
+    height: 850
+    visible: true
+    property bool powerOn: false
+    property bool held: false
+    property string calls: ""
+    property bool panelVisible: true
+    property bool stationPreview: false
+    property bool platformOn: false
+    property bool thirdControl: false
+    QtObject {
+        id: backend
+        function activateConfiguredOperation(key, operation, action) {
+            if (action === "release" && !window.held)
+                return false
+            window.calls += operation + ":" + action + ";"
+            if (operation === "hold")
+                window.held = action === "press"
+            return true
+        }
+        function releaseConfiguredHolds(key) {
+            if (window.held)
+                activateConfiguredOperation(key, "hold", "release")
+        }
+    }
+    AccessoryOperatingView {
+        anchors.fill: parent
+        visible: window.panelVisible
+        controller: backend
+        accessory: window.stationPreview ? ({key: "station", kind: "OPERATING", tmccId: 30, operations: [
+            {key: "power", label: "Power", control: "latch", enabled: true, state: window.powerOn ? "ON" : "OFF"},
+            {key: "platform", label: "Platform", control: "latch", enabled: window.powerOn,
+                state: window.platformOn ? "ON" : "OFF", actionLabel: window.platformOn ? "Arrive" : "Depart"}
+        ].concat(window.thirdControl ? [
+            {key: "eject", label: "Eject", control: "momentary_hold", enabled: window.powerOn, state: "OFF"}
+        ] : [])}) : ({key: "test", kind: "OPERATING", tmccId: 30, operations: [
+            {key: "alarm", label: "Alarm", control: "momentary_pulse", enabled: window.powerOn,
+                state: "OFF", pulseDuration: 50, animationDuration: 500, lcsLabels: []},
+            {key: "hold", label: "Eject", control: "momentary_hold", enabled: window.powerOn,
+                state: window.held ? "ON" : "OFF", held: window.held, lcsLabels: []}
+        ]})
+    }
+}
+''', QUrl.fromLocalFile(str(Path(sys.argv[1]) / "OperatingGestureTest.qml")))
+window = component.create()
+assert window is not None, component.errorString()
+
+def find_item(item, name):
+    if item.objectName() == name:
+        return item
+    for child in item.childItems():
+        found = find_item(child, name)
+        if found is not None:
+            return found
+    return None
+
+def center(button):
+    return button.mapToScene(QPointF(button.width() / 2, button.height() / 2)).toPoint()
+
+QTest.qWait(75)
+alarm = find_item(window.contentItem(), "accessoryOperation-alarm-fire")
+hold = find_item(window.contentItem(), "accessoryOperation-hold-press")
+assert alarm is not None and hold is not None
+assert not alarm.isEnabled() and not hold.isEnabled()
+QTest.mouseClick(window, Qt.LeftButton, pos=center(alarm))
+assert window.property("calls") == ""
+
+window.setProperty("powerOn", True)
+QTest.qWait(40)
+assert alarm.isEnabled() and hold.isEnabled()
+QTest.mouseClick(window, Qt.LeftButton, pos=center(alarm))
+assert window.property("calls") == "alarm:fire;"
+alarm_row = alarm.parentItem().parentItem().parentItem().parentItem()
+assert alarm_row.property("artworkActive") is True
+QTest.qWait(100)
+assert alarm_row.property("artworkActive") is True
+QTest.qWait(500)
+assert alarm_row.property("artworkActive") is False
+
+point = center(hold)
+QTest.mousePress(window, Qt.LeftButton, pos=point)
+assert window.property("calls") == "alarm:fire;hold:press;"
+assert window.property("held") is True
+QTest.mouseRelease(window, Qt.LeftButton, pos=point)
+assert window.property("calls") == "alarm:fire;hold:press;hold:release;"
+
+QTest.mousePress(window, Qt.LeftButton, pos=point)
+window.setProperty("panelVisible", False)
+QTest.mouseRelease(window, Qt.LeftButton, pos=point)
+calls = window.property("calls")
+assert calls == "alarm:fire;hold:press;hold:release;hold:press;hold:release;", calls
+window.setProperty("powerOn", False)
+window.setProperty("stationPreview", True)
+window.setProperty("panelVisible", True)
+QTest.qWait(60)
+power = find_item(window.contentItem(), "accessoryOperation-power-toggle")
+platform = find_item(window.contentItem(), "accessoryOperation-platform-toggle")
+assert power is not None and platform is not None
+assert center(power).y() == center(platform).y() and center(power).x() < center(platform).x()
+assert power.property("trialIcon") == "power-on" and not platform.isEnabled()
+QTest.mouseClick(window, Qt.LeftButton, pos=center(power))
+assert window.property("calls").endswith("power:on;")
+assert power.property("trialIcon") == "power-on"
+window.setProperty("powerOn", True)
+assert power.property("trialIcon") == "power-off" and platform.isEnabled()
+assert platform.property("text") == "Depart"
+QTest.mouseClick(window, Qt.LeftButton, pos=center(platform))
+assert window.property("calls").endswith("platform:on;")
+window.setProperty("platformOn", True)
+assert platform.property("text") == "Arrive"
+QTest.mouseClick(window, Qt.LeftButton, pos=center(platform))
+assert window.property("calls").endswith("platform:off;")
+QTest.mouseClick(window, Qt.LeftButton, pos=center(power))
+assert window.property("calls").endswith("power:off;")
+
+window.setProperty("thirdControl", True)
+QTest.qWait(60)
+power = find_item(window.contentItem(), "accessoryOperation-power-toggle")
+platform = find_item(window.contentItem(), "accessoryOperation-platform-toggle")
+eject = find_item(window.contentItem(), "accessoryOperation-eject-press")
+assert power is not None and platform is not None and eject is not None
+assert center(power).y() == center(platform).y() == center(eject).y()
+assert center(power).x() < center(platform).x() < center(eject).x()
+assert center(eject).x() + eject.width() / 2 <= window.width()
+assert power.width() == power.height() == platform.width() == eject.width()
+window.close()
+"""
+
+
+def test_operating_panel_disables_gated_buttons_and_preserves_gesture_lifecycle() -> None:
+    qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
+    environment = dict(os.environ)
+    environment.setdefault("QT_QPA_PLATFORM", "offscreen")
+    result = subprocess.run(
+        [sys.executable, "-c", OPERATING_CHILD, str(qml_directory)],
         env=environment,
         capture_output=True,
         text=True,

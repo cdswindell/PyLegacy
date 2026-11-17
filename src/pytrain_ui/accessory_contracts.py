@@ -45,6 +45,12 @@ class AccessoryOperationViewState:
     analog_input: AnalogInputSpec | None = None
     repeat: int | None = None
     animation_duration: int | None = None
+    pulse_duration: int | None = None
+    control: str = ""
+    action_label: str = ""
+    enabled: bool = False
+    held: bool = False
+    lcs_labels: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
