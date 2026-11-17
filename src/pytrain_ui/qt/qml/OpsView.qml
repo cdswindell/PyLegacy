@@ -4,6 +4,8 @@ import QtQuick.Layouts
 
 RosterPanel {
     id: root
+    readonly property Item inputRoster: roster
+
 
     PanelMetrics { id: metrics }
     readonly property real editorTop: pageLayout.y + pageAllStop.parent.y + pageAllStop.y + pageAllStop.height + 8
