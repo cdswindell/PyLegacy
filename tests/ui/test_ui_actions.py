@@ -77,7 +77,7 @@ def test_controller_view_panel_holds_are_described_in_action_metadata() -> None:
     assert tower is not None and (tower.hold, tower.hold_kind, tower.hold_target) == (True, "panel", "tower")
     assert lights is not None and (lights.hold, lights.hold_kind, lights.hold_target) == (True, "panel", "lights")
     assert sequence is not None and sequence.repeat is True
-    assert sequence.repeat_interval_ms == 200
+    assert sequence.repeat_interval_ms == 100
 
 
 def test_invalid_action_behavior_metadata_is_rejected() -> None:

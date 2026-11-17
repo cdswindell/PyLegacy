@@ -94,17 +94,17 @@ EQUIPMENT_ACTIONS: tuple[EquipmentAction, ...] = (
     EquipmentAction("transformer_direction", "Direction", "TOGGLE_DIRECTION", "", "t"),
     EquipmentAction("transformer_on", "Full On", "BOOST_SPEED", "on_button.jpg", "t"),
     EquipmentAction("transformer_off", "Shut Down", "AUX_NUMBER_0", "off_button.jpg", "t"),
-    EquipmentAction("transformer_aux1", "Aux 1", "AUX1_OPTION_ONE", "", "t", group="secondary"),
+    EquipmentAction("transformer_aux1", "Aux 1", "AUX1_OPTION_ONE", "", "t", group="secondary", repeat_interval_ms=100),
     EquipmentAction("transformer_aux2", "Aux 2", "AUX2_OPTION_ONE", "", "t", group="secondary"),
     EquipmentAction("transformer_aux3", "Aux 3", "AUX3_OPTION_ONE", "", "t", group="secondary"),
     # Aux variants that ENGINE_OPS_LAYOUT exposes outside the standard engine
     # layout. These deliberately have no long-hold panel semantics.
-    EquipmentAction("car_aux1", "Aux1", "AUX1_OPTION_ONE", "", "pf", group="secondary", repeat_interval_ms=200),
+    EquipmentAction("car_aux1", "Aux1", "AUX1_OPTION_ONE", "", "pf", group="secondary", repeat_interval_ms=100),
     EquipmentAction("car_aux2", "Aux2", "AUX2_OPTION_ONE", "", "pf", group="secondary"),
     EquipmentAction("car_aux3", "Aux3", "AUX3_OPTION_ONE", "", "pf", group="secondary"),
     EquipmentAction("acela_aux2", "Aux2", "AUX2_OPTION_ONE", "", "a", group="secondary"),
     EquipmentAction("acela_aux3", "Aux3 · Arcing", "AUX3_OPTION_ONE", "", "a", group="secondary"),
-    EquipmentAction("crane_aux1", "Aux1", "AUX1_OPTION_ONE", "", "r", group="secondary", repeat_interval_ms=200),
+    EquipmentAction("crane_aux1", "Aux1", "AUX1_OPTION_ONE", "", "r", group="secondary", repeat_interval_ms=100),
     EquipmentAction("crane_aux2", "Aux2", "AUX2_OPTION_ONE", "", "r", group="secondary"),
     EquipmentAction("crane_aux3", "Aux3", "AUX3_OPTION_ONE", "", "r", group="secondary"),
 )

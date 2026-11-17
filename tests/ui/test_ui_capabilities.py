@@ -115,11 +115,12 @@ def test_acela_uses_specific_variants_where_layout_overrides_engine_cells() -> N
 
 
 def test_non_engine_aux_variants_keep_plain_button_semantics() -> None:
-    assert CAB_ACTIONS_BY_KEY["car_aux1"].repeat_interval_ms == 200
+    assert CAB_ACTIONS_BY_KEY["transformer_aux1"].repeat_interval_ms == 100
+    assert CAB_ACTIONS_BY_KEY["car_aux1"].repeat_interval_ms == 100
     assert CAB_ACTIONS_BY_KEY["car_aux1"].hold is False
     assert CAB_ACTIONS_BY_KEY["car_aux2"].hold is False
     assert CAB_ACTIONS_BY_KEY["car_aux3"].hold is False
-    assert CAB_ACTIONS_BY_KEY["crane_aux1"].repeat_interval_ms == 200
+    assert CAB_ACTIONS_BY_KEY["crane_aux1"].repeat_interval_ms == 100
     assert CAB_ACTIONS_BY_KEY["crane_aux1"].hold is False
     assert CAB_ACTIONS_BY_KEY["crane_aux2"].hold is False
     assert CAB_ACTIONS_BY_KEY["crane_aux3"].hold is False

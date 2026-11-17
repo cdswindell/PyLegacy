@@ -19,12 +19,10 @@ GridLayout {
     Repeater {
         // Recreate pressed keys when changing targets so a hold cannot continue on another ID.
         model: root.visible && root.tmccId > 0 ? [
-            root.accScope ? {label: "On", command: "AUX1_ON", icon: "power-on", interval: 250}
-                          : {label: "Start Up", command: "START_UP_IMMEDIATE", icon: "power-on"},
-            root.accScope ? {label: "Off", command: "AUX1_OFF", icon: "power-off", interval: 250}
-                          : {label: "Shut Down", command: "SHUTDOWN_IMMEDIATE", icon: "power-off"},
+            root.accScope ? null : {label: "Start Up", command: "START_UP_IMMEDIATE", icon: "power-on"},
+            root.accScope ? null : {label: "Shut Down", command: "SHUTDOWN_IMMEDIATE", icon: "power-off"},
             null,
-            {label: "Set", command: "SET_ADDRESS"},
+            root.accScope ? null : {label: "Set", command: "SET_ADDRESS"},
             {digit: 1, icon: "volume", description: "Volume up"},
             {digit: 2, icon: "crew", description: "Crew"},
             {digit: 3, icon: "numeric-up", description: "Up arrow", small: true},
@@ -39,9 +37,9 @@ GridLayout {
             {label: "Boost", command: "BOOST", icon: "boost", interval: 250},
             root.accScope ? null : {label: "Horn", command: "HORN", icon: "horn", interval: 100},
             {digit: 0, description: "Reset"},
-            root.accScope ? null : {label: "Bell", command: "BELL", icon: "bell"},
+            root.accScope ? {label: "Set", command: "SET_ADDRESS"} : {label: "Bell", command: "BELL", icon: "bell"},
             {label: "Brake", command: "BRAKE", icon: "brake", interval: 250},
-            {label: "Aux 1", command: "AUX1_OPT_ONE", interval: root.accScope ? 0 : 250},
+            {label: "Aux 1", command: "AUX1_OPT_ONE", interval: 100},
             {label: "Aux 2", command: "AUX2_OPT_ONE"},
             {label: "Aux 3", command: "AUX3_OPT_ONE"},
             null

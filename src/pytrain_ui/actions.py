@@ -312,7 +312,7 @@ CAB_ACTIONS: tuple[CabAction, ...] = (
         scope_tag="e",
         group="secondary",
         repeat=True,
-        repeat_interval_ms=200,
+        repeat_interval_ms=100,
     ),
     CabAction(
         "lights",

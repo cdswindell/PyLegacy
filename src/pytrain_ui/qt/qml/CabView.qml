@@ -198,7 +198,7 @@ Rectangle {
         const actions = cab.secondaryActionModel
         return ["car_aux1", "car_aux2", "car_aux3"].map((key, index) => {
             const action = actions.find(item => item.key === key)
-            return action ? Object.assign({}, action, {label: "Aux " + (index + 1), repeat: false}) : undefined
+            return action ? Object.assign({}, action, {label: "Aux " + (index + 1)}) : undefined
         }).filter(action => action !== undefined)
     }
 
@@ -496,7 +496,6 @@ Rectangle {
         speedChevrons: action.speedChevrons || 0
         additionalHoldAction: (deferForHold && (showGauge || speedChevrons > 0
                                || ["STOP_HOLD", "startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
-                              || (auxiliary && action.key === "sequence" && repeatWhileHeld)
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         faceAccent: emergencyStop ? "#9d2020" : "transparent"
         Accessible.name: stopSign ? text + " Stop" : text
