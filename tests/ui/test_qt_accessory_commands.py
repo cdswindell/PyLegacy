@@ -421,6 +421,13 @@ ApplicationWindow {
             if (win.openedAccessory !== kind)
                 throw new Error("Exact address did not open unnamed " + kind)
         }
+        win.unnamedKinds = ["AMC2", "SENSOR", "TMCC"]
+        for (const [address, kind] of [[13, "AMC2"], [14, "SENSOR"], [15, "TMCC"]]) {
+            win.openedAccessory = ""
+            roster.selectTmccId(address, false)
+            if (win.openedAccessory !== kind || roster.directTmccId !== 0 || roster.searchText !== "")
+                throw new Error("Keypad did not open " + kind + " directly")
+        }
         win.unnamedKinds = []
     }
 }

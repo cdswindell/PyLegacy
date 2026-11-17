@@ -12,3 +12,4 @@
 - Subscribe to the most specific available topic in PyTrain (command, action, scope, and address as applicable) so subscribers receive only relevant updates.
 
 - In PyCab Qt, group double-clicks and double-taps by control and elapsed time. Allow the two completed taps anywhere within the same control’s interactive area, with a maximum of 400 ms between them. Check elapsed time explicitly because a busy UI can delay timer delivery. Exclude nested controls from row-body gestures, and cancel pending taps on drags. Preserve the gestures each control supports, including hold-only actions.
+- In PyCab Qt, reserve space for a tab scrollbar only when the tab strip overflows. Measure the content gap from the visible bottom edge of the tabs.

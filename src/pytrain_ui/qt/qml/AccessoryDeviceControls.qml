@@ -97,9 +97,34 @@ Item {
         accessory: root.accessory
     }
 
+    TabBar {
+        id: tmccTabs
+        objectName: "tmccAccessoryTabs"
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.topMargin: metrics.accessoryTabInset
+        visible: root.kind === "TMCC"
+        width: parent.width / 3
+        height: 56
+        padding: 0
+        background: Item {}
+        CabPageTab {
+            id: controlsTab
+            text: "Controls"
+            height: tmccTabs.height
+        }
+    }
+
     RowLayout {
         id: tmcc
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tmccTabs.top
+        // Measure the visible tab edge instead of inheriting the tab bar's style inset.
+        anchors.topMargin: metrics.accessoryTabContentGap + (controlsTab.parent
+            ? controlsTab.parent.mapToItem(tmccTabs, 0, controlsTab.y + controlsTab.height).y
+            : tmccTabs.height)
+        anchors.bottom: parent.bottom
         visible: root.kind === "TMCC"
         spacing: 8
         property string heldKey: ""
@@ -148,7 +173,10 @@ Item {
             Layout.minimumWidth: 0
 
             AccessoryCabKeys {
-                anchors.fill: parent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: Math.min(parent.height, rows * metrics.cabActionTileHeight(root.compact) + (rows - 1) * rowSpacing)
                 tmccId: root.accessory.tmccId || 0
                 accScope: true
                 compact: root.compact
@@ -157,6 +185,7 @@ Item {
         }
 
         Rectangle {
+            objectName: "tmccAccessoryThrottle"
             Layout.preferredWidth: Math.max(108, Math.min(164, tmcc.width * 0.22))
             Layout.fillHeight: true
             border.color: "#496b9d"

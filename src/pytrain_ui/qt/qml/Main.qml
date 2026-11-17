@@ -146,7 +146,8 @@ ApplicationWindow {
     readonly property bool engineScope: activeScope === "ENGINE" || activeScope === "TRAIN"
     readonly property bool previewControlsAvailable: Qt.platform.os === "osx"
     readonly property bool devicePreviewActive: previewControlsAvailable && engineScope && previewProfile.length > 0
-    readonly property int previewFooterHeight: previewControlsAvailable && engineScope ? 44 : 0
+    readonly property int enginePreviewFooterHeight: previewControlsAvailable ? 44 : 0
+    readonly property int previewFooterHeight: engineScope ? enginePreviewFooterHeight : 0
     readonly property real previewScale: devicePreviewActive ?
         Math.min(1, width / previewWidth, Math.max(1, height - previewFooterHeight) / previewHeight) : 1
 
@@ -192,6 +193,7 @@ ApplicationWindow {
         clip: true
 
         ColumnLayout {
+            id: viewportLayout
             anchors.fill: parent
             anchors.margins: 8
             spacing: 6
@@ -288,6 +290,13 @@ ApplicationWindow {
                         enabled: !window.stateInfoVisible
                         controller: accessoryCatalogController
                         accessory: window.activeAccessory
+                        controlBottomInset: {
+                            const barSpacing = selectedEngineBar.Layout.topMargin + viewportLayout.spacing
+                            const cabHeight = height - window.enginePreviewFooterHeight
+                            const compactCab = cabHeight - panelMetrics.selectedEngineBarHeight(true) - barSpacing < 850
+                            return panelMetrics.cabStateTilesBottomInset + window.enginePreviewFooterHeight
+                                 + panelMetrics.selectedEngineBarHeight(compactCab) + barSpacing
+                        }
                         configurationVisible: accessoryLcsConfig.visible
                         onConfigureRequested: tmccId => accessoryLcsConfig.openForModule("amc2", tmccId, "ACC")
                         onInfoRequested: tmccId => window.openStateInfo("ACC", tmccId, false, window.activeAccessory.kind || "")
@@ -368,12 +377,13 @@ ApplicationWindow {
             }
 
             SelectedEngineBar {
+                id: selectedEngineBar
                 Layout.topMargin: -4
                 color: "#0d1f58"
                 Layout.fillWidth: true
                 Layout.leftMargin: -6
                 Layout.rightMargin: -6
-                Layout.preferredHeight: visible ? (operatingCabView.compact ? 74 : 86) : 0
+                Layout.preferredHeight: visible ? panelMetrics.selectedEngineBarHeight(operatingCabView.compact) : 0
                 visible: !window.manageVisible && !operatingCabView.dialogPanelOpen && !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
                 selection: selectedEngineController
             }

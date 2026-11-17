@@ -10,6 +10,7 @@ Rectangle {
     property var controller
     property var accessory: ({})
     property bool configurationVisible: false
+    property real controlBottomInset: 0
     readonly property bool compact: height < 850
     readonly property bool hasArtwork: (accessory.artworkSource || "").length > 0
     readonly property real editorTop: pageLayout.y + cabHeader.y + cabHeader.height + 8
@@ -161,6 +162,8 @@ Rectangle {
 
         AccessoryDeviceControls {
             Layout.topMargin: root.kind === "AMC2" || root.kind === "SENSOR" ? metrics.sectionGap : 0
+            Layout.bottomMargin: root.kind === "TMCC" || root.kind === "AMC2"
+                ? Math.max(0, root.controlBottomInset - pageLayout.anchors.bottomMargin) : 0
             enabled: !root.configurationVisible
             Layout.fillWidth: true
             Layout.fillHeight: true

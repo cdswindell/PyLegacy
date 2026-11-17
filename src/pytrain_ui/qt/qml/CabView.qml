@@ -121,7 +121,7 @@ Rectangle {
     readonly property bool compact: height < 850
     readonly property int directionFontSize: compact ? 17 : 22
     readonly property int gap: compact ? 6 : 8
-    readonly property int preferredTileHeight: compact ? 72 : 112
+    readonly property int preferredTileHeight: metrics.cabActionTileHeight(compact)
     readonly property int tileHeight: {
         const heightForSixRows = operatingColumns.height - artwork.y - artwork.height - 6 * gap
         return Math.max(compact ? 52 : 96, Math.min(preferredTileHeight, Math.floor(heightForSixRows / 6)))
@@ -550,7 +550,7 @@ Rectangle {
         readonly property real edgeExpansion: defaultSideMargin - root.operatingEdgeInset
         anchors.leftMargin: root.operatingEdgeInset
         anchors.rightMargin: root.operatingEdgeInset
-        anchors.bottomMargin: 4
+        anchors.bottomMargin: metrics.cabStateTilesBottomInset
         spacing: root.gap
 
         RowLayout {

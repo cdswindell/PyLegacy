@@ -11,18 +11,19 @@ GridLayout {
     signal commandRequested(string command, int value)
 
     columns: 4
-    rows: 6
+    rows: accScope ? 5 : 6
     columnSpacing: 7
     rowSpacing: 7
-    readonly property real keyHeight: Math.max(1, (height - 5 * rowSpacing) / 6)
+    readonly property real keyHeight: Math.max(1, (height - (rows - 1) * rowSpacing) / rows)
 
     Repeater {
         // Recreate pressed keys when changing targets so a hold cannot continue on another ID.
-        model: root.visible && root.tmccId > 0 ? [
-            root.accScope ? null : {label: "Start Up", command: "START_UP_IMMEDIATE", icon: "power-on"},
-            root.accScope ? null : {label: "Shut Down", command: "SHUTDOWN_IMMEDIATE", icon: "power-off"},
+        model: root.visible && root.tmccId > 0 ? (root.accScope ? [] : [
+            {label: "Start Up", command: "START_UP_IMMEDIATE", icon: "power-on"},
+            {label: "Shut Down", command: "SHUTDOWN_IMMEDIATE", icon: "power-off"},
             null,
-            root.accScope ? null : {label: "Set", command: "SET_ADDRESS"},
+            {label: "Set", command: "SET_ADDRESS"}
+        ]).concat([
             {digit: 1, icon: "volume", description: "Volume up"},
             {digit: 2, icon: "crew", description: "Crew"},
             {digit: 3, icon: "numeric-up", description: "Up arrow", small: true},
@@ -43,7 +44,7 @@ GridLayout {
             {label: "Aux 2", command: "AUX2_OPT_ONE"},
             {label: "Aux 3", command: "AUX3_OPT_ONE"},
             null
-        ] : []
+        ]) : []
         delegate: Loader {
             id: cell
 
