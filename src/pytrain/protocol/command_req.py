@@ -755,7 +755,7 @@ class CommandReq:
                             addr_str += chr(param[i])
                         address = int(addr_str)
                     else:
-                        address = cmd_enum.value.address_from_bytes(param[1:3])
+                        address = cmd_enum.value.address_from_bytes(param[1:3], prefix=param[0])
                     return CommandReq.build(cmd_enum, address, data, scope)
             raise ValueError(f"Invalid tmcc2 command: {param.hex(':')}")
         else:

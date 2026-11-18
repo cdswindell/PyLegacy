@@ -146,17 +146,20 @@ class TMCC2CommandDef(CommandDef):
     def is_d4_broadcast(self) -> bool:
         return self._d4_broadcast
 
-    def address_from_bytes(self, byte_data: bytes) -> int:
+    def address_from_bytes(self, byte_data: bytes, *, prefix: bytes = None) -> int:
         if self.is_addressable:
             value = int.from_bytes(byte_data[0:2], byteorder="big")
             address = (0xFFFF & (~self.address_mask & value)) >> 9
-            if len(byte_data) <= 2 and 1 <= address <= 99:
+            bd_len = len(byte_data)
+            if bd_len <= 2 and 1 <= address <= 99:
                 return address
-            elif len(byte_data) == 6 and address == 0:
+            elif bd_len == 6 and address == 0:
                 add_str = ""
                 for i in range(2, 6):
                     add_str += chr(byte_data[i])
                 return int(add_str)
+            elif address > 99 and prefix == 0xF9:
+                return address
             raise AttributeError(f"Cannot decode address from bytes: {byte_data.hex()}")
         else:
             return DEFAULT_ADDRESS
