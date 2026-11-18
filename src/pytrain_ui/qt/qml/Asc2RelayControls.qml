@@ -14,7 +14,7 @@ ColumnLayout {
     readonly property var states: accessory.relayStates || [-1, -1, -1, -1, -1, -1, -1, -1]
     readonly property int pendingMask: accessory.relayPendingMask || 0
     readonly property string accessoryKey: accessory.key || ""
-    spacing: 8
+    spacing: 16
     PanelMetrics { id: metrics }
 
     function discardChanges() { editing = false; draftMask = 0; draftValues = 0 }
@@ -63,7 +63,7 @@ ColumnLayout {
         CabButton {
             objectName: "editRelayGroup"
             Layout.preferredWidth: root.compact ? 130 : 150
-            Layout.preferredHeight: root.compact ? 56 : 64
+            Layout.preferredHeight: Math.round((root.compact ? 56 : 64) * 1.2)
             text: root.editing ? "Editing Group" : "Edit Group"
             enabled: !root.editing && !root.pendingMask
             activateOnRelease: true
@@ -106,7 +106,7 @@ ColumnLayout {
             objectName: "allRelaysOn"
             Layout.fillWidth: true
             Layout.preferredWidth: 1
-            Layout.preferredHeight: root.compact ? 56 : 64
+            Layout.preferredHeight: Math.round((root.compact ? 56 : 64) * 1.2)
             text: "All On"
             enabled: !root.pendingMask
             activateOnRelease: true
@@ -116,7 +116,7 @@ ColumnLayout {
             objectName: "allRelaysOff"
             Layout.fillWidth: true
             Layout.preferredWidth: 1
-            Layout.preferredHeight: root.compact ? 56 : 64
+            Layout.preferredHeight: Math.round((root.compact ? 56 : 64) * 1.2)
             text: "All Off"
             enabled: !root.pendingMask
             activateOnRelease: true
@@ -126,7 +126,7 @@ ColumnLayout {
             objectName: "refreshRelays"
             Layout.fillWidth: true
             Layout.preferredWidth: 1
-            Layout.preferredHeight: root.compact ? 56 : 64
+            Layout.preferredHeight: Math.round((root.compact ? 56 : 64) * 1.2)
             text: "Refresh"
             enabled: !root.pendingMask
             activateOnRelease: true

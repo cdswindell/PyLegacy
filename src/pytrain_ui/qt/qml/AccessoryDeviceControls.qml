@@ -94,6 +94,7 @@ Item {
         visible: root.uncoupler && root.controlTabIndex === 0 && !root.infoSelected
         controller: root.controller
         accessoryKey: root.accessory.key || ""
+        activeMask: root.accessory.uncouplerActiveMask || 0
         compact: root.compact
     }
 

@@ -7,6 +7,7 @@ GridLayout {
     required property var controller
     required property string accessoryKey
     required property bool compact
+    property int activeMask: 0
     PanelMetrics { id: metrics }
     columns: 3
     rowSpacing: 8
@@ -38,6 +39,7 @@ GridLayout {
         CabButton {
             required property int index
             objectName: "uncouplerKey" + (index + 1)
+            selected: !!(root.activeMask & (1 << index))
             text: String(index + 1)
             Accessible.name: "Uncouple track " + text
             Layout.fillWidth: true

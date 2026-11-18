@@ -57,6 +57,7 @@ UNCOUPLER_PULSE_SECONDS = 1.0
 class Asc2RelayFeedback:
     values: int = 0
     known: int = 0
+    pulse_active: int = 0
     pending: int = 0
     requested: int = 0
     deadline: float = 0.0
@@ -384,6 +385,9 @@ class AccessoryCatalogController(QObject):
         if not address:
             return False
         Asc2Req(address, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=sub_id, time=UNCOUPLER_PULSE_SECONDS).send()
+        feedback = self._asc2_relays.setdefault(address, Asc2RelayFeedback())
+        feedback.pulse_active |= 1 << (sub_id - 1)
+        self.changed.emit()
         self.operated.emit(key, False)
         return True
 
@@ -432,6 +436,8 @@ class AccessoryCatalogController(QObject):
         mask = command.valids & 255
         feedback.values = (feedback.values & ~mask) | (command.values & mask)
         feedback.known |= mask
+        # A pulse stays highlighted until a valid device response reports this relay Off.
+        feedback.pulse_active &= ~(mask & ~command.values)
         matching = mask & ~(command.values ^ feedback.requested)
         feedback.pending &= ~matching
         if not feedback.pending:
@@ -1022,6 +1028,7 @@ class AccessoryCatalogController(QObject):
             panel["relayStates"] = [
                 int(bool(feedback.values & (1 << index))) if feedback.known & (1 << index) else -1 for index in range(8)
             ]
+            panel["uncouplerActiveMask"] = feedback.pulse_active | (feedback.values & feedback.known)
             panel["relayPendingMask"] = feedback.pending
             panel["relayStatus"] = feedback.status
         if descriptor.configured_accessory is not None:

@@ -138,7 +138,7 @@ Rectangle {
                     : root.kind === "AMC2" && root.infoSelected ? Math.min(root.height * 0.23,
                         Math.max(0, pageLayout.height - cabHeader.height - metrics.accessoryFixedInfoMinimumHeight - 56
                             - metrics.accessoryTabInset - 2 * pageLayout.spacing))
-                    : root.height * 0.23,
+                    : root.height * (root.compact && root.accessory.uncoupler ? 0.14 : 0.23),
                     width / Math.max(1, Number(root.accessory.artworkAspectRatio || 3))
                         * (root.kind === "OPERATING" ? 1.5 : 1)) : 0
 
@@ -701,6 +701,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignHCenter
                         controller: root.controller
                         accessoryKey: root.accessoryKey
+                        activeMask: root.accessory.uncouplerActiveMask || 0
                         compact: root.compact
                     }
 

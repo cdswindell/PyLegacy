@@ -1367,6 +1367,7 @@ ApplicationWindow {
     property string selectedKey: ""
     property string calls: ""
     property bool info: false
+    property int activeMask: 0
     property var relayStates: [0, 0, 0, 0, 0, 0, 0, 0]
     QtObject {
         id: backend
@@ -1379,7 +1380,11 @@ ApplicationWindow {
              imageSource: "", lcsAssociations: "ASC2 40", stateSummary: "", availableViews: []}
         ]
         property var model: ({})
-        function pulseUncoupler(key, digit) { window.calls += key + ":" + digit + ";" }
+        function pulseUncoupler(key, digit) {
+            window.calls += key + ":" + digit + ";"
+            window.activeMask |= 1 << (digit - 1)
+            return true
+        }
         function tmccCommand(key, address, name, value) {
             window.calls += key + ":" + address + ":" + name + ":" + value + ";"
         }
@@ -1413,7 +1418,8 @@ ApplicationWindow {
         }
         accessory: ({key: window.selectedKey, kind: window.selectedKey === "op" ? "OPERATING" : "ASC2",
                      title: "Uncoupling Tracks", tmccId: window.selectedKey === "op" ? 24 : 40,
-                     uncoupler: true, operations: [], relayStates: window.relayStates})
+                     uncoupler: true, operations: [], relayStates: window.relayStates,
+                     uncouplerActiveMask: window.activeMask})
     }
     function enterId(address) { roster.selectTmccId(address, false) }
 }
@@ -1452,6 +1458,7 @@ for width, height in ((720, 1280), (639, 800)):
         note = visible("uncouplerInstructions")
         assert note.isVisible()
         window.setProperty("relayStates", [0] * 8)
+        window.setProperty("activeMask", 0)
         for digit in range(1, 9):
             button = visible("uncouplerKey" + str(digit))
             assert button.property("text") == str(digit)
@@ -1465,6 +1472,10 @@ for width, height in ((720, 1280), (639, 800)):
             QTest.mouseRelease(window, Qt.LeftButton, pos=point(button))
             QTest.qWait(30)
             assert window.property("calls") == key + ":" + str(digit) + ";"
+            assert button.property("selected"), "The tapped track must stay highlighted after release"
+            window.setProperty("activeMask", 0)
+            QTest.qWait(10)
+            assert not button.property("selected"), "Off feedback must clear the track highlight"
         window.setProperty("calls", "")
         button = visible("uncouplerKey8")
         QTest.touchEvent(window, touch_device).press(0, point(button), window).commit()
@@ -1576,11 +1587,37 @@ def test_uncoupler_control2_uses_independent_masks_and_only_device_feedback_conf
     key = next(row["key"] for row in controller.rows if row["configured"] == configured)
     monkeypatch.setattr(module, "monotonic", lambda: 10.0)
     assert controller.operatingView(key)["relayStates"] == [-1] * 8
+    assert controller.pulseUncoupler(key, 2)
+    assert controller.pulseUncoupler(key, 8)
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 130
+    # SET echoes and unrelated Off reports must not clear a pulse highlight.
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_SET, Asc2Action.CONTROL2, values=0, valids=255))
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=0, valids=1))
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 130
+    # An On response retains the highlight; a valid Off clears only its relay.
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=2, valids=2))
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 130
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=0, valids=2))
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 128
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL2, values=0, valids=128))
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 0
+    # Broadcasts initiated by another controller must also highlight the affected tracks.
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=64, valids=64))
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 64
+    # noinspection PyProtectedMember
+    controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=0, valids=64))
+    assert controller.operatingView(key)["uncouplerActiveMask"] == 0
     assert controller.requestUncouplerRelays(key)
     assert (sent[-1].pdi_command, sent[-1].action) == (PdiCommand.ASC2_GET, Asc2Action.CONTROL2)
     assert controller.setUncouplerRelays(key, 1, 9)
     assert sent[-1].as_bytes[1:6] == bytes([0x3D, 24, 0x11, 1, 9])
-    assert controller.operatingView(key)["relayStates"] == [-1] * 8
+    assert controller.operatingView(key)["relayStates"] == [0, 0, -1, -1, -1, -1, 0, 0]
     assert controller.operatingView(key)["relayPendingMask"] == 9
     assert not controller.setUncouplerRelays(key, 0, 255)
 
@@ -1595,10 +1632,10 @@ def test_uncoupler_control2_uses_independent_masks_and_only_device_feedback_conf
     assert controller.operatingView(key)["relayPendingMask"] == 9
     assert controller.operatingView(key)["relayStates"][0] == 0
     receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL2, 1, 1)
-    assert controller.operatingView(key)["relayStates"] == [1] + [-1] * 7
+    assert controller.operatingView(key)["relayStates"] == [1, 0, -1, -1, -1, -1, 0, 0]
     assert controller.operatingView(key)["relayPendingMask"] == 8
     receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL3, 0, 8)
-    assert controller.operatingView(key)["relayStates"] == [1, -1, -1, 0, -1, -1, -1, -1]
+    assert controller.operatingView(key)["relayStates"] == [1, 0, -1, 0, -1, -1, 0, 0]
     assert controller.operatingView(key)["relayPendingMask"] == 0
     assert controller.setUncouplerRelays(key, 0, 255)
     assert sent[-1].as_bytes[4:6] == bytes([0, 255])
