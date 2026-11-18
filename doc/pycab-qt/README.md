@@ -231,7 +231,7 @@ Operating accessories appear first, alphabetically, under **All**. Each configur
 
 <img src="screens/accessory-lcs-roster.png" width="300" alt="LCS accessory roster with power icons, ASC2 Hold, and state feedback">
 
-Operate relay-backed accessories directly from their row. **On** and **Off** use the standard power icons, and their filled backgrounds show the reported state. ASC2 mixed-mode ports also have **Hold** with the clockwise-arrow decorator: pressing sends On, releasing sends Off. BPC2 rows offer On/Off. Unknown state highlights neither action. Operation feedback keeps your place in the roster.
+Operate relay-backed accessories directly from their row. **On** and **Off** use the standard power icons, and their filled backgrounds show the reported state. ASC2 mixed-mode ports also have **Hold** with the clockwise-arrow decorator: pressing sends On, releasing sends Off. Holding the row body for the standard hold threshold performs the same momentary operation until release or cancellation; ordinary taps and scrolling do not energize it. On, Off, Hold, and Edit keep their own actions when pressed. BPC2 rows offer On/Off. Unknown state highlights neither action. Operation feedback keeps your place in the roster.
 
 **Edit** opens State Info with direct Road Name and Road Number fields, configuration details, board information, and firmware. **Aa** title-cases the name. On a Mac, type with the system keyboard; on Pi/Deck, tap for the touch keyboard or numeric keypad. LCS-backed records show **Clear** disabled. Changes are written only with **Save**.
 
@@ -255,9 +255,9 @@ Stations use Power and a second latched operation. Passenger variants show **Arr
 
 ### TMCC/Command Control accessories
 
-Unassigned TMCC accessories open a four-column numeric/function keypad with coupler, Boost/Brake, Aux, Set, and Cab-1 relative throttle controls. Numeric keys and Aux 1 repeat at 100 ms while held, marked with clockwise arrows. These commands address **ACC**, not Engine scope. Horn, Bell, Startup, and Shutdown positions are not supplied for TMCC accessories. **Set** programs the current address. **Info** sits beside the Controls tab and opens editable State Info.
+Unassigned TMCC accessories open a four-column numeric/function keypad with coupler, Boost/Brake, Aux, Set, and Cab-1 relative throttle controls. Numeric keys and Aux 1 repeat at 100 ms while held, marked with clockwise arrows. These commands address **ACC**, not Engine scope. Horn, Bell, Startup, and Shutdown positions are not supplied for TMCC accessories. **Set** programs the current address. The **Info** tab displays editable State Info in the same page, with Controls still available and no redundant Close button.
 
-<img src="screens/tmcc-accessory.png" width="280" alt="TMCC accessory keypad and relative throttle with Info in tab space"> <img src="screens/tmcc-accessory-info.png" width="280" alt="TMCC accessory State Info with direct name and road-number inputs">
+<img src="screens/tmcc-accessory.png" width="280" alt="TMCC accessory Controls and Info tabs above the keypad and relative throttle"> <img src="screens/tmcc-accessory-info.png" width="280" alt="TMCC accessory State Info with direct name and road-number inputs">
 
 A configured TMCC operating accessory has **Controls / ACC / Info** tabs. **ACC** exposes that same full accessory keypad without replacing the surrounding accessory page. **Info** shows its overall TMCC ID once, the registry type, and the panel keys that operate each function.
 
@@ -269,13 +269,13 @@ For the Smoke Fluid Loader, Lights use numeric 9 On and 8 Off. Because reliable 
 
 **Motors** and **Lights** are separate tabs. Each channel has a vertical 0–100% slider and On/Off buttons. Off keeps the remembered slider level; On returns to it. Double-tap On to set 100%, or Off to set 0%, regardless of the previous value. An off channel's slider is dimmed but remains movable; moving it turns the channel on at the new level. Slider commands are sent on release.
 
-**Info** is beside the tabs and shows editable name/number plus read-only AMC2 configuration, board information, and firmware. **Configure**, beside the image, opens the current AMC2 configuration options, including output type and restore-on-power-up settings. Double-tapping or holding the AMC2 image also opens State Info.
+**Info** is a third tab beside Motors and Lights. Its fixed layout shows editable name/number plus read-only AMC2 configuration, board information, and firmware without a scroll panel. On compact screens, the fields are arranged more tightly to keep them visible above the footer. **Configure**, beside the image, opens the current AMC2 configuration options, including output type and restore-on-power-up settings. Double-tapping or holding the AMC2 image also opens State Info.
 
 <img src="screens/amc2.png" width="280" alt="AMC2 Motors tab with vertical sliders and remembered On/Off levels"> <img src="screens/amc2-lights.png" width="280" alt="AMC2 Lights tab with four separate lamp controls"> <img src="screens/amc2-info.png" width="280" alt="AMC2 State Info with identity and underlying configuration">
 
 ### IR Sensor Track
 
-The **Action** tab contains the available track actions in a scrolling list, with paired Right ➟ Left and Left ➟ Right entries aligned in columns. The selected action has a filled background. **Info** sits in the tab space; it shows editable name/number, current configuration, board information, and firmware. There is no redundant Configure button for the action list.
+The **Action** tab contains the available track actions in a scrolling list, with paired Right ➟ Left and Left ➟ Right entries aligned in columns. The selected action has a filled background. The **Info** tab sits beside Action and shows editable name/number, current configuration, board information, and firmware in the same page. Leaving an Info tab with unsaved changes prompts you to keep editing or discard the draft. There is no redundant Configure button for the action list.
 
 <img src="screens/sensor.png" width="280" alt="IR Sensor Track Action list with aligned directional labels"> <img src="screens/sensor-info.png" width="280" alt="Sensor Track State Info including action configuration and firmware">
 

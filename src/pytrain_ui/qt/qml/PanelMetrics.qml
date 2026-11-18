@@ -5,6 +5,7 @@ QtObject {
     readonly property int sectionGap: 12
     readonly property int accessoryTabInset: 10
     readonly property int accessoryTabContentGap: 4
+    readonly property int accessoryFixedInfoMinimumHeight: 480
     readonly property int cabStateTilesBottomInset: 4
     function selectedEngineBarHeight(compact) {
         return compact ? 74 : 86

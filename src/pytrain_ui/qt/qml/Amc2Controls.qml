@@ -5,36 +5,16 @@ import QtQuick.Layouts
 Item {
     id: root
 
-    PanelMetrics { id: metrics }
     required property var controller
     required property var accessory
     readonly property string accessoryKey: accessory.key || ""
-    readonly property bool motorsSelected: tabs.currentIndex === 0
-    readonly property real tabTop: motorsTab.parent
-        ? motorsTab.parent.mapToItem(root, 0, motorsTab.y).y : tabs.y
-    onAccessoryKeyChanged: tabs.currentIndex = 0
+    property bool motorsSelected: true
 
     Rectangle {
         anchors.fill: parent
-        anchors.topMargin: tabs.height - 1
         radius: 8
         color: "#16376b"
         border.color: "#5275a4"
-    }
-
-    TabBar {
-        id: tabs
-        objectName: "amc2Tabs"
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.topMargin: metrics.accessoryTabInset
-        width: parent.width * 2 / 3
-        height: 56
-        spacing: 6
-        padding: 0
-        background: Item {}
-        CabPageTab { id: motorsTab; text: "Motors"; height: tabs.height }
-        CabPageTab { text: "Lights"; height: tabs.height }
     }
 
     RowLayout {
@@ -43,7 +23,6 @@ Item {
         readonly property real motorGap: (root.width - (root.width - 3 * defaultGap) * 0.8) / 3
 
         anchors.fill: parent
-        anchors.topMargin: tabs.height + metrics.accessoryTabContentGap
         anchors.leftMargin: spacing
         anchors.rightMargin: spacing
         anchors.bottomMargin: defaultGap

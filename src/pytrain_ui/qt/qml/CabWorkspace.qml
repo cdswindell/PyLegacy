@@ -159,7 +159,7 @@ Rectangle {
         if (routeOpsView.hasUnsavedRouteChanges || switchOpsView.hasUnsavedSwitchChanges ||
             switchOpsView.hasUnsavedLcsChanges || accessoryLcsConfig.hasUnsavedChanges ||
             operatingCabView.hasUnsavedControlChanges ||
-            (stateInfoVisible && (stateInfoScope === "ACC" ? accessoryInfo.hasUnsavedChanges : operatingCabView.stateInfoHasUnsavedChanges))) {
+            (stateInfoVisible && (stateInfoScope === "ACC" ? (stateInfoFromTab ? accessoryOperatingView.infoHasUnsavedChanges : accessoryInfo.hasUnsavedChanges) : operatingCabView.stateInfoHasUnsavedChanges))) {
             discardChanges.pendingAction = action
             discardChanges.open()
         } else {
@@ -465,8 +465,10 @@ Rectangle {
                         id: accessoryOperatingView
                         anchors.fill: parent
                         visible: window.accessoryOperatingVisible
-                        enabled: !window.stateInfoVisible
+                        enabled: !window.stateInfoVisible || window.stateInfoFromTab
                         controller: accessoryCatalogController
+                        infoController: stateInfoController
+                        infoSelected: window.stateInfoVisible && window.stateInfoFromTab && window.stateInfoScope === "ACC"
                         accessory: window.activeAccessory
                         controlBottomInset: {
                             const barSpacing = selectedEngineBar.Layout.topMargin + viewportLayout.spacing
@@ -476,10 +478,30 @@ Rectangle {
                                  + panelMetrics.selectedEngineBarHeight(compactCab) + barSpacing
                         }
                         configurationVisible: accessoryLcsConfig.visible
-                        onConfigureRequested: tmccId => accessoryLcsConfig.openForModule("amc2", tmccId, "ACC")
-                        onInfoRequested: tmccId => window.openStateInfo("ACC", tmccId, false, window.activeAccessory.kind || "")
+                        onConfigureRequested: tmccId => window.requestEditorExit(() => {
+                            if (window.stateInfoVisible) window.closeStateInfo()
+                            accessoryLcsConfig.openForModule("amc2", tmccId, "ACC")
+                        })
+                        onInfoRequested: tmccId => window.requestEditorExit(() =>
+                            window.openStateInfo("ACC", tmccId, false, window.activeAccessory.kind || "", true))
+                        onDeviceTabRequested: index => {
+                            const info = index === accessoryOperatingView.deviceInfoTabIndex
+                            if (info && accessoryOperatingView.infoSelected)
+                                return
+                            window.requestEditorExit(() => {
+                                if (info) {
+                                    window.openStateInfo("ACC", window.activeAccessory.tmccId, false, window.activeAccessory.kind || "", true)
+                                } else {
+                                    if (window.stateInfoVisible) window.closeStateInfo()
+                                    accessoryOperatingView.deviceControlTabIndex = index
+                                }
+                            })
+                        }
                         onCabMenuRequested: cabMenu.open()
-                        onCloseRequested: window.accessoryOperatingVisible = false
+                        onCloseRequested: window.requestEditorExit(() => {
+                            if (window.stateInfoVisible) window.closeStateInfo()
+                            window.accessoryOperatingVisible = false
+                        })
                     }
 
                     LcsConfig {
@@ -490,7 +512,7 @@ Rectangle {
 
                     Rectangle {
                         anchors.fill: parent
-                        visible: window.stateInfoVisible && window.stateInfoScope === "ACC"
+                        visible: window.stateInfoVisible && window.stateInfoScope === "ACC" && !window.stateInfoFromTab
                         color: "#102858"
                         ColumnLayout {
                             anchors.fill: parent
@@ -712,7 +734,7 @@ Rectangle {
 
     Shortcut {
         sequence: "Escape"
-        enabled: window.inputActive && window.stateInfoVisible && !(window.stateInfoScope === "ACC" ? accessoryInfo.editorOpen : operatingCabView.stateInfoEditorOpen) && !discardChanges.visible
+        enabled: window.inputActive && window.stateInfoVisible && !(window.stateInfoScope === "ACC" ? (stateInfoFromTab ? accessoryOperatingView.infoEditorOpen : accessoryInfo.editorOpen) : operatingCabView.stateInfoEditorOpen) && !discardChanges.visible
         onActivated: window.requestEditorExit(window.closeStateInfo)
     }
 

@@ -10,6 +10,13 @@ Rectangle {
     property var controller
     property var accessory: ({})
     property bool configurationVisible: false
+    property var infoController
+    property bool infoSelected: false
+    property int deviceControlTabIndex: 0
+    readonly property int deviceInfoTabIndex: kind === "AMC2" ? 2 : 1
+    readonly property bool infoHasUnsavedChanges: deviceControls.infoHasUnsavedChanges
+    readonly property bool infoEditorOpen: deviceControls.infoEditorOpen
+    signal deviceTabRequested(int index)
     property real controlBottomInset: 0
     readonly property bool compact: height < 850
     readonly property bool hasArtwork: (accessory.artworkSource || "").length > 0
@@ -63,7 +70,7 @@ Rectangle {
     }
 
     readonly property string accessoryKey: accessory.key || ""
-    onAccessoryKeyChanged: operatingTabs.currentIndex = 0
+    onAccessoryKeyChanged: { operatingTabs.currentIndex = 0; deviceControlTabIndex = 0 }
     onVisibleChanged: if (!visible) {
         releaseHolds()
         operatingTabs.currentIndex = 0
@@ -124,7 +131,11 @@ Rectangle {
                     root.hasAccessoryCab ? Math.min(root.height * 0.38, root.accessoryCabArtworkLimit)
                     : root.kind === "OPERATING" ? Math.min(root.height * 0.38, Math.max(0,
                         pageLayout.height - cabHeader.height - operatingTabs.height - operationFrame.implicitHeight
-                        - metrics.accessoryTabContentGap - 2 * pageLayout.spacing)) : root.height * 0.23,
+                        - metrics.accessoryTabContentGap - 2 * pageLayout.spacing))
+                    : root.kind === "AMC2" && root.infoSelected ? Math.min(root.height * 0.23,
+                        Math.max(0, pageLayout.height - cabHeader.height - metrics.accessoryFixedInfoMinimumHeight - 56
+                            - metrics.accessoryTabInset - 2 * pageLayout.spacing))
+                    : root.height * 0.23,
                     width / Math.max(1, Number(root.accessory.artworkAspectRatio || 3))
                         * (root.kind === "OPERATING" ? 1.5 : 1)) : 0
 
@@ -163,16 +174,6 @@ Rectangle {
                 CabButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: (root.compact ? 48 : 56) * 1.1
-                    text: "Info"
-                    visible: root.kind !== "AMC2"
-                    font.pixelSize: root.compact ? 17 : 20
-                    enabled: !!root.accessory.tmccId
-                    onClicked: root.infoRequested(root.accessory.tmccId)
-                }
-
-                CabButton {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: (root.compact ? 48 : 56) * 1.1
                     text: "Configure"
                     font.pixelSize: root.compact ? 17 : 20
                     visible: root.kind === "AMC2"
@@ -183,8 +184,9 @@ Rectangle {
         }
 
         AccessoryDeviceControls {
+            id: deviceControls
             Layout.topMargin: root.kind === "AMC2" || root.kind === "SENSOR" ? metrics.sectionGap : 0
-            Layout.bottomMargin: root.kind === "TMCC" || root.kind === "AMC2"
+            Layout.bottomMargin: !root.infoSelected && (root.kind === "TMCC" || root.kind === "AMC2")
                 ? Math.max(0, root.controlBottomInset - pageLayout.anchors.bottomMargin) : 0
             enabled: !root.configurationVisible
             Layout.fillWidth: true
@@ -193,7 +195,10 @@ Rectangle {
             controller: root.controller
             accessory: root.accessory
             compact: root.compact
-            onInfoRequested: root.infoRequested(root.accessory.tmccId)
+            infoController: root.infoController
+            infoSelected: root.infoSelected
+            controlTabIndex: root.deviceControlTabIndex
+            onTabRequested: index => root.deviceTabRequested(index)
         }
 
         ColumnLayout {

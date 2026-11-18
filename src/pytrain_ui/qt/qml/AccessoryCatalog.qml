@@ -361,6 +361,32 @@ RosterPanel {
                 color: tapHandler.pressed || quickActionTap.pressed ? "#354150" : "#23303d"
                 border.width: 1
                 border.color: "#4b5664"
+                property int heldAddress: 0
+                readonly property bool canHold: modelData.kind === "ASC2" &&
+                    modelData.quickActions.some(action => action.key === "HOLD" && action.enabled !== false)
+
+                function beginHold() {
+                    if (!canHold || heldAddress ||
+                        !quickActionTap.acceptsTap(quickActionTap.point.position))
+                        return
+                    heldAddress = modelData.primaryTmccId
+                    ++root.activeQuickActions
+                    root.controller.holdQuickAction(heldAddress, true)
+                }
+
+                function releaseHold() {
+                    if (!heldAddress)
+                        return
+                    const address = heldAddress
+                    heldAddress = 0
+                    root.controller.holdQuickAction(address, false)
+                    Qt.callLater(() => --root.activeQuickActions)
+                }
+
+                onEnabledChanged: if (!enabled) releaseHold()
+                onVisibleChanged: if (!visible) releaseHold()
+                Component.onDestruction: releaseHold()
+
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 12
@@ -479,6 +505,12 @@ RosterPanel {
                     id: quickActionTap
                     enabled: quickActions.visible && !listView.moving
                     acceptsTap: position => !quickActions.contains(quickActions.mapFromItem(row, position))
+                    holdEnabled: row.canHold
+                    longPressThreshold: 0.55
+                    onHeldGesture: row.beginHold()
+                    onPressedChanged: if (!pressed) row.releaseHold()
+                    onCanceled: row.releaseHold()
+                    onEnabledChanged: if (!enabled) row.releaseHold()
                     onTappedTwice: {
                         const actions = row.modelData.quickActions
                         const supports = key => actions.some(action => action.key === key && action.enabled !== false)

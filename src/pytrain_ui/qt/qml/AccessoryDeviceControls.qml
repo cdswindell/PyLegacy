@@ -11,36 +11,77 @@ Item {
     required property bool compact
     property bool showTmccTab: true
     property bool fillTmccKeypad: false
-    signal infoRequested()
+    property var infoController
+    property bool infoSelected: false
+    property int controlTabIndex: 0
     readonly property string kind: accessory.kind || ""
+    readonly property int infoTabIndex: kind === "AMC2" ? 2 : 1
+    readonly property bool infoHasUnsavedChanges: deviceInfo.hasUnsavedChanges
+    readonly property bool infoEditorOpen: deviceInfo.editorOpen
+    signal tabRequested(int index)
+
     TabBar {
-        id: sensorTabs
-        objectName: "sensorTabs"
+        id: deviceTabs
+        objectName: root.kind === "AMC2" ? "amc2Tabs" : root.kind === "SENSOR" ? "sensorTabs" : "tmccAccessoryTabs"
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.topMargin: metrics.accessoryTabInset
-        visible: root.kind === "SENSOR"
-        width: parent.width / 3
+        visible: root.kind === "AMC2" || root.kind === "SENSOR" || (root.kind === "TMCC" && root.showTmccTab)
+        width: parent.width * 2 / 3
         height: 56
+        spacing: 6
         padding: 0
+        currentIndex: root.infoSelected ? root.infoTabIndex : root.controlTabIndex
         background: Item {}
-        CabPageTab {
-            id: actionTab
-            text: "Action"
-            height: sensorTabs.height
+        Repeater {
+            id: deviceTabRepeater
+            model: root.kind === "AMC2" ? ["Motors", "Lights", "Info"]
+                : root.kind === "SENSOR" ? ["Action", "Info"] : ["Controls", "Info"]
+            CabPageTab {
+                id: deviceTab
+                required property int index
+                required property string modelData
+                objectName: modelData === "Info" ? "accessoryDeviceInfoTab" : "accessoryDeviceControlTab" + index
+                width: (deviceTabs.availableWidth - deviceTabs.spacing * (deviceTabs.count - 1)) / deviceTabs.count
+                height: deviceTabs.height
+                y: 0
+                text: modelData
+                onClicked: {
+                    // Navigation owns selection so canceled edits retain their tab and draft.
+                    deviceTabs.currentIndex = Qt.binding(() => root.infoSelected ? root.infoTabIndex : root.controlTabIndex)
+                    root.tabRequested(index)
+                }
+            }
         }
+    }
+
+    readonly property real contentTop: {
+        if (!deviceTabs.visible)
+            return 0
+        const tab = deviceTabRepeater.itemAt(root.infoSelected ? root.infoTabIndex : root.controlTabIndex)
+        return metrics.accessoryTabContentGap + (tab && tab.parent
+            ? tab.parent.mapToItem(root, 0, tab.y + tab.height).y
+            : deviceTabs.y + deviceTabs.height)
+    }
+
+    StateInfoView {
+        id: deviceInfo
+        objectName: "accessoryDeviceStateInfo"
+        anchors.fill: parent
+        anchors.topMargin: root.contentTop
+        visible: root.infoSelected
+        controller: root.infoController
+        showCloseButton: false
+        scrollable: root.kind !== "AMC2"
     }
 
     ListView {
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: sensorTabs.top
-        // The tab style can offset the visible button inside the TabBar.
-        anchors.topMargin: metrics.accessoryTabContentGap + (actionTab.parent
-            ? actionTab.parent.mapToItem(sensorTabs, 0, actionTab.y + actionTab.height).y
-            : sensorTabs.height)
+        anchors.top: parent.top
+        anchors.topMargin: root.contentTop
         anchors.bottom: parent.bottom
-        visible: root.kind === "SENSOR"
+        visible: root.kind === "SENSOR" && !root.infoSelected
         spacing: 14
         clip: true
         model: visible ? root.accessory.sequences || [] : []
@@ -94,59 +135,22 @@ Item {
     }
 
     Amc2Controls {
-        id: amcControls
         anchors.fill: parent
-        visible: root.kind === "AMC2"
+        anchors.topMargin: root.contentTop
+        visible: root.kind === "AMC2" && !root.infoSelected
         controller: root.controller
         accessory: root.accessory
-    }
-
-    TabBar {
-        id: tmccTabs
-        objectName: "tmccAccessoryTabs"
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.topMargin: metrics.accessoryTabInset
-        visible: root.kind === "TMCC" && root.showTmccTab
-        width: parent.width / 3
-        height: 56
-        padding: 0
-        background: Item {}
-        CabPageTab {
-            id: controlsTab
-            text: "Controls"
-            height: tmccTabs.height
-        }
-    }
-
-    CabButton {
-        objectName: "accessoryDeviceInfo"
-        visible: tmccTabs.visible || root.kind === "SENSOR" || root.kind === "AMC2"
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.topMargin: root.kind === "AMC2" ? amcControls.tabTop
-            : root.kind === "SENSOR" && actionTab.parent
-                ? actionTab.parent.mapToItem(root, 0, actionTab.y).y
-                : controlsTab.parent ? controlsTab.parent.mapToItem(root, 0, controlsTab.y).y
-                : metrics.accessoryTabInset
-        width: root.compact ? 108 : 132
-        height: tmccTabs.height
-        text: "Info"
-        enabled: !!root.accessory.tmccId
-        onClicked: root.infoRequested()
+        motorsSelected: root.controlTabIndex === 0
     }
 
     RowLayout {
         id: tmcc
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: root.showTmccTab ? tmccTabs.top : parent.top
-        // Measure the visible tab edge instead of inheriting the tab bar's style inset.
-        anchors.topMargin: root.showTmccTab ? metrics.accessoryTabContentGap + (controlsTab.parent
-            ? controlsTab.parent.mapToItem(tmccTabs, 0, controlsTab.y + controlsTab.height).y
-            : tmccTabs.height) : 0
+        anchors.top: parent.top
+        anchors.topMargin: root.contentTop
         anchors.bottom: parent.bottom
-        visible: root.kind === "TMCC"
+        visible: root.kind === "TMCC" && !root.infoSelected
         spacing: 8
         property string heldKey: ""
         property int heldAddress: 0

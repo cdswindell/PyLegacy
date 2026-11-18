@@ -559,7 +559,7 @@ ROSTER_CHILD = r"""
 from pathlib import Path
 import sys
 
-from PySide6.QtCore import QPoint, Qt, QUrl
+from PySide6.QtCore import QPoint, QPointF, Qt, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
@@ -598,7 +598,7 @@ ApplicationWindow {
             quickActions: kind === "BPC2" || kind === "ASC2" ? [
                 {key: "ON", label: "On", selected: win.feedbackRevision > 0},
                 {key: "OFF", label: "Off", selected: false}
-            ] : []
+            ].concat(kind === "ASC2" ? [{key: "HOLD", label: "Hold", selected: false}] : []) : []
         })).filter(row => !win.missingKinds.includes(row.kind))
         function holdQuickAction(address, pressed) { win.calls += address + (pressed ? "+" : "-") }
         function quickAction(action, address, kind) { win.calls += action + address + kind }
@@ -610,6 +610,7 @@ ApplicationWindow {
         visible: win.relayFilter.length > 0
         controller: backend
         onAccessoryRequested: key => win.openedAccessory = key
+        onEditRequested: (address, kind) => win.calls += "EDIT" + address + kind
         Connections {
             target: win
             function onRelayFilterChanged() { roster.typeFilter = win.relayFilter }
@@ -753,6 +754,70 @@ for kind, address in (("ASC2", 12), ("BPC2", 11)):
     QTest.mouseRelease(window, Qt.LeftButton, pos=position.toPoint())
     assert window.property("calls") == f"ON{address}{kind}", "Feedback must preserve the in-progress relay click"
 
+window.setProperty("relayFilter", "ASC2")
+QTest.qWait(80)
+viewport = window.findChild(QQuickItem, "accessoryRoster")
+row = next(item for item in descendants(viewport) if item.objectName() == "accessoryRosterRow-ASC2")
+position = row.mapToScene(QPointF(row.width() / 2, 30)).toPoint()
+window.setProperty("calls", "")
+QTest.mousePress(window, Qt.LeftButton, pos=position)
+assert window.property("calls") == "", "A row tap must not begin a hold before the threshold"
+QTest.qWait(700)
+assert window.property("calls") == "12+", "Holding the ASC2 row body must energize its port"
+window.setProperty("feedbackRevision", window.property("feedbackRevision") + 1)
+QTest.qWait(60)
+QTest.mouseRelease(window, Qt.LeftButton, pos=position)
+assert window.property("calls") == "12+12-", "Feedback must not lose or duplicate the row release"
+QTest.qWait(40)
+
+for action in ("ON", "OFF", "HOLD", "EDIT"):
+    window.setProperty("calls", "")
+    row = next(item for item in descendants(viewport) if item.objectName() == "accessoryRosterRow-ASC2")
+    button = next(item for item in descendants(row)
+                  if item.property("action") == action or (action == "EDIT" and item.property("text") == "Edit"))
+    point = button.mapToScene(button.boundingRect().center()).toPoint()
+    QTest.mousePress(window, Qt.LeftButton, pos=point)
+    QTest.qWait(700)
+    expected = "12+" if action == "HOLD" else ""
+    assert window.property("calls") == expected, "Row hold must exclude nested " + action
+    QTest.mouseRelease(window, Qt.LeftButton, pos=point)
+    expected = "12+12-" if action == "HOLD" else action + "12ASC2"
+    assert window.property("calls") == expected, "Nested action must run exactly once: " + action
+    QTest.qWait(40)
+
+window.setProperty("calls", "")
+row = next(item for item in descendants(viewport) if item.objectName() == "accessoryRosterRow-ASC2")
+position = row.mapToScene(QPointF(row.width() / 2, 30)).toPoint()
+QTest.mousePress(window, Qt.LeftButton, pos=position)
+QTest.qWait(700)
+assert window.property("calls") == "12+"
+QTest.mouseMove(window, position + QPoint(0, 120))
+QTest.mouseRelease(window, Qt.LeftButton, pos=position + QPoint(0, 120))
+assert window.property("calls") == "12+12-", "Canceling a row hold must release once"
+
+window.setProperty("calls", "")
+row = next(item for item in descendants(viewport) if item.objectName() == "accessoryRosterRow-ASC2")
+position = row.mapToScene(QPointF(row.width() / 2, 30)).toPoint()
+QTest.mousePress(window, Qt.LeftButton, pos=position)
+QTest.mouseMove(window, position + QPoint(0, 120))
+QTest.mouseRelease(window, Qt.LeftButton, pos=position + QPoint(0, 120))
+QTest.qWait(700)
+assert window.property("calls") == "", "Scrolling before the hold threshold must not energize the port"
+
+window.setProperty("calls", "")
+row = next(item for item in descendants(viewport) if item.objectName() == "accessoryRosterRow-ASC2")
+position = row.mapToScene(QPointF(row.width() / 2, 30)).toPoint()
+QTest.mousePress(window, Qt.LeftButton, pos=position)
+QTest.qWait(700)
+assert window.property("calls") == "12+"
+viewport.setEnabled(False)
+QTest.mouseRelease(window, Qt.LeftButton, pos=position)
+assert window.property("calls") == "12+12-", "Disabling the roster must release a row hold once"
+viewport.setEnabled(True)
+
+# Restore the original filter before checking removal of its device type.
+window.setProperty("relayFilter", "BPC2")
+QTest.qWait(40)
 assert window.property("filterKeys") == "ALL,OPERATING,LCS,TMCC,SENSOR,BPC2,ASC2,AMC2"
 window.setProperty("missingKinds", ["BPC2", "OPERATING", "SENSOR"])
 QTest.qWait(35)

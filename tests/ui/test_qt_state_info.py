@@ -539,13 +539,15 @@ import sys
 import traceback
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QObject, QTimer, Qt
+from PySide6.QtCore import QObject, QPointF, QTimer, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlEngine, QQmlExpression
 
 from PySide6.QtTest import QTest
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.protocol.constants import CommandScope
+from pytrain.pdi.pdi_req import PdiReq
+from pytrain.pdi.pdi_state_store import PdiStateStore
 from pytrain_ui.qt.app import run_cab
 
 store = ComponentStateStore.build()
@@ -556,6 +558,24 @@ for scope in (CommandScope.ENGINE, CommandScope.TRAIN):
     state.comp_data.road_number = "0001"
     state.comp_data.engine_type = 0
     state.comp_data.control_type = 1
+
+# Report real LCS configurations while retaining isolated synthetic identity records.
+pdi_store = PdiStateStore()
+for scope, packet in (
+    (CommandScope.ACC, "d1461903190000000202020303010100000000000000000077df"),
+    (CommandScope.IRDA, "d13232033200000005ffff64df"),
+):
+    request = PdiReq.from_bytes(bytes.fromhex(packet))
+    pdi_store.register_pdi_device(request)
+    store.get_state(scope, request.tmcc_id).update(request)
+for address in (25, 50, 60):
+    state = store.get_state(CommandScope.ACC, address)
+    state.initialize(CommandScope.ACC, address)
+    state.comp_data.road_name = "Accessory " + str(address)
+    state.comp_data.road_number = str(address).zfill(4)
+# Model the Sensor Track's accessory view of its IRDA parent, as sync does.
+# noinspection PyProtectedMember
+store.get_state(CommandScope.ACC, 50)._parent = store.get_state(CommandScope.IRDA, 50)
 
 failures = []
 
@@ -659,6 +679,79 @@ def app_factory(argv):
                         assert evaluate("window.manageVisible")
                         assert window.property("title") == "PyTrain — Manage PyTrain"
                         evaluate("window.manageVisible = false")
+            for address, kind in ((50, "SENSOR"), (25, "AMC2"), (60, "TMCC")):
+                evaluate('window.changeScope("ACCESSORY", false)')
+                rows = evaluate('accessoryCatalogController.rows')
+                row = next(row for row in rows if row["primaryTmccId"] == address)
+                assert row["kind"] == kind, row
+                evaluate('accessoryCatalog.accessoryRequested("' + row["key"] + '")')
+                QTest.qWait(100)
+                artwork = visible("accessoryArtwork") if evaluate("accessoryOperatingView.hasArtwork") else None
+                artwork_height = artwork.height() if artwork is not None else 0
+                control_index = 1 if kind == "AMC2" else 0
+                click(visible("accessoryDeviceInfoTab"))
+                assert evaluate("window.stateInfoVisible && window.stateInfoFromTab")
+                assert visible("accessoryDeviceInfoTab").property("checked")
+                info_tab = visible("accessoryDeviceInfoTab")
+                info_panel = visible("accessoryDeviceStateInfo")
+                tab_bottom = info_tab.mapToScene(info_tab.boundingRect().bottomLeft()).y()
+                info_top = info_panel.mapToScene(info_panel.boundingRect().topLeft()).y()
+                assert 0 <= info_top - tab_bottom <= 5, (kind, info_top, tab_bottom)
+                assert visible("accessoryDeviceControlTab0").isVisible()
+                assert not any(item.isVisible() for item in descendants(window.contentItem())
+                               if item.objectName() == "closeStateInfoButton")
+                if kind == "AMC2":
+                    for width, height in ((720, 1280), (639, 800)):
+                        window.resize(width, height)
+                        QTest.qWait(100)
+                        panel = visible("accessoryDeviceStateInfo")
+                        assert not panel.property("scrollable")
+                        assert not any(item.isVisible() for item in descendants(panel)
+                                       if item.objectName() == "stateInfoScrollingDetails")
+                        board = visible("lcsBoardInformation")
+                        footer = visible("stateInfoFooter")
+                        board_bottom = board.mapToScene(board.boundingRect().bottomLeft()).y()
+                        footer_top = footer.mapToScene(footer.boundingRect().topLeft()).y()
+                        assert board_bottom <= footer_top, (width, height, board_bottom, footer_top)
+                        name_top = visible("accessoryRoadName").mapToScene(QPointF(0, 0)).y()
+                        panel_top = panel.mapToScene(QPointF(0, 0)).y()
+                        assert name_top >= panel_top
+                    window.resize(720, 1280)
+                    QTest.qWait(100)
+                else:
+                    assert artwork is None or artwork.height() == artwork_height
+                entry = visible("accessoryRoadName")
+                assert entry.property("text") == "Accessory " + str(address)
+                entry.setProperty("text", "Unsaved accessory name")
+                click(visible("accessoryDeviceControlTab" + str(control_index)))
+                confirmation = next(obj for obj in window.findChildren(QObject)
+                                    if obj.objectName() == "discardChangesConfirmation")
+                assert confirmation.property("visible")
+                click_label("Keep Editing")
+                assert visible("accessoryDeviceInfoTab").property("checked")
+                assert entry.property("text") == "Unsaved accessory name"
+                click(visible("accessoryDeviceControlTab" + str(control_index)))
+                click_label("Discard")
+                assert not evaluate("window.stateInfoVisible")
+                assert visible("accessoryDeviceControlTab" + str(control_index)).property("checked")
+                assert store.get_state(CommandScope.ACC, address).comp_data.road_name == "Accessory " + str(address)
+                click(visible("accessoryDeviceInfoTab"))
+                if kind == "SENSOR":
+                    visible("accessoryRoadName").setProperty("text", "Another draft")
+                    evaluate('window.navigateFromMenu("Manage PyTrain")')
+                    assert confirmation.property("visible")
+                    click_label("Keep Editing")
+                    assert evaluate("window.stateInfoVisible")
+                    evaluate('window.navigateFromMenu("Manage PyTrain")')
+                    click_label("Discard")
+                    assert evaluate("window.manageVisible")
+                    evaluate("window.manageVisible = false")
+                else:
+                    QTest.keyClick(window, Qt.Key_Escape)
+                    QTest.qWait(60)
+                    assert not evaluate("window.stateInfoVisible")
+                    assert visible("accessoryDeviceControlTab" + str(control_index)).property("checked")
+
             evaluate('window.navigateFromMenu("Route Builder")')
             QTest.qWait(60)
             assert window.property("title") == "PyTrain — Route Builder"
@@ -694,7 +787,7 @@ sys.exit(result)
 
 # Keep this native Qt application scenario isolated and retain its own subprocess diagnostics.
 # noinspection DuplicatedCode
-def test_engine_and_train_info_tabs_preserve_navigation_and_confirm_discard() -> None:
+def test_cab_and_accessory_info_tabs_preserve_navigation_and_confirm_discard() -> None:
     pytest.importorskip("PySide6")
     result = subprocess.run(
         [sys.executable, "-c", INFO_TABS_CHILD],

@@ -9,6 +9,8 @@ Rectangle {
     required property var controller
     signal closeRequested()
     property bool showCloseButton: true
+    property bool scrollable: true
+    readonly property bool fixedCompact: !scrollable && !addingAccessory && height < 620
     readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
     readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible ||
         accessoryName.keyboardOpen || accessoryNumberPad.visible || accessoryIdPad.visible || overwriteAccessory.visible
@@ -89,7 +91,7 @@ Rectangle {
             accessoryId.clear()
             accessoryDraftId = -1
         } else {
-            details.contentItem.contentY = 0
+            if (root.scrollable) details.contentItem.contentY = 0
             Qt.callLater(syncAccessoryIdentity)
         }
     }
@@ -133,10 +135,11 @@ Rectangle {
     ColumnLayout {
         id: panelLayout
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 10
+        anchors.margins: root.scrollable ? 10 : 8
+        spacing: root.scrollable ? 10 : 6
 
         RowLayout {
+            visible: !root.fixedCompact
             Layout.fillWidth: true
             Label {
                 text: root.addingAccessory ? "Add Accessory" :
@@ -173,8 +176,8 @@ Rectangle {
             font.pixelSize: 19
         }
 
-        ScrollView {
-            id: details
+        Item {
+            id: detailsSlot
             objectName: "stateInfoDetails"
             Layout.topMargin: root.compactAccessoryIdentity
                 ? Math.max(0, recordFooter.buttonHeight - panelLayout.spacing
@@ -184,19 +187,30 @@ Rectangle {
             Layout.fillHeight: true
             Layout.maximumHeight: detailsContent.implicitHeight
             Layout.minimumHeight: 0
-            contentWidth: availableWidth
-            clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollView {
+                id: details
+                objectName: "stateInfoScrollingDetails"
+                anchors.fill: parent
+                visible: root.scrollable
+                contentWidth: availableWidth
+                contentHeight: detailsContent.implicitHeight
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            }
             ColumnLayout {
                 id: detailsContent
-                width: details.availableWidth
-                spacing: 8
+                parent: root.scrollable ? details.contentItem : detailsSlot
+                width: root.scrollable ? details.availableWidth : detailsSlot.width
+                spacing: root.scrollable ? 8 : 4
 
-                ColumnLayout {
+                GridLayout {
                     id: accessoryFields
                     visible: root.inlineIdentity
                     Layout.fillWidth: true
-                    spacing: 8
+                    columns: root.fixedCompact ? 2 : 1
+                    property int spacing: root.scrollable ? 8 : 4
+                    rowSpacing: spacing
+                    columnSpacing: 8
 
                     Label {
                         Layout.fillWidth: true
@@ -217,7 +231,7 @@ Rectangle {
                         objectName: "newAccessoryTmccId"
                         visible: root.addingAccessory
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 52
+                        Layout.preferredHeight: root.fixedCompact ? 38 : 52
                         maximumLength: 2
                         validator: IntValidator { bottom: 1; top: 98 }
                         font.pixelSize: 22
@@ -238,59 +252,73 @@ Rectangle {
                         wrapMode: Text.WordWrap
                     }
 
-                    Label {
-                        id: accessoryRoadNameLabel
-                        text: "Road Name"
-                        color: root.fieldLabelColor
-                        font.pixelSize: 17
-                    }
-                    RowLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 8
-
-                        TouchSearchField {
-                            id: accessoryName
-                            objectName: "accessoryRoadName"
+                        Layout.minimumWidth: 0
+                        spacing: accessoryFields.spacing
+                        Label {
+                            id: accessoryRoadNameLabel
+                            text: "Road Name"
+                            color: root.fieldLabelColor
+                            font.pixelSize: 17
+                        }
+                        RowLayout {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
-                            Layout.preferredHeight: 52
-                            maximumLength: 31
-                            titleCaseEnabled: true
-                            keyboardTitle: "Road Name"
+                            spacing: 8
+
+                            TouchSearchField {
+                                id: accessoryName
+                                objectName: "accessoryRoadName"
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredHeight: root.fixedCompact ? 38 : 52
+                                maximumLength: 31
+                                titleCaseEnabled: true
+                                keyboardTitle: "Road Name"
+                                readOnly: !root.record.editable
+                                touchKeyboardEnabled: root.useTouchKeyboard && !readOnly
+                                font.pixelSize: 22
+                                selectByMouse: true
+                                Accessible.name: "Road Name"
+                            }
+                            TitleCaseButton {
+                                field: accessoryName
+                                Layout.preferredHeight: accessoryName.Layout.preferredHeight
+                                visible: !!root.record.editable
+                            }
+                        }
+
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: root.fixedCompact ? 100 : -1
+                        spacing: accessoryFields.spacing
+                        Label {
+                            text: "Road Number"
+                            color: root.fieldLabelColor
+                            font.pixelSize: 17
+                        }
+                        TextField {
+                            id: accessoryNumber
+                            objectName: "accessoryRoadNumber"
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: root.fixedCompact ? 100 : -1
+                            Layout.preferredHeight: root.fixedCompact ? 38 : 52
+                            maximumLength: 4
+                            validator: RegularExpressionValidator { regularExpression: /[0-9]{0,4}/ }
                             readOnly: !root.record.editable
-                            touchKeyboardEnabled: root.useTouchKeyboard && !readOnly
                             font.pixelSize: 22
                             selectByMouse: true
-                            Accessible.name: "Road Name"
-                        }
-                        TitleCaseButton {
-                            field: accessoryName
-                            Layout.preferredHeight: accessoryName.Layout.preferredHeight
-                            visible: !!root.record.editable
-                        }
-                    }
-
-                    Label {
-                        text: "Road Number"
-                        color: root.fieldLabelColor
-                        font.pixelSize: 17
-                    }
-                    TextField {
-                        id: accessoryNumber
-                        objectName: "accessoryRoadNumber"
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 52
-                        maximumLength: 4
-                        validator: RegularExpressionValidator { regularExpression: /[0-9]{0,4}/ }
-                        readOnly: !root.record.editable
-                        font.pixelSize: 22
-                        selectByMouse: true
-                        inputMethodHints: Qt.ImhDigitsOnly
-                        Accessible.name: "Road Number"
-                        onTextEdited: root.populatedAccessoryNumber = ""
-                        TapHandler {
-                            enabled: root.useTouchKeyboard && !accessoryNumber.readOnly
-                            onTapped: accessoryNumberPad.openFor(accessoryNumber.text)
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            Accessible.name: "Road Number"
+                            onTextEdited: root.populatedAccessoryNumber = ""
+                            TapHandler {
+                                enabled: root.useTouchKeyboard && !accessoryNumber.readOnly
+                                onTapped: accessoryNumberPad.openFor(accessoryNumber.text)
+                            }
                         }
                     }
                 }
@@ -377,7 +405,8 @@ Rectangle {
                     objectName: "lcsDeviceConfiguration"
                     Layout.fillWidth: true
                     columns: 3
-                    tileHeight: 84
+                    compact: !root.scrollable
+                    tileHeight: root.fixedCompact ? 52 : root.scrollable ? 84 : 64
                     rows: root.amc2Info || root.record.sensorTrack
                         ? root.record.lcsConfiguration.slice(0, 3) : root.record.lcsConfiguration || []
                     visible: rows.length > 0
@@ -387,6 +416,7 @@ Rectangle {
                     objectName: "amc2MotorConfiguration"
                     Layout.fillWidth: true
                     columns: 2
+                    compact: !root.scrollable
                     tileHeight: amc2Device.tileHeight
                     rows: root.amc2Info ? root.record.lcsConfiguration.slice(3) : []
                     visible: rows.length > 0
@@ -414,6 +444,8 @@ Rectangle {
                 StateInfoGrid {
                     id: lcsBoard
                     objectName: "lcsBoardInformation"
+                    compact: !root.scrollable
+                    tileHeight: root.scrollable ? 0 : amc2Device.tileHeight
                     Layout.fillWidth: true
                     columns: 3
                     rows: root.record.lcsBoard || []
@@ -453,9 +485,10 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: metrics.footerOffset(root.compactAccessoryIdentity ? buttonHeight : implicitHeight, parent.spacing)
+            Layout.topMargin: root.fixedCompact ? 0 : metrics.footerOffset(root.compactAccessoryIdentity ? buttonHeight : implicitHeight, parent.spacing)
             spacing: 18
-            readonly property int buttonHeight: 70
+            readonly property int buttonHeight: root.fixedCompact ? 44 : root.scrollable ? 70 : 52
+            objectName: "stateInfoFooter"
             id: recordFooter
 
             ClearRecordButton {
@@ -735,13 +768,13 @@ Rectangle {
                 TitleCaseButton {
                     visible: fieldEditor.roadName
                     field: entry
-                    Layout.preferredHeight: 52
+                    Layout.preferredHeight: root.fixedCompact ? 38 : 52
                 }
                 RosterBackspaceButton {
                     visible: fieldEditor.field.key === "name"
                     field: entry
                     Accessible.name: "Backspace road name"
-                    Layout.preferredHeight: 52
+                    Layout.preferredHeight: root.fixedCompact ? 38 : 52
                 }
             }
             GridLayout {
