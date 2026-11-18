@@ -419,6 +419,7 @@ BASE_MEMORY_D4_TRAIN_READ_MAP.update(
             lambda t: ConsistComponent.from_d4_bytes(t),
             lambda t: ConsistComponent.to_d4_bytes(t),
         ),
+        0xB6: CompDataHandler("_pseudo_train_id"),
     }
 )
 
@@ -1299,6 +1300,7 @@ class TrainData(EngineData):
         self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
+        self._pseudo_train_id: int | None = None
         super().__init__(data, tmcc_id=tmcc_id, scope=CommandScope.TRAIN)
 
 

@@ -250,7 +250,7 @@ class EngineState(ComponentState):
             # from a default rather than from a sighting of the engine
             return f"{self.scope.title} {self._address:04}: no information provided from Base 2/3"
         try:
-            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = fl = rn = ""
+            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = fl = rn = pid = ""
             if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
                 dr = " FWD"
             elif self._direction in {
@@ -305,6 +305,8 @@ class EngineState(ComponentState):
             ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
             if self._d4_rec_no is not None:
                 rn = f" {self.record_no_label}"
+            if isinstance(self, TrainState) and self.pseudo_train_id:
+                pid = f" PID: {self.pseudo_train_id}"
             if isinstance(self, TrainState) and self.consist_components:
                 c = "\n"
                 for cc in self.consist_components:
@@ -313,7 +315,7 @@ class EngineState(ComponentState):
                 tr = f" Train: {self.train_tmcc_id}"
             return (
                 f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{fl}{dr}{sm}"
-                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{ss}{tr}{nu}{aux}{c}"
+                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{ss}{tr}{nu}{aux}{c}{pid}"
             )
         except AttributeError as ae:
             if self.comp_data is None:
@@ -1677,6 +1679,12 @@ class TrainState(EngineState, LcsProxyState):
     @property
     def has_lights(self) -> bool:
         return self.head.has_lights if self.head else False
+
+    @property
+    def pseudo_train_id(self) -> int:
+        if self.comp_data:
+            return self.comp_data.pseudo_train_id
+        return None
 
     def get_consist_component(self, tmcc_id: int) -> ConsistComponent | None:
         if self.consist_components:
