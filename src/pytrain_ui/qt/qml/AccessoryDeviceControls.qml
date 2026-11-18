@@ -16,9 +16,11 @@ Item {
     property int controlTabIndex: 0
     readonly property string kind: accessory.kind || ""
     readonly property bool uncoupler: accessory.uncoupler === true
-    readonly property int infoTabIndex: kind === "AMC2" || uncoupler ? 2 : 1
+    readonly property int infoTabIndex: uncoupler ? 3 : kind === "AMC2" ? 2 : 1
     readonly property bool infoHasUnsavedChanges: deviceInfo.hasUnsavedChanges
     readonly property bool infoEditorOpen: deviceInfo.editorOpen
+    readonly property bool relayHasUnsavedChanges: relayControls.hasUnsavedChanges
+    function discardRelayChanges() { relayControls.discardChanges() }
     signal tabRequested(int index)
 
     function syncTabSelection() {
@@ -46,7 +48,7 @@ Item {
             id: deviceTabRepeater
             model: root.kind === "AMC2" ? ["Motors", "Lights", "Info"]
                 : root.kind === "SENSOR" ? ["Action", "Info"]
-                : root.uncoupler ? ["Controls", "ACC", "Info"] : ["Controls", "Info"]
+                : root.uncoupler ? ["Uncouplers", "Relays", "ACC", "Info"] : ["Controls", "Info"]
             CabPageTab {
                 id: deviceTab
                 required property int index
@@ -92,6 +94,19 @@ Item {
         visible: root.uncoupler && root.controlTabIndex === 0 && !root.infoSelected
         controller: root.controller
         accessoryKey: root.accessory.key || ""
+        compact: root.compact
+    }
+
+    Asc2RelayControls {
+        id: relayControls
+        objectName: "asc2RelayControls"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: root.contentTop + 8
+        visible: root.uncoupler && root.controlTabIndex === 1 && !root.infoSelected
+        controller: root.controller
+        accessory: root.accessory
         compact: root.compact
     }
 
@@ -170,7 +185,7 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: root.contentTop
         anchors.bottom: parent.bottom
-        visible: (root.kind === "TMCC" || (root.uncoupler && root.controlTabIndex === 1)) && !root.infoSelected
+        visible: (root.kind === "TMCC" || (root.uncoupler && root.controlTabIndex === 2)) && !root.infoSelected
         spacing: 8
         property string heldKey: ""
         property int heldAddress: 0

@@ -52,6 +52,17 @@ log = logging.getLogger(__name__)
 # https://control.lionel.com/lcs/products/asc2/
 UNCOUPLER_PULSE_SECONDS = 1.0
 
+
+@dataclass
+class Asc2RelayFeedback:
+    values: int = 0
+    known: int = 0
+    pending: int = 0
+    requested: int = 0
+    deadline: float = 0.0
+    status: str = ""
+
+
 _DEVICE_IMAGES = {
     "ASC2": "LCS-ASC2-6-81639.jpg",
     "BPC2": "LCS-BPC2-6-81640.jpg",
@@ -129,11 +140,17 @@ class AccessoryCatalogController(QObject):
 
     changed = Signal()
     commandReceived = Signal()
+    relayFeedbackReceived = Signal(object)
     operated = Signal(str, bool)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._rows: list[dict] = []
+        self._asc2_relays: dict[int, Asc2RelayFeedback] = {}
+        self._relay_timer = QTimer(self)
+        self._relay_timer.setInterval(250)
+        self._relay_timer.timeout.connect(self._expire_relay_requests)
+        self.relayFeedbackReceived.connect(self._receive_relay_feedback)
         self._held_asc2: set[int] = set()
         self._configured_holds: dict[tuple[str, str], int] = {}
         self._amc2_levels: dict[tuple[str, bool, int], int] = {}
@@ -158,6 +175,7 @@ class AccessoryCatalogController(QObject):
 
     def close(self) -> None:
         self._amc2_timer.stop()
+        self._relay_timer.stop()
         self._release_invalid_configured_holds(release_all=True)
         for tmcc_id in tuple(self._held_asc2):
             try:
@@ -178,6 +196,7 @@ class AccessoryCatalogController(QObject):
         self.commandReceived.emit()
 
     def _pdi_command(self, _command) -> None:
+        self.relayFeedbackReceived.emit(_command)
         # LCS control packets are authoritative for ASC2/BPC2/AMC2 and Sensor
         # Track state. Queue a catalog rebuild after the state store processes them.
         self.commandReceived.emit()
@@ -343,6 +362,9 @@ class AccessoryCatalogController(QObject):
             address = descriptor.primary_tmcc_id
         else:
             return 0
+        state = cls._state(address)
+        if state is not None and state.is_deleted:
+            return 0
         matches = [item for item in occupants_of(address, scope=CommandScope.ACC) if item.device.label == "ASC2"]
         if matches:
             return (
@@ -364,6 +386,72 @@ class AccessoryCatalogController(QObject):
         Asc2Req(address, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=sub_id, time=UNCOUPLER_PULSE_SECONDS).send()
         self.operated.emit(key, False)
         return True
+
+    @Slot(str, result=bool)
+    def requestUncouplerRelays(self, key: str) -> bool:
+        descriptor = self._descriptors.get(key)
+        address = self._uncoupler_address(descriptor) if descriptor else 0
+        if not address:
+            return False
+        Asc2Req(address, PdiCommand.ASC2_GET, Asc2Action.CONTROL2).send()
+        return True
+
+    @Slot(str, int, int, result=bool)
+    def setUncouplerRelays(self, key: str, values: int, valids: int) -> bool:
+        descriptor = self._descriptors.get(key)
+        address = self._uncoupler_address(descriptor) if descriptor else 0
+        if not address or any(isinstance(mask, bool) or not isinstance(mask, int) for mask in (values, valids)):
+            return False
+        if not 0 <= values <= 255 or not 1 <= valids <= 255:
+            return False
+        feedback = self._asc2_relays.setdefault(address, Asc2RelayFeedback())
+        if feedback.pending:
+            return False
+        Asc2Req(address, PdiCommand.ASC2_SET, Asc2Action.CONTROL2, values=values & valids, valids=valids).send()
+        feedback.pending = valids
+        feedback.requested = values & valids
+        feedback.deadline = monotonic() + 2.0
+        feedback.status = "Waiting for relay state confirmation…"
+        self._relay_timer.start()
+        self.changed.emit()
+        self.operated.emit(key, False)
+        return True
+
+    @Slot(object)
+    def _receive_relay_feedback(self, command) -> None:
+        # Only device responses confirm relay states. SET requests and their echoes do not.
+        if not isinstance(command, Asc2Req) or command.pdi_command != PdiCommand.ASC2_RX or command.is_error:
+            return
+        if command.action not in (Asc2Action.CONTROL2, Asc2Action.CONTROL3):
+            return
+        if not any(self._uncoupler_address(item) == command.tmcc_id for item in self._descriptors.values()):
+            return
+        if command.values is None or command.valids is None:
+            return
+        feedback = self._asc2_relays.setdefault(command.tmcc_id, Asc2RelayFeedback())
+        mask = command.valids & 255
+        feedback.values = (feedback.values & ~mask) | (command.values & mask)
+        feedback.known |= mask
+        matching = mask & ~(command.values ^ feedback.requested)
+        feedback.pending &= ~matching
+        if not feedback.pending:
+            feedback.status = ""
+        self.changed.emit()
+
+    @Slot()
+    def _expire_relay_requests(self) -> None:
+        changed = False
+        now = monotonic()
+        for feedback in self._asc2_relays.values():
+            if feedback.pending and now >= feedback.deadline:
+                feedback.known &= ~feedback.pending
+                feedback.pending = 0
+                feedback.status = "Relay state was not confirmed. Refresh to check the device."
+                changed = True
+        if not any(item.pending for item in self._asc2_relays.values()):
+            self._relay_timer.stop()
+        if changed:
+            self.changed.emit()
 
     @classmethod
     def _relay_feedback(cls, tmcc_id: int) -> AccessoryState | None:
@@ -929,6 +1017,13 @@ class AccessoryCatalogController(QObject):
         }
         panel["uncouplerAddress"] = self._uncoupler_address(descriptor)
         panel["uncoupler"] = bool(panel["uncouplerAddress"])
+        if panel["uncoupler"]:
+            feedback = self._asc2_relays.get(panel["uncouplerAddress"], Asc2RelayFeedback())
+            panel["relayStates"] = [
+                int(bool(feedback.values & (1 << index))) if feedback.known & (1 << index) else -1 for index in range(8)
+            ]
+            panel["relayPendingMask"] = feedback.pending
+            panel["relayStatus"] = feedback.status
         if descriptor.configured_accessory is not None:
             configured = descriptor.configured_accessory
             view = self._configured_operating_state(key, configured)
@@ -1024,6 +1119,10 @@ class AccessoryCatalogController(QObject):
 
         descriptors.sort(key=lambda item: (item.name.lower(), item.primary_tmcc_id))
         self._descriptors = {descriptor.key: descriptor for descriptor in descriptors}
+        relay_addresses = {self._uncoupler_address(item) for item in descriptors} - {0}
+        self._asc2_relays = {
+            address: state for address, state in self._asc2_relays.items() if address in relay_addresses
+        }
         self._release_invalid_configured_holds()
         self._rows = [descriptor.as_row() for descriptor in self._descriptors.values()]
         for row in self._rows:

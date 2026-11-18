@@ -1367,6 +1367,7 @@ ApplicationWindow {
     property string selectedKey: ""
     property string calls: ""
     property bool info: false
+    property var relayStates: [0, 0, 0, 0, 0, 0, 0, 0]
     QtObject {
         id: backend
         readonly property var rows: [
@@ -1381,6 +1382,13 @@ ApplicationWindow {
         function pulseUncoupler(key, digit) { window.calls += key + ":" + digit + ";" }
         function tmccCommand(key, address, name, value) {
             window.calls += key + ":" + address + ":" + name + ":" + value + ";"
+        }
+        function requestUncouplerRelays(key) { return true }
+        function setUncouplerRelays(key, values, valids) {
+            window.calls += "relays:" + key + ":" + values + ":" + valids + ";"
+            window.relayStates = window.relayStates.map((value, index) =>
+                valids & (1 << index) ? Number(!!(values & (1 << index))) : value)
+            return true
         }
         function releaseConfiguredHolds(key) {}
         function refresh(editorOpen) {}
@@ -1400,12 +1408,12 @@ ApplicationWindow {
         infoController: backend
         infoSelected: window.info
         onDeviceTabRequested: index => {
-            window.info = index === 2
+            window.info = index === 3
             if (!window.info) deviceControlTabIndex = index
         }
         accessory: ({key: window.selectedKey, kind: window.selectedKey === "op" ? "OPERATING" : "ASC2",
                      title: "Uncoupling Tracks", tmccId: window.selectedKey === "op" ? 24 : 40,
-                     uncoupler: true, operations: []})
+                     uncoupler: true, operations: [], relayStates: window.relayStates})
     }
     function enterId(address) { roster.selectTmccId(address, false) }
 }
@@ -1439,6 +1447,11 @@ for width, height in ((720, 1280), (639, 800)):
         window.enterId(address)
         QTest.qWait(80)
         assert window.property("selectedKey") == key
+        track_tab = visible("operatingControlsTab" if key == "op" else "accessoryDeviceControlTab0")
+        assert track_tab.property("text") == "Uncouplers"
+        note = visible("uncouplerInstructions")
+        assert note.isVisible()
+        window.setProperty("relayStates", [0] * 8)
         for digit in range(1, 9):
             button = visible("uncouplerKey" + str(digit))
             assert button.property("text") == str(digit)
@@ -1465,7 +1478,41 @@ for width, height in ((720, 1280), (639, 800)):
         button.forceActiveFocus()
         QTest.keyClick(window, Qt.Key_Return)
         assert window.property("calls") == key + ":1;"
-        acc_tab = visible("operatingAccTab" if key == "op" else "accessoryDeviceControlTab1")
+        relay_tab = visible("operatingRelaysTab" if key == "op" else "accessoryDeviceControlTab1")
+        assert relay_tab.property("text") == "Relays"
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(relay_tab))
+        QTest.qWait(40)
+        for digit in range(1, 9):
+            button = visible("asc2Relay" + str(digit))
+            bottom = button.mapToScene(button.boundingRect().bottomRight())
+            assert bottom.x() <= width and bottom.y() <= height
+        warning = visible("uncouplerRelayWarning")
+        warning_bottom = warning.mapToScene(warning.boundingRect().bottomRight())
+        assert warning_bottom.y() <= height
+        assert visible("editRelayGroup").height() > 48
+        for action in ("allRelaysOn", "allRelaysOff", "refreshRelays"):
+            assert visible(action).height() > 48
+        window.setProperty("calls", "")
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("asc2Relay1")))
+        QTest.qWait(30)
+        assert window.property("calls") == "relays:" + key + ":1:1;"
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("editRelayGroup")))
+        QTest.qWait(40)
+        window.setProperty("calls", "")
+        for digit in (2, 4):
+            QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("asc2Relay" + str(digit))))
+        QTest.qWait(40)
+        assert window.property("calls") == "", "Group changes must wait for Apply"
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("applyRelayGroup")))
+        QTest.qWait(30)
+        assert window.property("calls") == "relays:" + key + ":10:10;"
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("editRelayGroup")))
+        QTest.qWait(40)
+        window.setProperty("calls", "")
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("asc2Relay3")))
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(visible("cancelRelayGroup")))
+        assert window.property("calls") == "", "Cancel must discard group changes"
+        acc_tab = visible("operatingAccTab" if key == "op" else "accessoryDeviceControlTab2")
         assert acc_tab.property("text") == "ACC"
         QTest.mouseClick(window, Qt.LeftButton, pos=point(acc_tab))
         QTest.qWait(60)
@@ -1511,3 +1558,64 @@ def test_uncoupler_mode_can_be_resolved_from_component_state_without_a_cached_ma
     state.update(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONFIG, mode=0))
     assert not controller.pulseUncoupler(key, 7)
     assert not controller.operatingView(key)["uncoupler"]
+
+
+@pytest.mark.parametrize("configured", [False, True])
+def test_uncoupler_control2_uses_independent_masks_and_only_device_feedback_confirms(
+    controller, sent, monkeypatch, configured
+):
+    occupant = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(1), 1, scope=CommandScope.ACC)
+    monkeypatch.setitem(vars(module), "occupants", lambda **_: [occupant])
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [occupant] if address == 24 else [])
+    if configured:
+        install_configured_accessories(
+            controller, monkeypatch, {"gui": "uncoupler", "instance_id": "relay-test", "tmcc_ids": {"uncouple": 24}}
+        )
+    else:
+        controller.reload()
+    key = next(row["key"] for row in controller.rows if row["configured"] == configured)
+    monkeypatch.setattr(module, "monotonic", lambda: 10.0)
+    assert controller.operatingView(key)["relayStates"] == [-1] * 8
+    assert controller.requestUncouplerRelays(key)
+    assert (sent[-1].pdi_command, sent[-1].action) == (PdiCommand.ASC2_GET, Asc2Action.CONTROL2)
+    assert controller.setUncouplerRelays(key, 1, 9)
+    assert sent[-1].as_bytes[1:6] == bytes([0x3D, 24, 0x11, 1, 9])
+    assert controller.operatingView(key)["relayStates"] == [-1] * 8
+    assert controller.operatingView(key)["relayPendingMask"] == 9
+    assert not controller.setUncouplerRelays(key, 0, 255)
+
+    def receive(command, action, values, valids):
+        # Exercise the real broadcast entry point rather than mutating the feedback cache.
+        # noinspection PyProtectedMember
+        controller._pdi_command(Asc2Req(24, command, action, values=values, valids=valids))
+
+    receive(PdiCommand.ASC2_SET, Asc2Action.CONTROL2, 1, 9)
+    assert controller.operatingView(key)["relayPendingMask"] == 9
+    receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL2, 0, 1)
+    assert controller.operatingView(key)["relayPendingMask"] == 9
+    assert controller.operatingView(key)["relayStates"][0] == 0
+    receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL2, 1, 1)
+    assert controller.operatingView(key)["relayStates"] == [1] + [-1] * 7
+    assert controller.operatingView(key)["relayPendingMask"] == 8
+    receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL3, 0, 8)
+    assert controller.operatingView(key)["relayStates"] == [1, -1, -1, 0, -1, -1, -1, -1]
+    assert controller.operatingView(key)["relayPendingMask"] == 0
+    assert controller.setUncouplerRelays(key, 0, 255)
+    assert sent[-1].as_bytes[4:6] == bytes([0, 255])
+    receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL2, 0, 255)
+    assert controller.operatingView(key)["relayStates"] == [0] * 8
+    assert controller.setUncouplerRelays(key, 255, 255)
+    monkeypatch.setattr(module, "monotonic", lambda: 13.0)
+    # Exercise the timer callback deterministically without waiting for wall-clock time.
+    # noinspection PyProtectedMember
+    controller._expire_relay_requests()
+    assert controller.operatingView(key)["relayPendingMask"] == 0
+    assert controller.operatingView(key)["relayStates"] == [-1] * 8
+    assert "not confirmed" in controller.operatingView(key)["relayStatus"]
+    for invalid_values, invalid_valids in ((-1, 1), (256, 1), (0, 0), (0, 256), (True, 1), (0, False), (0, 1.5)):
+        assert not controller.setUncouplerRelays(key, invalid_values, invalid_valids)
+    assert not controller.setUncouplerRelays("missing", 0, 255)
+    changed = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(0), 8, scope=CommandScope.ACC)
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [changed] if address == 24 else [])
+    assert not controller.requestUncouplerRelays(key)
+    assert not controller.setUncouplerRelays(key, 0, 255)

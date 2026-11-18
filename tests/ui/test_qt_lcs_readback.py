@@ -10,6 +10,8 @@ import pytest
 
 from pytrain.comm.command_listener import Channel
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.gui.controller.lcs_device_registry import ASC2
+from pytrain.gui.controller.lcs_id_map import LcsOccupant
 from pytrain.pdi.asc2_req import Asc2Req
 from pytrain.pdi.constants import Asc2Action, PdiCommand
 from pytrain.pdi.pdi_listener import PdiDispatcher
@@ -136,6 +138,8 @@ from PySide6.QtQuick import QQuickItem
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.gui.controller.lcs_device_registry import ASC2
+from pytrain.gui.controller.lcs_id_map import LcsOccupant
 from pytrain.protocol.constants import CommandScope
 from pytrain.gui.controller.lcs_device_registry import ASC2, BPC2
 from pytrain.gui.controller.lcs_id_map import LcsOccupant
@@ -225,3 +229,21 @@ def test_lcs_assignments_and_overlaps_refresh_while_editing_the_address() -> Non
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    ("mode_number", "expected_key", "scope_label"),
+    [(0, "acc_8", "ACC"), (1, "acc_1", "ACC"), (2, "sw_momentary", "SW")],
+)
+def test_select_configured_asc2_preserves_reported_mode(
+    lcs_readback, monkeypatch, mode_number, expected_key, scope_label
+):
+    module = pytest.importorskip("pytrain_ui.qt.lcs_controller")
+    controller, _, _, _, _, _ = lcs_readback
+    mode = ASC2.mode_for_pdi_mode(mode_number)
+    occupant = LcsOccupant(20, ASC2, mode, mode.ports, scope=mode.scope)
+    monkeypatch.setattr(module, "occupants_of", lambda address, **_: [occupant] if address == 20 else [])
+    controller.selectConfiguredModule("asc2", 20, scope_label)
+    assert controller.baseId == 20
+    assert controller.deviceKey == "asc2"
+    assert controller.modeKey == expected_key

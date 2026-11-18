@@ -717,6 +717,44 @@ def app_factory(argv):
                 artwork = visible("accessoryArtwork") if evaluate("accessoryOperatingView.hasArtwork") else None
                 artwork_height = artwork.height() if artwork is not None else 0
                 control_index = 1 if kind == "AMC2" else 0
+                if kind == "ASC2":
+                    click(visible("accessoryDeviceControlTab1"))
+                    QTest.qWait(50)
+                    click(visible("editRelayGroup"))
+                    QTest.qWait(50)
+                    click(visible("asc2Relay1"))
+                    for width, height in ((720, 1280), (639, 800)):
+                        window.resize(width, height)
+                        QTest.qWait(80)
+                        warning = visible("uncouplerRelayWarning")
+                        bottom = warning.mapToScene(warning.boundingRect().bottomRight()).y()
+                        scope_key = next(item for item in descendants(window.contentItem())
+                                         if item.isVisible() and item.property("modelData") == "ENGINE")
+                        scope_top = scope_key.mapToScene(QPointF(0, 0)).y()
+                        assert bottom <= scope_top, (width, height, bottom, scope_top)
+                    window.resize(720, 1280)
+                    QTest.qWait(80)
+                    click(visible("accessoryDeviceControlTab0"))
+                    confirmation = next(obj for obj in window.findChildren(QObject)
+                                        if obj.objectName() == "discardChangesConfirmation")
+                    assert confirmation.property("visible")
+                    assert visible("accessoryDeviceControlTab1").property("checked")
+                    click_label("Keep Editing")
+                    assert visible("applyRelayGroup").property("enabled")
+                    click(visible("accessoryDeviceInfoTab"))
+                    assert confirmation.property("visible")
+                    click_label("Discard")
+                    assert visible("accessoryDeviceInfoTab").property("checked")
+                    click(visible("accessoryDeviceControlTab0"))
+                    click(visible("configureAccessoryDevice"))
+                    QTest.qWait(80)
+                    assert evaluate("accessoryLcsConfig.visible")
+                    assert evaluate("accessoryLcsConfig.page") == 1
+                    assert evaluate("accessoryLcsConfig.controller.deviceKey") == "asc2"
+                    assert evaluate("accessoryLcsConfig.controller.baseId") == 20
+                    assert evaluate("accessoryLcsConfig.controller.modeKey") == "acc_1"
+                    evaluate("accessoryLcsConfig.close()")
+                    QTest.qWait(40)
                 if artwork is not None:
                     for gesture in ("double_click", "hold"):
                         point = artwork.mapToScene(artwork.boundingRect().center()).toPoint()

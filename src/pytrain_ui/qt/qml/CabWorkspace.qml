@@ -158,7 +158,7 @@ Rectangle {
             return
         if (routeOpsView.hasUnsavedRouteChanges || switchOpsView.hasUnsavedSwitchChanges ||
             switchOpsView.hasUnsavedLcsChanges || accessoryLcsConfig.hasUnsavedChanges ||
-            operatingCabView.hasUnsavedControlChanges ||
+            operatingCabView.hasUnsavedControlChanges || accessoryOperatingView.hasUnsavedRelayChanges ||
             (stateInfoVisible && (stateInfoScope === "ACC" ? (stateInfoFromTab ? accessoryOperatingView.infoHasUnsavedChanges : accessoryInfo.hasUnsavedChanges) : operatingCabView.stateInfoHasUnsavedChanges))) {
             discardChanges.pendingAction = action
             discardChanges.open()
@@ -477,10 +477,11 @@ Rectangle {
                             return panelMetrics.cabStateTilesBottomInset + window.enginePreviewFooterHeight
                                  + panelMetrics.selectedEngineBarHeight(compactCab) + barSpacing
                         }
+                        requestNavigation: action => window.requestEditorExit(action)
                         configurationVisible: accessoryLcsConfig.visible
                         onConfigureRequested: tmccId => window.requestEditorExit(() => {
                             if (window.stateInfoVisible) window.closeStateInfo()
-                            accessoryLcsConfig.openForModule("amc2", tmccId, "ACC")
+                            accessoryLcsConfig.openForModule(window.activeAccessory.uncoupler ? "asc2" : "amc2", tmccId, "ACC")
                         })
                         onInfoRequested: tmccId => window.requestEditorExit(() =>
                             window.openStateInfo("ACC", tmccId, false, window.activeAccessory.kind || "", true))
@@ -717,6 +718,7 @@ Rectangle {
                     activateOnRelease: true
                     onClicked: {
                         const action = discardChanges.pendingAction
+                        accessoryOperatingView.discardRelayChanges()
                         if (action)
                             action()
                         discardChanges.close()

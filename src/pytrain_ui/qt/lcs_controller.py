@@ -484,6 +484,17 @@ class LcsConfigController(QObject):
             (item for item in modes if SCOPE_LABEL.get(item.scope, item.scope.name) == scope),
             modes[0] if modes else None,
         )
+        if mode is not None:
+            reported = next(
+                (
+                    item
+                    for item in occupants_of(base_id, scope=mode.scope)
+                    if item.device is device and item.base_id == base_id and item.mode is not None
+                ),
+                None,
+            )
+            if reported is not None:
+                mode = next((item for item in modes if item.key == reported.mode.key), mode)
         self._device_key = key
         self._mode_key = mode.key if mode is not None else ""
         maximum = mode.max_base if mode is not None else MAX_TMCC_ID

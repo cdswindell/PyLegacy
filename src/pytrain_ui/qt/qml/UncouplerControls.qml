@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 GridLayout {
@@ -11,6 +12,26 @@ GridLayout {
     rowSpacing: 8
     columnSpacing: 8
     implicitWidth: 420
+
+    Frame {
+        objectName: "uncouplerInstructions"
+        Layout.columnSpan: 3
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.bottomMargin: 4
+        padding: 10
+        background: Rectangle {
+            color: "#173765"
+            border.color: "#5275a4"
+            radius: 8
+        }
+        contentItem: Label {
+            text: "This panel operates uncoupling tracks. Tap a button to send a one-second pulse to the corresponding uncoupler track."
+            color: "#c3d3e4"
+            font.pixelSize: root.compact ? 16 : 18
+            wrapMode: Text.WordWrap
+        }
+    }
 
     Repeater {
         model: 8

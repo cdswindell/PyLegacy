@@ -16,6 +16,9 @@ Rectangle {
     readonly property int deviceInfoTabIndex: deviceControls.infoTabIndex
     readonly property bool infoHasUnsavedChanges: deviceControls.infoHasUnsavedChanges
     readonly property bool infoEditorOpen: deviceControls.infoEditorOpen
+    readonly property bool hasUnsavedRelayChanges: deviceControls.relayHasUnsavedChanges || operatingRelays.hasUnsavedChanges
+    property var requestNavigation: function(action) { action() }
+    function discardRelayChanges() { deviceControls.discardRelayChanges(); operatingRelays.discardChanges() }
     signal deviceTabRequested(int index)
     property real controlBottomInset: 0
     readonly property bool compact: height < 850
@@ -23,8 +26,8 @@ Rectangle {
     readonly property real editorTop: pageLayout.y + cabHeader.y + cabHeader.height + 8
     readonly property string kind: accessory.kind || ""
     readonly property bool hasAccessoryCab: kind === "OPERATING" && (accessory.sharedCommandAddress === true || accessory.uncoupler === true)
-    readonly property int infoTabIndex: hasAccessoryCab ? 2 : 1
-    readonly property bool accessoryCabSelected: hasAccessoryCab && operatingTabs.currentIndex === 1
+    readonly property int infoTabIndex: accessory.uncoupler ? 3 : hasAccessoryCab ? 2 : 1
+    readonly property bool accessoryCabSelected: hasAccessoryCab && operatingTabs.currentIndex === (accessory.uncoupler ? 2 : 1)
     readonly property real accessoryCabArtworkLimit: Math.max(0,
         pageLayout.height - cabHeader.height - operatingTabs.height - 2 * pageLayout.spacing
         - metrics.accessoryTabContentGap - operationFrame.topPadding
@@ -170,7 +173,7 @@ Rectangle {
             }
 
             ColumnLayout {
-                visible: root.kind === "AMC2"
+                visible: root.kind === "AMC2" || root.accessory.uncoupler === true
                 Layout.preferredWidth: root.compact ? 108 : 132
                 Layout.minimumWidth: Layout.preferredWidth
                 Layout.maximumWidth: Layout.preferredWidth
@@ -178,11 +181,12 @@ Rectangle {
                 spacing: 14
 
                 CabButton {
+                    objectName: "configureAccessoryDevice"
                     Layout.fillWidth: true
                     Layout.preferredHeight: (root.compact ? 48 : 56) * 1.1
                     text: "Configure"
                     font.pixelSize: root.compact ? 17 : 20
-                    visible: root.kind === "AMC2"
+                    visible: root.kind === "AMC2" || root.accessory.uncoupler === true
                     enabled: !!root.accessory.tmccId
                     onClicked: root.configureRequested(root.accessory.tmccId)
                 }
@@ -232,9 +236,19 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.preferredWidth: 0
-                    text: "Controls"
+                    text: root.accessory.uncoupler ? "Uncouplers" : "Controls"
                     checked: operatingTabs.currentIndex === 0
-                    onClicked: operatingTabs.currentIndex = 0
+                    onClicked: root.requestNavigation(() => operatingTabs.currentIndex = 0)
+                }
+                CabPageTab {
+                    objectName: "operatingRelaysTab"
+                    visible: root.accessory.uncoupler === true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 0
+                    text: "Relays"
+                    checked: visible && operatingTabs.currentIndex === 1
+                    onClicked: root.requestNavigation(() => operatingTabs.currentIndex = 1)
                 }
                 CabPageTab {
                     objectName: "operatingAccTab"
@@ -244,7 +258,7 @@ Rectangle {
                     Layout.preferredWidth: 0
                     text: "ACC"
                     checked: root.accessoryCabSelected
-                    onClicked: operatingTabs.currentIndex = 1
+                    onClicked: root.requestNavigation(() => operatingTabs.currentIndex = (root.accessory.uncoupler ? 2 : 1))
                 }
                 CabPageTab {
                     objectName: "operatingInfoTab"
@@ -253,7 +267,7 @@ Rectangle {
                     Layout.preferredWidth: 0
                     text: "Info"
                     checked: operatingTabs.currentIndex === root.infoTabIndex
-                    onClicked: operatingTabs.currentIndex = root.infoTabIndex
+                    onClicked: root.requestNavigation(() => operatingTabs.currentIndex = root.infoTabIndex)
                 }
             }
 
@@ -687,6 +701,16 @@ Rectangle {
                         Layout.alignment: Qt.AlignHCenter
                         controller: root.controller
                         accessoryKey: root.accessoryKey
+                        compact: root.compact
+                    }
+
+                    Asc2RelayControls {
+                        id: operatingRelays
+                        objectName: "operatingRelayControls"
+                        visible: root.accessory.uncoupler === true && operatingTabs.currentIndex === 1
+                        Layout.fillWidth: true
+                        controller: root.controller
+                        accessory: root.accessory
                         compact: root.compact
                     }
 
