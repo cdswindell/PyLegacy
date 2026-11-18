@@ -227,3 +227,52 @@ def test_control3_uncoupling_pulse_encodes_selected_output_and_one_second(sub_id
 def test_control3_rejects_invalid_output_numbers(sub_id):
     with pytest.raises(ValueError, match="sub_id"):
         Asc2Req(24, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=sub_id, time=1.0)
+
+
+@pytest.mark.parametrize("action", [Asc2Action.CONTROL1, Asc2Action.CONTROL4])
+@pytest.mark.parametrize("values", [0, 1])
+def test_zero_time_preserves_latching_requests_when_constructed_and_decoded(action, values):
+    request = Asc2Req(20, PdiCommand.ASC2_SET, action, values=values, time=0)
+    assert request.time == 0
+    assert request.as_bytes[4:6] == bytes([values, 0])
+    decoded = Asc2Req(request.as_bytes)
+    assert decoded.time == 0
+    assert decoded.values == values
+
+
+@pytest.mark.parametrize("duration", [0, 0.5, 1.0, 2.55])
+def test_control3_set_decodes_output_and_applies_only_its_default_pulse_time(duration):
+    request = Asc2Req(20, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=8, time=duration)
+    expected = 1.0 if duration == 0 else duration
+    assert request.time == expected
+    assert request.as_bytes[4:6] == bytes([8, round(expected * 100)])
+    decoded = Asc2Req(request.as_bytes)
+    assert decoded.sub_id == 8
+    assert decoded.time == expected
+    assert "Sub ID: 8" in decoded.payload
+
+
+def test_control3_set_decodes_wire_zero_as_one_second_without_rewriting_packet():
+    packet = Asc2Req(20, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=8).as_bytes
+    assert packet[4:6] == bytes([8, 0])
+    decoded = Asc2Req(packet)
+    assert decoded.sub_id == 8
+    assert decoded.time == 1.0
+    assert decoded.as_bytes == packet
+
+
+@pytest.mark.parametrize("command", [PdiCommand.ASC2_SET, PdiCommand.ASC2_RX])
+def test_control2_bitfields_are_not_decoded_as_sub_id_or_pulse_time(command):
+    request = Asc2Req(20, command, Asc2Action.CONTROL2, values=8, valids=255)
+    decoded = Asc2Req(request.as_bytes)
+    assert decoded.sub_id is None
+    assert decoded.time is None
+
+
+def test_control3_rx_keeps_relay_bitmask_and_valid_bits():
+    request = Asc2Req(20, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=128, valids=255)
+    decoded = Asc2Req(request.as_bytes)
+    assert decoded.values == 128
+    assert decoded.valids == 255
+    assert decoded.sub_id is None
+    assert decoded.time is None

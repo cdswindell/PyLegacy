@@ -122,6 +122,7 @@ class QtCabCli(CliBase):
         parser.add_argument("--width", type=_positive_dimension, default=1280, help="Steam Deck window width")
         parser.add_argument("--height", type=_positive_dimension, default=800, help="Steam Deck window height")
         parser.add_argument("--controller-profile", help="Steam Deck controller profile JSON file")
+        parser.add_argument("-debug", action="store_true", help="Enable debug logging")
         parser.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
         parser = PyTrainArgumentParser("Qt cab options", parents=[parser, cls.cli_parser()], conflict_handler="resolve")
         parser.add_argument(

@@ -564,11 +564,14 @@ pdi_store = PdiStateStore()
 for scope, packet in (
     (CommandScope.ACC, "d1461903190000000202020303010100000000000000000077df"),
     (CommandScope.IRDA, "d13232033200000005ffff64df"),
+    (CommandScope.ACC, "d13e14031400000001197ddf"),
+    (CommandScope.ACC, "d13e1e031e00000000196adf"),
+    (CommandScope.ACC, "d1420103010000008237df"),
 ):
     request = PdiReq.from_bytes(bytes.fromhex(packet))
     pdi_store.register_pdi_device(request)
     store.get_state(scope, request.tmcc_id).update(request)
-for address in (25, 50, 60):
+for address in (1, 20, 25, 30, 50, 60):
     state = store.get_state(CommandScope.ACC, address)
     state.initialize(CommandScope.ACC, address)
     state.comp_data.road_name = "Accessory " + str(address)
@@ -635,6 +638,12 @@ def app_factory(argv):
                     assert visible("locomotiveArtwork") is artwork
                     assert artwork_geometry() == expected_geometry, (
                         scope, "Info", artwork_geometry(), expected_geometry)
+                    details = visible("stateInfoDetails")
+                    membership = visible("consistDetails")
+                    bottom = membership.mapToItem(details, membership.boundingRect().bottomLeft()).y()
+                    assert bottom <= details.height() + 1, (scope, width, height, bottom, details.height())
+                    assert not any(item.isVisible() for item in descendants(window.contentItem())
+                                   if item.objectName() == "stateInfoScrollingDetails")
                     click(visible("driveTab"))
                     assert artwork_geometry() == expected_geometry
                 window.resize(720, 1280)
@@ -698,7 +707,7 @@ def app_factory(argv):
                         assert evaluate("window.manageVisible")
                         assert window.property("title") == "PyTrain — Manage PyTrain"
                         evaluate("window.manageVisible = false")
-            for address, kind in ((50, "SENSOR"), (25, "AMC2"), (60, "TMCC")):
+            for address, kind in ((50, "SENSOR"), (25, "AMC2"), (60, "TMCC"), (20, "ASC2")):
                 evaluate('window.changeScope("ACCESSORY", false)')
                 rows = evaluate('accessoryCatalogController.rows')
                 row = next(row for row in rows if row["primaryTmccId"] == address)
@@ -733,7 +742,7 @@ def app_factory(argv):
                 assert visible("accessoryDeviceControlTab0").isVisible()
                 assert not any(item.isVisible() for item in descendants(window.contentItem())
                                if item.objectName() == "closeStateInfoButton")
-                if kind == "AMC2":
+                if kind in ("AMC2", "SENSOR", "ASC2", "BPC2", "TMCC"):
                     for width, height in ((720, 1280), (639, 800)):
                         window.resize(width, height)
                         QTest.qWait(100)
@@ -741,11 +750,14 @@ def app_factory(argv):
                         assert not panel.property("scrollable")
                         assert not any(item.isVisible() for item in descendants(panel)
                                        if item.objectName() == "stateInfoScrollingDetails")
-                        board = visible("lcsBoardInformation")
                         footer = visible("stateInfoFooter")
-                        board_bottom = board.mapToScene(board.boundingRect().bottomLeft()).y()
                         footer_top = footer.mapToScene(footer.boundingRect().topLeft()).y()
-                        assert board_bottom <= footer_top, (width, height, board_bottom, footer_top)
+                        for section in descendants(panel):
+                            if section.isVisible() and section.objectName() in (
+                                    "lcsBoardInformation", "lcsDeviceConfiguration", "accessoryRoadNumber"):
+                                bottom = section.mapToScene(section.boundingRect().bottomLeft()).y()
+                                assert bottom <= footer_top, (
+                                    kind, width, height, section.objectName(), bottom, footer_top)
                         name_top = visible("accessoryRoadName").mapToScene(QPointF(0, 0)).y()
                         panel_top = panel.mapToScene(QPointF(0, 0)).y()
                         assert name_top >= panel_top
@@ -784,6 +796,24 @@ def app_factory(argv):
                     QTest.qWait(60)
                     assert not evaluate("window.stateInfoVisible")
                     assert visible("accessoryDeviceControlTab" + str(control_index)).property("checked")
+
+            # Roster Edit and standalone StateInfo share the same fixed layout.
+            for address in (1, 30):
+                evaluate('window.openStateInfo("ACC", ' + str(address) + ', false)')
+                QTest.qWait(60)
+                for width, height in ((720, 1280), (639, 800)):
+                    window.resize(width, height)
+                    QTest.qWait(60)
+                    panel = visible("accessoryRoadName").parentItem()
+                    while panel.objectName() != "stateInfoDetails":
+                        panel = panel.parentItem()
+                    for section in descendants(panel):
+                        if section.isVisible() and section.objectName() == "lcsBoardInformation":
+                            bottom = section.mapToItem(panel, section.boundingRect().bottomLeft()).y()
+                            assert bottom <= panel.height() + 1, (address, width, height, bottom, panel.height())
+                window.resize(720, 1280)
+                QTest.qWait(60)
+                click(visible("closeStateInfoButton"))
 
             evaluate('window.navigateFromMenu("Route Builder")')
             QTest.qWait(60)

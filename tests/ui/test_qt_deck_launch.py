@@ -19,6 +19,15 @@ from pytrain.protocol.constants import CommandScope
 from pytrain_ui.qt.pycab import QtCabCli, QtCabCommand
 
 
+@pytest.mark.parametrize("deck_args", [[], ["--deck"]])
+def test_cab_parser_accepts_debug_for_cab_and_deck(deck_args: list[str]) -> None:
+    parser = QtCabCli.command_parser()
+    assert parser.parse_args(deck_args).debug is False
+    options = parser.parse_args([*deck_args, "-debug", "-echo"])
+    assert options.debug is True
+    assert options.echo is True
+
+
 def test_deck_parser_preserves_profile_and_dimensions() -> None:
     options = QtCabCli.command_parser().parse_args(
         ["--deck", "--width", "1440", "--height", "900", "--controller-profile", "/profiles/My Deck.json"]

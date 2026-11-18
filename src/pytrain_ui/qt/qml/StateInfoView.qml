@@ -9,7 +9,7 @@ Rectangle {
     required property var controller
     signal closeRequested()
     property bool showCloseButton: true
-    property bool scrollable: true
+    readonly property bool scrollable: false
     readonly property bool fixedCompact: !scrollable && !addingAccessory && height < 620
     readonly property bool useTouchKeyboard: Qt.platform.os === "linux"
     readonly property bool editorOpen: fieldEditor.visible || roadNameKeyboard.visible ||
@@ -91,7 +91,6 @@ Rectangle {
             accessoryId.clear()
             accessoryDraftId = -1
         } else {
-            if (root.scrollable) details.contentItem.contentY = 0
             Qt.callLater(syncAccessoryIdentity)
         }
     }
@@ -187,20 +186,14 @@ Rectangle {
             Layout.fillHeight: true
             Layout.maximumHeight: detailsContent.implicitHeight
             Layout.minimumHeight: 0
-            ScrollView {
-                id: details
-                objectName: "stateInfoScrollingDetails"
-                anchors.fill: parent
-                visible: root.scrollable
-                contentWidth: availableWidth
-                contentHeight: detailsContent.implicitHeight
-                clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            }
             ColumnLayout {
                 id: detailsContent
-                parent: root.scrollable ? details.contentItem : detailsSlot
-                width: root.scrollable ? details.availableWidth : detailsSlot.width
+                width: detailsSlot.width
+                // Fixed Info pages must keep every section above the footer.
+                // Compact spacing is preferred; fit the remaining content on short panes.
+                scale: Math.min(1, detailsSlot.height / Math.max(1, implicitHeight))
+                transformOrigin: Item.TopLeft
+                x: (detailsSlot.width - width * scale) / 2
                 spacing: root.scrollable ? 8 : 4
 
                 GridLayout {
@@ -394,7 +387,7 @@ Rectangle {
 
                 Label {
                     visible: !!root.record.lcsDeviceType
-                    Layout.topMargin: metrics.sectionGap
+                    Layout.topMargin: root.fixedCompact ? 4 : 8
                     text: (root.record.lcsDeviceType || "") + " Configuration"
                     color: "white"
                     font.pixelSize: 23
@@ -424,18 +417,22 @@ Rectangle {
                 StateInfoGrid {
                     Layout.fillWidth: true
                     columns: 1
+                    compact: true
+                    tileHeight: amc2Device.tileHeight
                     rows: root.record.sensorTrack ? root.record.lcsConfiguration.slice(3, 4) : []
                     visible: rows.length > 0
                 }
                 StateInfoGrid {
                     Layout.fillWidth: true
                     columns: 2
+                    compact: true
+                    tileHeight: amc2Device.tileHeight
                     rows: root.record.sensorTrack ? root.record.lcsConfiguration.slice(4) : []
                     visible: rows.length > 0
                 }
                 Label {
                     visible: lcsBoard.rows.length > 0
-                    Layout.topMargin: metrics.sectionGap
+                    Layout.topMargin: root.fixedCompact ? 4 : 8
                     text: "LCS Board Information"
                     color: "white"
                     font.pixelSize: 23
@@ -453,7 +450,7 @@ Rectangle {
                 }
                 Label {
                     visible: live.rows.length > 0
-                    Layout.topMargin: metrics.sectionGap
+                    Layout.topMargin: root.fixedCompact ? 4 : 8
                     text: "Real Time Status"
                     color: "white"
                     font.pixelSize: 23
@@ -461,13 +458,14 @@ Rectangle {
                 }
                 StateInfoGrid {
                     id: live
+                    compact: root.fixedCompact
                     Layout.fillWidth: true
                     rows: root.record.live || []
                     visible: rows.length > 0
                 }
                 Label {
                     visible: membership.rows.length > 0
-                    Layout.topMargin: metrics.sectionGap
+                    Layout.topMargin: root.fixedCompact ? 4 : 8
                     text: "Consist Details"
                     color: "white"
                     font.pixelSize: 23
@@ -475,6 +473,7 @@ Rectangle {
                 }
                 StateInfoGrid {
                     id: membership
+                    compact: root.fixedCompact
                     objectName: "consistDetails"
                     Layout.fillWidth: true
                     rows: root.record.membership || []

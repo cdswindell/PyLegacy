@@ -53,10 +53,10 @@ class Asc2Req(LcsReq):
                 self._values = self._data[3] if data_len > 3 else None
                 self._valids = self._data[4] if data_len > 4 else None
                 self._time = self._sub_id = self._thru = None
-                if self.pdi_command == PdiCommand.ASC2_SET:
+                if self._action == Asc2Action.CONTROL3 and self.pdi_command == PdiCommand.ASC2_SET:
                     self._sub_id = self._values
                     self._time = self._data[4] / 100.0 if data_len > 4 else None
-                    self._time == 1 if self._time == 0 else self._time
+                    self._time = 1.0 if self._time == 0 else self._time
                 self.scope = CommandScope.ACC
             elif self._action == Asc2Action.CONTROL4:
                 self._values = self._data[3] if data_len > 3 else None
@@ -83,7 +83,11 @@ class Asc2Req(LcsReq):
             self._values = values
             self._thru = self._values == 0 if self._values is not None else None
             self._valids = valids
-            self._time = time if time != 0 else 1.0
+            # Zero means the one-second default only for single-ID uncoupling pulses.
+            # CONTROL1 must retain zero for latching relay operations.
+            self._time = (
+                1.0 if action == Asc2Action.CONTROL3 and pdi_command == PdiCommand.ASC2_SET and time == 0 else time
+            )
             self._sub_id = sub_id
             self._scope = scope if scope else CommandScope.ACC
 

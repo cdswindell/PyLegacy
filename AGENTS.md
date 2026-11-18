@@ -15,3 +15,5 @@
 - In PyCab Qt, reserve space for a tab scrollbar only when the tab strip overflows. Measure the content gap from the visible bottom edge of the tabs.
 - In PyCab Qt, route title-menu selections through the shared panel-exit flow. For unsaved edits, keep the current panel and its draft until the user chooses Discard. Keep Editing or Escape cancels navigation. Close the current panel and its child overlays before opening the destination.
 - In PyCab Qt, use the shared cab action label size in PanelMetrics.qml for Engine, Train, and Accessory control keys. Use the same base size for comparable labels, fit long captions within their key, and preserve the shared emphasis for text-only Aux and Set keys.
+
+- In PyCab Qt, never use scrolling panels for StateInfo, whether embedded in an Info tab or opened separately, in any scope. Keep all fields, configuration, board information, and footer visible in a fixed layout. Reclaim section-header whitespace and use compact layouts on small screens; do not reserve scrollbar space.

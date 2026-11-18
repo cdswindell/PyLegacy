@@ -62,6 +62,8 @@ If the shell reports that `pycab` was not found, activate the same environment y
 
 ## Navigate the Cab
 
+State Info uses fixed, non-scrolling layouts in every scope, both in Info tabs and standalone panels. Compact screens use tighter section spacing to keep identity fields, configuration, board details, and action buttons visible together.
+
 - Tap a scope button along the bottom to change scope. **Engine**, **Train**, and **Acc** return to the current selected cab or accessory, when available. Tapping the active scope again toggles between its controls and roster. A previously operated roster-based accessory returns to its roster entry.
 - Hold or quickly double-tap a scope button to open its TMCC ID keypad. A double-tap consists of two taps within 400 ms anywhere on that same button. Dragging is not a double-tap.
 - **Cab** returns from the Engine or Train roster to its current selection; it is disabled when no selection exists.

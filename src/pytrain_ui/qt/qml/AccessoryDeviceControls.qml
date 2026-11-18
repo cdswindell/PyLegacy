@@ -81,7 +81,6 @@ Item {
         visible: root.infoSelected
         controller: root.infoController
         showCloseButton: false
-        scrollable: root.kind !== "AMC2"
     }
 
     UncouplerControls {
