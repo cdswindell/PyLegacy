@@ -10,12 +10,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from collections.abc import Iterable
 from enum import IntEnum, unique
 
 from ..protocol.multibyte.multibyte_constants import UnitAssignment
 from ..protocol.constants import Mixins
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+
+log = logging.getLogger(__name__)
 
 LEFT_OUT_SWITCH: int = 0x01
 RIGHT_OUT_SWITCH: int = 0x02
@@ -52,14 +56,23 @@ class ConsistComponent:
         data_len = len(data)
         for i in range(0, 64, 4):
             if data_len > i:
-                if data[i + 1] != 0xFF and data[i + 2] != 0xFF and data[i + 3] != 0xFF:
+                if data[i + 1] != 0xFF and data[i + 2] != 0xFF and data[i + 3] != 0xFF and data[i + 3] != 0x80:
                     flags = data[i + 1]
                     rec_no = int.from_bytes(data[i + 2 : i + 4], byteorder="little")
                     state = ComponentStateStore.by_record_no(rec_no)
                     if state:
                         consist_components.append(ConsistComponent(state.tmcc_id, flags, rec_no, data[0]))
+                elif data[i + 1] != 0xFF and data[i + 2] != 0xFF and data[i + 3] == 0x80:
+                    # 4D Hybrid Train with 2D engine
+                    flags = data[i + 1]
+                    tmcc_id = data[i + 2]
+                    if 1 <= tmcc_id <= 99:
+                        consist_components.append(ConsistComponent(tmcc_id, flags, None, data[0], d4_d2=True))
             else:
                 break
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"Consist Bytes: {data.hex(' ')}")
+            log.debug(f"Components: {consist_components}")
         return consist_components
 
     @classmethod
@@ -80,11 +93,12 @@ class ConsistComponent:
         byte_str += b"\xff" * (64 - len(byte_str))
         return byte_str
 
-    def __init__(self, tmcc_id: int, flags: int, rec_no: int | None = None, extra: int = 0xFF) -> None:
+    def __init__(self, tmcc_id: int, flags: int, rec_no: int | None = None, extra: int = 0xFF, d4_d2=False) -> None:
         self.tmcc_id = tmcc_id
         self.flags = flags
         self.extra = extra
         self.rec_no = rec_no
+        self._d4_d2 = d4_d2
         self._ua = UnitAssignment(0b111 & flags)
 
     def __repr__(self) -> str:
@@ -166,11 +180,16 @@ class ConsistComponent:
 
     @property
     def as_bytes(self) -> bytes:
-        if self.is_d4:
-            assert self.rec_no is not None
+        if self.is_d4 or self._d4_d2:
             byte_str = b"\xff"
             byte_str += self.flags.to_bytes(1, byteorder="little")
-            byte_str += self.rec_no.to_bytes(2, byteorder="little")
+            # handle hybrid train
+            if self.rec_no is None and 1 <= self.tmcc_id <= 99:
+                byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
+                byte_str += 0x80.to_bytes(1, byteorder="little")
+            else:
+                assert self.rec_no is not None
+                byte_str += self.rec_no.to_bytes(2, byteorder="little")
         else:
             byte_str = self.flags.to_bytes(1, byteorder="little")
             byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
