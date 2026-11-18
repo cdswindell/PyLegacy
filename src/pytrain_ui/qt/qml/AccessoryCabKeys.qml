@@ -8,6 +8,7 @@ GridLayout {
     required property int tmccId
     required property bool compact
     property bool accScope: false
+    property var keyLabels: ({})
     signal commandRequested(string command, int value)
 
     columns: 4
@@ -65,7 +66,8 @@ GridLayout {
                 readonly property bool numeric: key.digit !== undefined
                 objectName: "accessoryCabKey_" + (numeric ? key.digit : key.command)
                 enabled: root.tmccId >= 1 && root.tmccId <= 98 && !(root.accScope && key.command === "AUX3_OPT_ONE")
-                text: numeric ? String(key.digit) : key.label
+                readonly property string commandKey: numeric ? "NUMERIC:" + key.digit : key.command
+                text: root.keyLabels[commandKey] || (numeric ? String(key.digit) : key.label)
                 Accessible.name: numeric ? key.description + ", " + text : text
                 trialIcon: key.icon || ""
                 iconGlyph: key.glyph || ""
@@ -78,7 +80,7 @@ GridLayout {
                 iconSize: Math.max(10, Math.min(width - 8,
                     metrics.cabActionIconSize(height, root.compact) * (key.small ? 0.65 : 1)))
                 font.pixelSize: metrics.cabActionLabelSize(root.compact) + (key.label && !key.icon ? 6 : 0)
-                font.bold: key.command === "SET_ADDRESS" || /^Aux [123]$/.test(text)
+                font.bold: key.command === "SET_ADDRESS" || /^Aux [123]$/.test(key.label || "")
                 showRepeatDecorator: repeatWhileHeld
                 repeatWhileHeld: numeric || !!key.interval
                 repeatInterval: numeric ? 100 : (key.interval || 250)

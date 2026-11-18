@@ -211,6 +211,7 @@ def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkey
     assert controller.activateConfiguredOperation(smoke_key, "dispense", "fire")
     smoke_view = controller.operatingView(smoke_key)
     assert smoke_view["sharedCommandAddress"] and smoke_view["tmccId"] == 29
+    assert smoke_view["cabKeyLabels"] == {"NUMERIC:9": "Lights On", "NUMERIC:8": "Lights Off", "BRAKE": "Dispense"}
     assert [(op["label"], op["accessoryKeys"]) for op in smoke_view["operations"]] == [
         ("Lights", "8 (Off) · 9 (On)"),
         ("Fluid Boom", "Throttle"),
@@ -218,6 +219,7 @@ def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkey
     ]
     culvert_view = controller.operatingView(culvert)
     assert culvert_view["sharedCommandAddress"] and culvert_view["operations"][0]["accessoryKeys"] == "Aux 2"
+    assert culvert_view["cabKeyLabels"] == {"AUX2_OPT_ONE": "Load"}
     lights = smoke_view["operations"][0]
     assert lights["enabled"] and lights["state"] == "UNKNOWN" and lights["control"] == "command_pair"
     assert [(req.address, req.command, req.data) for req in sent] == [
@@ -307,6 +309,8 @@ def test_momentary_is_unavailable_on_uncoupling_asc2_and_bpc2(controller, sent, 
 
 
 def add_descriptor(controller, monkeypatch, kind):
+    # The descriptor prefix is the literal IRDA protocol identity used by the controller.
+    # noinspection SpellCheckingInspection
     scope_key = "irda:24" if kind == "SENSOR" else "acc:24"
     labels = () if kind == "TMCC" else (f"{kind} 24",)
     preferred = AccessoryViewKind.GENERIC if kind == "TMCC" else AccessoryViewKind.LCS
@@ -372,7 +376,7 @@ def test_accessory_engine_panel_uses_current_address_and_tmcc1_engine_scope(sent
     assert [req.as_bytes[-1] & 0x0F for req in sent[5:7]] == [3, 5]
 
 
-def test_sensor_sequence_targets_the_irda_device(controller, sent, monkeypatch):
+def test_sensor_sequence_targets_the_sensor_track_device(controller, sent, monkeypatch):
     key = add_descriptor(controller, monkeypatch, "SENSOR")
     controller.setSensorSequence(key, 9)
     controller.setSensorSequence(key, 100)
@@ -678,17 +682,21 @@ ApplicationWindow {
         if (roster.visibleRows().map(row => row.kind).join(",") !== "ASC2")
             throw new Error("Exact address did not reveal unnamed ASC2")
         roster.showRoster()
-        for (const [address, kind] of [[13, "AMC2"], [14, "SENSOR"]]) {
+        for (const [address, kind] of [[10, "OPERATING"], [13, "AMC2"], [14, "SENSOR"], [15, "TMCC"]]) {
             roster.selectTmccId(address, true)
             if (win.openedAccessory !== kind)
                 throw new Error("Exact address did not open unnamed " + kind)
         }
         win.unnamedKinds = ["AMC2", "SENSOR", "TMCC"]
-        for (const [address, kind] of [[13, "AMC2"], [14, "SENSOR"], [15, "TMCC"]]) {
-            win.openedAccessory = ""
-            roster.selectTmccId(address, false)
-            if (win.openedAccessory !== kind || roster.directTmccId !== 0 || roster.searchText !== "")
-                throw new Error("Keypad did not open " + kind + " directly")
+        for (const fromSearch of [false, true]) {
+            for (const [address, kind] of [[10, "OPERATING"], [13, "AMC2"], [14, "SENSOR"], [15, "TMCC"]]) {
+                win.openedAccessory = ""
+                roster.typeFilter = "BPC2"
+                roster.searchText = "unrelated search"
+                roster.selectTmccId(address, fromSearch)
+                if (win.openedAccessory !== kind || roster.directTmccId !== 0 || roster.searchText !== "")
+                    throw new Error("Exact ID did not open " + kind + " directly")
+            }
         }
         win.unnamedKinds = []
     }
@@ -1105,3 +1113,105 @@ def test_accessory_scope_toggles_controls_roster_and_preserves_keypad_navigation
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# Embedded Qt identifiers retain their API spelling.
+# noinspection SpellCheckingInspection
+CAB_LABELS_CHILD = r"""
+from pathlib import Path
+import sys
+
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtTest import QTest
+
+QQuickStyle.setStyle("Basic")
+app = QGuiApplication([])
+engine = QQmlEngine()
+component = QQmlComponent(engine)
+component.setData(b'''
+import QtQuick
+import QtQuick.Controls
+import "."
+ApplicationWindow {
+    id: window
+    width: 720; height: 1280
+    visible: true
+    property string calls: ""
+    property bool configured: true
+    QtObject {
+        id: backend
+        function tmccCommand(key, address, command, value) {
+            window.calls += address + ":" + command + ":" + value + ";"
+        }
+        function releaseConfiguredHolds(key) {}
+    }
+    AccessoryOperatingView {
+        id: panel
+        anchors.fill: parent
+        controller: backend
+        accessory: window.configured
+            ? ({kind: "OPERATING", key: "configured:smoke", tmccId: 29, title: "Smoke Loader",
+                sharedCommandAddress: true, operations: [],
+                cabKeyLabels: ({"NUMERIC:8": "Lights Off", "NUMERIC:9": "Lights On", "BRAKE": "Dispense"})})
+            : ({kind: "TMCC", key: "acc:60", tmccId: 60, title: "Generic Accessory"})
+    }
+}
+''', QUrl.fromLocalFile(str(Path(sys.argv[1]) / "operating_captions.qml")))
+assert component.isReady(), [error.toString() for error in component.errors()]
+window = component.create()
+assert window is not None
+QTest.qWait(80)
+
+
+def find_visible(item, name):
+    if item.objectName() == name and item.isVisible():
+        return item
+    for child in item.childItems():
+        found = find_visible(child, name)
+        if found is not None:
+            return found
+    return None
+
+
+def click(item):
+    assert item is not None
+    point = item.mapToScene(item.boundingRect().center()).toPoint()
+    QTest.mouseClick(window, Qt.LeftButton, pos=point)
+    QTest.qWait(30)
+
+
+click(find_visible(window.contentItem(), "operatingAccTab"))
+for key, label in [("8", "Lights Off"), ("9", "Lights On"), ("BRAKE", "Dispense"),
+                   ("FRONT_COUPLER", "Front Coupler"), ("1", "1"), ("AUX1_OPT_ONE", "Aux 1")]:
+    button = find_visible(window.contentItem(), "accessoryCabKey_" + key)
+    assert button is not None and button.property("text") == label, (key, label)
+    if key in ("8", "9", "BRAKE"):
+        click(button)
+assert window.property("calls") == "29:NUMERIC:8;29:NUMERIC:9;29:BRAKE:0;"
+window.setProperty("configured", False)
+QTest.qWait(80)
+for key, label in [("8", "8"), ("9", "9"), ("BRAKE", "Brake")]:
+    button = find_visible(window.contentItem(), "accessoryCabKey_" + key)
+    assert button is not None and button.property("text") == label
+window.close()
+"""
+
+
+def test_operating_acc_tab_labels_match_functions_without_changing_commands_or_generic_labels() -> None:
+    assert_qml_scenario(CAB_LABELS_CHILD)
+
+
+@pytest.mark.parametrize(("variant", "caption"), [("loader", "Load"), ("unloader", "Unload")])
+def test_culvert_acc_key_caption_uses_variant_operation_label(controller, sent, monkeypatch, variant, caption):
+    install_configured_accessories(
+        controller,
+        monkeypatch,
+        {"gui": "culvert", "instance_id": "culvert", "tmcc_id": 60, "variant": variant},
+    )
+    key = "configured:culvert"
+    assert controller.operatingView(key)["cabKeyLabels"] == {"AUX2_OPT_ONE": caption}
+    controller.tmccCommand(key, 60, "AUX2_OPT_ONE", 0)
+    assert [(req.address, req.command, req.data) for req in sent] == [(60, TMCC1AuxCommandEnum.AUX2_OPT_ONE, 0)]

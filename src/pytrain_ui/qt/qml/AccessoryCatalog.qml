@@ -65,11 +65,12 @@ RosterPanel {
             lcsConfig.open()
     }
 
-    function openDirectControl(tmccId, fromKeypad) {
+    function openDirectControl(tmccId) {
         const rows = root.controller ? root.controller.rows : []
-        const control = rows.find(row => row.primaryTmccId === tmccId &&
-            (row.kind === "AMC2" || row.kind === "SENSOR"))
-            ?? (fromKeypad ? rows.find(row => row.primaryTmccId === tmccId && row.kind === "TMCC") : undefined)
+        // Prefer the configured controls over a generic row at the same address.
+        const control = rows.find(row => row.primaryTmccId === tmccId && row.kind === "OPERATING")
+            ?? rows.find(row => row.primaryTmccId === tmccId &&
+                (row.kind === "AMC2" || row.kind === "SENSOR" || row.kind === "TMCC"))
         if (!control)
             return false
 
@@ -82,7 +83,7 @@ RosterPanel {
     }
 
     function selectTmccId(tmccId, fromSearch, reportMissing = true) {
-        if (root.openDirectControl(tmccId, !fromSearch))
+        if (root.openDirectControl(tmccId))
             return
 
         const rows = root.controller ? root.controller.rows : []

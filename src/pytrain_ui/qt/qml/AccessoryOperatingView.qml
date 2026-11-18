@@ -660,7 +660,8 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         controller: root.controller
-                        accessory: ({ kind: "TMCC", key: root.accessoryKey, tmccId: root.accessory.tmccId })
+                        accessory: ({ kind: "TMCC", key: root.accessoryKey, tmccId: root.accessory.tmccId,
+                            cabKeyLabels: root.accessory.cabKeyLabels || ({}) })
                         compact: root.compact
                         showTmccTab: false
                         fillTmccKeypad: true

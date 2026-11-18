@@ -205,6 +205,7 @@ Item {
                     : Math.min(parent.height, rows * metrics.cabActionTileHeight(root.compact) + (rows - 1) * rowSpacing)
                 tmccId: root.accessory.tmccId || 0
                 accScope: true
+                keyLabels: root.accessory.cabKeyLabels || ({})
                 compact: root.compact
                 onCommandRequested: (name, data) => tmcc.command(name, data)
             }

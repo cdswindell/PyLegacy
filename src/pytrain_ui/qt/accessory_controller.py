@@ -453,6 +453,30 @@ class AccessoryCatalogController(QObject):
             return on_key if on_key == off_key else f"{off_key} (Off) · {on_key} (On)"
         return ""
 
+    @classmethod
+    def _accessory_cab_labels(cls, configured: ConfiguredAccessory) -> dict[str, str]:
+        labels: dict[str, list[str]] = {}
+        registry = configured.registry
+        spec = registry.get_spec(configured.accessory_type)
+        variant = configured.definition.variant
+        for operation in cls._qt_operations(configured):
+            label = cls._operation_heading(registry, spec, variant, operation.key)
+            bindings = [(operation.command, operation.command_data, label)]
+            paired = operation.command_on != operation.command_off
+            bindings.extend(
+                (command, None, f"{label} {action}" if paired else label)
+                for command, action in ((operation.command_on, "On"), (operation.command_off, "Off"))
+            )
+            for command, data, caption in bindings:
+                if command is None or command == TMCC1AuxCommandEnum.RELATIVE_SPEED:
+                    continue
+                key = cls._accessory_key_label(command, data)
+                token = f"NUMERIC:{key}" if key.isdigit() else command.name
+                captions = labels.setdefault(token, [])
+                if caption not in captions:
+                    captions.append(caption)
+        return {key: " / ".join(captions) for key, captions in labels.items()}
+
     def _configured_operating_state(
         self,
         key: str,
@@ -870,6 +894,7 @@ class AccessoryCatalogController(QObject):
                 powerStateAuthoritative=view.power_state_authoritative,
                 operations=[self._operation_row(operation) for operation in view.operations],
                 sharedCommandAddress=self._has_shared_command_address(descriptor),
+                cabKeyLabels=self._accessory_cab_labels(configured),
             )
         elif descriptor.kind == "SENSOR":
             state = ComponentStateStore.get_state(CommandScope.IRDA, descriptor.primary_tmcc_id, create=False)
