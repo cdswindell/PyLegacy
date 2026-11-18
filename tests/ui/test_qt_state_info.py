@@ -620,6 +620,25 @@ def app_factory(argv):
                 evaluate('window.activeScope = "' + scope + '"; window.engineCatalogVisible = false')
                 assert evaluate('cabController.selectAddress("' + scope + '", 1)')
                 QTest.qWait(100)
+                for width, height in ((720, 1280), (639, 800)):
+                    window.resize(width, height)
+                    QTest.qWait(80)
+                    artwork = visible("locomotiveArtwork")
+                    def artwork_geometry():
+                        point = artwork.mapToScene(artwork.boundingRect().topLeft())
+                        return point.x(), point.y(), artwork.width(), artwork.height(), artwork.property("radius")
+                    expected_geometry = artwork_geometry()
+                    click(visible("speedTab"))
+                    assert artwork_geometry() == expected_geometry, (
+                        scope, "Speed", artwork_geometry(), expected_geometry)
+                    click(visible("cabInfoTab"))
+                    assert visible("locomotiveArtwork") is artwork
+                    assert artwork_geometry() == expected_geometry, (
+                        scope, "Info", artwork_geometry(), expected_geometry)
+                    click(visible("driveTab"))
+                    assert artwork_geometry() == expected_geometry
+                window.resize(720, 1280)
+                QTest.qWait(80)
                 click(visible("cabInfoTab"))
                 assert evaluate("window.stateInfoVisible")
                 expected_title = "PyTrain — " + ("Train" if scope == "TRAIN" else "Engine") + " Information"
@@ -689,6 +708,20 @@ def app_factory(argv):
                 artwork = visible("accessoryArtwork") if evaluate("accessoryOperatingView.hasArtwork") else None
                 artwork_height = artwork.height() if artwork is not None else 0
                 control_index = 1 if kind == "AMC2" else 0
+                if artwork is not None:
+                    for gesture in ("double_click", "hold"):
+                        point = artwork.mapToScene(artwork.boundingRect().center()).toPoint()
+                        if gesture == "hold":
+                            QTest.mousePress(window, Qt.LeftButton, pos=point)
+                            QTest.qWait(900)
+                            QTest.mouseRelease(window, Qt.LeftButton, pos=point)
+                        else:
+                            QTest.mouseClick(window, Qt.LeftButton, pos=point)
+                            QTest.qWait(30)
+                            QTest.mouseClick(window, Qt.LeftButton, pos=point)
+                        QTest.qWait(80)
+                        assert visible("accessoryDeviceInfoTab").property("checked"), (kind, gesture)
+                        click(visible("accessoryDeviceControlTab0"))
                 click(visible("accessoryDeviceInfoTab"))
                 assert evaluate("window.stateInfoVisible && window.stateInfoFromTab")
                 assert visible("accessoryDeviceInfoTab").property("checked")

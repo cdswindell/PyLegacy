@@ -155,10 +155,16 @@ Rectangle {
                     }
 
                     ControlTapHandler {
-                        enabled: root.kind === "AMC2" && !!root.accessory.tmccId
+                        enabled: root.hasArtwork
                         holdEnabled: true
-                        onTappedTwice: root.infoRequested(root.accessory.tmccId)
-                        onHeldGesture: root.infoRequested(root.accessory.tmccId)
+                        function showInfo() {
+                            if (root.kind === "OPERATING")
+                                operatingTabs.currentIndex = root.infoTabIndex
+                            else if (!root.infoSelected)
+                                root.infoRequested(root.accessory.tmccId)
+                        }
+                        onTappedTwice: showInfo()
+                        onHeldGesture: showInfo()
                     }
                 }
             }
@@ -614,22 +620,41 @@ Rectangle {
                                                 lastSent = step
                                             }
 
-                                            function resetGesture() {
+                                            function resetGesture(clearLast = true) {
                                                 pressedIdentity = ""
-                                                lastSent = neutral
+                                                if (clearLast) lastSent = neutral
                                                 if (input && input.springReturn)
                                                     value = neutral
                                             }
 
                                             onPressedChanged: {
                                                 if (!pressed) {
-                                                    resetGesture()
+                                                    resetGesture(false)
                                                     return
                                                 }
+                                                lastSent = neutral
                                                 pressedIdentity = operationIdentity
                                                 sendStep(false)
                                             }
                                             onMoved: sendStep(false)
+                                            TapHandler {
+                                                enabled: analogSlider.enabled
+                                                onTapped: point => {
+                                                    const slider = analogSlider
+                                                    const horizontal = slider.orientation === Qt.Horizontal
+                                                    const size = horizontal ? slider.availableWidth : slider.availableHeight
+                                                    const handleSize = horizontal ? slider.handle.width : slider.handle.height
+                                                    const position = horizontal ? point.position.x - slider.leftPadding
+                                                        : slider.height - slider.bottomPadding - point.position.y
+                                                    const fraction = Math.max(0, Math.min(1,
+                                                        (position - handleSize / 2) / Math.max(1, size - handleSize)))
+                                                    const step = Math.round(slider.from + fraction * (slider.to - slider.from))
+                                                    if (root.controller && (step === slider.neutral || step !== slider.lastSent))
+                                                        root.controller.sendAnalogOperation(root.accessory.key,
+                                                            operationRow.modelData.key, step)
+                                                    slider.lastSent = step
+                                                }
+                                            }
                                             onOperationIdentityChanged: resetGesture()
                                             onEnabledChanged: if (!enabled) resetGesture()
                                             onVisibleChanged: if (!visible) resetGesture()

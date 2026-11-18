@@ -572,8 +572,9 @@ Rectangle {
         RowLayout {
             id: cabHeader
             Layout.fillWidth: true
-            Layout.minimumHeight: titleControls.implicitHeight
+            Layout.minimumHeight: Layout.preferredHeight
             Layout.preferredHeight: Math.max(titleControls.implicitHeight, root.compact ? 76 : 96)
+            Layout.maximumHeight: Layout.preferredHeight
             spacing: 8
             CabButton {
                 Layout.preferredWidth: root.compact ? 106 : 132
@@ -638,7 +639,7 @@ Rectangle {
                     objectName: "cabPageTabs"
                     implicitWidth: 0
                     anchors.left: parent.left
-                    anchors.right: parent.right
+                    width: operatingColumns.width
                     anchors.top: parent.top
                     height: 56
                     currentIndex: root.currentPageIndex
@@ -672,8 +673,9 @@ Rectangle {
                 Rectangle {
                     id: artwork
                     objectName: "locomotiveArtwork"
+                    parent: root.stateInfoVisible && !root.stateInfoFromRoster ? infoTabSlot : operatingColumns
                     anchors.left: parent.left
-                    anchors.right: parent.right
+                    width: operatingColumns.width
                     anchors.top: pageTabs.bottom
                     anchors.topMargin: -8
                     height: root.compact ? 64 : 120
@@ -776,7 +778,7 @@ Rectangle {
                     anchors.top: artwork.bottom
                     anchors.topMargin: root.gap
                     anchors.bottom: parent.bottom
-                    visible: cab.isAccessoryEngine
+                    visible: !root.stateInfoVisible && cab.isAccessoryEngine
                     tmccId: cab.tmccId
                     compact: root.compact
                     onCommandRequested: (command, value) => cab.accessoryEngineCommand(command, value)
@@ -785,7 +787,7 @@ Rectangle {
                 ScrollView {
                     id: actionScroll
                     objectName: "cabActionScroll"
-                    visible: !cab.isAccessoryEngine && !root.effectsVisible
+                    visible: !root.stateInfoVisible && !cab.isAccessoryEngine && !root.effectsVisible
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: artwork.bottom
@@ -811,7 +813,7 @@ Rectangle {
                     anchors.top: artwork.bottom
                     anchors.topMargin: root.gap
                     anchors.bottom: parent.bottom
-                    visible: !cab.isAccessoryEngine && root.effectsVisible
+                    visible: !root.stateInfoVisible && !cab.isAccessoryEngine && root.effectsVisible
                     rows: root.speedActionRows()
                     fittedRowHeight: Math.max(1, Math.min(root.preferredTileHeight,
                         Math.floor((height - Math.max(0, rows.length - 1) * spacing) / Math.max(1, rows.length))))
@@ -822,11 +824,11 @@ Rectangle {
                     objectName: "auxiliaryGrid"
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    visible: !cab.isAccessoryEngine && !root.effectsVisible
-                    height: root.tileHeight
+                    visible: !root.stateInfoVisible && !cab.isAccessoryEngine && !root.effectsVisible
+                    height: root.stateInfoVisible ? 0 : root.tileHeight
                     y: visible
-                        ? Math.min(parent.height - height, actionScroll.y + 5 * (height + root.gap))
-                        : parent.height
+                        ? Math.min(parent.height - height, artwork.y + artwork.height + root.gap + 5 * (height + root.gap))
+                        : 0
                     columns: 3
                     columnSpacing: root.gap
                     Repeater {
@@ -1110,41 +1112,19 @@ Rectangle {
 
         Item {
             id: infoTabSlot
-            visible: root.stateInfoVisible && !root.stateInfoFromRoster
-            Layout.preferredWidth: operatingColumns.width
-            Layout.maximumWidth: Layout.preferredWidth
-            Layout.preferredHeight: pageTabs.height
-            Layout.minimumHeight: Layout.preferredHeight
-            Layout.maximumHeight: Layout.preferredHeight
-            Layout.topMargin: 16
-        }
-
-        RowLayout {
             visible: root.stateInfoVisible
             Layout.fillWidth: true
-            Layout.preferredHeight: root.compact ? 80 : 112
+            Layout.leftMargin: drivingArea.Layout.leftMargin
+            Layout.preferredHeight: root.stateInfoFromRoster ? (root.compact ? 80 : 112)
+                : pageTabs.height - 8 + artwork.height
+            Layout.minimumHeight: Layout.preferredHeight
             Layout.maximumHeight: Layout.preferredHeight
-            spacing: 8
-
-            Rectangle {
-                visible: !root.stateInfoFromRoster
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#e8ebef"
-                radius: 8
-                clip: true
-                Image {
-                    anchors.fill: parent
-                    anchors.margins: 2
-                    source: parent.visible ? cab.artworkSource : ""
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                }
-            }
+            Layout.topMargin: root.stateInfoFromRoster ? 0 : 16
 
             ColumnLayout {
-                Layout.fillWidth: root.stateInfoFromRoster
-                Layout.preferredWidth: root.compact ? 145 : 185
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: root.stateInfoFromRoster ? parent.width : drivingSliders.width
                 spacing: 0
                 Label {
                     Layout.fillWidth: true
@@ -1173,7 +1153,6 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
-            Layout.maximumHeight: implicitHeight
             controller: root.infoController
             onCloseRequested: root.stateInfoClosed()
         }

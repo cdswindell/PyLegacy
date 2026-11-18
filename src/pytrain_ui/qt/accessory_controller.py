@@ -738,7 +738,7 @@ class AccessoryCatalogController(QObject):
         analog = operation.analog_input
         if analog is None or operation.command is None:
             return
-        if not analog.minimum <= value <= analog.maximum or value == analog.neutral:
+        if not analog.minimum <= value <= analog.maximum:
             return
         if self._gate_open(configured, operation):
             CommandReq.build(operation.command, address, value).send()

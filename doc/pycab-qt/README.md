@@ -168,7 +168,7 @@ Tap an enabled state tile below the controls to edit its value. Dimmed tiles are
 
 <img src="screens/speed-limit.png" width="225" alt="Speed Limit"> <img src="screens/effort.png" width="225" alt="Effort"> <img src="screens/rpm.png" width="225" alt="RPM">
 
-**Info** is an Engine/Train cab tab and shows roster fields, live status, and consist details. The other tabs remain available; Info opened this way has no redundant **Close** button. Double-tapping the image also opens information. Leaving a tab or choosing a title-menu destination with a pending draft prompts before discarding it.
+**Info** is an Engine/Train cab tab and shows roster fields, live status, and consist details. The other tabs remain available; the cab image keeps the same size, shape, and position across Controls, Speed/Volume, and Info. Info opened this way has no redundant **Close** button. Double-tapping the image also opens information. Leaving a tab or choosing a title-menu destination with a pending draft prompts before discarding it.
 
 **Engine Information** shows roster fields, live status, and consist details. Tap a field to edit it. On the Pi, **Road Name** opens a touchscreen keyboard with **Save**. **Road Number** opens a numeric editor. **Engine Type**, **Control Type**, and **Sound Type** show selectable choices. Scroll the engine type list as needed. For an existing engine, confirm the field editor to write the change. For a new engine, field edits are staged until you tap **Create**. Hold **Clear** for three seconds to clear an existing record. Leaving with pending changes can prompt you to keep editing or discard them.
 
@@ -261,7 +261,7 @@ Unassigned TMCC accessories open a four-column numeric/function keypad with coup
 
 A configured TMCC operating accessory has **Controls / ACC / Info** tabs. **ACC** exposes that same full accessory keypad without replacing the surrounding accessory page. **Info** shows its overall TMCC ID once, the registry type, and the panel keys that operate each function.
 
-For the Smoke Fluid Loader, Lights use numeric 9 On and 8 Off. Because reliable light state is unavailable, separate On/Off buttons do not pretend to indicate feedback. The horizontal Fluid Boom control is spring-centered −5…+5, with its current relative command value in the throttle-style handle. Dispense sends Brake.
+For the Smoke Fluid Loader, Lights use numeric 9 On and 8 Off. Because reliable light state is unavailable, separate On/Off buttons do not pretend to indicate feedback. The horizontal Fluid Boom control is spring-centered −5…+5, with its current relative command value in the throttle-style handle. Tap the trough to send the relative command at that position, or drag and hold to repeat it. Dispense sends Brake.
 
 <img src="screens/operating-smoke-loader.png" width="280" alt="Smoke Fluid Loader Lights, Dispense, and horizontal relative boom control"> <img src="screens/operating-smoke-acc.png" width="280" alt="Smoke Fluid Loader ACC tab with full keypad and throttle"> <img src="screens/operating-smoke-info.png" width="280" alt="Smoke Fluid Loader Info with overall ID, registry type, and command-key table">
 
@@ -269,7 +269,7 @@ For the Smoke Fluid Loader, Lights use numeric 9 On and 8 Off. Because reliable 
 
 **Motors** and **Lights** are separate tabs. Each channel has a vertical 0–100% slider and On/Off buttons. Off keeps the remembered slider level; On returns to it. Double-tap On to set 100%, or Off to set 0%, regardless of the previous value. An off channel's slider is dimmed but remains movable; moving it turns the channel on at the new level. Slider commands are sent on release.
 
-**Info** is a third tab beside Motors and Lights. Its fixed layout shows editable name/number plus read-only AMC2 configuration, board information, and firmware without a scroll panel. On compact screens, the fields are arranged more tightly to keep them visible above the footer. **Configure**, beside the image, opens the current AMC2 configuration options, including output type and restore-on-power-up settings. Double-tapping or holding the AMC2 image also opens State Info.
+**Info** is a third tab beside Motors and Lights. Its fixed layout shows editable name/number plus read-only AMC2 configuration, board information, and firmware without a scroll panel. On compact screens, the fields are arranged more tightly to keep them visible above the footer. **Configure**, beside the image, opens the current AMC2 configuration options, including output type and restore-on-power-up settings. Double-clicking, double-tapping, or holding an accessory image opens its Info tab; this applies to AMC2, Sensor Track, and configured Operating accessories.
 
 <img src="screens/amc2.png" width="280" alt="AMC2 Motors tab with vertical sliders and remembered On/Off levels"> <img src="screens/amc2-lights.png" width="280" alt="AMC2 Lights tab with four separate lamp controls"> <img src="screens/amc2-info.png" width="280" alt="AMC2 State Info with identity and underlying configuration">
 

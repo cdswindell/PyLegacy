@@ -20,6 +20,13 @@ Item {
     readonly property bool infoEditorOpen: deviceInfo.editorOpen
     signal tabRequested(int index)
 
+    function syncTabSelection() {
+        deviceTabs.currentIndex = Qt.binding(() => root.infoSelected ? root.infoTabIndex : root.controlTabIndex)
+    }
+    onInfoSelectedChanged: syncTabSelection()
+    onControlTabIndexChanged: syncTabSelection()
+    onKindChanged: Qt.callLater(syncTabSelection)
+
     TabBar {
         id: deviceTabs
         objectName: root.kind === "AMC2" ? "amc2Tabs" : root.kind === "SENSOR" ? "sensorTabs" : "tmccAccessoryTabs"

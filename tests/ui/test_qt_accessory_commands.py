@@ -93,6 +93,7 @@ def test_configured_boom_slider_replaces_buttons_and_sends_selected_steps(contro
     assert [(request.scope, request.address, request.command, request.data) for request in sent] == [
         (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, -5),
         (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, 3),
+        (CommandScope.ACC, 29, TMCC1AuxCommandEnum.RELATIVE_SPEED, 0),
     ]
 
 
@@ -1126,7 +1127,7 @@ CAB_LABELS_CHILD = r"""
 from pathlib import Path
 import sys
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QPointF, Qt, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -1146,12 +1147,14 @@ ApplicationWindow {
     visible: true
     property string calls: ""
     property bool configured: true
+    property bool verticalBoom: false
     QtObject {
         id: backend
         function tmccCommand(key, address, command, value) {
             window.calls += address + ":" + command + ":" + value + ";"
         }
         function releaseConfiguredHolds(key) {}
+        function sendAnalogOperation(key, operation, value) { window.calls += operation + "=" + value + ";" }
     }
     AccessoryOperatingView {
         id: panel
@@ -1159,7 +1162,11 @@ ApplicationWindow {
         controller: backend
         accessory: window.configured
             ? ({kind: "OPERATING", key: "configured:smoke", tmccId: 29, title: "Smoke Loader",
-                sharedCommandAddress: true, operations: [],
+                sharedCommandAddress: true, artworkSource: "crew-relief.png", operations: [
+                    {key: "boom", label: "Fluid Boom", enabled: true, control: "command", state: "UNKNOWN",
+                     analogInput: {minimum: -5, maximum: 5, neutral: 0, springReturn: true,
+                                   orientation: window.verticalBoom ? "vertical" : "horizontal", repeat: 100}}
+                ],
                 cabKeyLabels: ({"NUMERIC:8": "Lights Off", "NUMERIC:9": "Lights On",
                     "BRAKE": "Dispense", "RELATIVE_SPEED": "Fluid Boom"})})
             : ({kind: "TMCC", key: "acc:60", tmccId: 60, title: "Generic Accessory"})
@@ -1189,6 +1196,53 @@ def click(item):
     QTest.qWait(30)
 
 
+for gesture in ("double_click", "hold"):
+    image = find_visible(window.contentItem(), "accessoryArtwork")
+    point = image.mapToScene(image.boundingRect().center()).toPoint()
+    if gesture == "hold":
+        QTest.mousePress(window, Qt.LeftButton, pos=point)
+        QTest.qWait(900)
+        QTest.mouseRelease(window, Qt.LeftButton, pos=point)
+    else:
+        click(image)
+        click(image)
+    QTest.qWait(60)
+    assert find_visible(window.contentItem(), "operatingInfoTab").property("checked"), gesture
+    click(find_visible(window.contentItem(), "operatingControlsTab"))
+
+slider = find_visible(window.contentItem(), "accessoryAnalogSlider-boom")
+assert slider is not None
+for vertical in (False, True):
+    window.setProperty("verticalBoom", vertical)
+    QTest.qWait(60)
+    slider = find_visible(window.contentItem(), "accessoryAnalogSlider-boom")
+    def slider_point(fraction):
+        handle = slider.property("handle")
+        if vertical:
+            y = slider.height() - slider.property("bottomPadding") - handle.height() / 2
+            y -= fraction * (slider.property("availableHeight") - handle.height())
+            local = QPointF(slider.width() / 2, y)
+        else:
+            x = slider.property("leftPadding") + handle.width() / 2
+            x += fraction * (slider.property("availableWidth") - handle.width())
+            local = QPointF(x, 16)
+        return slider.mapToScene(local).toPoint()
+    for fraction, expected in [(0.9, 4), (0, -5), (1, 5), (0.5, 0)]:
+        window.setProperty("calls", "")
+        QTest.mouseClick(window, Qt.LeftButton, pos=slider_point(fraction))
+        QTest.qWait(40)
+        assert window.property("calls") == "boom=" + str(expected) + ";", (vertical, window.property("calls"))
+        assert slider.property("value") == 0
+    window.setProperty("calls", "")
+    QTest.mousePress(window, Qt.LeftButton, pos=slider_point(0.5))
+    QTest.mouseMove(window, slider_point(1))
+    QTest.qWait(250)
+    QTest.mouseRelease(window, Qt.LeftButton, pos=slider_point(1))
+    calls = window.property("calls")
+    assert calls.count("boom=5;") >= 2, (vertical, calls)
+    QTest.qWait(150)
+    assert window.property("calls") == calls and slider.property("value") == 0
+window.setProperty("calls", "")
 click(find_visible(window.contentItem(), "operatingAccTab"))
 assert find_visible(window.contentItem(), "accessoryThrottleTitle").property("text") == "Fluid Boom"
 for key, label in [("8", "Lights Off"), ("9", "Lights On"), ("BRAKE", "Dispense"),

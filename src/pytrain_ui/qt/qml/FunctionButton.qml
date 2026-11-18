@@ -133,12 +133,6 @@ Control {
             visible: root.trialIcon !== "" && root.detailedIcon === ""
                 && root.trialIcon !== "power-on" && root.trialIcon !== "power-off"
             transform: [
-                Scale {
-                    origin.x: trialArtwork.width / 2
-                    origin.y: trialArtwork.height / 2
-                    xScale: root.trialIcon.startsWith("smoke-diesel-") ? 1.25 : 1
-                    yScale: xScale
-                },
                 Translate { y: trialArtwork.raisedIcon && root.visualPressed ? 2 : 0 }
             ]
             opacity: root.iconOpacity
@@ -230,12 +224,11 @@ Control {
                 case "smoke-steam-down":
                 case "smoke-diesel-up":
                 case "smoke-diesel-down": {
-                    const diesel = root.trialIcon.startsWith("smoke-diesel-")
-                    ctx.fillRect(24, 34, 16, diesel ? 20 : 19)
+                    ctx.fillRect(24, 34, 16, 19)
                     ctx.beginPath()
                     ctx.ellipse(19, 29, 26, 10)
                     ctx.fill()
-                    if (diesel) {
+                    if (root.trialIcon.startsWith("smoke-diesel-")) {
                         line([[9, 54], [55, 54]])
                     } else {
                         ctx.beginPath()
