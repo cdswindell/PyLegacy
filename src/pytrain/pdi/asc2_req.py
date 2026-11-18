@@ -194,7 +194,7 @@ class Asc2Req(LcsReq):
         elif self._action == Asc2Action.CONTROL2:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 values = self.values if self.values is not None else 0
-                valids = self.values if self.valids is not None else 0
+                valids = self.valids if self.valids is not None else 0
                 byte_str += values.to_bytes(1, byteorder="big")
                 byte_str += valids.to_bytes(1, byteorder="big")
         elif self._action == Asc2Action.CONTROL3:

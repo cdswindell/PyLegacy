@@ -65,25 +65,36 @@ def test_control1_set_payload_and_time_byte():
     assert bytes([1, 123]) in bs
 
 
-def test_control2_set_values_valids_current_behavior():
-    """
-    CONTROL2 with SET should include [values, valids].
-    Current implementation uses 'values' for both bytes when valids is not None.
-    """
-    req = Asc2Req(
-        5,
-        PdiCommand.ASC2_SET,
-        Asc2Action.CONTROL2,
-        values=0x12,
-        valids=0x34,  # current code serializes valids using 'values' when not None
-    )
-    bs = req.as_bytes
-    assert bs[0] == PDI_SOP and bs[-1] == PDI_EOP
-    assert PdiCommand.ASC2_SET.as_bytes in bs
-    assert Asc2Action.CONTROL2.as_bytes in bs
+@pytest.mark.parametrize("command", [PdiCommand.ASC2_SET, PdiCommand.ASC2_RX])
+@pytest.mark.parametrize(
+    ("values", "valids", "expected_values", "expected_valids"),
+    [
+        (0x12, 0x34, 0x12, 0x34),
+        (0x00, 0x09, 0x00, 0x09),
+        (0x01, 0x09, 0x01, 0x09),
+        (0x80, 0xFF, 0x80, 0xFF),
+        (0xFF, 0x00, 0xFF, 0x00),
+        (None, 0xFF, 0x00, 0xFF),
+        (0x12, None, 0x12, 0x00),
+        (None, None, 0x00, 0x00),
+    ],
+)
+def test_control2_serializes_independent_relay_and_valid_masks(
+    command, values, valids, expected_values, expected_valids
+):
+    """Preserve independent masks, including selective Off and omitted fields."""
+    request = Asc2Req(20, command, Asc2Action.CONTROL2, values=values, valids=valids)
+    packet = request.as_bytes
+    assert packet[1:-2] == bytes([command.value, 20, 0x11, expected_values, expected_valids])
+    decoded = Asc2Req(packet)
+    assert decoded.values == expected_values
+    assert decoded.valids == expected_valids
+    assert decoded.as_bytes == packet
 
-    # Current behavior: [0x12, 0x12]
-    assert bytes([0x12, 0x12]) in bs
+
+def test_control2_get_omits_relay_and_valid_masks():
+    request = Asc2Req(20, PdiCommand.ASC2_GET, Asc2Action.CONTROL2, values=0x12, valids=0x34)
+    assert request.as_bytes[1:-2] == bytes([0x3C, 20, 0x11])
 
 
 def test_control3_rx_payload_relays_and_valids():
