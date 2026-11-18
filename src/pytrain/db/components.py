@@ -10,12 +10,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from collections.abc import Iterable
 from enum import IntEnum, unique
 
 from ..protocol.multibyte.multibyte_constants import UnitAssignment
 from ..protocol.constants import Mixins
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
+
+log = logging.getLogger(__name__)
 
 
 @unique
@@ -63,8 +67,9 @@ class ConsistComponent:
                         consist_components.append(ConsistComponent(tmcc_id, flags, None, data[0], d4_d2=True))
             else:
                 break
-        print(f"Bytes: {data.hex(' ')}")
-        print(f"Components: {consist_components}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"Consist Bytes: {data.hex(' ')}")
+            log.debug(f"Components: {consist_components}")
         return consist_components
 
     @classmethod
