@@ -211,7 +211,12 @@ def test_configured_tmcc_feedback_and_stateless_buttons(controller, sent, monkey
     assert controller.activateConfiguredOperation(smoke_key, "dispense", "fire")
     smoke_view = controller.operatingView(smoke_key)
     assert smoke_view["sharedCommandAddress"] and smoke_view["tmccId"] == 29
-    assert smoke_view["cabKeyLabels"] == {"NUMERIC:9": "Lights On", "NUMERIC:8": "Lights Off", "BRAKE": "Dispense"}
+    assert smoke_view["cabKeyLabels"] == {
+        "NUMERIC:9": "Lights On",
+        "NUMERIC:8": "Lights Off",
+        "RELATIVE_SPEED": "Fluid Boom",
+        "BRAKE": "Dispense",
+    }
     assert [(op["label"], op["accessoryKeys"]) for op in smoke_view["operations"]] == [
         ("Lights", "8 (Off) · 9 (On)"),
         ("Fluid Boom", "Throttle"),
@@ -1155,7 +1160,8 @@ ApplicationWindow {
         accessory: window.configured
             ? ({kind: "OPERATING", key: "configured:smoke", tmccId: 29, title: "Smoke Loader",
                 sharedCommandAddress: true, operations: [],
-                cabKeyLabels: ({"NUMERIC:8": "Lights Off", "NUMERIC:9": "Lights On", "BRAKE": "Dispense"})})
+                cabKeyLabels: ({"NUMERIC:8": "Lights Off", "NUMERIC:9": "Lights On",
+                    "BRAKE": "Dispense", "RELATIVE_SPEED": "Fluid Boom"})})
             : ({kind: "TMCC", key: "acc:60", tmccId: 60, title: "Generic Accessory"})
     }
 }
@@ -1184,6 +1190,7 @@ def click(item):
 
 
 click(find_visible(window.contentItem(), "operatingAccTab"))
+assert find_visible(window.contentItem(), "accessoryThrottleTitle").property("text") == "Fluid Boom"
 for key, label in [("8", "Lights Off"), ("9", "Lights On"), ("BRAKE", "Dispense"),
                    ("FRONT_COUPLER", "Front Coupler"), ("1", "1"), ("AUX1_OPT_ONE", "Aux 1")]:
     button = find_visible(window.contentItem(), "accessoryCabKey_" + key)
@@ -1193,6 +1200,7 @@ for key, label in [("8", "Lights Off"), ("9", "Lights On"), ("BRAKE", "Dispense"
 assert window.property("calls") == "29:NUMERIC:8;29:NUMERIC:9;29:BRAKE:0;"
 window.setProperty("configured", False)
 QTest.qWait(80)
+assert find_visible(window.contentItem(), "accessoryThrottleTitle").property("text") == "Current Speed"
 for key, label in [("8", "8"), ("9", "9"), ("BRAKE", "Brake")]:
     button = find_visible(window.contentItem(), "accessoryCabKey_" + key)
     assert button is not None and button.property("text") == label

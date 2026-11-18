@@ -228,7 +228,8 @@ Item {
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     color: "#c3d3e4"
-                    text: "Current Speed"
+                    objectName: "accessoryThrottleTitle"
+                    text: (root.accessory.cabKeyLabels || ({}))["RELATIVE_SPEED"] || "Current Speed"
                 }
 
                 Label {

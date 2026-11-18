@@ -468,7 +468,7 @@ class AccessoryCatalogController(QObject):
                 for command, action in ((operation.command_on, "On"), (operation.command_off, "Off"))
             )
             for command, data, caption in bindings:
-                if command is None or command == TMCC1AuxCommandEnum.RELATIVE_SPEED:
+                if command is None:
                     continue
                 key = cls._accessory_key_label(command, data)
                 token = f"NUMERIC:{key}" if key.isdigit() else command.name
