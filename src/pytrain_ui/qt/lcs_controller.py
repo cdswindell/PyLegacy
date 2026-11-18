@@ -350,7 +350,7 @@ class LcsConfigController(QObject):
         self._listen_for_readback(program, generation)
         self._set_configure_status(
             "polling",
-            f"Configuration request sent. Polling the {device.label} to verify its configuration "
+            f"Configuration request sent.\nPolling the {device.label} to verify its configuration "
             "matches what was sent...",
         )
 

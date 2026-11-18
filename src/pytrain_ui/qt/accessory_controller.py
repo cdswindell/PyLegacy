@@ -20,6 +20,7 @@ from pytrain.gui.accessories.accessory_registry import (
     PortBehavior,
     VariantSpec,
 )
+from pytrain.gui.accessories.accessory_type import AccessoryType
 from pytrain.gui.accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
 from pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
 from pytrain.gui.controller.lcs_id_map import occupants, occupants_of
@@ -46,6 +47,10 @@ from .presentation import format_road_number
 
 
 log = logging.getLogger(__name__)
+
+# Lionel specifies a one-second pulse for single-address uncoupling operation:
+# https://control.lionel.com/lcs/products/asc2/
+UNCOUPLER_PULSE_SECONDS = 1.0
 
 _DEVICE_IMAGES = {
     "ASC2": "LCS-ASC2-6-81639.jpg",
@@ -95,6 +100,7 @@ class AccessoryDescriptor:
         return self.lcs_labels[0].split(" ", 1)[0] if self.lcs_labels else "TMCC"
 
     def as_row(self) -> dict:
+        uncoupler = bool(AccessoryCatalogController._uncoupler_address(self))
         return {
             "key": self.key,
             "tmccIds": list(self.tmcc_ids),
@@ -108,7 +114,8 @@ class AccessoryDescriptor:
             "availableViews": [view.value for view in self.available_views],
             "preferredView": self.preferred_view.value,
             "userDefined": self.user_defined,
-            "stateSummary": AccessoryCatalogController._state_summary(self),
+            "stateSummary": "" if uncoupler else AccessoryCatalogController._state_summary(self),
+            "uncoupler": uncoupler,
             "quickActions": AccessoryCatalogController._quick_actions(self),
             "kind": self.kind,
             "imageSource": AccessoryCatalogController._image_source(
@@ -324,6 +331,39 @@ class AccessoryCatalogController(QObject):
                 or (kind == "ASC2" and state.is_asc2 and state.mode == 0)
             )
         )
+
+    @classmethod
+    def _uncoupler_address(cls, descriptor: AccessoryDescriptor) -> int:
+        configured = descriptor.configured_accessory
+        if configured is not None:
+            if configured.accessory_type != AccessoryType.UNCOUPLER:
+                return 0
+            address = configured.tmcc_id_for("uncouple")
+        elif descriptor.kind == "ASC2":
+            address = descriptor.primary_tmcc_id
+        else:
+            return 0
+        matches = [item for item in occupants_of(address, scope=CommandScope.ACC) if item.device.label == "ASC2"]
+        if matches:
+            return (
+                address
+                if all(item.mode and item.mode.key == "acc_1" and item.base_id == address for item in matches)
+                else 0
+            )
+        state = cls._state(address)
+        return address if state and not state.is_deleted and state.is_asc2 and state.mode == 1 else 0
+
+    @Slot(str, int, result=bool)
+    def pulseUncoupler(self, key: str, sub_id: int) -> bool:
+        descriptor = self._descriptors.get(key)
+        if descriptor is None or isinstance(sub_id, bool) or not isinstance(sub_id, int) or not 1 <= sub_id <= 8:
+            return False
+        address = self._uncoupler_address(descriptor)
+        if not address:
+            return False
+        Asc2Req(address, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=sub_id, time=UNCOUPLER_PULSE_SECONDS).send()
+        self.operated.emit(key, False)
+        return True
 
     @classmethod
     def _relay_feedback(cls, tmcc_id: int) -> AccessoryState | None:
@@ -883,6 +923,8 @@ class AccessoryCatalogController(QObject):
             "title": title,
             "artworkSource": self._image_source(_DEVICE_IMAGES.get(descriptor.kind)),
         }
+        panel["uncouplerAddress"] = self._uncoupler_address(descriptor)
+        panel["uncoupler"] = bool(panel["uncouplerAddress"])
         if descriptor.configured_accessory is not None:
             configured = descriptor.configured_accessory
             view = self._configured_operating_state(key, configured)

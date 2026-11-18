@@ -237,6 +237,23 @@ Operate relay-backed accessories directly from their row. **On** and **Off** use
 
 <img src="screens/asc2-info.png" width="280" alt="ASC2 accessory State Info with direct identity fields, mixed mode, port, and firmware"> <img src="screens/bpc2-info.png" width="280" alt="BPC2 State Info with numeric and named mode and board details">
 
+### ASC2 Mode 1 uncoupling tracks
+
+An ASC2 in **Mode 1 — Uncoupling (ACC)** uses one TMCC ID for eight outputs. Open its roster row, or enter its exact TMCC ID, to display **Controls / Info**. Controls contains keys **1–8**, each selecting the correspondingly numbered track output. Each activation sends one **CONTROL3** request to the module's base ID, with the selected sub-ID and a **one-second pulse**. Holding a key does not repeat; no separate Off command is needed. This follows [Lionel's single-address ASC2 operating guidance](https://control.lionel.com/lcs/products/asc2/).
+
+A configured **Uncoupler Track** Operating accessory uses the same keypad when its `uncouple` assignment identifies a Mode 1 ASC2. Existing Mode 0 uncoupler assignments keep their press/release Hold control. No legacy GUI class is used to construct either Qt panel.
+
+```json
+{
+  "gui": "uncoupler",
+  "instance_id": "yard-uncouplers",
+  "display_name": "Yard Uncoupling Tracks",
+  "tmcc_ids": {"uncouple": 24}
+}
+```
+
+The assignment above is the module's single TMCC ID, not eight consecutive accessory IDs. The actual board must report Mode 1 before the keypad is offered. Unnamed boards remain hidden unless Show Unnamed is enabled, but their exact ID can still open the controls directly.
+
 ### Configured operating accessories
 
 Select a configured row for its larger accessory image and metadata-driven controls. **Controls** and **Info** are tabs below the image. Each operation has its own compact labeled frame. A known latching operation uses one button showing the next action: a green On graphic while off, and a red Off graphic while on. A pending indicator can appear while waiting for state feedback.

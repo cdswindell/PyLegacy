@@ -143,7 +143,7 @@ Rectangle {
                     objectName: "accessoryArtwork"
                     anchors.fill: parent
                     visible: root.hasArtwork
-                    color: root.kind === "AMC2" || root.kind === "SENSOR" ? "#e8ebef" : "#0f1216"
+                    color: ["AMC2", "SENSOR", "ASC2", "BPC2"].includes(root.kind) ? "#e8ebef" : "#0f1216"
                     radius: 8
                     clip: true
 
@@ -170,7 +170,7 @@ Rectangle {
             }
 
             ColumnLayout {
-                visible: root.kind !== "OPERATING" && root.kind !== "TMCC" && root.kind !== "SENSOR"
+                visible: root.kind === "AMC2"
                 Layout.preferredWidth: root.compact ? 108 : 132
                 Layout.minimumWidth: Layout.preferredWidth
                 Layout.maximumWidth: Layout.preferredWidth
@@ -191,7 +191,8 @@ Rectangle {
 
         AccessoryDeviceControls {
             id: deviceControls
-            Layout.topMargin: root.kind === "AMC2" || root.kind === "SENSOR" ? metrics.sectionGap : 0
+            Layout.topMargin: root.kind === "AMC2" || root.kind === "SENSOR" || root.accessory.uncoupler
+                ? metrics.sectionGap : 0
             Layout.bottomMargin: !root.infoSelected && (root.kind === "TMCC" || root.kind === "AMC2")
                 ? Math.max(0, root.controlBottomInset - pageLayout.anchors.bottomMargin) : 0
             enabled: !root.configurationVisible
@@ -270,7 +271,7 @@ Rectangle {
                 contentItem: ColumnLayout {
                 GridLayout {
                     id: operationGrid
-                    visible: operatingTabs.currentIndex === 0
+                    visible: operatingTabs.currentIndex === 0 && !root.accessory.uncoupler
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignHCenter
                     Layout.maximumWidth: hasAnalog ? Infinity : columns * (targetButtonSize + 2 * cardInset)
@@ -678,6 +679,16 @@ Rectangle {
                         }
                     }
                 }
+
+                    UncouplerControls {
+                        visible: operatingTabs.currentIndex === 0 && root.accessory.uncoupler === true
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 480
+                        Layout.alignment: Qt.AlignHCenter
+                        controller: root.controller
+                        accessoryKey: root.accessoryKey
+                        compact: root.compact
+                    }
 
                     AccessoryDeviceControls {
                         visible: root.accessoryCabSelected

@@ -192,7 +192,7 @@ class Asc2Req(LcsReq):
         elif self._action == Asc2Action.CONTROL3:
             if self.pdi_command != PdiCommand.ASC2_GET:
                 if self.pdi_command == PdiCommand.ASC2_SET:
-                    values = self.sub_id if self.values is not None else 1
+                    values = self.sub_id if self.sub_id is not None else 1
                     time = min(int(round((self.time * 100))), 255) if self.time is not None else 0
                     if time == 1:
                         time = 0

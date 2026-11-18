@@ -15,6 +15,7 @@ Item {
     property bool infoSelected: false
     property int controlTabIndex: 0
     readonly property string kind: accessory.kind || ""
+    readonly property bool uncoupler: accessory.uncoupler === true
     readonly property int infoTabIndex: kind === "AMC2" ? 2 : 1
     readonly property bool infoHasUnsavedChanges: deviceInfo.hasUnsavedChanges
     readonly property bool infoEditorOpen: deviceInfo.editorOpen
@@ -29,11 +30,12 @@ Item {
 
     TabBar {
         id: deviceTabs
-        objectName: root.kind === "AMC2" ? "amc2Tabs" : root.kind === "SENSOR" ? "sensorTabs" : "tmccAccessoryTabs"
+        objectName: root.kind === "AMC2" ? "amc2Tabs" : root.kind === "SENSOR" ? "sensorTabs"
+            : root.uncoupler ? "uncouplerTabs" : "tmccAccessoryTabs"
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.topMargin: metrics.accessoryTabInset
-        visible: root.kind === "AMC2" || root.kind === "SENSOR" || (root.kind === "TMCC" && root.showTmccTab)
+        visible: root.kind === "AMC2" || root.kind === "SENSOR" || (root.kind === "TMCC" && root.showTmccTab) || root.uncoupler
         width: parent.width * 2 / 3
         height: 56
         spacing: 6
@@ -80,6 +82,17 @@ Item {
         controller: root.infoController
         showCloseButton: false
         scrollable: root.kind !== "AMC2"
+    }
+
+    UncouplerControls {
+        anchors.top: parent.top
+        anchors.topMargin: root.contentTop + 8
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width, 480)
+        visible: root.uncoupler && !root.infoSelected
+        controller: root.controller
+        accessoryKey: root.accessory.key || ""
+        compact: root.compact
     }
 
     ListView {

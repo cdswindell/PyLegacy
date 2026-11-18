@@ -70,7 +70,7 @@ RosterPanel {
         // Prefer the configured controls over a generic row at the same address.
         const control = rows.find(row => row.primaryTmccId === tmccId && row.kind === "OPERATING")
             ?? rows.find(row => row.primaryTmccId === tmccId &&
-                (row.kind === "AMC2" || row.kind === "SENSOR" || row.kind === "TMCC"))
+                (row.kind === "AMC2" || row.kind === "SENSOR" || row.kind === "TMCC" || row.uncoupler))
         if (!control)
             return false
 
@@ -101,7 +101,7 @@ RosterPanel {
     }
 
     function rosterRowHeight(row) {
-        return row.kind === "ASC2" || row.kind === "BPC2" ? 146 : 112
+        return !row.uncoupler && (row.kind === "ASC2" || row.kind === "BPC2") ? 146 : 112
     }
 
     function restoreRosterPosition(key) {
@@ -445,12 +445,12 @@ RosterPanel {
                                 elide: Text.ElideRight
                             }
                         }
-                        Label { visible: !quickActions.visible && row.modelData.kind !== "ASC2" && row.modelData.kind !== "BPC2"; text: "›"; color: "#8fc9ef"; font.pixelSize: 42 }
+                        Label { visible: !quickActions.visible; text: "›"; color: "#8fc9ef"; font.pixelSize: 42 }
                     }
                     RowLayout {
                         id: quickActions
                         Layout.fillWidth: true
-                        visible: row.modelData.kind === "ASC2" || row.modelData.kind === "BPC2"
+                        visible: !row.modelData.uncoupler && (row.modelData.kind === "ASC2" || row.modelData.kind === "BPC2")
                         spacing: 8
                         Repeater {
                             model: row.modelData.quickActions

@@ -51,6 +51,16 @@ def asc2_config_reply(address: int) -> Asc2Req:
     return Asc2Req(packet.as_bytes)
 
 
+def test_polling_status_puts_sent_and_waiting_sentences_on_separate_lines(lcs_readback) -> None:
+    controller, _, _, _, _, _ = lcs_readback
+    assert controller.configure() == ""
+    assert controller.configureState == "polling"
+    assert controller.configureStatus.splitlines() == [
+        "Configuration request sent.",
+        "Polling the ASC2 to verify its configuration matches what was sent...",
+    ]
+
+
 def test_first_config_reply_is_verified_without_an_existing_switch_state(lcs_readback) -> None:
     controller, app, channel, dispatcher, send, single_shot = lcs_readback
     reply = asc2_config_reply(20)

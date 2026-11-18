@@ -473,6 +473,7 @@ def test_configured_accessory_appears_once_with_its_artwork_and_address_search_k
     definition = SimpleNamespace(type="test", variant=None)
     configured = SimpleNamespace(
         instance_id="loading-dock",
+        accessory_type=module.AccessoryType.FIRE_STATION,
         label="Loading Dock",
         tmcc_id=24,
         tmcc_ids=[24, 25],
@@ -483,6 +484,7 @@ def test_configured_accessory_appears_once_with_its_artwork_and_address_search_k
     )
     other = SimpleNamespace(
         instance_id="other-dock",
+        accessory_type=module.AccessoryType.FIRE_STATION,
         label="Loading Dock",
         tmcc_id=26,
         tmcc_ids=[26],
@@ -1277,3 +1279,201 @@ def test_culvert_acc_key_caption_uses_variant_operation_label(controller, sent, 
     assert controller.operatingView(key)["cabKeyLabels"] == {"AUX2_OPT_ONE": caption}
     controller.tmccCommand(key, 60, "AUX2_OPT_ONE", 0)
     assert [(req.address, req.command, req.data) for req in sent] == [(60, TMCC1AuxCommandEnum.AUX2_OPT_ONE, 0)]
+
+
+@pytest.mark.parametrize("configured", [False, True])
+def test_mode_one_uncoupler_uses_one_address_and_eight_timed_control3_outputs(
+    controller, sent, monkeypatch, configured
+):
+    occupant = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(1), 1, port_index=1, scope=CommandScope.ACC)
+    monkeypatch.setitem(vars(module), "occupants", lambda **_: [occupant])
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [occupant] if address == 24 else [])
+    if configured:
+        install_configured_accessories(
+            controller, monkeypatch, {"gui": "uncoupler", "instance_id": "tracks", "tmcc_ids": {"uncouple": 24}}
+        )
+    else:
+        controller.reload()
+    row = next(row for row in controller.rows if row["configured"] == configured)
+    key = row["key"]
+    assert row["uncoupler"] and row["tmccIds"] == [24] and row["quickActions"] == []
+    assert row["stateSummary"] == ""
+    panel = controller.operatingView(key)
+    assert panel["uncoupler"] and panel["uncouplerAddress"] == 24
+    operated = []
+    controller.operated.connect(lambda selected, roster: operated.append((selected, roster)))
+    for sub_id in range(1, 9):
+        assert controller.pulseUncoupler(key, sub_id)
+    assert [(req.tmcc_id, req.action, req.sub_id, req.time) for req in sent] == [
+        (24, Asc2Action.CONTROL3, sub_id, 1.0) for sub_id in range(1, 9)
+    ]
+    assert [req.as_bytes[4:6] for req in sent] == [bytes([sub_id, 100]) for sub_id in range(1, 9)]
+    assert operated == [(key, False)] * 8
+    for invalid in (0, 9, -1, True, 1.5):
+        assert not controller.pulseUncoupler(key, invalid)
+    assert not controller.pulseUncoupler("missing", 1)
+    assert len(sent) == 8
+    # Recheck the live mode at activation, rather than trusting an old displayed row.
+    changed = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(0), 8, port_index=1, scope=CommandScope.ACC)
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [changed] if address == 24 else [])
+    assert not controller.pulseUncoupler(key, 1)
+    assert len(sent) == 8
+
+
+def test_mode_zero_uncoupler_keeps_its_existing_held_control(controller, sent, monkeypatch):
+    occupant = LcsOccupant(24, ASC2, ASC2.mode_for_pdi_mode(0), 8, port_index=1, scope=CommandScope.ACC)
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [occupant] if address == 24 else [])
+    install_configured_accessories(
+        controller, monkeypatch, {"gui": "uncoupler", "instance_id": "track", "tmcc_ids": {"uncouple": 24}}
+    )
+    key = "configured:track"
+    assert not controller.operatingView(key)["uncoupler"]
+    assert controller.activateConfiguredOperation(key, "uncouple", "press")
+    assert controller.activateConfiguredOperation(key, "uncouple", "release")
+    assert [(req.action, req.values) for req in sent] == [(Asc2Action.CONTROL1, 1), (Asc2Action.CONTROL1, 0)]
+
+
+# Embedded Qt identifiers retain their API spelling.
+# noinspection SpellCheckingInspection
+UNCOUPLER_CHILD = r"""
+from pathlib import Path
+import sys
+
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtTest import QTest
+
+QQuickStyle.setStyle("Basic")
+app = QGuiApplication([])
+touch_device = QTest.createTouchDevice()
+engine = QQmlEngine()
+component = QQmlComponent(engine)
+component.setData(b'''
+import QtQuick
+import QtQuick.Controls
+import "."
+ApplicationWindow {
+    id: window
+    width: 720; height: 1280; visible: true
+    property string selectedKey: ""
+    property string calls: ""
+    property bool info: false
+    QtObject {
+        id: backend
+        readonly property var rows: [
+            {key: "op", kind: "OPERATING", primaryTmccId: 24, tmccIds: [24], roadName: "Tracks",
+             roadNumber: "", userDefined: true, quickActions: [], uncoupler: true,
+             imageSource: "", lcsAssociations: "ASC2 24", stateSummary: "", availableViews: []},
+            {key: "board", kind: "ASC2", primaryTmccId: 40, tmccIds: [40], roadName: "ASC2 Tracks",
+             roadNumber: "0040", userDefined: false, quickActions: [], uncoupler: true,
+             imageSource: "", lcsAssociations: "ASC2 40", stateSummary: "", availableViews: []}
+        ]
+        property var model: ({})
+        function pulseUncoupler(key, digit) { window.calls += key + ":" + digit + ";" }
+        function releaseConfiguredHolds(key) {}
+        function refresh(editorOpen) {}
+        function canClearRecord() { return false }
+    }
+    AccessoryCatalog {
+        id: roster
+        anchors.fill: parent
+        visible: window.selectedKey === ""
+        controller: backend
+        onAccessoryRequested: key => window.selectedKey = key
+    }
+    AccessoryOperatingView {
+        anchors.fill: parent
+        visible: window.selectedKey !== ""
+        controller: backend
+        infoController: backend
+        infoSelected: window.info
+        onDeviceTabRequested: index => window.info = index === 1
+        accessory: ({key: window.selectedKey, kind: window.selectedKey === "op" ? "OPERATING" : "ASC2",
+                     title: "Uncoupling Tracks", tmccId: window.selectedKey === "op" ? 24 : 40,
+                     uncoupler: true, operations: []})
+    }
+    function enterId(address) { roster.selectTmccId(address, false) }
+}
+''', QUrl.fromLocalFile(str(Path(sys.argv[1]) / "uncoupler_validation.qml")))
+assert component.isReady(), [error.toString() for error in component.errors()]
+window = component.create()
+assert window is not None
+QTest.qWait(80)
+
+
+def items(item):
+    yield item
+    for child in item.childItems():
+        yield from items(child)
+
+
+def visible(name):
+    return next(item for item in items(window.contentItem()) if item.isVisible() and item.objectName() == name)
+
+
+def point(item):
+    return item.mapToScene(item.boundingRect().center()).toPoint()
+
+
+for width, height in ((720, 1280), (639, 800)):
+    window.resize(width, height)
+    for address, key in ((24, "op"), (40, "board")):
+        window.setProperty("selectedKey", "")
+        window.setProperty("info", False)
+        QTest.qWait(40)
+        window.enterId(address)
+        QTest.qWait(80)
+        assert window.property("selectedKey") == key
+        for digit in range(1, 9):
+            button = visible("uncouplerKey" + str(digit))
+            assert button.property("text") == str(digit)
+            top = button.mapToScene(button.boundingRect().topLeft())
+            bottom = button.mapToScene(button.boundingRect().bottomRight())
+            assert top.x() >= 0 and top.y() >= 0 and bottom.x() <= width and bottom.y() <= height
+            window.setProperty("calls", "")
+            QTest.mousePress(window, Qt.LeftButton, pos=point(button))
+            QTest.qWait(150)
+            assert window.property("calls") == "", "A pulse should fire once on release"
+            QTest.mouseRelease(window, Qt.LeftButton, pos=point(button))
+            QTest.qWait(30)
+            assert window.property("calls") == key + ":" + str(digit) + ";"
+        window.setProperty("calls", "")
+        button = visible("uncouplerKey8")
+        QTest.touchEvent(window, touch_device).press(0, point(button), window).commit()
+        QTest.qWait(200)
+        assert window.property("calls") == ""
+        QTest.touchEvent(window, touch_device).release(0, point(button), window).commit()
+        QTest.qWait(40)
+        assert window.property("calls") == key + ":8;"
+        window.setProperty("calls", "")
+        button = visible("uncouplerKey1")
+        button.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_Return)
+        assert window.property("calls") == key + ":1;"
+        tab = visible("operatingInfoTab" if key == "op" else "accessoryDeviceInfoTab")
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(tab))
+        QTest.qWait(60)
+        assert not any(item.isVisible() and item.objectName().startswith("uncouplerKey")
+                       for item in items(window.contentItem()))
+window.close()
+"""
+
+
+def test_uncoupler_controls_open_directly_and_display_eight_single_pulse_keys() -> None:
+    assert_qml_scenario(UNCOUPLER_CHILD)
+
+
+def test_uncoupler_mode_can_be_resolved_from_component_state_without_a_cached_mapping(controller, sent, monkeypatch):
+    states = ComponentStateDict(CommandScope.ACC)
+    state = states[24]
+    state.update(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONFIG, mode=1))
+    monkeypatch.setattr(module.ComponentStateStore, "get_state", lambda _scope, address, **_: states.get(address))
+    key = add_descriptor(controller, monkeypatch, "ASC2")
+    assert controller.operatingView(key)["uncoupler"]
+    assert controller.pulseUncoupler(key, 7)
+    assert sent[0].as_bytes[4:6] == bytes([7, 100])
+    state.update(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONFIG, mode=0))
+    assert not controller.pulseUncoupler(key, 7)
+    assert not controller.operatingView(key)["uncoupler"]

@@ -8,6 +8,8 @@
 
 # tests/pdi/test_asc2_req.py
 
+import pytest
+
 from src.pytrain.pdi.asc2_req import Asc2Req
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, Asc2Action, PdiCommand
 
@@ -100,10 +102,9 @@ def test_control3_rx_payload_relays_and_valids():
     assert "Relays: 15" in s and "Valids: 165" in s
 
 
-def test_control3_set_as_bytes_sub_id_and_time_byte_current_behavior_and_payload():
+def test_control3_set_encodes_sub_id_without_unrelated_values_and_preserves_time_rule():
     """
     CONTROL3 with SET should encode (sub_id, timeHundredths with 1->0 rule).
-    Current implementation uses sub_id only if 'values' is not None; mirror that.
     """
     req = Asc2Req(
         8,
@@ -111,7 +112,6 @@ def test_control3_set_as_bytes_sub_id_and_time_byte_current_behavior_and_payload
         Asc2Action.CONTROL3,
         sub_id=5,
         time=0.01,  # rounds to 1 -> special case becomes 0
-        values=0,  # trigger current behavior to use sub_id
     )
 
     s = req.payload
@@ -129,7 +129,7 @@ def test_control3_set_as_bytes_sub_id_and_time_byte_current_behavior_and_payload
 
 def test_control4_set_payload_thru_and_time_byte_and_is_thru():
     """
-    CONTROL4 with SET should include values and time; payload should be THRU/OUT and expose is_thru/is_out.
+    CONTROL4 with SET includes values and time and exposes the through/out switch position.
     """
     req = Asc2Req(
         12,
@@ -142,6 +142,8 @@ def test_control4_set_payload_thru_and_time_byte_and_is_thru():
     s = req.payload
     assert isinstance(s, str)
     assert "THRU" in s and "Time: 1.0" in s
+    # Keep assertions local to each action's packet test so failures identify the command.
+    # noinspection DuplicatedCode
     assert req.is_thru is True
     assert req.is_out is False
 
@@ -154,7 +156,7 @@ def test_control4_set_payload_thru_and_time_byte_and_is_thru():
 
 def test_control4_rx_payload_thru_or_out():
     """
-    CONTROL4 with RX should present THRU/OUT without time.
+    CONTROL4 with RX presents the through/out switch position without time.
     """
     req_thru = Asc2Req(3, PdiCommand.ASC2_RX, Asc2Action.CONTROL4, values=0)
     s_t = req_thru.payload
@@ -167,13 +169,15 @@ def test_control4_rx_payload_thru_or_out():
 
 def test_control5_set_payload_thru_and_value_byte_and_is_thru():
     """
-    CONTROL5 with SET should include only the values byte; payload shows THRU/OUT.
+    CONTROL5 with SET includes only the values byte and shows the through/out switch position.
     """
     req = Asc2Req(9, PdiCommand.ASC2_SET, Asc2Action.CONTROL5, values=0)
 
     s = req.payload
     assert isinstance(s, str)
     assert "THRU" in s
+    # Keep assertions local to each action's packet test so failures identify the command.
+    # noinspection DuplicatedCode
     assert req.is_thru is True
     assert req.is_out is False
 
@@ -208,3 +212,18 @@ def test_get_requests_have_minimal_payload_for_config():
     # Ensure the characteristic CONFIG body pattern is absent
     unexpected_tail = bytes([req.tmcc_id, 2, 0x00, 0x00, 0x01, 50])
     assert unexpected_tail not in bs
+
+
+@pytest.mark.parametrize("sub_id", range(1, 9))
+@pytest.mark.parametrize("values", [None, 0])
+def test_control3_uncoupling_pulse_encodes_selected_output_and_one_second(sub_id, values):
+    request = Asc2Req(24, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=sub_id, time=1.0, values=values)
+    assert request.as_bytes[1:6] == PdiCommand.ASC2_SET.as_bytes + bytes([24]) + Asc2Action.CONTROL3.as_bytes + bytes(
+        [sub_id, 100]
+    )
+
+
+@pytest.mark.parametrize("sub_id", [-1, 0, 9])
+def test_control3_rejects_invalid_output_numbers(sub_id):
+    with pytest.raises(ValueError, match="sub_id"):
+        Asc2Req(24, PdiCommand.ASC2_SET, Asc2Action.CONTROL3, sub_id=sub_id, time=1.0)

@@ -513,6 +513,7 @@ Popup {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 visible: root.controller && root.controller.configureStatus.length > 0
                 implicitHeight: configureStatusLabel.implicitHeight + 24
                 radius: 8
@@ -524,15 +525,19 @@ Popup {
 
                 Label {
                     id: configureStatusLabel
-                    anchors.fill: parent
+                    objectName: "lcsConfigureStatus"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
                     anchors.margins: 12
                     text: root.controller ? root.controller.configureStatus : ""
+                    textFormat: Text.PlainText
                     color: root.controller && root.controller.configureState === "success"
                            ? "#62d98b"
                            : (root.controller && root.controller.configureState === "error" ? "#ff9b78" : "#f0c36a")
                     font.pixelSize: 15
                     font.bold: root.controller && root.controller.configureState !== "polling"
-                    wrapMode: Text.WordWrap
+                    wrapMode: Text.Wrap
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -691,7 +696,7 @@ Popup {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 Layout.preferredHeight: 52
-                text: "Cancel"
+                text: !root.showingModules && root.page === 3 ? "Close" : "Cancel"
                 onClicked: root.close()
             }
 
