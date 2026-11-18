@@ -6,8 +6,12 @@
 #  SPDX-License-Identifier: LPGL
 #
 
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 
+from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent, RouteComponent, UnitBits
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -99,6 +103,68 @@ class TestConsistComponent:
     def test_to_bytes_accepts_empty_components(self):
         assert ConsistComponent.to_bytes(None) == b"\xff" * 32
         assert ConsistComponent.to_d4_bytes(None) == b"\xff" * 64
+
+    def test_two_digit_consist_literal_byte_pattern(self):
+        raw = bytes.fromhex("07 12 16 25") + b"\xff" * 28
+        components = [ConsistComponent(37, 0x16), ConsistComponent(18, 0x07)]
+
+        assert ConsistComponent.to_bytes(components) == raw
+        parsed = ConsistComponent.from_bytes(raw)
+        assert [(c.tmcc_id, c.flags) for c in parsed] == [(37, 0x16), (18, 0x07)]
+
+    def test_base3_hybrid_record_component_bytes(self):
+        raw = bytes.fromhex("ff 16 25 80 ff 07 12 80") + b"\xff" * 56
+        components = [ConsistComponent(37, 0x16, d4_d2=True), ConsistComponent(18, 0x07, d4_d2=True)]
+
+        assert ConsistComponent.to_d4_bytes(components) == raw
+        with patch.object(ComponentStateStore, "by_record_no") as lookup:
+            parsed = ConsistComponent.from_d4_bytes(raw)
+        lookup.assert_not_called()
+        assert [(c.tmcc_id, c.flags, c.rec_no) for c in parsed] == [(37, 0x16, None), (18, 0x07, None)]
+        assert ConsistComponent.to_d4_bytes(parsed) == raw
+
+    @pytest.mark.parametrize("tmcc_id", [1, 98, 99])
+    def test_hybrid_two_digit_engine_round_trip(self, tmcc_id):
+        component = ConsistComponent(tmcc_id, 0x15, d4_d2=True)
+        raw = bytes([0xFF, 0x15, tmcc_id, 0x80]) + b"\xff" * 60
+
+        assert component.as_bytes == raw[:4]
+        parsed = ConsistComponent.from_d4_bytes(raw)
+        assert [(c.tmcc_id, c.flags, c.rec_no, c.is_d4) for c in parsed] == [(tmcc_id, 0x15, None, False)]
+        assert ConsistComponent.to_d4_bytes(parsed) == raw
+
+    def test_hybrid_consist_preserves_order_flags_and_record_numbers(self):
+        components = [
+            ConsistComponent(12, 0x01, d4_d2=True),
+            ConsistComponent(1234, 0x06, rec_no=0x1234),
+            ConsistComponent(34, 0x13, d4_d2=True),
+        ]
+        raw = bytes.fromhex("ff 01 0c 80 ff 06 34 12 ff 13 22 80") + b"\xff" * 52
+        assert ConsistComponent.to_d4_bytes(components) == raw
+
+        with patch.object(ComponentStateStore, "by_record_no", return_value=SimpleNamespace(tmcc_id=1234)) as lookup:
+            parsed = ConsistComponent.from_d4_bytes(raw)
+
+        lookup.assert_called_once_with(0x1234)
+        assert [(c.tmcc_id, c.flags, c.rec_no) for c in parsed] == [
+            (12, 0x01, None),
+            (1234, 0x06, 0x1234),
+            (34, 0x13, None),
+        ]
+        assert ConsistComponent.to_d4_bytes(parsed) == raw
+
+    @pytest.mark.parametrize("tmcc_id", [0, 100, 254, 255])
+    def test_hybrid_decoder_ignores_invalid_two_digit_ids(self, tmcc_id):
+        raw = bytes([0xFF, 0x01, tmcc_id, 0x80]) + b"\xff" * 60
+        with patch.object(ComponentStateStore, "by_record_no") as lookup:
+            assert ConsistComponent.from_d4_bytes(raw) == []
+        lookup.assert_not_called()
+
+    def test_hybrid_decoder_ignores_missing_flags_and_unknown_record(self):
+        raw = bytes.fromhex("ff ff 01 80 ff 01 34 12") + b"\xff" * 56
+        with patch.object(ComponentStateStore, "by_record_no", return_value=None) as lookup:
+            assert ConsistComponent.from_d4_bytes(raw) == []
+        lookup.assert_called_once_with(0x1234)
 
 
 class TestRouteComponent:
