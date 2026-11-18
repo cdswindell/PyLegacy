@@ -16,7 +16,7 @@ Item {
     property int controlTabIndex: 0
     readonly property string kind: accessory.kind || ""
     readonly property bool uncoupler: accessory.uncoupler === true
-    readonly property int infoTabIndex: kind === "AMC2" ? 2 : 1
+    readonly property int infoTabIndex: kind === "AMC2" || uncoupler ? 2 : 1
     readonly property bool infoHasUnsavedChanges: deviceInfo.hasUnsavedChanges
     readonly property bool infoEditorOpen: deviceInfo.editorOpen
     signal tabRequested(int index)
@@ -45,7 +45,8 @@ Item {
         Repeater {
             id: deviceTabRepeater
             model: root.kind === "AMC2" ? ["Motors", "Lights", "Info"]
-                : root.kind === "SENSOR" ? ["Action", "Info"] : ["Controls", "Info"]
+                : root.kind === "SENSOR" ? ["Action", "Info"]
+                : root.uncoupler ? ["Controls", "ACC", "Info"] : ["Controls", "Info"]
             CabPageTab {
                 id: deviceTab
                 required property int index
@@ -88,7 +89,7 @@ Item {
         anchors.topMargin: root.contentTop + 8
         anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(parent.width, 480)
-        visible: root.uncoupler && !root.infoSelected
+        visible: root.uncoupler && root.controlTabIndex === 0 && !root.infoSelected
         controller: root.controller
         accessoryKey: root.accessory.key || ""
         compact: root.compact
@@ -169,7 +170,7 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: root.contentTop
         anchors.bottom: parent.bottom
-        visible: root.kind === "TMCC" && !root.infoSelected
+        visible: (root.kind === "TMCC" || (root.uncoupler && root.controlTabIndex === 1)) && !root.infoSelected
         spacing: 8
         property string heldKey: ""
         property int heldAddress: 0
@@ -271,11 +272,12 @@ Item {
                 RelativeStepButton { delta: 1 }
 
                 VerticalThrottle {
+                    objectName: "tmccAccessoryThrottleSlider"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     minimumValue: -5
                     maximumValue: 5
-                    scaleStep: !root.showTmccTab && height < 170 ? 5 : 1
+                    scaleStep: height < 170 ? 5 : 1
                     springReturn: true
                     value: tmcc.step
                     onGestureStarted: tmcc.beginThrottle()

@@ -241,7 +241,7 @@ Operate relay-backed accessories directly from their row. **On** and **Off** use
 
 ### ASC2 Mode 1 uncoupling tracks
 
-An ASC2 in **Mode 1 — Uncoupling (ACC)** uses one TMCC ID for eight outputs. Open its roster row, or enter its exact TMCC ID, to display **Controls / Info**. Controls contains keys **1–8**, each selecting the correspondingly numbered track output. Each activation sends one **CONTROL3** request to the module's base ID, with the selected sub-ID and a **one-second pulse**. Holding a key does not repeat; no separate Off command is needed. This follows [Lionel's single-address ASC2 operating guidance](https://control.lionel.com/lcs/products/asc2/).
+An ASC2 in **Mode 1 — Uncoupling (ACC)** uses one TMCC ID for eight outputs. Open its roster row, or enter its exact TMCC ID, to display **Controls / ACC / Info**. **ACC** opens the standard accessory keypad with its relative throttle, addressed to the module’s base TMCC ID. Controls contains keys **1–8**, each selecting the correspondingly numbered track output. Each activation sends one **CONTROL3** request to the module's base ID, with the selected sub-ID and a **one-second pulse**. Holding a key does not repeat; no separate Off command is needed. This follows [Lionel's single-address ASC2 operating guidance](https://control.lionel.com/lcs/products/asc2/).
 
 A configured **Uncoupler Track** Operating accessory uses the same keypad when its `uncouple` assignment identifies a Mode 1 ASC2. Existing Mode 0 uncoupler assignments keep their press/release Hold control. No legacy GUI class is used to construct either Qt panel.
 

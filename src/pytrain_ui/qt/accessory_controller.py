@@ -789,7 +789,11 @@ class AccessoryCatalogController(QObject):
         descriptor = self._descriptors.get(key)
         if descriptor is None or descriptor.primary_tmcc_id != tmcc_id:
             return
-        if descriptor.kind != "TMCC" and not self._has_shared_command_address(descriptor):
+        if (
+            descriptor.kind != "TMCC"
+            and not self._has_shared_command_address(descriptor)
+            and not self._uncoupler_address(descriptor)
+        ):
             return
         if (name == "NUMERIC" and 0 <= value <= 9) or (name == "RELATIVE_SPEED" and -5 <= value <= 5):
             CommandReq.build(TMCC1AuxCommandEnum[name], tmcc_id, value).send()

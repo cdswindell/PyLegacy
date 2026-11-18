@@ -1309,6 +1309,13 @@ def test_mode_one_uncoupler_uses_one_address_and_eight_timed_control3_outputs(
     ]
     assert [req.as_bytes[4:6] for req in sent] == [bytes([sub_id, 100]) for sub_id in range(1, 9)]
     assert operated == [(key, False)] * 8
+    controller.tmccCommand(key, 24, "NUMERIC", 8)
+    controller.tmccCommand(key, 24, "RELATIVE_SPEED", -3)
+    assert [(req.address, req.command, req.data) for req in sent[8:]] == [
+        (24, TMCC1AuxCommandEnum.NUMERIC, 8),
+        (24, TMCC1AuxCommandEnum.RELATIVE_SPEED, -3),
+    ]
+    del sent[8:]
     for invalid in (0, 9, -1, True, 1.5):
         assert not controller.pulseUncoupler(key, invalid)
     assert not controller.pulseUncoupler("missing", 1)
@@ -1372,6 +1379,9 @@ ApplicationWindow {
         ]
         property var model: ({})
         function pulseUncoupler(key, digit) { window.calls += key + ":" + digit + ";" }
+        function tmccCommand(key, address, name, value) {
+            window.calls += key + ":" + address + ":" + name + ":" + value + ";"
+        }
         function releaseConfiguredHolds(key) {}
         function refresh(editorOpen) {}
         function canClearRecord() { return false }
@@ -1389,7 +1399,10 @@ ApplicationWindow {
         controller: backend
         infoController: backend
         infoSelected: window.info
-        onDeviceTabRequested: index => window.info = index === 1
+        onDeviceTabRequested: index => {
+            window.info = index === 2
+            if (!window.info) deviceControlTabIndex = index
+        }
         accessory: ({key: window.selectedKey, kind: window.selectedKey === "op" ? "OPERATING" : "ASC2",
                      title: "Uncoupling Tracks", tmccId: window.selectedKey === "op" ? 24 : 40,
                      uncoupler: true, operations: []})
@@ -1452,6 +1465,27 @@ for width, height in ((720, 1280), (639, 800)):
         button.forceActiveFocus()
         QTest.keyClick(window, Qt.Key_Return)
         assert window.property("calls") == key + ":1;"
+        acc_tab = visible("operatingAccTab" if key == "op" else "accessoryDeviceControlTab1")
+        assert acc_tab.property("text") == "ACC"
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(acc_tab))
+        QTest.qWait(60)
+        assert visible("tmccAccessoryThrottle").isVisible()
+        slider = visible("tmccAccessoryThrottleSlider")
+        assert slider.property("scaleStep") == (5 if slider.height() < 170 else 1)
+        assert not any(item.isVisible() and item.objectName().startswith("uncouplerKey")
+                       for item in items(window.contentItem()))
+        window.setProperty("calls", "")
+        numeric = visible("accessoryCabKey_8")
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(numeric))
+        QTest.qWait(30)
+        assert window.property("calls") == key + ":" + str(address) + ":NUMERIC:8;"
+        throttle = visible("tmccAccessoryThrottle")
+        plus = next(item for item in items(throttle) if item.isVisible() and item.property("text") == "+")
+        window.setProperty("calls", "")
+        QTest.mouseClick(window, Qt.LeftButton, pos=point(plus))
+        QTest.qWait(30)
+        assert window.property("calls") == (
+            key + ":" + str(address) + ":RELATIVE_SPEED:1;" + key + ":" + str(address) + ":RELATIVE_SPEED:0;")
         tab = visible("operatingInfoTab" if key == "op" else "accessoryDeviceInfoTab")
         QTest.mouseClick(window, Qt.LeftButton, pos=point(tab))
         QTest.qWait(60)

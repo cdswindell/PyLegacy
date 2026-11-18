@@ -13,7 +13,7 @@ Rectangle {
     property var infoController
     property bool infoSelected: false
     property int deviceControlTabIndex: 0
-    readonly property int deviceInfoTabIndex: kind === "AMC2" ? 2 : 1
+    readonly property int deviceInfoTabIndex: deviceControls.infoTabIndex
     readonly property bool infoHasUnsavedChanges: deviceControls.infoHasUnsavedChanges
     readonly property bool infoEditorOpen: deviceControls.infoEditorOpen
     signal deviceTabRequested(int index)
@@ -22,7 +22,7 @@ Rectangle {
     readonly property bool hasArtwork: (accessory.artworkSource || "").length > 0
     readonly property real editorTop: pageLayout.y + cabHeader.y + cabHeader.height + 8
     readonly property string kind: accessory.kind || ""
-    readonly property bool hasAccessoryCab: kind === "OPERATING" && accessory.sharedCommandAddress === true
+    readonly property bool hasAccessoryCab: kind === "OPERATING" && (accessory.sharedCommandAddress === true || accessory.uncoupler === true)
     readonly property int infoTabIndex: hasAccessoryCab ? 2 : 1
     readonly property bool accessoryCabSelected: hasAccessoryCab && operatingTabs.currentIndex === 1
     readonly property real accessoryCabArtworkLimit: Math.max(0,
