@@ -421,7 +421,7 @@ BASE_MEMORY_D4_TRAIN_READ_MAP.update(
             lambda t: ConsistComponent.to_d4_bytes(t),
             default=None,
         ),
-        0xB6: CompDataHandler("_pseudo_train_id", default=0),
+        0xB6: CompDataHandler("_pseudo_train_id"),
     }
 )
 

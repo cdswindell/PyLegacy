@@ -56,6 +56,8 @@ def test_ramp_timestamp_roundtrip(command, timestamp_ms):
         assert parsed.data_bytes == req.data_bytes
         assert parsed.as_bytes == req.as_bytes
     with pytest.raises(AttributeError):
+        # Verify that the timestamp property cannot be assigned.
+        # noinspection PyPropertyAccess
         req.timestamp_ms = timestamp_ms + 1
 
 
@@ -63,7 +65,7 @@ def test_ramp_timestamp_roundtrip(command, timestamp_ms):
 @pytest.mark.parametrize("address", (7, 3180, 9999))
 @pytest.mark.parametrize("scope", SCOPES)
 @pytest.mark.parametrize("from_tmcc_rx", (False, True))
-def test_ramp_roundtrip(command, address, scope, from_tmcc_rx):
+def test_ramp_roundtrip(command: TMCC2EngineCommandEnumEx, address, scope, from_tmcc_rx):
     req = RampCommandReq.for_endpoint(command, address, "192.168.1.7", 0x1234, 0xABCD, scope, timestamp_ms=TIMESTAMP_MS)
     assert isinstance(req, VariableCommandReq)
     assert req.command is command
@@ -73,17 +75,19 @@ def test_ramp_roundtrip(command, address, scope, from_tmcc_rx):
     assert req.timestamp_ms == TIMESTAMP_MS
     assert not hasattr(req, "destination")
     assert not hasattr(req, "guid")
-    assert isinstance(command.value, VariableCommandDef)
-    assert command.value.num_data_bytes == 16
-    assert command.value.bits == (0xF100 if command is RAMP_COMMANDS[0] else 0xF101)
-    assert TMCC2EngineCommandEnumEx.by_value(command.value.bits) is command
+    command_def = req.command_def
+    assert command_def is command.value
+    assert isinstance(command_def, VariableCommandDef)
+    assert command_def.num_data_bytes == 16
+    assert command_def.bits == (0xF100 if command is RAMP_COMMANDS[0] else 0xF101)
+    assert TMCC2EngineCommandEnumEx.by_value(command_def.bits) is command
 
     packet = req.as_bytes
     assert len(packet) == 63 == req.num_bytes
     assert packet[:3] == bytes((0xF9 if scope is CommandScope.TRAIN else 0xF8, 3, 0x6F))
     assert packet[5] == 16
-    assert packet[8] == command.value.lsb
-    assert packet[11] == command.value.msb
+    assert packet[8] == command_def.lsb
+    assert packet[11] == command_def.msb
     assert packet[14:60:3] == address.to_bytes(2, "big") + PAYLOAD
     assert all(packet[i : i + 2] == bytes((0xFB, 2 + (scope is CommandScope.TRAIN))) for i in range(3, 63, 3))
     assert packet[-1:] == MultiByteReq.checksum(packet[:-1])
@@ -247,8 +251,12 @@ def test_build_defaults_and_payload_copy(payload_type):
     assert bytes(req.data_bytes) == PAYLOAD
     assert req.timestamp_ms == TIMESTAMP_MS
     with pytest.raises(TypeError):
+        # Attempted mutation verifies that the public payload is immutable.
+        # noinspection PyUnresolvedReferences
         req.data_bytes[8] = 0
     with pytest.raises(AttributeError):
+        # Verify that the payload property cannot be assigned.
+        # noinspection PyPropertyAccess
         req.data_bytes = bytes(14)
     assert RampCommandReq.build(RAMP_COMMANDS[0], 7, data_bytes=list(PAYLOAD)).as_bytes == req.as_bytes
 
@@ -268,6 +276,8 @@ def test_claim_wire_encoding():
 def test_serialization_does_not_mutate_request(address, scope):
     req = RampCommandReq.build(RAMP_COMMANDS[0], address, PAYLOAD, scope)
     original = req.__dict__.copy()
+    # Patch the inherited assignment hook to detect mutation during serialization.
+    # noinspection PyUnresolvedReferences
     with patch.object(
         RampCommandReq, "__setattr__", side_effect=AssertionError("Serialization must not mutate requests")
     ):
@@ -284,6 +294,7 @@ def test_updated_logical_address_and_scope(address, scope):
     req.address = address
     req.scope = scope
     parsed = CommandReq.from_bytes(req.as_bytes)
+    assert isinstance(parsed, RampCommandReq)
     assert parsed.address == address
     assert parsed.scope is scope
     assert parsed.data_bytes == PAYLOAD
@@ -311,6 +322,7 @@ def test_valid_endpoints(host, port, claim_id):
         + TIMESTAMP_MS.to_bytes(6, "big")
     )
     parsed = CommandReq.from_bytes(req.as_bytes)
+    assert isinstance(parsed, RampCommandReq)
     assert (parsed.host, parsed.port, parsed.claim_id) == (host, port, claim_id)
     assert parsed.timestamp_ms == TIMESTAMP_MS
 
@@ -332,6 +344,8 @@ def test_valid_endpoints(host, port, claim_id):
 )
 def test_invalid_payload(payload):
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.build(RAMP_COMMANDS[0], 7, payload)
 
 
@@ -346,14 +360,15 @@ def test_invalid_unicast_endpoint(host):
 @pytest.mark.parametrize("host", ("::1", "::ffff:192.168.1.7", "localhost", "bad-ip", "192.168.1.256", 1, None))
 def test_invalid_host(host):
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.for_endpoint(RAMP_COMMANDS[0], 7, host, 1234, 1, timestamp_ms=TIMESTAMP_MS)
 
 
 @pytest.mark.parametrize("field", ("port", "claim_id"))
 @pytest.mark.parametrize("value", (0, -1, 65536, True, 1.5, "1234", None))
 def test_invalid_endpoint_integer(field, value):
-    endpoint = {"host": "127.0.0.1", "port": 1234, "claim_id": 1}
-    endpoint[field] = value
+    endpoint = {"host": "127.0.0.1", "port": 1234, "claim_id": 1, field: value}
     with pytest.raises(ValueError):
         RampCommandReq.for_endpoint(RAMP_COMMANDS[0], 7, **endpoint, timestamp_ms=TIMESTAMP_MS)
 
@@ -362,14 +377,20 @@ def test_invalid_endpoint_integer(field, value):
 @pytest.mark.parametrize("timestamp_ms", (0, -1, 1 << 48, (1 << 48) + 1, True, False, 1.0, "1", None))
 def test_invalid_timestamp(command, timestamp_ms):
     with pytest.raises(ValueError, match="timestamp_ms"):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.for_endpoint(command, 7, "192.168.1.7", 1234, 1, timestamp_ms=timestamp_ms)
 
 
 @pytest.mark.parametrize("command", RAMP_COMMANDS)
 def test_timestamp_is_required_keyword(command):
     with pytest.raises(TypeError, match="timestamp_ms"):
+        # Deliberately violate the required keyword-only timestamp signature.
+        # noinspection PyArgumentList
         RampCommandReq.for_endpoint(command, 7, "192.168.1.7", 1234, 1)
     with pytest.raises(TypeError):
+        # Deliberately violate the required keyword-only timestamp signature.
+        # noinspection PyArgumentList
         RampCommandReq.for_endpoint(command, 7, "192.168.1.7", 1234, 1, CommandScope.ENGINE, TIMESTAMP_MS)
 
 
@@ -379,6 +400,8 @@ def test_timestamp_is_required_keyword(command):
 )
 def test_zero_timestamp_in_payload(command, builder):
     with pytest.raises(ValueError, match="timestamp_ms"):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         builder(command, 7, PAYLOAD[:8] + bytes(6))
 
 
@@ -387,24 +410,32 @@ def test_zero_endpoint_integer_in_payload(offset):
     payload = bytearray(PAYLOAD)
     payload[offset : offset + 2] = b"\x00\x00"
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.build(RAMP_COMMANDS[0], 7, payload)
 
 
 @pytest.mark.parametrize("scope", (CommandScope.ACC, CommandScope.SWITCH, "ENGINE", 1))
 def test_invalid_scope(scope):
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.build(RAMP_COMMANDS[0], 7, PAYLOAD, scope)
 
 
 @pytest.mark.parametrize("address", (0, -1, 99, 10000, True, 7.5, "7", None))
 def test_invalid_address(address):
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.build(RAMP_COMMANDS[0], address, PAYLOAD)
 
 
 @pytest.mark.parametrize("command", (TMCC2EngineCommandEnumEx.TARGET_SPEED, TMCC2DcdsCommandEnum.MASTER_VOLUME))
 def test_ramp_rejects_other_commands(command):
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         RampCommandReq.build(command, 7, PAYLOAD)
 
 
@@ -439,16 +470,28 @@ def test_variable_parser_delegates_address_values_to_builder(address, is_d4, sco
 
 @pytest.mark.parametrize("address", (100, 127))
 @pytest.mark.parametrize("scope", SCOPES)
-def test_variable_parser_delegates_unsupported_address_encoding(address, scope):
+def test_variable_parser_passes_scope_prefix_for_seven_bit_addresses(address, scope):
     command = TMCC2DcdsCommandEnum.MASTER_VOLUME
     packet = bytearray(VariableCommandReq.build(command, 7, 127, scope).as_bytes)
     packet[1] = (address << 1) | 1
     for i in range(3, len(packet), 3):
         packet[i + 1] = (address << 1) | (scope is CommandScope.TRAIN)
-    with patch.object(command.value, "address_from_bytes", wraps=command.value.address_from_bytes) as decode:
-        with pytest.raises(AttributeError, match="Cannot decode address from bytes"):
-            VariableCommandReq.from_bytes(repair_checksum(packet, 3))
-        decode.assert_called_once_with(bytes(packet[1:3]))
+    command_def = command.value
+    assert isinstance(command_def, VariableCommandDef)
+    # Patch the inherited decoder to verify forwarding of the wire scope prefix.
+    # noinspection PyUnresolvedReferences
+    with patch.object(command_def, "address_from_bytes", wraps=command_def.address_from_bytes) as decode:
+        wire_bytes = repair_checksum(packet, 3)
+        if scope is CommandScope.ENGINE:
+            with pytest.raises(AttributeError, match="Cannot decode address from bytes"):
+                VariableCommandReq.from_bytes(wire_bytes)
+        else:
+            parsed = VariableCommandReq.from_bytes(wire_bytes)
+            assert parsed.address == address
+            assert parsed.is_pseudo_train
+            assert not parsed.is_tmcc4
+            assert parsed.as_bytes == wire_bytes
+        decode.assert_called_once_with(bytes(packet[1:3]), prefix=packet[0])
 
 
 @pytest.mark.parametrize("digit_count", range(4))
@@ -630,6 +673,7 @@ def test_variable_target_speed_roundtrip(builder, address, scope):
     command = TMCC2EngineCommandEnumEx.TARGET_SPEED
     assert TMCC2EngineCommandEnumEx.by_value(command.value.bits) is command
     word_length = 7 if address > 99 else 3
+    req = None
     for speed in range(200):
         req = builder.build(command, address, speed, scope)
         assert type(req) is VariableCommandReq
@@ -648,6 +692,7 @@ def test_variable_target_speed_roundtrip(builder, address, scope):
             assert (parsed.command, parsed.address, parsed.scope, parsed.data) == (command, address, scope, speed)
             assert parsed.is_tmcc_rx is from_tmcc_rx
             assert parsed.as_bytes == packet
+    assert req is not None
     with pytest.raises(ValueError, match="TARGET_SPEED"):
         req.send()
     with pytest.raises(ValueError, match="TARGET_SPEED"):
@@ -693,6 +738,8 @@ def test_variable_parser_preserves_payload_without_range_validation():
 @pytest.mark.parametrize("command", tuple(TMCC2EngineCommandEnumEx) + tuple(TMCC2DcdsCommandEnum))
 def test_parameter_builder_rejects_variable_definitions(command):
     with pytest.raises(ValueError):
+        # Deliberately pass invalid types to exercise runtime validation.
+        # noinspection PyTypeChecker
         ParameterCommandReq.build(command, 7)
 
 

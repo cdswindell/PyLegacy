@@ -49,6 +49,7 @@ class D4Req(PdiReq, CompDataMixin):
         # D4 scope is determined by the PDI command: ENGINE or TRAIN.
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
+        self._next_free_rec = None
         self._data_length = self._data_bytes = self._start = self._timestamp = self._next_record_post_bytes = None
         self._error = error
         self._tmcc_id = tmcc_id
@@ -78,6 +79,8 @@ class D4Req(PdiReq, CompDataMixin):
                         self._data_bytes = data_bytes.to_bytes(data_length, byteorder="little")
             elif self.action == D4Action.COUNT:
                 self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
+            elif self.action == D4Action.FREE_REC:
+                self._next_free_rec = self._record_no
             elif self.action == D4Action.MAP:
                 self._suffix = None
                 if data_len > 9:
@@ -154,12 +157,20 @@ class D4Req(PdiReq, CompDataMixin):
         return self._data_length
 
     @property
+    def data_bytes(self) -> bytes | None:
+        return self._data_bytes
+
+    @property
     def count(self) -> int:
         return self._count
 
     @property
     def next_record_no(self) -> int:
         return self._next_record_no
+
+    @property
+    def next_free_record_no(self) -> int:
+        return self._next_free_rec
 
     @property
     def timestamp(self) -> int:
@@ -195,6 +206,8 @@ class D4Req(PdiReq, CompDataMixin):
             if self.action == D4Action.COUNT:
                 rn = ""
                 ct = f": {self.count}" if self.count is not None else ""
+            if self.action == D4Action.FREE_REC:
+                rn = f" Next Free Record No {self.next_free_record_no}"
             elif self.action == D4Action.MAP:
                 tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
                 if self.record_no == 0xFFFF:
@@ -232,6 +245,8 @@ class D4Req(PdiReq, CompDataMixin):
             D4Action.UPDATE,
         }:
             byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
+        elif self.action in {D4Action.FREE_REC}:
+            byte_str += bytes([0])
         if self.action == D4Action.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()

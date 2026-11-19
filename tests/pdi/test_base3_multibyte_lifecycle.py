@@ -5,6 +5,8 @@
 #
 import pytest
 
+# The private completion type is needed to assert the production multibyte lifecycle.
+# noinspection PyProtectedMember
 from src.pytrain.pdi.base3_buffer import Base3Buffer, _MultyByteCommand
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, TMCC_TX
 from src.pytrain.pdi.pdi_req import TmccReq
@@ -28,7 +30,7 @@ def harness(monkeypatch):
     monkeypatch.setattr(MultiByteReq, "vet_bytes", lambda *args, **kwargs: (False, True, False))
     monkeypatch.setattr(CommandReq, "from_bytes", lambda data: command)
     monkeypatch.setattr(TmccReq, "as_packets", lambda cmd: list(packets))
-    monkeypatch.setattr(buffer, "send", lambda data: enqueued.append(data))
+    monkeypatch.setattr(buffer, "send", lambda data, **_: enqueued.append(data))
     monkeypatch.setattr(base3_module.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(base3_module.CommandObserver, "offer", lambda data: observed.append(data))
     monkeypatch.setattr(

@@ -489,7 +489,7 @@ class CommBufferSingleton(CommBuffer, Thread):
             self._tmcc_dispatcher.offer(tmcc_cmd)
             Base3Buffer.sync_state(data, tmcc_cmd=tmcc_cmd)
         else:
-            if tmcc_cmd.address > 99:
+            if tmcc_cmd.uses_d4_address:
                 pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC4_TX)
             else:
                 pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)

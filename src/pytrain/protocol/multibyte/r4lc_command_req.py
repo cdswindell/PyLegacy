@@ -54,10 +54,9 @@ class R4LCCommandReq(MultiByteReq):
             if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                 scope = CommandScope.TRAIN
             # build_req the request and return
-            address = cmd_enum.value.address_from_bytes(param[1:3])
+            address = cmd_enum.value.address_from_bytes(param[1:3], prefix=param[0])
             cmd_req = R4LCCommandReq.build(cmd_enum, address, data, scope)
-            if from_tmcc_rx:
-                cmd_req._is_tmcc_rx = True
+            cmd_req._set_decoded_bytes(param, False, from_tmcc_rx)
             return cmd_req
         raise ValueError(f"Invalid R4LC command: : {param.hex(':')}")
 

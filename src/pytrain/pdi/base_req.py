@@ -132,9 +132,21 @@ class BaseReq(PdiReq, CompDataMixin):
             refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send(), deduplicate_writes=True)
         return None if refresh_requested else cls.create_base_query_request(state)
 
+    @staticmethod
+    def resolve_query_state(state: ComponentState) -> ComponentState:
+        """A pseudo train uses its owning D4 train's database record."""
+        if state.scope == CommandScope.TRAIN and 100 <= state.tmcc_id <= 127:
+            from ..db.component_state_store import ComponentStateStore
+
+            owner = ComponentStateStore.by_pseudo_train_id(state.tmcc_id)
+            if owner is not None:
+                return owner
+        return state
+
     # noinspection bad-argument-type
     @classmethod
     def create_base_query_request(cls, state: ComponentState) -> BaseReq | D4Req:
+        state = cls.resolve_query_state(state)
         if 1 <= state.tmcc_id <= 99:
             return cls(state.tmcc_id, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
         else:

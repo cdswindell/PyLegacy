@@ -108,6 +108,7 @@ class Base3DbRefreshManager:
 
     def _enqueue(self, state: StateT) -> None:
         """Enqueues state into time‑tracked bucket; wakes processing thread"""
+        state = BaseReq.resolve_query_state(state)
         now = time.monotonic()
         key = self._key(state)
 
@@ -128,6 +129,7 @@ class Base3DbRefreshManager:
         self._wake.set()
 
     def _force_ready(self, state: StateT) -> None:
+        state = BaseReq.resolve_query_state(state)
         now = time.monotonic()
         key = self._key(state)
 

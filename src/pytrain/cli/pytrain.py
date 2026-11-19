@@ -1791,10 +1791,11 @@ class PyTrain:
             if param[0].lower().startswith("ba"):
                 agr = BaseReq(0, PdiCommand.BASE)
         elif param_len >= 2 and param[0].lower().startswith("d"):  # 4-digit base commands
+            param[0] = "d4_train" if param[0].lower().startswith("dt") else param[0]
             pdi = PdiCommand.by_prefix(param[0], raise_exception=True)
             action = D4Action.by_prefix(param[1], raise_exception=True)
             assert pdi is not None
-            if action in {D4Action.COUNT, D4Action.FIRST_REC}:
+            if action in {D4Action.COUNT, D4Action.FIRST_REC, D4Action.FREE_REC}:
                 agr = D4Req(0, pdi, action=action)
             # Builds D4 request with MAP, NEXT_REC, or QUERY/UPDATE parameters and validation
             if agr is None and param_len >= 3:
@@ -1822,8 +1823,9 @@ class PyTrain:
                         db = None
                         action = D4Action.QUERY
                     agr = D4Req(rec_no, pdi, action=action, start=start, data_length=length, data_bytes=db)
-                else:
-                    log.info(f"Unsupported D4 command: {action.label} --> {param}")
+            if agr is None:
+                label = action.label if action else str(action)
+                log.info(f"Unsupported D4 command: {label} --> {param}")
         elif param_len >= 2 and param[0].lower().startswith("m"):  # Base Memory commands
             pdi = PdiCommand.BASE_MEMORY
             rec_no = int(param[1], 16) if "0x" in param[1] else int(param[1])

@@ -95,7 +95,7 @@ def test_multibyte_command_syncs_complete_request_once(monkeypatch):
     buffer._mbc_registry = {}
     buffer._send_queue = Mock()
     buffer._send_queue.get.side_effect = lambda: pending.pop(0)
-    buffer.send = Mock(side_effect=pending.append)
+    buffer.send = Mock(side_effect=lambda data, **_: pending.append(data))
 
     def sync_state(data, *, tmcc_cmd=None):
         events.append(("sync", data, tmcc_cmd))
@@ -224,8 +224,8 @@ def test_ble_programming_notification_published_on_engine_scope(packet_hex, tmcc
     received = []
     done = threading.Event()
 
-    def capture(req):
-        received.append(req)
+    def capture(message):
+        received.append(message)
         done.set()
 
     listener.subscribe(capture, CommandScope.ENGINE)
@@ -248,7 +248,7 @@ def test_ble_notification_does_not_create_engine_state(monkeypatch):
     )
     listener = PdiListener.build(base3=None, build_base3_reader=False)
     done = threading.Event()
-    listener.subscribe(lambda req: done.set(), CommandScope.ENGINE)
+    listener.subscribe(lambda message: done.set(), CommandScope.ENGINE)
     listener.offer(bytes.fromhex("d176001225ff54df"))
     assert done.wait(2)
     assert not calls

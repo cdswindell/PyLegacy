@@ -631,7 +631,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         if isinstance(command, CommandReq) and command.is_tmcc_rx:
             # Bare TMCC bytes discard the source flag and merge delayed RX echoes
             # with immediate server feedback on clients that own a ramp.
-            pdi_command = PdiCommand.TMCC4_RX if command.address > 99 else PdiCommand.TMCC_RX
+            pdi_command = PdiCommand.TMCC4_RX if command.uses_d4_address else PdiCommand.TMCC_RX
             payload = TmccReq(command, pdi_command).as_bytes
         else:
             payload = command.as_bytes
