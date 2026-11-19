@@ -412,14 +412,16 @@ FIELD_TO_ADDR_TRAIN_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_TRAIN_READ_MAP
 BASE_MEMORY_D4_TRAIN_READ_MAP = BASE_MEMORY_ENGINE_READ_MAP.copy()
 BASE_MEMORY_D4_TRAIN_READ_MAP.update(
     {
+        0x02: CompDataHandler("_record_type", default=3),
         0x6D: CompDataHandler("_consist_flags"),
         0x6E: CompDataHandler(
             "_consist_comps",
             64,
             lambda t: ConsistComponent.from_d4_bytes(t),
             lambda t: ConsistComponent.to_d4_bytes(t),
+            default=None,
         ),
-        0xB6: CompDataHandler("_pseudo_train_id"),
+        0xB6: CompDataHandler("_pseudo_train_id", default=0),
     }
 )
 
@@ -1002,7 +1004,7 @@ class CompData(ABC, Generic[R]):
                     f"got {len(data)} bytes, expected {PdiReq.scope_record_length(self.scope)}"
                 )
 
-            if scope == CommandScope.TRAIN and tmcc_id is None:
+            if scope == CommandScope.TRAIN and (tmcc_id is None or tmcc_id > 99):
                 comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
             else:
                 comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
@@ -1011,7 +1013,10 @@ class CompData(ABC, Generic[R]):
             self._set_defaults()
 
     def _set_defaults(self) -> None:
-        field_map = SCOPE_TO_COMP_MAP.get(self._scope, None)
+        if self._scope == CommandScope.TRAIN and self._tmcc_id is not None and self._tmcc_id > 99:
+            field_map = BASE_MEMORY_D4_TRAIN_READ_MAP
+        else:
+            field_map = SCOPE_TO_COMP_MAP.get(self._scope)
         if field_map:
             for addr, field in field_map.items():
                 if field.field == "_tmcc_id":
