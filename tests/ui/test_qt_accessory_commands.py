@@ -877,6 +877,7 @@ def assert_qml_scenario(source: str) -> None:
     assert "Error:" not in result.stderr, result.stderr
 
 
+@pytest.mark.qt_gui
 def test_roster_filters_and_momentary_pointer_behavior() -> None:
     assert_qml_scenario(ROSTER_CHILD)
 
@@ -1044,6 +1045,7 @@ window.close()
 """
 
 
+@pytest.mark.qt_gui
 def test_operating_panel_disables_gated_buttons_and_preserves_gesture_lifecycle() -> None:
     assert_qml_scenario(OPERATING_CHILD)
 
@@ -1111,6 +1113,7 @@ assert not result.isError(), result.toString()
 """
 
 
+@pytest.mark.qt_gui
 def test_accessory_scope_toggles_controls_roster_and_preserves_keypad_navigation() -> None:
     main_qml = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml" / "CabWorkspace.qml"
     result = subprocess.run(
@@ -1264,6 +1267,7 @@ window.close()
 """
 
 
+@pytest.mark.qt_gui
 def test_operating_acc_tab_labels_match_functions_without_changing_commands_or_generic_labels() -> None:
     assert_qml_scenario(CAB_LABELS_CHILD)
 
@@ -1553,6 +1557,7 @@ window.close()
 """
 
 
+@pytest.mark.qt_gui
 def test_uncoupler_controls_open_directly_and_display_eight_single_pulse_keys() -> None:
     assert_qml_scenario(UNCOUPLER_CHILD)
 
@@ -1585,13 +1590,14 @@ def test_uncoupler_control2_uses_independent_masks_and_only_device_feedback_conf
     else:
         controller.reload()
     key = next(row["key"] for row in controller.rows if row["configured"] == configured)
-    monkeypatch.setattr(module, "monotonic", lambda: 10.0)
+    monkeypatch.setitem(vars(module), "monotonic", lambda: 10.0)
     assert controller.operatingView(key)["relayStates"] == [-1] * 8
     assert controller.pulseUncoupler(key, 2)
     assert controller.pulseUncoupler(key, 8)
     assert controller.operatingView(key)["uncouplerActiveMask"] == 130
     # SET echoes and unrelated Off reports must not clear a pulse highlight.
-    # noinspection PyProtectedMember
+    # ASC2_SET is an IntEnum member; PyCharm resolves its same-named module integer here.
+    # noinspection PyProtectedMember,PyTypeChecker
     controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_SET, Asc2Action.CONTROL2, values=0, valids=255))
     # noinspection PyProtectedMember
     controller._pdi_command(Asc2Req(24, PdiCommand.ASC2_RX, Asc2Action.CONTROL3, values=0, valids=1))
@@ -1642,7 +1648,7 @@ def test_uncoupler_control2_uses_independent_masks_and_only_device_feedback_conf
     receive(PdiCommand.ASC2_RX, Asc2Action.CONTROL2, 0, 255)
     assert controller.operatingView(key)["relayStates"] == [0] * 8
     assert controller.setUncouplerRelays(key, 255, 255)
-    monkeypatch.setattr(module, "monotonic", lambda: 13.0)
+    monkeypatch.setitem(vars(module), "monotonic", lambda: 13.0)
     # Exercise the timer callback deterministically without waiting for wall-clock time.
     # noinspection PyProtectedMember
     controller._expire_relay_requests()

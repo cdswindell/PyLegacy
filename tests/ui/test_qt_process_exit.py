@@ -99,6 +99,7 @@ print("QT_EXIT_OK")
 @pytest.mark.skipif(importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test Qt exits")
 @pytest.mark.parametrize("action", ["close", "signal"])
 @pytest.mark.parametrize("cleanup", ["success", "failure"])
+@pytest.mark.qt_gui
 def test_qt_process_exits_and_shuts_down_runtime(action: str, cleanup: str) -> None:
     result = _run_qt_child(action, cleanup)
     if cleanup == "failure":
@@ -107,6 +108,7 @@ def test_qt_process_exits_and_shuts_down_runtime(action: str, cleanup: str) -> N
 
 @pytest.mark.skipif(importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test Qt exits")
 @pytest.mark.parametrize("action", ["QUIT", "REBOOT", "RESTART", "SHUTDOWN", "UPDATE", "UPGRADE"])
+@pytest.mark.qt_gui
 def test_admin_commands_close_qt_before_running_deferred_action(action: str) -> None:
     _run_qt_child(action, "success")
 

@@ -88,6 +88,24 @@ The five screenshots supplied on November 8, 2026, their identities, and the
 user's design preferences are preserved in the
 [design reference index](design-references/2026-11-08/README.md).
 
+## Test groups
+
+The default `pytest` run includes core and Qt controller/unit tests. Native Qt
+integration scenarios are marked `qt_gui` and run separately because they start
+real applications and exercise timed gestures, rendering, and process shutdown.
+
+- `../bin/python -m pytest` runs the fast unit suite.
+- `tox -p` runs unit tests across Python 3.11–3.14 and Ruff in parallel. It excludes native GUI integration scenarios while retaining Qt controller/unit tests.
+- `tox -e qt-gui` explicitly runs the native GUI scenarios using the host Python.
+- Run both commands before checking in GUI changes. CI also runs the native GUI scenarios once on Python 3.13; they remain outside the default tox environment list.
+- `../bin/python -m pytest -o addopts=` runs both groups in one interpreter when needed.
+
+The GUI environment inherits `PYTHONPATH` so its child processes can import the
+checkout even without an editable installation. Adding a real-window scenario
+requires the `qt_gui` marker; tests of controllers and commands stay in the unit
+suite. The groups preserve all existing assertions and scenarios.
+
 ## Remaining tasks
 
 - [ ] Implement the Wi-Fi signal-strength meter in the Qt GUI. Deferred; not implemented yet.
+- [ ] Separate core PyTrain and the GUI into independently installable packages in the same repository. Move shared accessory metadata, registry definitions, and configuration models out of `pytrain.gui` into a GUI-independent core location, retaining compatibility imports for legacy callers. Keep Qt dependencies in the GUI package so core-only installations do not require them. Deferred; do not implement yet.

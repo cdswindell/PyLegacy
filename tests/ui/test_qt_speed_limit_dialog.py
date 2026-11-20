@@ -229,6 +229,7 @@ print("SPEED_LIMIT_DIALOG_OK")
 
 @pytest.mark.skipif(importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test the dialog")
 @pytest.mark.parametrize("maximum", [31, 199])
+@pytest.mark.qt_gui
 def test_speed_limit_dialog_commits_on_set_or_clear(maximum: int) -> None:
     environment = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"

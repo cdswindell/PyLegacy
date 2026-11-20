@@ -135,6 +135,7 @@ print("ROSTER_SEARCH_OK")
     importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test search controls"
 )
 @pytest.mark.parametrize("maximum", [98, 9999])
+@pytest.mark.qt_gui
 def test_roster_search_selects_valid_ids_on_release(maximum: int) -> None:
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
     result = subprocess.run(

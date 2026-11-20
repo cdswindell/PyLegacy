@@ -215,6 +215,7 @@ sys.exit(result)
 
 # Isolate this QML scenario in its own process and retain per-test diagnostics.
 # noinspection DuplicatedCode
+@pytest.mark.qt_gui
 def test_switch_filters_preserve_search_and_gestures_and_color_live_state() -> None:
     pytest.importorskip("PySide6")
     result = subprocess.run(

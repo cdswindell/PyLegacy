@@ -130,6 +130,7 @@ print("KEYPAD_POINTER_OK")
     importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test pointer input"
 )
 @pytest.mark.parametrize("action", ["submit", "close", "program"])
+@pytest.mark.qt_gui
 def test_keypad_click_finishes_before_selection_or_close(action: str) -> None:
     environment = dict(os.environ)
     environment.setdefault("QT_QPA_PLATFORM", "offscreen")

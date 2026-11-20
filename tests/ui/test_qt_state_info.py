@@ -518,6 +518,7 @@ for creating, can_clear, expected in (
 """
 
 
+@pytest.mark.qt_gui
 def test_state_info_clear_button_tracks_record_permissions() -> None:
     pytest.importorskip("PySide6")
     qml = Path(__file__).resolve().parents[2] / "src/pytrain_ui/qt/qml/StateInfoView.qml"
@@ -888,6 +889,7 @@ sys.exit(result)
 
 # Keep this native Qt application scenario isolated and retain its own subprocess diagnostics.
 # noinspection DuplicatedCode
+@pytest.mark.qt_gui
 def test_cab_and_accessory_info_tabs_preserve_navigation_and_confirm_discard() -> None:
     pytest.importorskip("PySide6")
     result = subprocess.run(

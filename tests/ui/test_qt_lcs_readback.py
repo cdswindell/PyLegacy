@@ -217,6 +217,7 @@ ApplicationWindow {
 """
 
 
+@pytest.mark.qt_gui
 def test_lcs_assignments_and_overlaps_refresh_while_editing_the_address() -> None:
     pytest.importorskip("PySide6")
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
@@ -242,7 +243,7 @@ def test_select_configured_asc2_preserves_reported_mode(
     controller, _, _, _, _, _ = lcs_readback
     mode = ASC2.mode_for_pdi_mode(mode_number)
     occupant = LcsOccupant(20, ASC2, mode, mode.ports, scope=mode.scope)
-    monkeypatch.setattr(module, "occupants_of", lambda address, **_: [occupant] if address == 20 else [])
+    monkeypatch.setitem(vars(module), "occupants_of", lambda address, **_: [occupant] if address == 20 else [])
     controller.selectConfiguredModule("asc2", 20, scope_label)
     assert controller.baseId == 20
     assert controller.deviceKey == "asc2"

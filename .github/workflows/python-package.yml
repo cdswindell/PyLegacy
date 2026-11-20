@@ -44,5 +44,11 @@ jobs:
         run: ruff check --output-format=github --target-version=py310
       - name: check code formatting
         run: ruff format --diff --target-version=py310
-      - name: Test with pytest
+      - name: Run unit tests
         run: pytest
+      - name: Run native Qt integration tests once
+        if: matrix.python-version == '3.13'
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONPATH: ./src
+        run: pytest -o addopts= -m qt_gui tests/ui

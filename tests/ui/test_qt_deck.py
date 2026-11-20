@@ -170,6 +170,7 @@ sys.exit(1 if failures else 0)
 
 # Keep native Qt application ownership and child-process diagnostics isolated for this scenario.
 # noinspection DuplicatedCode
+@pytest.mark.qt_gui
 def test_deck_workspaces_and_profile_targets_are_independent() -> None:
     pytest.importorskip("PySide6")
     result = subprocess.run(

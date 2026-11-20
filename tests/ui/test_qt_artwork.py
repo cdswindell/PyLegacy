@@ -110,6 +110,7 @@ def test_deleted_display_copy_is_rebuilt(tmp_path: Path) -> None:
     assert QImage(str(result)).height() == 24
 
 
+@pytest.mark.qt_gui
 def test_artwork_worker_keeps_preparation_and_shutdown_off_the_gui_path(tmp_path: Path) -> None:
     import subprocess
     import sys

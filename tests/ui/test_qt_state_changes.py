@@ -73,6 +73,7 @@ print("STATE_BRIDGE_OK")
 """
 
 
+@pytest.mark.qt_gui
 def test_qt_bridge_coalesces_delivers_on_owner_thread_and_closes_without_backlog() -> None:
     pytest.importorskip("PySide6")
     result = subprocess.run(

@@ -195,6 +195,7 @@ print("STATE_DIALOG_OK")
 
 
 @pytest.mark.skipif(importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test the dialog")
+@pytest.mark.qt_gui
 def test_state_dialog_drafts_and_submission() -> None:
     environment = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"

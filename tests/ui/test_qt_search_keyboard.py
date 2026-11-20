@@ -141,6 +141,7 @@ print("SEARCH_KEYBOARD_OK")
 
 
 @pytest.mark.skipif(importlib.util.find_spec("PySide6") is None, reason="Install the qt-gui extra to test the keyboard")
+@pytest.mark.qt_gui
 def test_touch_search_keyboard_filters_without_selecting() -> None:
     qml_directory = Path(__file__).resolve().parents[2] / "src" / "pytrain_ui" / "qt" / "qml"
     result = subprocess.run(
