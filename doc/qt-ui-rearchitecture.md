@@ -87,3 +87,7 @@ Switch and Route retain their original window size and unscaled layout.
 The five screenshots supplied on November 8, 2026, their identities, and the
 user's design preferences are preserved in the
 [design reference index](design-references/2026-11-08/README.md).
+
+## Remaining tasks
+
+- [ ] Implement the Wi-Fi signal-strength meter in the Qt GUI. Deferred; not implemented yet.
