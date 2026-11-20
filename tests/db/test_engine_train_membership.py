@@ -1,4 +1,4 @@
-"""Resolve only the established one-byte train assignment of 2D engines."""
+"""Resolve train membership from 2D assignments and 4D train record references."""
 
 import pytest
 
@@ -31,9 +31,9 @@ def engine_record(raw_train_id: int | None = 255) -> EngineState:
     return engine
 
 
-def load_train(address: int = 550, pseudo_id: int = 100) -> TrainState:
+def load_train(address: int = 550, pseudo_id: int = 100, record_no: int = 0) -> TrainState:
     store = ComponentStateStore.get() if ComponentStateStore.is_built() else ComponentStateStore.build()
-    store(train_record(address=address, pseudo_id=pseudo_id))
+    store(train_record(address=address, pseudo_id=pseudo_id, record_no=record_no))
     train = ComponentStateStore.get_state(CommandScope.TRAIN, address, create=False)
     assert isinstance(train, TrainState)
     return train
@@ -98,7 +98,9 @@ def test_loaded_roster_does_not_override_two_digit_record_assignment(raw_id: int
 
 @pytest.mark.parametrize("address", (100, 127, 3233))
 @pytest.mark.parametrize("raw_id", (7, 100, 255))
-def test_four_digit_engine_membership_is_not_inferred_from_byte_or_roster(address: int, raw_id: int):
+def test_four_digit_engine_without_record_reference_does_not_infer_membership_from_byte_or_roster(
+    address: int, raw_id: int
+):
     train = load_train()
     train.comp_data.consist_comps = [ConsistComponent(address, 1)]
     record_data = train_record(address=address).data_bytes
@@ -134,3 +136,90 @@ def test_train_state_does_not_resolve_its_record_as_an_engine_assignment():
     train.comp_data.train_tmcc_id = 100
     assert train.train_tmcc_id == 100
     assert train.raw_train_tmcc_id == 100
+
+
+def four_digit_engine_record(train_record_no: int, raw_train_id: int = 255) -> EngineState:
+    record_data = train_record(address=3233).data_bytes
+    assert record_data is not None
+    data = bytearray(record_data)
+    data[2] = 0x0E
+    data[0x1C] = raw_train_id
+    data[0xB4:0xB6] = train_record_no.to_bytes(2, "little")
+    packet = D4Req(
+        train_record_no,
+        PdiCommand(0x2E),
+        D4Action.QUERY,
+        start=0,
+        data_length=len(data),
+        data_bytes=bytes(data),
+        timestamp=0,
+    )
+    engine = EngineState()
+    engine.update(D4Req(packet.as_bytes))
+    assert engine.is_d4
+    return engine
+
+
+@pytest.mark.parametrize("train_id", (100, 127, 500, 550, 9999))
+@pytest.mark.parametrize("record_no", (0, 1, 0x1234))
+def test_four_digit_engine_resolves_train_record_in_train_scope(train_id: int, record_no: int):
+    load_train(train_id, pseudo_id=255, record_no=record_no)
+    engine = four_digit_engine_record(record_no)
+    # Engine and train record numbers are separate namespaces; deliberately collide.
+    ComponentStateStore.set_state(CommandScope.ENGINE, 3233, engine)
+    assert ComponentStateStore.by_record_no(record_no) is engine
+    assert engine.train_tmcc_id == train_id
+    assert engine.raw_train_tmcc_id == 255
+    data = engine.comp_data
+    assert isinstance(data, EngineData)
+    assert data.train_record_no == record_no
+    assert data.train_tmcc_id == 255
+
+
+@pytest.mark.parametrize("raw_id", (7, 100, 255))
+def test_four_digit_reference_takes_precedence_over_one_byte_field(raw_id: int):
+    load_train(500, record_no=1)
+    engine = four_digit_engine_record(1, raw_id)
+    assert engine.train_tmcc_id == 500
+    assert engine.raw_train_tmcc_id == raw_id
+
+
+def test_four_digit_reference_without_store_is_unresolved_and_does_not_build_store():
+    engine = four_digit_engine_record(0)
+    assert not ComponentStateStore.is_built()
+    assert engine.train_tmcc_id is None
+    assert not ComponentStateStore.is_built()
+
+
+@pytest.mark.parametrize("record_no", (None, 0xFFFF))
+def test_unset_four_digit_reference_does_not_fall_back_to_pseudo_or_roster(record_no):
+    train = load_train(record_no=0)
+    train.comp_data.consist_comps = [ConsistComponent(3233, 1)]
+    engine = four_digit_engine_record(0xFFFF, raw_train_id=100)
+    data = engine.comp_data
+    assert isinstance(data, EngineData)
+    data.train_record_no = record_no
+    assert engine.train_tmcc_id is None
+    assert engine.raw_train_tmcc_id == 100
+
+
+def test_missing_referenced_train_does_not_create_state_or_use_other_record():
+    load_train(500, record_no=0)
+    engine = four_digit_engine_record(17)
+    store = ComponentStateStore.get()
+    before = store.addresses(CommandScope.TRAIN)
+    assert engine.train_tmcc_id is None
+    assert store.addresses(CommandScope.TRAIN) == before
+
+
+def test_four_digit_membership_tracks_late_train_load_deletion_and_record_reuse():
+    engine = four_digit_engine_record(0)
+    assert engine.train_tmcc_id is None
+    train = load_train(500, record_no=0)
+    assert engine.train_tmcc_id == 500
+    ComponentStateStore.delete_state(train)
+    assert engine.train_tmcc_id is None
+    load_train(501, record_no=0)
+    assert engine.train_tmcc_id == 501
+    ComponentStateStore.reset()
+    assert engine.train_tmcc_id is None

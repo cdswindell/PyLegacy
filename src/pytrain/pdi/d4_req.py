@@ -13,7 +13,13 @@ from datetime import datetime
 
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .pdi_req import PdiReq
-from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataHandler, CompDataMixin
+from ..db.comp_data import (
+    BASE_MEMORY_D4_ENGINE_READ_MAP,
+    BASE_MEMORY_D4_TRAIN_READ_MAP,
+    CompData,
+    CompDataHandler,
+    CompDataMixin,
+)
 from ..protocol.constants import CommandScope
 
 LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
@@ -218,7 +224,12 @@ class D4Req(PdiReq, CompDataMixin):
                 ts = f" {self.timestamp_str}"
                 di = f" Index: {hex(self.start)}" if self.start is not None else ""
                 dl = f" Length: {hex(self.data_length)}" if self.data_length is not None else ""
-                tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
+                read_map = (
+                    BASE_MEMORY_D4_TRAIN_READ_MAP
+                    if self.scope == CommandScope.TRAIN
+                    else BASE_MEMORY_D4_ENGINE_READ_MAP
+                )
+                tpl = read_map.get(self.start, None)
                 if isinstance(tpl, CompDataHandler) and self._data_bytes and (self.data_length == tpl.length):
                     db = f" Data: {tpl.from_bytes(self._data_bytes)}"
                 else:

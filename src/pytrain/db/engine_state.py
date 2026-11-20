@@ -305,7 +305,7 @@ class EngineState(ComponentState):
             ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
             if self._d4_rec_no is not None:
                 rn = f" {self.record_no_label}"
-            if isinstance(self, TrainState) and self.pseudo_train_id:
+            if isinstance(self, TrainState) and self.pseudo_train_id and self.pseudo_train_id != 0xFF:
                 pid = f" PID: {self.pseudo_train_id}"
             if isinstance(self, TrainState) and self.consist_components:
                 c = "\n"
@@ -315,7 +315,7 @@ class EngineState(ComponentState):
                 tr = f" Train: {self.train_tmcc_id}"
             return (
                 f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{fl}{dr}{sm}"
-                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{ss}{tr}{nu}{aux}{c}{pid}"
+                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{pid}{ss}{tr}{nu}{aux}{c}"
             )
         except AttributeError as ae:
             if self.comp_data is None:
@@ -1116,19 +1116,24 @@ class EngineState(ComponentState):
 
     @property
     def train_tmcc_id(self) -> int | None:
-        """Resolve a 2D engine's one-byte train assignment to its actual train ID.
+        """Resolve the containing train from a D4 record reference or 2D assignment.
 
-        Four-digit engine membership is unknown until its record format is decoded.
-        A pseudo ID without a known owner is also unresolved, rather than an actual
-        train address. The raw record value remains available separately.
+        Missing train records and unknown pseudo IDs remain unresolved. The engine's
+        raw one-byte assignment remains available through raw_train_tmcc_id.
         """
+        if self.scope == CommandScope.ENGINE and self.is_d4:
+            record_no = self.comp_data.train_record_no if self.comp_data else None
+            if record_no is None or record_no == 0xFFFF:
+                return None
+            from .component_state_store import ComponentStateStore
+
+            train = ComponentStateStore.by_record_no(record_no, scope=CommandScope.TRAIN)
+            return train.tmcc_id if train is not None else None
         raw_id = self.raw_train_tmcc_id
         if raw_id is None or raw_id == 255:
             return None
         if self.scope != CommandScope.ENGINE:
             return raw_id
-        if self.is_d4:
-            return None
         if 0 <= raw_id <= 99:
             return raw_id
         if 100 <= raw_id <= 127:

@@ -172,10 +172,11 @@ class ComponentStateStore:
 
     @classmethod
     def by_record_no(cls, record_no: int, scope: CommandScope = CommandScope.ENGINE) -> T | None:
-        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and scope in cls._instance._state:
-            for address in cls._instance._state[scope]:
-                if cls._instance._state[scope][address].record_no == record_no:
-                    return cls._instance._state[scope][address]
+        with cls._lock:
+            if cls._instance is not None and scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                for state in cls._instance._state.get(scope, {}).values():
+                    if state.record_no == record_no:
+                        return state
         return None
 
     def __new__(cls, *args, **kwargs):
