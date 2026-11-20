@@ -66,7 +66,7 @@ Rectangle {
             }
             Label {
                 objectName: "networkSignal"
-                text: root.reading.connection === "Ethernet" ? "Wired connection" : root.reading.signal
+                text: root.reading.signal
                 color: root.reading.color
                 font.pixelSize: 16
             }

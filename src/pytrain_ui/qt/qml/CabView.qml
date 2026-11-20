@@ -4,8 +4,13 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    objectName: "operatingCabView"
     PanelMetrics { id: metrics }
     required property var cab
+    property var controlCab: cab
+    readonly property var keyCab: effectsVisible && !stateInfoVisible ? cab : controlCab
+    readonly property bool linkedCarSelected: controlCab !== cab
+    readonly property bool drivingStandaloneCar: cab.isStandalonePassenger || cab.isStandaloneFreight
     required property var selection
     property var infoController: null
     property bool stateInfoVisible: false
@@ -20,17 +25,35 @@ Rectangle {
     signal controlPageRequested(int index)
     signal stateInfoClosed()
     property bool effectsVisible: false
-    readonly property string effectsPageTitle: cab.isCrane ? "Sound" : cab.isTransformer ? "Speed"
-        : cab.isElectric ? "Speed & Effects" : "Speed/Volume"
+    readonly property string effectsPageTitle: keyCab.isCrane ? "Sound" : keyCab.isTransformer ? "Speed"
+        : keyCab.isElectric ? "Speed & Effects" : "Speed/Volume"
     property string selectedAnalogMode: "Horn"
     readonly property bool dialogPanelOpen: dialogPanel.visible
     readonly property bool editorOpen: speedLimitDialog.visible || stateValueDialog.visible || bellHornPanel.visible || dialogPanelOpen
     readonly property int currentPageIndex: root.stateInfoVisible && !root.stateInfoFromRoster
-        ? (cab.isAccessoryEngine ? 1 : 2) : root.effectsVisible && !cab.isAccessoryEngine ? 1 : 0
-    onCurrentPageIndexChanged: pageTabs.currentIndex = currentPageIndex
+        ? (keyCab.isAccessoryEngine ? 1 : 2) : root.effectsVisible && !keyCab.isAccessoryEngine ? 1 : 0
+    onCurrentPageIndexChanged: {
+        cancelTransientPanels()
+        pageTabs.currentIndex = currentPageIndex
+    }
+    readonly property string interactionTarget: targetKey + ":" + controlCab.scope + ":" + controlCab.tmccId
+    onInteractionTargetChanged: cancelTransientPanels()
+
+    function cancelHeldControls() {
+        function cancelChildren(item) {
+            for (const child of item.children || []) {
+                if (typeof child.cancelInteraction === "function")
+                    child.cancelInteraction()
+                cancelChildren(child)
+            }
+        }
+        cancelChildren(root)
+        if (cab) cab.cancelRelativeThrottle()
+        if (controlCab && controlCab !== cab) controlCab.cancelRelativeThrottle()
+    }
 
     function selectControlPage(index) {
-        effectsVisible = index === 1 && !cab.isAccessoryEngine
+        effectsVisible = index === 1 && !keyCab.isAccessoryEngine
         pageTabs.currentIndex = currentPageIndex
         actionScroll.contentItem.contentY = 0
     }
@@ -42,11 +65,11 @@ Rectangle {
 
     // A button reflects the operator's request immediately. Delayed snapshots
     // with the old direction must not undo it; fresh direction feedback wins.
-    onVisibleChanged: if (!visible) cab.cancelRelativeThrottle()
+    onVisibleChanged: if (!visible) cancelHeldControls()
     onReportedDirectionChanged: requestedDirection = ""
     onTargetKeyChanged: {
         requestedDirection = ""
-        if (cab.isAccessoryEngine)
+        if (keyCab.isAccessoryEngine)
             effectsVisible = false
         selectedAnalogMode = "Horn"
         Qt.callLater(root.syncAnalogMode)
@@ -75,7 +98,7 @@ Rectangle {
         text: delta > 0 ? "+" : "−"
         font.pixelSize: root.compact ? 32 : 38
         enabled: cab.isCab1 || ((delta > 0 ? cab.speed < cab.speedMax : cab.speed > 0)
-                 && !root.standaloneCar && !cab.isCrane && !cab.rampActive)
+                 && !root.drivingStandaloneCar && !cab.isCrane && !cab.rampActive)
         repeatWhileHeld: !cab.isCab1
         onClicked: {
             if (cab.isCab1)
@@ -127,10 +150,10 @@ Rectangle {
                 root.requestedDirection = ""
         }
     }
-    readonly property bool passengerCar: cab.isStandalonePassenger
-    readonly property bool freightCar: cab.isStandaloneFreight
+    readonly property bool passengerCar: keyCab.isStandalonePassenger
+    readonly property bool freightCar: keyCab.isStandaloneFreight
     readonly property bool standaloneCar: passengerCar || freightCar
-    readonly property bool speedPresetsEnabled: cab.hasThrottle && !standaloneCar && !cab.isCrane && !cab.isCab1
+    readonly property bool speedPresetsEnabled: keyCab.hasThrottle && !standaloneCar && !keyCab.isCrane && !keyCab.isCab1
     readonly property string analogControlMode: cab.analogModes.length === 1 ? cab.analogModes[0] : analogMode.currentText
     property real operatingEdgeInset: cabLayout.defaultSideMargin
     readonly property bool compact: height < 850
@@ -142,6 +165,10 @@ Rectangle {
         return Math.max(compact ? 52 : 96, Math.min(preferredTileHeight, Math.floor(heightForSixRows / 6)))
     }
     readonly property int sliderButtonHeight: compact ? 52 : 60
+
+    function actionController(action) {
+        return action.target === "car" ? controlCab : action.target === "train" ? cab : keyCab
+    }
 
     function handleModelHold(action) {
         if (action.holdKind === "panel") {
@@ -158,7 +185,7 @@ Rectangle {
                 analogMode.currentIndex = index
             }
         } else {
-            cab.triggerHoldAction(action.key)
+            actionController(action).triggerHoldAction(action.key)
         }
     }
 
@@ -193,24 +220,24 @@ Rectangle {
     }
 
     function isEngineSpecificControl(key) {
-        return (cab.isDiesel && (key === "rpm_up" || key === "rpm_down"))
-            || (cab.isSteam && (key === "let_off" || key === "water_injector"))
+        return (keyCab.isDiesel && (key === "rpm_up" || key === "rpm_down"))
+            || (keyCab.isSteam && (key === "let_off" || key === "water_injector"))
             || ["transformer_rear_coupler", "transformer_front_coupler", "freight_tower"].includes(key)
-            || (cab.isElectric && ["pantograph_front_up", "pantograph_front_down",
+            || (keyCab.isElectric && ["pantograph_front_up", "pantograph_front_down",
                 "pantograph_rear_up", "pantograph_rear_down", "electric_smoke_up", "electric_smoke_down"].includes(key))
     }
 
     function auxActions() {
         if (root.passengerCar)
             return root.passengerAuxActions()
-        const actions = cab.secondaryActionModel
-        if (cab.isAcela)
+        const actions = keyCab.secondaryActionModel
+        if (keyCab.isAcela)
             return ["sequence", "acela_aux2", "acela_aux3"].map(key => actions.find(action => action.key === key))
         return actions
     }
 
     function passengerAuxActions() {
-        const actions = cab.secondaryActionModel
+        const actions = keyCab.secondaryActionModel
         return ["car_aux1", "car_aux2", "car_aux3"].map((key, index) => {
             const action = actions.find(item => item.key === key)
             return action ? Object.assign({}, action, {label: "Aux " + (index + 1)}) : undefined
@@ -218,7 +245,7 @@ Rectangle {
     }
 
     function carActionRows() {
-        const actions = cab.primaryActionModel.concat(cab.actionModel)
+        const actions = keyCab.primaryActionModel.concat(keyCab.actionModel)
         const byKey = {}
         for (const action of actions)
             byKey[action.key] = action
@@ -251,11 +278,11 @@ Rectangle {
         if (root.standaloneCar)
             return root.carActionRows()
 
-        if (cab.isCrane || cab.isAcela || cab.isTransformer) {
+        if (keyCab.isCrane || keyCab.isAcela || keyCab.isTransformer) {
             const byKey = {}
-            for (const action of cab.primaryActionModel.concat(cab.actionModel))
+            for (const action of keyCab.primaryActionModel.concat(keyCab.actionModel))
                 byKey[action.key] = action
-            if (cab.isTransformer) {
+            if (keyCab.isTransformer) {
                 return [
                     [byKey.transformer_on, byKey.transformer_off, byKey.boost],
                     [byKey.transformer_bell, byKey.transformer_horn, byKey.brake],
@@ -264,7 +291,7 @@ Rectangle {
                     [byKey.transformer_rear_coupler, byKey.transformer_front_coupler, undefined]
                 ]
             }
-            if (cab.isAcela) {
+            if (keyCab.isAcela) {
                 return [
                     [byKey.acela_startup, byKey.acela_shutdown, byKey.rpm_up],
                     [byKey.bell, byKey.horn, byKey.rpm_down],
@@ -282,33 +309,33 @@ Rectangle {
             ]
         }
 
-        const actions = cab.primaryActionModel.concat(cab.quickActionModel,
-            cab.moreActionModel.filter(action => root.isDriveUtility(action.key) || root.isEngineSpecificControl(action.key)))
+        const actions = keyCab.primaryActionModel.concat(keyCab.quickActionModel,
+            keyCab.moreActionModel.filter(action => root.isDriveUtility(action.key) || root.isEngineSpecificControl(action.key)))
         const byKey = {}
         const placed = {}
         for (const action of actions)
             byKey[action.key] = action
-        if (cab.isElectric && !cab.isLegacy) {
-            for (const action of cab.speedSoundActionModel)
+        if (keyCab.isElectric && !keyCab.isLegacy) {
+            for (const action of keyCab.speedSoundActionModel)
                 byKey[action.key] = action
         }
-        const topControl = cab.isSteam ? byKey.let_off : cab.isDiesel ? byKey.rpm_up : byKey.volume_up
-        const secondControl = cab.isSteam ? byKey.water_injector : cab.isDiesel ? byKey.rpm_down : byKey.volume_down
+        const topControl = keyCab.isSteam ? byKey.let_off : keyCab.isDiesel ? byKey.rpm_up : byKey.volume_up
+        const secondControl = keyCab.isSteam ? byKey.water_injector : keyCab.isDiesel ? byKey.rpm_down : byKey.volume_down
         const startup = byKey.startup || byKey.acela_startup || byKey.transformer_on
         const shutdown = byKey.shutdown || byKey.acela_shutdown || byKey.transformer_off
-        const rows = cab.isElectric ? [
+        const rows = keyCab.isElectric ? [
             [startup, shutdown, byKey.horn],
-            [cab.isLegacy ? byKey.pantograph_front_up : byKey.volume_up,
-             cab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.bell]
+            [keyCab.isLegacy ? byKey.pantograph_front_up : byKey.volume_up,
+             keyCab.isLegacy ? byKey.pantograph_rear_up : byKey.electric_rpm_up, byKey.bell]
         ] : [
             [startup, shutdown, topControl],
             [byKey.bell, byKey.horn, secondControl]
         ]
         rows.push(
             [byKey.engineer_chatter, byKey.tower_chatter || byKey.freight_tower],
-            cab.isElectric
-                ? [cab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
-                   cab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.boost]
+            keyCab.isElectric
+                ? [keyCab.isLegacy ? byKey.pantograph_front_down : byKey.volume_down,
+                   keyCab.isLegacy ? byKey.pantograph_rear_down : byKey.electric_rpm_down, byKey.boost]
                 : [byKey.smoke_down, byKey.smoke_up, byKey.boost],
             [byKey.rear_coupler || byKey.transformer_rear_coupler,
              byKey.front_coupler || byKey.transformer_front_coupler, byKey.brake]
@@ -329,23 +356,23 @@ Rectangle {
             key: label.toUpperCase(),
             label: label,
             speedPreset: true,
-            hold: !cab.isTransformer,
+            hold: !keyCab.isTransformer,
             speedChevrons: index + 1
         }))
         const byKey = {}
-        for (const action of cab.speedSoundActionModel.concat(cab.moreActionModel))
+        for (const action of keyCab.speedSoundActionModel.concat(keyCab.moreActionModel))
             byKey[action.key] = action
         const carControlKeys = root.freightCar
             ? [].concat(...root.carActionRows()).filter(action => action).map(action => action.key)
             : []
-        const otherActions = root.passengerCar ? [] : cab.moreActionModel.filter(action =>
+        const otherActions = root.passengerCar ? [] : keyCab.moreActionModel.filter(action =>
             !carControlKeys.includes(action.key) &&
             !root.isDriveUtility(action.key)
                 && !root.isEngineSpecificControl(action.key)
                 && !action.key.startsWith("momentum_")
                 && action.key !== "labor_up" && action.key !== "labor_down")
         const stopAndRoll = [
-            {key: "STOP_HOLD", label: "Normal", speedPreset: true, hold: !cab.isTransformer},
+            {key: "STOP_HOLD", label: "Normal", speedPreset: true, hold: !keyCab.isTransformer},
             {
                 key: "ROLL",
                 label: "Roll",
@@ -353,37 +380,43 @@ Rectangle {
             },
             {key: "EMERGENCY_STOP", label: "Emergency", speedPreset: true}
         ]
-        if (cab.isTransformer)
+        if (keyCab.isTransformer && !root.linkedCarSelected)
             return [presets.slice(0, 3), presets.slice(3), stopAndRoll, [undefined, byKey.set_address, undefined]]
 
-        const canLoadWater = !cab.isCab1 && !cab.isCrane && cab.isLegacy && cab.isSteam
-        const canRefuel = !cab.isCab1 && !cab.isCrane && cab.isLegacy && (cab.isDiesel || cab.isSteam)
+        const canLoadWater = !keyCab.isCab1 && !keyCab.isCrane && keyCab.isLegacy && keyCab.isSteam
+        const canRefuel = !keyCab.isCab1 && !keyCab.isCrane && keyCab.isLegacy && (keyCab.isDiesel || keyCab.isSteam)
         const gaugesAndSet = [
-            cab.isElectric ? byKey.electric_smoke_down
-                : {key: "fuel", label: cab.isSteam ? "Coal" : "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel},
-            byKey.set_address,
-            cab.isElectric ? byKey.electric_smoke_up
+            keyCab.isElectric ? byKey.electric_smoke_down
+                : {key: "fuel", label: keyCab.isSteam ? "Coal" : "Fuel", gauge: "FUEL", hold: canRefuel, disabled: !canRefuel},
+            root.linkedCarSelected ? undefined : byKey.set_address,
+            keyCab.isElectric ? byKey.electric_smoke_up
                 : {key: "water", label: "Water", gauge: "WATER", hold: canLoadWater, disabled: !canLoadWater}
         ]
-        if (cab.isCrane) {
+        if (keyCab.isCrane && !root.linkedCarSelected) {
             return [
                 presets.slice(0, 3), presets.slice(3), stopAndRoll, gaugesAndSet,
                 [byKey.volume_up, undefined, byKey.crane_sound_on],
                 [byKey.volume_down, undefined, byKey.crane_sound_off]
             ]
         }
-        const volumeUpThird = root.passengerCar && byKey.sound_on
-            ? Object.assign({}, byKey.sound_on, {label: "Unmute"})
-            : byKey.labor_up || byKey.electric_effort_up
-        const volumeDownThird = root.passengerCar && byKey.sound_off
-            ? Object.assign({}, byKey.sound_off, {label: "Mute"})
-            : byKey.labor_down || byKey.electric_effort_down
+        const volumeTarget = root.linkedCarSelected ? root.controlCab : keyCab
+        const volumeKeys = {}
+        for (const action of root.linkedCarSelected ? volumeTarget.volumeActionModel
+             : volumeTarget.speedSoundActionModel.concat(volumeTarget.moreActionModel))
+            volumeKeys[action.key] = root.linkedCarSelected ? Object.assign({}, action, {target: "car"}) : action
+        const volumeUpThird = volumeTarget.isStandalonePassenger && volumeKeys.sound_on
+            ? Object.assign({}, volumeKeys.sound_on, {label: "Unmute"})
+            : volumeKeys.labor_up || volumeKeys.electric_effort_up
+        const volumeDownThird = volumeTarget.isStandalonePassenger && volumeKeys.sound_off
+            ? Object.assign({}, volumeKeys.sound_off, {label: "Mute"})
+            : volumeKeys.labor_down || volumeKeys.electric_effort_down
         const rows = [
             presets.slice(0, 3), presets.slice(3), stopAndRoll, gaugesAndSet,
-            [byKey.master_volume_up, byKey.blend_up, volumeUpThird],
-            [byKey.master_volume_down, byKey.blend_down, volumeDownThird]
+            [volumeKeys.master_volume_up, volumeKeys.blend_up, volumeUpThird],
+            [volumeKeys.master_volume_down, volumeKeys.blend_down, volumeDownThird]
         ]
-        return cab.isAcela ? rows : rows.concat(root.pairedActionRows(otherActions))
+        // Keep the six established rows fixed when the car supplies volume controls.
+        return root.linkedCarSelected || keyCab.isAcela ? rows : rows.concat(root.pairedActionRows(otherActions))
     }
 
     component PairedActions: ColumnLayout {
@@ -428,7 +461,10 @@ Rectangle {
     }
 
     component ActionTile: FunctionButton {
+        id: actionTile
         required property var action
+        readonly property var commandCab: root.actionController(action)
+        readonly property bool carTarget: action.target === "car"
         property int availableTileHeight: root.tileHeight
         readonly property bool emergencyStop: action.key === "EMERGENCY_STOP"
         readonly property bool auxiliary: action.group === "secondary"
@@ -461,8 +497,8 @@ Rectangle {
             crane_boom: "crane-boom", crane_outriggers: "crane-outriggers",
             crane_main_hook: "crane-main-hook", crane_aux_hook: "crane-aux-hook",
             crane_radio: "crew", crane_sound_on: "car-sound-on", crane_sound_off: "car-sound-off",
-            smoke_down: cab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
-            smoke_up: cab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",
+            smoke_down: keyCab.isSteam ? "smoke-steam-down" : "smoke-diesel-down",
+            smoke_up: keyCab.isSteam ? "smoke-steam-up" : "smoke-diesel-up",
             rear_coupler: "coupler-rear", front_coupler: "coupler-front",
             option_one_on: "car-clack", option_one_off: "car-clack-off",
             option_two_on: "car-grind", option_two_off: "car-grind-off",
@@ -481,7 +517,7 @@ Rectangle {
             freight_lights_off: "car-freight-lights-off",
             freight_special: "car-freight-special"
         })[action.key] || ""
-        objectName: auxiliary ? "auxControl_" + action.key : ""
+        objectName: auxiliary ? "auxControl_" + action.key : "actionControl_" + action.key
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         Layout.preferredWidth: 0
@@ -505,7 +541,7 @@ Rectangle {
                       : showGauge ? (gaugeLevel >= 0 ? gaugeLevel + "%" : "—") : labelChevron ? "Smoke" : text
         gaugeLabel: action.gauge ? action.label : ""
         gaugeLevel: action.disabled ? -1
-                    : action.gauge === "FUEL" ? cab.fuelLevel : action.gauge === "WATER" ? cab.waterLevel : -1
+                    : action.gauge === "FUEL" ? keyCab.fuelLevel : action.gauge === "WATER" ? keyCab.waterLevel : -1
         holdHint: auxiliary && action.holdTarget === "lights" ? "Lighting panel" :
                   auxiliary && action.key === "sequence" ? "Repeat sequence" : ""
         iconSource: action.iconSource || ""
@@ -514,7 +550,8 @@ Rectangle {
                                || ["STOP_HOLD", "startup", "shutdown", "acela_startup", "acela_shutdown"].includes(action.key)))
         stopSign: emergencyStop || action.key === "STOP_HOLD"
         faceAccent: emergencyStop ? "#9d2020" : "transparent"
-        Accessible.name: stopSign ? text + " Stop" : text
+        Accessible.name: (stopSign ? text + " Stop" : text)
+            + (root.linkedCarSelected ? (commandCab === root.controlCab ? ", Car " + root.controlCab.tmccId : ", Train " + cab.tmccId) : "")
         enabled: !action.disabled && (!action.speedPreset || root.speedPresetsEnabled)
         textColor: emergencyStop ? "#ff9499" : "#f5f7fa"
         pressedColor: emergencyStop ? "#ab1c29" : "#5c9fc6"
@@ -526,19 +563,42 @@ Rectangle {
         repeatInterval: action.repeatInterval > 0 ? action.repeatInterval : 250
         onClicked: {
             if (action.speedPreset)
-                root.cab.setSpeedPreset(action.key, false)
+                commandCab.setSpeedPreset(action.key, false)
             else if (showGauge)
-                root.cab.playDialog("ENGINEER_" + action.gauge + "_LEVEL")
+                commandCab.playDialog("ENGINEER_" + action.gauge + "_LEVEL")
+            else if (carTarget)
+                commandCab.triggerVolumeAction(action.key)
             else
-                root.cab.triggerAction(action.key)
+                commandCab.triggerAction(action.key)
         }
         onHeld: {
             if (action.speedPreset)
-                root.cab.setSpeedPreset(action.key, true)
+                commandCab.setSpeedPreset(action.key, true)
             else if (showGauge)
-                root.cab.playDialog("ENGINEER_" + action.gauge + "_REFILLED")
+                commandCab.playDialog("ENGINEER_" + action.gauge + "_REFILLED")
             else
                 root.handleModelHold(action)
+        }
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 2
+            visible: actionTile.carTarget
+            color: "transparent"
+            border.width: 1
+            border.color: "#b3a0e0"
+            radius: 8
+        }
+        Label {
+            objectName: "carTarget_" + actionTile.action.key
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.margins: 7
+            visible: actionTile.carTarget
+            text: "Car " + root.controlCab.tmccId
+            color: "#ded1ff"
+            font.pixelSize: root.compact ? 10 : 12
+            font.bold: true
+            Accessible.ignored: true
         }
     }
 
@@ -583,7 +643,7 @@ Rectangle {
                 enabled: !bellHornPanel.visible && (!root.stateInfoVisible || !root.stateInfoFromRoster)
                 font.pixelSize: root.compact ? 20 : 24
                 font.bold: true
-                onClicked: cab.reset()
+                onClicked: keyCab.reset()
             }
             CabMenuTitle {
                 id: titleControls
@@ -593,14 +653,21 @@ Rectangle {
                 menuEnabled: !root.stateInfoVisible || !root.stateInfoFromRoster
                 title: root.stateInfoVisible && root.stateInfoFromRoster
                        ? (root.stateInfoIdentity.startsWith("ENGINE") ? "Engine record" : "Train record")
-                       : (cab.roadName || "PyTrain") + (cab.roadNumber ? "  " + cab.roadNumber : "")
-                identity: root.stateInfoVisible ? root.stateInfoIdentity : cab.scope + " " + cab.tmccId
+                       : (keyCab.roadName || "PyTrain") + (keyCab.roadNumber ? "  " + keyCab.roadNumber : "")
+                identity: root.linkedCarSelected && keyCab === root.controlCab && !root.stateInfoFromRoster
+                    ? "CAR " + controlCab.tmccId + " in TRAIN " + cab.tmccId
+                    : keyCab.scope === "ENGINE" && root.selection && root.selection.currentTrainId > 0
+                    && (!root.stateInfoVisible || !root.stateInfoFromRoster)
+                    ? (keyCab.targetKind === "CAR" ? "CAR " : "Engine ") + keyCab.tmccId
+                      + " in TRAIN " + root.selection.currentTrainId
+                    : root.stateInfoVisible ? root.stateInfoIdentity
+                    : (keyCab.targetKind === "CAR" ? "CAR" : keyCab.scope) + " " + keyCab.tmccId
                 identityObjectName: "engineIdentity"
                 onActivated: root.cabMenuRequested()
             }
             AllStopButton {
                 compact: root.compact
-                onClicked: cab.halt()
+                onClicked: keyCab.halt()
             }
         }
 
@@ -647,7 +714,7 @@ Rectangle {
                     padding: 0
                     background: Item {}
                     Repeater {
-                        model: cab.isAccessoryEngine ? ["Controls", "Info"]
+                        model: keyCab.isAccessoryEngine ? ["Controls", "Info"]
                             : ["Controls", root.effectsPageTitle, "Info"]
                         CabPageTab {
                             required property int index
@@ -685,14 +752,14 @@ Rectangle {
                     Image {
                         anchors.fill: parent
                         anchors.margins: 2
-                        source: cab.artworkSource
+                        source: keyCab.artworkSource
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: false
                     }
                     ControlTapHandler {
                         id: artworkTap
-                        enabled: !!root.infoController && cab.tmccId > 0
+                        enabled: !!root.infoController && keyCab.tmccId > 0
                         holdEnabled: true
                         onTappedTwice: root.stateInfoRequested()
                         onHeldGesture: root.stateInfoRequested()
@@ -703,7 +770,7 @@ Rectangle {
                         xAxis.enabled: true
                         yAxis.enabled: false
                         onActiveChanged: if (active) artworkTap.cancelPendingTap()
-                        enabled: cab.scope === "ENGINE" && root.selection && root.selection.count > 0
+                        enabled: keyCab.scope === "ENGINE" && root.selection && root.selection.count > 0
                         onGrabChanged: function(transition, point) {
                             if (transition !== PointerDevice.UngrabExclusive)
                                 return
@@ -778,16 +845,16 @@ Rectangle {
                     anchors.top: artwork.bottom
                     anchors.topMargin: root.gap
                     anchors.bottom: parent.bottom
-                    visible: !root.stateInfoVisible && cab.isAccessoryEngine
-                    tmccId: cab.tmccId
+                    visible: !root.stateInfoVisible && keyCab.isAccessoryEngine
+                    tmccId: keyCab.tmccId
                     compact: root.compact
-                    onCommandRequested: (command, value) => cab.accessoryEngineCommand(command, value)
+                    onCommandRequested: (command, value) => keyCab.accessoryEngineCommand(command, value)
                 }
 
                 ScrollView {
                     id: actionScroll
                     objectName: "cabActionScroll"
-                    visible: !root.stateInfoVisible && !cab.isAccessoryEngine && !root.effectsVisible
+                    visible: !root.stateInfoVisible && !keyCab.isAccessoryEngine && !root.effectsVisible
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: artwork.bottom
@@ -813,7 +880,7 @@ Rectangle {
                     anchors.top: artwork.bottom
                     anchors.topMargin: root.gap
                     anchors.bottom: parent.bottom
-                    visible: !root.stateInfoVisible && !cab.isAccessoryEngine && root.effectsVisible
+                    visible: !root.stateInfoVisible && !keyCab.isAccessoryEngine && root.effectsVisible
                     rows: root.speedActionRows()
                     fittedRowHeight: Math.max(1, Math.min(root.preferredTileHeight,
                         Math.floor((height - Math.max(0, rows.length - 1) * spacing) / Math.max(1, rows.length))))
@@ -824,7 +891,7 @@ Rectangle {
                     objectName: "auxiliaryGrid"
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    visible: !root.stateInfoVisible && !cab.isAccessoryEngine && !root.effectsVisible
+                    visible: !root.stateInfoVisible && !keyCab.isAccessoryEngine && !root.effectsVisible
                     height: root.stateInfoVisible ? 0 : root.tileHeight
                     y: visible
                         ? Math.min(parent.height - height, artwork.y + artwork.height + root.gap + 5 * (height + root.gap))
@@ -877,7 +944,7 @@ Rectangle {
                             spacing: 0
                             Label {
                                 Layout.fillWidth: true
-                                text: "Current Speed"
+                                text: root.linkedCarSelected ? "Train Speed" : "Current Speed"
                                 color: "#9aabba"
                                 horizontalAlignment: Text.AlignHCenter
                                 font.pixelSize: root.compact ? 10 : 15
@@ -909,7 +976,7 @@ Rectangle {
                             objectName: "reverseDirectionButton"
                             text: "◀ Rev" + (root.requestedDirection === "REVERSE" ? " …" : "")
                             font.pixelSize: root.directionFontSize
-                            enabled: !root.standaloneCar
+                            enabled: !root.drivingStandaloneCar
                             selected: root.displayedDirection.indexOf("REVERSE") >= 0
                             onClicked: root.requestDirection("REVERSE")
                         }
@@ -922,7 +989,7 @@ Rectangle {
                             objectName: "forwardDirectionButton"
                             text: "Fwd ▶" + (root.requestedDirection === "FORWARD" ? " …" : "")
                             font.pixelSize: root.directionFontSize
-                            enabled: !root.standaloneCar
+                            enabled: !root.drivingStandaloneCar
                             selected: root.displayedDirection.indexOf("FORWARD") >= 0
                             onClicked: root.requestDirection("FORWARD")
                         }
@@ -1029,7 +1096,8 @@ Rectangle {
                             VerticalCabControl {
                                 id: analogControl
                                 objectName: "variableCabControl"
-                                enabled: !root.standaloneCar || cab.isLegacy
+                                Accessible.name: (root.linkedCarSelected ? "Train " + cab.tmccId + " " : "") + root.analogControlMode
+                                enabled: !root.drivingStandaloneCar || cab.isLegacy
                                 largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -1084,7 +1152,8 @@ Rectangle {
                             VerticalThrottle {
                                 id: throttle
                                 objectName: "targetSpeedThrottle"
-                                enabled: cab.isCab1 || !root.standaloneCar
+                                Accessible.name: root.linkedCarSelected ? "Train " + cab.tmccId + " throttle" : "Throttle"
+                                enabled: cab.isCab1 || !root.drivingStandaloneCar
                                 largeTouch: !root.compact
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -1128,7 +1197,7 @@ Rectangle {
                 spacing: 0
                 Label {
                     Layout.fillWidth: true
-                    text: "Current Speed"
+                    text: root.linkedCarSelected ? "Train Speed" : "Current Speed"
                     color: "#9aabba"
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: 15
@@ -1158,7 +1227,7 @@ Rectangle {
         }
 
         Connections {
-            target: stateInfo.visible && root.infoController ? root.cab : null
+            target: stateInfo.visible && root.infoController ? root.keyCab : null
             function onStateChanged() {
                 root.infoController.refresh(stateInfo.editorOpen)
             }
@@ -1179,7 +1248,7 @@ Rectangle {
                     readonly property bool editable: cab.isAccessoryEngine
                         ? ((modelData.label === "Mom" && cab.supportsMomentum)
                            || (modelData.label === "Smoke" && cab.supportsSmoke))
-                        : !root.standaloneCar && !cab.isCrane && !cab.isCab1 && (
+                        : !root.drivingStandaloneCar && !cab.isCrane && !cab.isCab1 && (
                         !cab.isTransformer || modelData.label === "Speed Lim") && (
                         (modelData.label === "Speed Lim" && cab.supportsSpeedLimit) ||
                         (modelData.label === "Mom" && cab.supportsMomentum) ||
@@ -1187,7 +1256,7 @@ Rectangle {
                         (modelData.label === "Smoke" && cab.supportsSmoke) ||
                         (modelData.label === "Effort" && cab.supportsLabor) ||
                         (modelData.label === "RPM" && cab.supportsRpm))
-                    objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : ""
+                    objectName: modelData.label === "Speed Lim" ? "speedLimitStateTile" : "stateTile_" + modelData.label
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     Layout.preferredHeight: root.compact ? 38 : 54
@@ -1196,7 +1265,7 @@ Rectangle {
                     border.width: editable ? 1 : 0
                     border.color: "#78bff0"
                     activeFocusOnTab: editable
-                    Accessible.name: editable ? "Set " + modelData.label : modelData.label
+                    Accessible.name: (root.linkedCarSelected ? "Train " + cab.tmccId + " · " : "") + (editable ? "Set " + modelData.label : modelData.label)
                     Accessible.role: editable ? Accessible.Button : Accessible.StaticText
                     TapHandler {
                         enabled: stateTile.editable
@@ -1239,15 +1308,16 @@ Rectangle {
         speedLimitDialog.hasUnsavedChanges || stateValueDialog.hasUnsavedChanges
 
     function cancelTransientPanels() {
+        cancelHeldControls()
         closeBellHornOptions()
         closeDialogPanel()
-        commandPanel.close()
-        speedLimitDialog.close()
-        stateValueDialog.close()
+        if (commandPanel) commandPanel.close()
+        if (speedLimitDialog) speedLimitDialog.close()
+        if (stateValueDialog) stateValueDialog.close()
     }
 
     function closeBellHornOptions() {
-        bellHornPanel.close()
+        if (bellHornPanel) bellHornPanel.close()
     }
 
     MouseArea {
@@ -1262,13 +1332,13 @@ Rectangle {
     }
 
     function closeDialogPanel() {
-        dialogPanel.close()
+        if (dialogPanel) dialogPanel.close()
     }
 
     CabDialogPanel {
         id: dialogPanel
         z: 2
-        cab: root.cab
+        cab: root.keyCab
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: cabLayout.anchors.leftMargin
@@ -1279,8 +1349,9 @@ Rectangle {
 
     BellHornPopup {
         id: bellHornPanel
+        objectName: "cabBellHornPopup"
         parent: Overlay.overlay
-        cab: root.cab
+        cab: root.keyCab
         operatingButtonWidth: (operatingColumns.width - 2 * root.gap) / 3
         operatingButtonHeight: root.tileHeight
     }
@@ -1288,7 +1359,7 @@ Rectangle {
     CommandPanelPopup {
         id: commandPanel
         parent: Overlay.overlay
-        cab: root.cab
+        cab: root.keyCab
         width: Math.min(Overlay.overlay.width - 24, 620)
         height: Math.min(Overlay.overlay.height - 24, 760)
         x: (Overlay.overlay.width - width) / 2

@@ -56,7 +56,15 @@ Control {
     property color pressedColor: "#5c9fc6"
     property color textColor: "#f5f7fa"
     property bool holdTriggered: false
-    readonly property bool pressed: tapHandler.pressed
+    property bool interactionCanceled: false
+    function cancelInteraction() {
+        interactionCanceled = true
+        holdTimer.stop()
+        pressFlash.stop()
+    }
+    onVisibleChanged: if (!visible) cancelInteraction()
+    onEnabledChanged: if (!enabled) cancelInteraction()
+    readonly property bool pressed: tapHandler.pressed && !interactionCanceled
     readonly property bool visualPressed: pressed || pressFlash.running
 
     ToolTip.text: holdHint
@@ -554,7 +562,7 @@ Control {
         interval: root.holdThreshold
         repeat: false
         onTriggered: {
-            if (tapHandler.pressed && root.deferForHold) {
+            if (!root.interactionCanceled && root.enabled && root.visible && tapHandler.pressed && root.deferForHold) {
                 root.holdTriggered = true
                 root.held()
             }
@@ -566,7 +574,7 @@ Control {
         property int elapsed: 0
         interval: 25
         repeat: true
-        running: root.deferForHold && tapHandler.pressed && !root.holdTriggered
+        running: !root.interactionCanceled && root.visible && root.enabled && root.deferForHold && tapHandler.pressed && !root.holdTriggered
         onTriggered: elapsed += interval
         onRunningChanged: if (!running) elapsed = 0
     }
@@ -574,7 +582,7 @@ Control {
     Timer {
         interval: root.repeatInterval
         repeat: true
-        running: root.repeatWhileHeld && !root.deferForHold && tapHandler.pressed
+        running: !root.interactionCanceled && root.visible && root.enabled && root.repeatWhileHeld && !root.deferForHold && tapHandler.pressed
         onTriggered: root.clicked()
     }
 
@@ -582,8 +590,10 @@ Control {
         id: tapHandler
         enabled: root.enabled
         acceptedButtons: Qt.LeftButton
+        onCanceled: root.cancelInteraction()
         onPressedChanged: {
             if (pressed) {
+                root.interactionCanceled = false
                 root.holdTriggered = false
                 if (root.deferForHold)
                     holdTimer.restart()
@@ -591,7 +601,7 @@ Control {
                     root.clicked()
             } else {
                 holdTimer.stop()
-                if (root.deferForHold && !root.holdTriggered)
+                if (!root.interactionCanceled && root.deferForHold && !root.holdTriggered)
                     root.clicked()
             }
         }

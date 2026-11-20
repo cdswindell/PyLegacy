@@ -124,3 +124,10 @@ suite. The groups preserve all existing assertions and scenarios.
 
 - [x] Implement the Wi-Fi signal-strength meter on the Admin page using the shared `WiFiInfo` helper. Validate readings on Raspberry Pi, macOS, and the external Steam Deck Flatpak during device testing.
 - [ ] Separate core PyTrain and the GUI into independently installable packages in the same repository. Move shared accessory metadata, registry definitions, and configuration models out of `pytrain.gui` into a GUI-independent core location, retaining compatibility imports for legacy callers. Keep Qt dependencies in the GUI package so core-only installations do not require them. Deferred; do not implement yet.
+
+## Live train edits from Cab 3
+
+A proposed server-side discovery and reconciliation mechanism for train edits
+is documented in [Live train-consist discovery](train-consist-discovery-plan.md).
+It is not implemented yet. The plan covers unknown pseudo mappings, affected
+engine/train refreshes, bounded retries, and the observed raw variable commands.

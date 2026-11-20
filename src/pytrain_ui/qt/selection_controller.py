@@ -6,35 +6,56 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.state_changes import StateChange
 from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.constants import CommandScope
 
-from .presentation import format_road_number
+from .presentation import format_road_number, is_pseudo_train, target_kind
 
 
 class SelectedEngineController(QObject):
     """Track engines selected by the operator and engines active on the railroad."""
 
     selectionChanged = Signal()
+    trainCommandReceived = Signal(int)
 
     def __init__(self, cab, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._cab = cab
+        self._closed = False
+        self._active_train_ids: list[int] = []
+        self._train_operating_state: dict[int, tuple] = {}
+        self._dismissed_trains: dict[int, tuple] = {}
         self._selected_ids: list[int] = []
         self._active_ids: list[int] = []
+        self._operated_car_ids: set[int] = set()
         self._dismissed_activity: dict[int, tuple] = {}
         self._watchers: dict[int, StateWatcher] = {}
         self._sensor_watchers: dict[int, StateWatcher] = {}
         self._operating_state: dict[int, tuple] = {}
         self._dispatcher = CommandDispatcher.get() if CommandDispatcher.is_built() else None
         self._cab.stateChanged.connect(self.selectionChanged.emit)
+        self._cab.stateChanged.connect(self._remember_current_train)
+        self.trainCommandReceived.connect(self._mark_active_train)
+        for train in ComponentStateStore.get().get_all(CommandScope.TRAIN):
+            self._train_operating_state[train.tmcc_id] = self._operating_signature(train)
+            if (
+                not train.is_deleted
+                and not is_pseudo_train(train)
+                and (getattr(train, "speed", 0) or getattr(train, "target_speed", 0))
+            ):
+                self._active_train_ids.append(train.tmcc_id)
+        self._remember_current_train()
         self._install_sensor_watchers()
         if self._dispatcher is not None:
             self._dispatcher.subscribe(self._engine_command, CommandScope.ENGINE)
+            self._dispatcher.subscribe(self._train_command, CommandScope.TRAIN)
 
     def close(self) -> None:
+        self._closed = True
         if self._dispatcher is not None:
             self._dispatcher.unsubscribe(self._engine_command, CommandScope.ENGINE)
+            self._dispatcher.unsubscribe(self._train_command, CommandScope.TRAIN)
             self._dispatcher = None
         for watcher in self._watchers.values():
             watcher.shutdown()
@@ -42,6 +63,78 @@ class SelectedEngineController(QObject):
         for watcher in self._sensor_watchers.values():
             watcher.shutdown()
         self._sensor_watchers.clear()
+
+    @Slot()
+    def _remember_current_train(self) -> None:
+        if self._cab.scope == CommandScope.TRAIN.name:
+            self._mark_active_train(self._cab.tmccId)
+
+    def _train_command(self, command) -> None:
+        if not self._closed and getattr(command, "scope", None) == CommandScope.TRAIN:
+            self.trainCommandReceived.emit(int(getattr(command, "address", 0) or 0))
+
+    @Slot(int)
+    def _mark_active_train(self, address: int) -> None:
+        if self._closed:
+            return
+        state = ComponentStateStore.get_state(CommandScope.TRAIN, address, create=False)
+        if state is None or state.is_deleted or is_pseudo_train(state):
+            return
+        self._dismissed_trains.pop(address, None)
+        self._train_operating_state[address] = self._operating_signature(state)
+        if address in self._active_train_ids:
+            self._active_train_ids.remove(address)
+        self._active_train_ids.insert(0, address)
+        self.selectionChanged.emit()
+
+    @Slot(object)
+    def applyTrainStateChanges(self, changes: frozenset[StateChange]) -> None:
+        if self._closed:
+            return
+        visible_ids = self._display_train_ids()
+        refresh = visible_ids != self._active_train_ids
+        self._active_train_ids = visible_ids
+        for change in changes:
+            if change.scope != CommandScope.TRAIN:
+                continue
+            address = change.address
+            state = ComponentStateStore.get_state(CommandScope.TRAIN, address, create=False)
+            if state is None or state.is_deleted or is_pseudo_train(state):
+                if address in self._active_train_ids:
+                    self._active_train_ids.remove(address)
+                    refresh = True
+                self._train_operating_state.pop(address, None)
+                self._dismissed_trains.pop(address, None)
+                continue
+            signature = self._operating_signature(state)
+            previous = self._train_operating_state.get(address)
+            self._train_operating_state[address] = signature
+            moving = bool(getattr(state, "speed", 0) or getattr(state, "target_speed", 0))
+            if (previous is not None and signature != previous or previous is None and moving) and (
+                self._dismissed_trains.get(address) != signature
+            ):
+                self._mark_active_train(address)
+            elif address in self._active_train_ids:
+                refresh = True
+        if refresh:
+            self.selectionChanged.emit()
+
+    @Slot(int)
+    def dismissTrain(self, address: int) -> None:
+        if address not in self._active_train_ids:
+            return
+        self._active_train_ids.remove(address)
+        state = ComponentStateStore.get_state(CommandScope.TRAIN, address, create=False)
+        if state is not None:
+            self._dismissed_trains[address] = self._operating_signature(state)
+        self.selectionChanged.emit()
+
+    @Slot(int, result=bool)
+    def selectTrain(self, address: int) -> bool:
+        state = ComponentStateStore.get_state(CommandScope.TRAIN, address, create=False)
+        if state is None or state.is_deleted:
+            return False
+        return self._cab.selectAddress(CommandScope.TRAIN.name, address)
 
     @staticmethod
     def _operating_signature(state) -> tuple:
@@ -110,6 +203,12 @@ class SelectedEngineController(QObject):
             return
         if ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False) is None:
             return
+        if (
+            self._cab.scope == "ENGINE"
+            and self._same_physical_engine(self._cab.tmccId, tmcc_id)
+            and self._is_selected(tmcc_id)
+        ):
+            self._operated_car_ids.add(tmcc_id)
         self._dismissed_activity.pop(tmcc_id, None)
         self._touch_active(tmcc_id)
         self._watch_engine(tmcc_id)
@@ -170,10 +269,21 @@ class SelectedEngineController(QObject):
         return "+" if name else "-"
 
     @classmethod
-    def _row(cls, tmcc_id: int, current_id: int, selected: bool, active: bool) -> dict:
-        state = ComponentStateStore.get_state(CommandScope.ENGINE, tmcc_id, create=False)
+    def _row(
+        cls,
+        tmcc_id: int,
+        current_id: int,
+        selected: bool,
+        active: bool,
+        scope: CommandScope = CommandScope.ENGINE,
+        train_id: int = 0,
+    ) -> dict:
+        state = ComponentStateStore.get_state(scope, tmcc_id, create=False)
         if state is None:
             return {
+                "scope": scope.name,
+                "kind": target_kind(state, scope),
+                "trainId": train_id,
                 "tmccId": tmcc_id,
                 "roadName": "",
                 "roadNumber": "",
@@ -189,6 +299,9 @@ class SelectedEngineController(QObject):
         momentum = str(getattr(getattr(state, "momentum", None), "name", getattr(state, "momentum", "-")) or "-")
         brake = str(getattr(getattr(state, "train_brake", None), "name", getattr(state, "train_brake", "-")) or "-")
         return {
+            "scope": scope.name,
+            "kind": target_kind(state, scope),
+            "trainId": train_id,
             "tmccId": tmcc_id,
             "roadName": str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip(),
             "roadNumber": format_road_number(getattr(state, "road_number", None)),
@@ -208,12 +321,65 @@ class SelectedEngineController(QObject):
         active_only = [tmcc_id for tmcc_id in self._active_ids if self._physical_key(tmcc_id) not in selected_keys]
         return selected + self._dedupe_physical(active_only)
 
+    def _containing_active_train(self, address: int) -> int:
+        state = ComponentStateStore.get_state(CommandScope.ENGINE, address, create=False)
+        if state is None or getattr(state, "is_deleted", False):
+            return 0
+        physical_key = self._physical_key(address)
+        for train_id in self._display_train_ids():
+            train = ComponentStateStore.get_state(CommandScope.TRAIN, train_id, create=False)
+            if train is None or train.is_deleted:
+                continue
+            if getattr(state, "train_tmcc_id", None) == train_id or any(
+                self._physical_key(component.tmcc_id) == physical_key for component in train.consist_components or ()
+            ):
+                return train_id
+        return 0
+
+    @Property(int, notify=selectionChanged)
+    def currentTrainId(self) -> int:
+        return self._containing_active_train(self._cab.tmccId) if self._cab.scope == "ENGINE" else 0
+
+    def _is_train_link_car(self, address: int) -> bool:
+        physical_key = self._physical_key(address)
+        return any(
+            component.is_train_link and self._physical_key(component.tmcc_id) == physical_key
+            for train in ComponentStateStore.get().get_all(CommandScope.TRAIN)
+            if not train.is_deleted
+            for component in train.consist_components or ()
+        )
+
+    def _car_tile_eligible(self, address: int) -> bool:
+        return not self._is_train_link_car(address) or (
+            self._is_selected(address)
+            and any(self._same_physical_engine(address, candidate) for candidate in self._operated_car_ids)
+        )
+
     def _display_ids(self) -> list[int]:
         display_ids = self._working_ids()
-        if self._cab.scope == CommandScope.ENGINE.name:
-            current_key = self._physical_key(self._cab.tmccId)
-            display_ids = [tmcc_id for tmcc_id in display_ids if self._physical_key(tmcc_id) != current_key]
-        return display_ids
+        current_id = self._cab.tmccId if self._cab.scope == "ENGINE" else 0
+        current_key = self._physical_key(current_id) if current_id else None
+        selected_member = current_id if self.currentTrainId else 0
+        display_ids = [address for address in display_ids if self._physical_key(address) != current_key]
+        if selected_member and self._car_tile_eligible(selected_member):
+            display_ids.insert(0, selected_member)
+        return [
+            address
+            for address in display_ids
+            if self._car_tile_eligible(address)
+            and (
+                address == selected_member
+                or not self._containing_active_train(address)
+                or self._is_train_link_car(address)
+            )
+        ]
+
+    def _display_train_ids(self) -> list[int]:
+        return [
+            address
+            for address in self._active_train_ids
+            if not is_pseudo_train(ComponentStateStore.get_state(CommandScope.TRAIN, address, create=False))
+        ]
 
     def _is_selected(self, tmcc_id: int) -> bool:
         return any(self._same_physical_engine(tmcc_id, candidate) for candidate in self._selected_ids)
@@ -225,13 +391,22 @@ class SelectedEngineController(QObject):
     def selectedEngines(self) -> list[dict]:
         current_id = self._cab.tmccId if self._cab.scope == CommandScope.ENGINE.name else -1
         return [
-            self._row(tmcc_id, current_id, self._is_selected(tmcc_id), self._is_active(tmcc_id))
+            dict(
+                self._row(
+                    tmcc_id,
+                    current_id,
+                    self._is_selected(tmcc_id),
+                    self._is_active(tmcc_id),
+                    train_id=self._containing_active_train(tmcc_id),
+                ),
+                trainLinked=self._is_train_link_car(tmcc_id),
+            )
             for tmcc_id in self._display_ids()
-        ]
+        ] + [self._row(address, -1, False, True, CommandScope.TRAIN) for address in self._display_train_ids()]
 
     @Property(int, notify=selectionChanged)
     def count(self) -> int:
-        return len(self._display_ids())
+        return len(self._display_ids()) + len(self._display_train_ids())
 
     @Slot(int)
     def selectEngine(self, tmcc_id: int) -> None:
@@ -258,6 +433,9 @@ class SelectedEngineController(QObject):
         ]
         self._selected_ids = [candidate for candidate in self._selected_ids if self._physical_key(candidate) != key]
         self._active_ids = [candidate for candidate in self._active_ids if self._physical_key(candidate) != key]
+        self._operated_car_ids = {
+            candidate for candidate in self._operated_car_ids if self._physical_key(candidate) != key
+        }
         for candidate in aliases:
             state = ComponentStateStore.get_state(CommandScope.ENGINE, candidate, create=False)
             if state is not None:
@@ -267,6 +445,9 @@ class SelectedEngineController(QObject):
 
     @Slot()
     def pruneDeleted(self) -> None:
+        self.applyTrainStateChanges(
+            frozenset(StateChange(CommandScope.TRAIN, address) for address in self._active_train_ids)
+        )
         remaining = {
             tmcc_id
             for tmcc_id in self._selected_ids + self._active_ids

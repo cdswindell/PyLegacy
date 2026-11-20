@@ -71,6 +71,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
     from .session import restore_engine, save_engine
     from .state_change_bridge import QtStateChangeBridge
     from .state_info_controller import StateInfoController
+    from .train_link_controller import TrainLinkController
 
     # PyTrain supplies custom backgrounds/content for its controls. The native macOS
     # style intentionally rejects those delegates, so use a customizable style on every
@@ -100,7 +101,9 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
         scope = CommandScope.ENGINE
         tmcc_id = restored_id
 
-    state_bridge = QtStateChangeBridge({CommandScope.SWITCH, CommandScope.ROUTE}, app)
+    state_bridge = QtStateChangeBridge(
+        {CommandScope.SWITCH, CommandScope.ROUTE, CommandScope.ENGINE, CommandScope.TRAIN}, app
+    )
     engine = QQmlApplicationEngine()
     network = NetworkMonitor(app)
     bundles = []
@@ -109,6 +112,9 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
         accessories = AccessoryCatalogController()
         catalog = EngineCatalogController()
         selection = SelectedEngineController(cab)
+        state_bridge.changesReady.connect(selection.applyTrainStateChanges)
+        train_links = TrainLinkController(cab)
+        state_bridge.changesReady.connect(train_links.applyStateChanges)
         switches = OpsController(CommandScope.SWITCH)
         routes = OpsController(CommandScope.ROUTE)
         state_bridge.changesReady.connect(switches.applyStateChanges)
@@ -124,6 +130,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
             "accessoryCatalogController": accessories,
             "engineCatalogController": catalog,
             "selectedEngineController": selection,
+            "trainLinkController": train_links,
             "switchOpsController": switches,
             "routeOpsController": routes,
             "lcsConfigController": lcs,
@@ -199,6 +206,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
                     ("accessories", bundle["accessoryCatalogController"].close),
                     ("routes", bundle["routeOpsController"].close),
                     ("switches", bundle["switchOpsController"].close),
+                    ("train links", bundle["trainLinkController"].close),
                     ("selection", bundle["selectedEngineController"].close),
                     ("catalog", bundle["engineCatalogController"].close),
                     ("cab", bundle["cabController"].close),

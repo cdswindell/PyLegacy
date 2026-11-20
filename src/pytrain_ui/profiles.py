@@ -9,6 +9,48 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pytrain.protocol.constants import (
+    ACELA_TYPE,
+    CRANE_TYPE,
+    DIESEL_TYPE,
+    ELECTRIC_TYPE,
+    FREIGHT_TYPE,
+    PASSENGER_TYPE,
+    RPM_TYPE,
+    STEAM_TYPE,
+    THROTTLE_TYPE,
+    TRANSFORMER_TYPE,
+    CommandScope,
+    EngineType,
+)
+
+
+def equipment_flag(state, flag: str) -> bool:
+    """Resolve train equipment traits even before its lead engine is available."""
+    if state is None:
+        return False
+    if bool(getattr(state, flag, False)):
+        return True
+    if getattr(state, "scope", None) == CommandScope.TRAIN:
+        head = getattr(state, "head", None)
+        head_type = getattr(head, "engine_type", None)
+        if head is None or EngineType.by_value(head_type, False) is None:
+            families = {
+                "is_acela": ACELA_TYPE,
+                "is_crane": CRANE_TYPE,
+                "is_diesel": DIESEL_TYPE,
+                "is_electric": ELECTRIC_TYPE,
+                "is_freight": FREIGHT_TYPE,
+                "is_passenger": PASSENGER_TYPE,
+                "is_rpm": RPM_TYPE,
+                "is_steam": STEAM_TYPE,
+                "is_transformer": TRANSFORMER_TYPE,
+                "has_throttle": THROTTLE_TYPE,
+            }
+            if flag in families:
+                return getattr(state, "engine_type", None) in families[flag]
+    return bool(getattr(state, flag, False))
+
 
 @dataclass(frozen=True, slots=True)
 class EngineControlProfile:
@@ -60,7 +102,7 @@ def resolve_engine_control_profile(
     engine_type = str(getattr(engine_type_enum, "name", "UNKNOWN") or "UNKNOWN")
     control_type = str(getattr(state, "control_type_label", "NA") or "NA")
     is_legacy = bool(getattr(state, "is_legacy", False))
-    has_throttle = bool(getattr(state, "has_throttle", False))
+    has_throttle = equipment_flag(state, "has_throttle")
 
     supports_momentum = has_throttle and momentum_supported
     supports_train_brake = is_legacy

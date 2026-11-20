@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path, PurePosixPath
 from time import monotonic
@@ -28,8 +29,13 @@ from ..actions import (
 from ..adapters import PyTrainCabCommandAdapter, PyTrainCabStateAdapter
 from ..contracts import EngineViewState
 from ..panels import panel_actions, panel_title
+from ..profiles import equipment_flag
 from .artwork import ArtworkLoader
-from .presentation import format_road_number
+from .presentation import format_road_number, is_pseudo_train, target_kind
+
+_VOLUME_ACTION_KEYS = frozenset(
+    {"master_volume_up", "master_volume_down", "blend_up", "blend_down", "labor_up", "labor_down"}
+)
 
 _QUICK_ACTION_KEYS = frozenset(
     {"rear_coupler", "front_coupler", "engineer_chatter", "tower_chatter", "conductor", "station", "steward"}
@@ -125,6 +131,8 @@ class CabController(QObject):
         targets: list[tuple[CommandScope, int, str]] = []
         for scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             for state in store.get_all(scope):
+                if is_pseudo_train(state):
+                    continue
                 road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
                 road_number = format_road_number(getattr(state, "road_number", None))
                 detail = " ".join(part for part in (road_name, road_number) if part)
@@ -227,13 +235,20 @@ class CabController(QObject):
         name = str(getattr(engine_type, "name", "DIESEL") or "DIESEL")
         return find_file(_ENGINE_ARTWORK.get(name, "generic_diesel.jpg")), "generic"
 
-    def _action_model(self, group: str) -> list[dict]:
+    def _action_model(self, group: str, *, volume: bool = False) -> list[dict]:
         if self._command_port is None:
             return []
         profile = self._command_port.control_profile
         model: list[dict] = []
-        for action in cab_actions(group):
-            if not self._command_port.supports_action(action):
+        for action in cab_actions(None if volume else group):
+            if volume:
+                if action.key not in _VOLUME_ACTION_KEYS:
+                    continue
+                # Car volume controls use the existing command support checks,
+                # including the labor sequence available to TMCC1 cars.
+                action = replace(action, scope_tag="*", legacy_only=False)
+            supported = self._command_port.supports_action(action)
+            if not supported and not volume:
                 continue
             whistle = action.key == "horn" and self.isSteam
             label = "Whistle" if whistle else action.label
@@ -258,6 +273,7 @@ class CabController(QObject):
             model.append(
                 {
                     "key": action.key,
+                    **({"disabled": not supported} if volume else {}),
                     "label": label,
                     "iconSource": QUrl.fromLocalFile(str(icon_path)).toString() if icon_path else "",
                     "hold": hold_enabled,
@@ -385,6 +401,16 @@ class CabController(QObject):
         return self._action_model("speed")
 
     @Property(list, notify=stateChanged)
+    def volumeActionModel(self) -> list[dict]:
+        return self._action_model("", volume=True)
+
+    @Slot(str)
+    def triggerVolumeAction(self, key: str) -> None:
+        if self._command_port is not None and key in _VOLUME_ACTION_KEYS:
+            action = cab_action(key)
+            self._command_port.perform(replace(action, scope_tag="*", legacy_only=False))
+
+    @Property(list, notify=stateChanged)
     def tuningActionModel(self) -> list[dict]:
         return self._action_model("tuning")
 
@@ -410,6 +436,11 @@ class CabController(QObject):
         return self.artworkKind == "custom"
 
     @Property(str, notify=stateChanged)
+    def targetKind(self) -> str:
+        state = self._state_port.state if self._state_port is not None else None
+        return target_kind(state, CommandScope[self.scope])
+
+    @Property(str, notify=stateChanged)
     def engineType(self) -> str:
         if self._command_port is None:
             return "UNKNOWN"
@@ -418,7 +449,7 @@ class CabController(QObject):
     @Property(bool, notify=stateChanged)
     def isSteam(self) -> bool:
         state = self._state_port.state if self._state_port is not None else None
-        return bool(getattr(state, "is_steam", False))
+        return equipment_flag(state, "is_steam")
 
     @Property(int, notify=stateChanged)
     def fuelLevel(self) -> int:
@@ -435,7 +466,7 @@ class CabController(QObject):
     @Property(bool, notify=stateChanged)
     def isDiesel(self) -> bool:
         state = self._state_port.state if self._state_port is not None else None
-        return bool(getattr(state, "is_diesel", False))
+        return equipment_flag(state, "is_diesel")
 
     @Property(bool, notify=stateChanged)
     def isAcela(self) -> bool:

@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 import logging
 from pathlib import Path
+import platform
+import subprocess
 from socket import AF_INET
 from threading import Event, Thread
 
@@ -23,6 +25,7 @@ class NetworkReading:
     wifi: WiFiSnapshot = field(default_factory=WiFiSnapshot)
     address: str | None = None
     ethernet: bool = False
+    interface: str | None = None
 
     def as_map(self) -> dict:
         wifi = self.wifi
@@ -31,11 +34,11 @@ class NetworkReading:
             quality = WiFiInfo.dbm_to_quality(wifi.signal_dbm)
         if quality is not None:
             quality = max(0, min(100, quality))
-        connected = wifi.connected
+        connected = wifi.connected and not self.ethernet
         connection = "Wi-Fi" if connected else "Ethernet" if self.ethernet else "Network"
         if not connected and wifi.interface and not self.ethernet:
             connection = "Wi-Fi disconnected"
-        signal = "Signal unavailable"
+        signal = "Wired" if self.ethernet else "Signal unavailable"
         bars = 0
         color = "#9aafc2"
         level = -1
@@ -51,7 +54,7 @@ class NetworkReading:
                 color = "#ff656d"
         return {
             "connection": connection,
-            "ssid": (wifi.ssid or "") if connected else "",
+            "ssid": (wifi.ssid or "") if connected else (self.interface or "") if self.ethernet else "",
             "address": self.address or "Unavailable",
             "quality": level,
             "signal": signal,
@@ -65,15 +68,39 @@ def read_network(wifi: WiFiInfo) -> NetworkReading:
     """Use the existing Wi-Fi helper and the local routing-table address."""
     snapshot = wifi.query()
     address = get_local_ipv4()
-    ethernet = False
-    if not snapshot.connected and address:
-        # Confirm a physical wired Linux interface; do not guess from a missing SSID.
+    wired_interface = None
+    if address:
         for interface, entries in psutil.net_if_addrs().items():
             if any(entry.family == AF_INET and entry.address == address for entry in entries):
                 device = Path("/sys/class/net") / interface
-                ethernet = (device / "device").exists() and not (device / "wireless").exists()
+                if (device / "device").exists() and not (device / "wireless").exists():
+                    wired_interface = interface
+                elif platform.system() == "Darwin":
+                    wired_interface = macos_wired_port(interface)
                 break
-    return NetworkReading(snapshot, address, ethernet)
+    return NetworkReading(snapshot, address, wired_interface is not None, wired_interface)
+
+
+def macos_wired_port(interface: str) -> str | None:
+    """Identify the routed interface from macOS hardware-port information."""
+    try:
+        result = subprocess.run(
+            ["/usr/sbin/networksetup", "-listallhardwareports"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode:
+        return None
+    for block in result.stdout.split("\n\n"):
+        fields = dict(line.split(": ", 1) for line in block.splitlines() if ": " in line)
+        port = fields.get("Hardware Port", "")
+        if fields.get("Device") == interface and "ethernet" in port.lower():
+            return f"{port} ({interface})"
+    return None
 
 
 def start_query(work: Callable[[], None]) -> None:

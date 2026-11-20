@@ -82,6 +82,7 @@ def test_disconnected_ethernet_and_unknown_readings_do_not_retain_wifi_signal():
     wired = NetworkReading(address="10.0.0.2", ethernet=True).as_map()
     assert wired["connection"] == "Ethernet"
     assert not wired["wireless"]
+    assert wired["signal"] == "Wired"
     assert wired["bars"] == 0
     unknown = NetworkReading().as_map()
     assert unknown["connection"] == "Network"
@@ -89,6 +90,7 @@ def test_disconnected_ethernet_and_unknown_readings_do_not_retain_wifi_signal():
 
 
 def test_sampling_reuses_wifi_helper_and_only_confirms_physical_wired_interfaces(monkeypatch, tmp_path):
+    monkeypatch.setattr(module.platform, "system", lambda: "Linux")
     helper = Mock()
     helper.query.return_value = WiFiSnapshot()
     monkeypatch.setitem(vars(module), "get_local_ipv4", lambda: "10.0.0.2")
@@ -98,7 +100,9 @@ def test_sampling_reuses_wifi_helper_and_only_confirms_physical_wired_interfaces
     )
     assert not module.read_network(helper).ethernet
     (tmp_path / "eth0" / "device").mkdir(parents=True)
-    assert module.read_network(helper).ethernet
+    wired = module.read_network(helper)
+    assert wired.ethernet
+    assert wired.as_map()["ssid"] == "eth0"
     (tmp_path / "eth0" / "wireless").mkdir()
     assert not module.read_network(helper).ethernet
     helper.query.return_value = wifi_reading().wifi
@@ -106,6 +110,44 @@ def test_sampling_reuses_wifi_helper_and_only_confirms_physical_wired_interfaces
     assert result.wifi.ssid == "Layout"
     assert not result.ethernet
     assert helper.query.call_count == 4
+
+
+@pytest.mark.parametrize("wifi_connected", [False, True])
+def test_routed_ethernet_takes_precedence_over_wifi(monkeypatch, wifi_connected):
+    helper = Mock()
+    helper.query.return_value = WiFiSnapshot(connected=wifi_connected, ssid="Layout", quality=90)
+    monkeypatch.setattr(module, "get_local_ipv4", lambda: "10.0.0.2")
+    monkeypatch.setattr(module.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        module.psutil, "net_if_addrs", lambda: {"en7": [SimpleNamespace(family=AF_INET, address="10.0.0.2")]}
+    )
+    run = Mock(
+        return_value=SimpleNamespace(
+            returncode=0, stdout=("Hardware Port: Wi-Fi\nDevice: en0\n\nHardware Port: USB Ethernet\nDevice: en7\n")
+        )
+    )
+    monkeypatch.setattr(module.subprocess, "run", run)
+    reading = module.read_network(helper).as_map()
+    assert reading["connection"] == "Ethernet"
+    assert reading["signal"] == "Wired"
+    assert reading["ssid"] == "USB Ethernet (en7)"
+    assert not reading["wireless"]
+    assert reading["quality"] == -1
+
+
+@pytest.mark.parametrize("failure", [OSError("Unavailable"), subprocess.TimeoutExpired("networksetup", 3)])
+def test_unavailable_hardware_information_does_not_guess_a_wired_connection(monkeypatch, failure):
+    monkeypatch.setattr(module.subprocess, "run", Mock(side_effect=failure))
+    assert module.macos_wired_port("en7") is None
+
+
+def test_macos_wireless_port_is_not_reported_as_wired(monkeypatch):
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        Mock(return_value=SimpleNamespace(returncode=0, stdout="Hardware Port: Wi-Fi\nDevice: en0\n")),
+    )
+    assert module.macos_wired_port("en0") is None
 
 
 def test_visible_panels_share_one_query_and_stop_refreshing_when_hidden(app):
@@ -303,6 +345,11 @@ assert label.property("text") == "Signal unavailable"
 assert card.height() == original_height, "Connection changes must not move held Admin buttons"
 assert card.findChild(QObject, "networkSignal") is label
 assert card.findChild(QObject, "networkAddress").property("text") == "Local IP  Unavailable"
+card.setProperty("reading", NetworkReading(address="10.0.0.2", ethernet=True, interface="eth0").as_map())
+app.processEvents()
+assert label.property("text") == "Wired"
+assert card.findChild(QObject, "networkSsid").property("text") == "eth0"
+assert card.height() == original_height
 window.close()
 print("NETWORK_CARD_OK")
 """

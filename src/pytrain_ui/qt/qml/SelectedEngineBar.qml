@@ -5,7 +5,9 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    objectName: "activeEngineTrainBar"
     required property var selection
+    signal trainSelected(int tmccId)
 
     readonly property bool compactTiles: selection ? selection.count > 4 : false
 
@@ -25,30 +27,67 @@ Rectangle {
 
     color: "#15191f"
     radius: 8
-    clip: true
+    border.width: 1
+    border.color: "#5275a4"
+
+    Label {
+        objectName: "activeEngineTrainTitle"
+        anchors.left: parent.left
+        anchors.leftMargin: 10
+        y: -implicitHeight / 2
+        leftPadding: 6
+        rightPadding: 6
+        text: "Active Engines and Trains"
+        color: "#bad4ea"
+        font.pixelSize: 14
+        background: Rectangle { color: root.color }
+    }
 
     ListView {
         id: selectedList
+        objectName: "activeEngineTrainList"
+        readonly property bool overflow: contentWidth > width + 1
         anchors.fill: parent
         anchors.leftMargin: 8
         anchors.rightMargin: 8
+        anchors.topMargin: 12
+        anchors.bottomMargin: overflow ? 18 : 6
         orientation: ListView.Horizontal
         spacing: root.compactTiles ? 4 : 6
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         model: root.selection ? root.selection.selectedEngines : []
+        ScrollBar.horizontal: ScrollBar {
+            objectName: "activeEngineTrainScrollIndicator"
+            parent: root
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: 8
+            anchors.rightMargin: 8
+            anchors.bottomMargin: 4
+            policy: selectedList.overflow ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+            height: 8
+            active: selectedList.overflow
+            contentItem: Rectangle { radius: 3; color: "#82bedb" }
+            background: Rectangle { radius: 3; color: "#162a3d" }
+        }
 
         delegate: Rectangle {
             id: card
+            objectName: "activeTile-" + modelData.scope + "-" + modelData.tmccId
             required property var modelData
 
+            readonly property bool train: modelData.scope === "TRAIN"
             width: root.compactTiles ? 204 : 244
             height: selectedList.height - 2
             anchors.verticalCenter: parent ? parent.verticalCenter : undefined
             radius: 7
-            color: cardTap.pressed ? Qt.darker("#64a9d2", 1.45) : modelData.current ? "#246aa0" : "#292f38"
+            readonly property bool trainLinked: !train && modelData.trainLinked === true
+            readonly property bool trainMember: !train && modelData.trainId > 0
+            color: cardTap.pressed ? Qt.darker(card.train ? "#b3a0e0" : "#64a9d2", 1.45) : card.train ? "#37334e" : card.trainLinked ? "#36556f" : card.trainMember ? "#335b58" : modelData.current ? "#246aa0" : "#292f38"
             border.width: modelData.current ? 2 : 1
-            border.color: modelData.current ? "#78bff0" : (modelData.active ? "#d0a24c" : "#505b68")
+            border.color: card.train ? "#b3a0e0" : card.trainLinked ? "#86acc9" : card.trainMember ? "#83cabc" : modelData.current ? "#78bff0" : (modelData.active ? "#d0a24c" : "#505b68")
             clip: true
 
             RowLayout {
@@ -57,12 +96,23 @@ Rectangle {
                 anchors.rightMargin: root.compactTiles ? 3 : 5
                 spacing: root.compactTiles ? 3 : 5
 
-                Label {
-                    visible: !root.compactTiles
-                    text: modelData.tmccId
-                    color: "white"
-                    font.pixelSize: 20
-                    font.bold: true
+                ColumnLayout {
+                    spacing: 0
+                    Label {
+                        objectName: "activeTargetKind-" + card.modelData.scope + "-" + card.modelData.tmccId
+                        Layout.alignment: Qt.AlignHCenter
+                        text: card.modelData.kind || (card.train ? "TRN" : "ENG")
+                        color: card.train ? "#d6c6f6" : "#9aafc2"
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+                    Label {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: card.modelData.tmccId
+                        color: "white"
+                        font.pixelSize: root.compactTiles ? 18 : 20
+                        font.bold: true
+                    }
                 }
 
                 ColumnLayout {
@@ -75,7 +125,7 @@ Rectangle {
                         Layout.minimumWidth: 0
                         Layout.preferredHeight: 22
                         text: {
-                            const name = card.modelData.roadName || "Engine"
+                            const name = card.modelData.roadName || (card.train ? "Train" : "Engine")
                             const number = card.modelData.roadNumber ? "#" + card.modelData.roadNumber : ""
                             return number.length > 0 ? name + " " + number : name
                         }
@@ -89,16 +139,6 @@ Rectangle {
                         Layout.minimumWidth: 0
                         spacing: 3
 
-                        Label {
-                            visible: root.compactTiles
-                            text: modelData.tmccId
-                            color: "white"
-                            font.pixelSize: 18
-                            font.bold: true
-                        }
-                        Item {
-                            Layout.preferredWidth: root.compactTiles && String(modelData.tmccId).length >= 4 ? 0 : 3
-                        }
                         Label {
                             text: modelData.direction
                             color: modelData.current ? "#dceffc" : "#aeb7c2"
@@ -145,7 +185,10 @@ Rectangle {
                     pressedColor: "#4d7ba0"
                     onClicked: {
                         if (root.selection)
-                            root.selection.dismissEngine(card.modelData.tmccId)
+                            if (card.train)
+                                root.selection.dismissTrain(card.modelData.tmccId)
+                            else
+                                root.selection.dismissEngine(card.modelData.tmccId)
                     }
                 }
             }
@@ -155,7 +198,10 @@ Rectangle {
                 gesturePolicy: TapHandler.DragThreshold
                 onTapped: {
                     if (root.selection)
-                        root.selection.selectEngine(card.modelData.tmccId)
+                        if (card.train)
+                            root.trainSelected(card.modelData.tmccId)
+                        else
+                            root.selection.selectEngine(card.modelData.tmccId)
                 }
             }
         }

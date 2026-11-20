@@ -10,6 +10,7 @@ from pytrain.db.state_watcher import StateWatcher
 from pytrain.protocol.constants import CommandScope
 
 from ..contracts import EngineViewState, StateListener, Unsubscribe
+from ..profiles import equipment_flag
 
 EngineOrTrainState = EngineState | TrainState
 
@@ -50,8 +51,8 @@ def snapshot_from_state(state: EngineOrTrainState) -> EngineViewState:
     train_brake = _int_value(getattr(state, "train_brake", 0))
     smoke = _int_value(getattr(state, "smoke", 0))
     labor_value = getattr(state, "labor", None)
-    is_acela = bool(getattr(state, "is_acela", False))
-    is_rpm = is_acela or bool(getattr(state, "is_rpm", False))
+    is_acela = equipment_flag(state, "is_acela")
+    is_rpm = is_acela or equipment_flag(state, "is_rpm")
     rpm_value = (
         getattr(getattr(state, "comp_data", None), "rpm_tmcc", None) if is_acela else getattr(state, "rpm", None)
     )

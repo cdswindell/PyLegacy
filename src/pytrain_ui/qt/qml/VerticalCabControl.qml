@@ -15,12 +15,23 @@ Item {
     property bool presetMomentum: false
     readonly property int scaleFontSize: largeTouch ? 14 : 11
     readonly property int labelStep: maximumValue === 15 && (height - handle.height) / 15 < scaleFontSize + 5 ? 3 : 1
-    readonly property bool dragging: pointer.pressed
+    readonly property bool dragging: pointer.pressed && !interactionCanceled
     readonly property real activeHeight: Math.max(1, height)
 
     signal valueMoved(int value)
     signal valueCommitted(int value)
     signal released()
+
+    onVisibleChanged: if (!visible) cancelInteraction()
+    onEnabledChanged: if (!enabled) cancelInteraction()
+    property bool interactionCanceled: false
+    function cancelInteraction() {
+        interactionCanceled = true
+        awaitingConfirmation = false
+        confirmationTimer.stop()
+        pendingValue = springReturn ? 0 : value
+        released()
+    }
 
     implicitWidth: 76
     implicitHeight: 420
@@ -173,6 +184,7 @@ Item {
         }
 
         onPressed: function(event) {
+            root.interactionCanceled = false
             const currentValue = root.awaitingConfirmation ? root.pendingValue : (root.springReturn ? 0 : root.value)
             const thumbY = root.valueToY(currentValue)
             const onThumb = event.x >= handle.x && event.x <= handle.x + handle.width
@@ -184,10 +196,12 @@ Item {
             moveTo(event.y)
         }
         onPositionChanged: function(event) {
-            if (pressed)
+            if (pressed && !root.interactionCanceled)
                 moveTo(event.y)
         }
         onReleased: {
+            if (root.interactionCanceled)
+                return
             if (root.springReturn) {
                 root.pendingValue = 0
             } else {

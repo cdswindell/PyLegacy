@@ -17,7 +17,7 @@ from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2
 
 from ..actions import CabAction, action_applies_to_type, cab_action
 from ..panels import BELL_HORN_COMMANDS
-from ..profiles import EngineControlProfile, resolve_engine_control_profile
+from ..profiles import EngineControlProfile, equipment_flag, resolve_engine_control_profile
 
 from .state import PyTrainCabStateAdapter
 
@@ -91,21 +91,21 @@ class PyTrainCabCommandAdapter:
     @property
     def controller_type_key(self) -> str:
         state = self.state
-        if getattr(state, "is_diesel", False):
+        if equipment_flag(state, "is_diesel"):
             return "d"
-        if getattr(state, "is_steam", False):
+        if equipment_flag(state, "is_steam"):
             return "s"
-        if getattr(state, "is_passenger", False):
+        if equipment_flag(state, "is_passenger"):
             return "p"
-        if getattr(state, "is_freight", False):
+        if equipment_flag(state, "is_freight"):
             return "f"
-        if getattr(state, "is_acela", False):
+        if equipment_flag(state, "is_acela"):
             return "a"
-        if getattr(state, "is_electric", False):
+        if equipment_flag(state, "is_electric"):
             return "l"
-        if getattr(state, "is_crane", False):
+        if equipment_flag(state, "is_crane"):
             return "r"
-        if getattr(state, "is_transformer", False):
+        if equipment_flag(state, "is_transformer"):
             return "t"
         return "d"
 
@@ -220,7 +220,7 @@ class PyTrainCabCommandAdapter:
         )
 
     def supports_rpm(self) -> bool:
-        return self.supports_labor() and (self.controller_type_key == "a" or bool(getattr(self.state, "is_rpm", False)))
+        return self.supports_labor() and (self.controller_type_key == "a" or equipment_flag(self.state, "is_rpm"))
 
     def set_labor(self, value: int) -> None:
         state = self.state

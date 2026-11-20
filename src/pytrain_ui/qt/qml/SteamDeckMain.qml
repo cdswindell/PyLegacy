@@ -31,6 +31,7 @@ CabWindow {
                 stateInfoController: leftStateInfoController
                 accessoryCatalogController: leftAccessoryCatalogController
                 engineCatalogController: leftEngineCatalogController
+                trainLinkController: leftTrainLinkController
                 selectedEngineController: leftSelectedEngineController
                 switchOpsController: leftSwitchOpsController
                 routeOpsController: leftRouteOpsController
@@ -58,6 +59,7 @@ CabWindow {
                 stateInfoController: rightStateInfoController
                 accessoryCatalogController: rightAccessoryCatalogController
                 engineCatalogController: rightEngineCatalogController
+                trainLinkController: rightTrainLinkController
                 selectedEngineController: rightSelectedEngineController
                 switchOpsController: rightSwitchOpsController
                 routeOpsController: rightRouteOpsController

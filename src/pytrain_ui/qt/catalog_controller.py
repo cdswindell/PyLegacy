@@ -8,7 +8,7 @@ from pytrain.comm.command_listener import CommandDispatcher
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.protocol.constants import CommandScope
 
-from .presentation import format_road_number
+from .presentation import format_road_number, is_pseudo_train
 
 
 _ENGINE_TYPE_ALIASES = {
@@ -81,6 +81,8 @@ class EngineCatalogController(QObject):
             [*store.get_all(CommandScope.ENGINE), *store.get_all(CommandScope.TRAIN)], key=lambda state: state.tmcc_id
         )
         for state in states:
+            if is_pseudo_train(state):
+                continue
             road_name = str(getattr(state, "road_name", "") or getattr(state, "name", "") or "").strip()
             road_number = format_road_number(getattr(state, "road_number", None))
             type_key, type_label = self._engine_type(state)

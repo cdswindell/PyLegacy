@@ -17,7 +17,15 @@ Control {
     property color selectedColor: "#246aa0"
     property color selectedAccent: "transparent"
     property color pressedColor: "#5c9fc6"
-    readonly property bool pressed: isPointerPressed()
+    property bool interactionCanceled: false
+    function cancelInteraction() {
+        interactionCanceled = true
+        doubleTapTimer.stop()
+        pressFlash.stop()
+        if (isPointerPressed())
+            pressCanceled()
+    }
+    readonly property bool pressed: isPointerPressed() && !interactionCanceled
 
     function isPointerPressed() {
         return tapHandler.pressed || touchHandler.pressed
@@ -26,8 +34,8 @@ Control {
 
     Timer { id: pressFlash; interval: 140 }
     onClicked: pressFlash.restart()
-    onEnabledChanged: if (!enabled) doubleTapTimer.stop()
-    onVisibleChanged: if (!visible) doubleTapTimer.stop()
+    onEnabledChanged: if (!enabled) cancelInteraction()
+    onVisibleChanged: if (!visible) cancelInteraction()
 
     DoubleTapWindow {
         id: doubleTapTimer
@@ -69,6 +77,8 @@ Control {
         acceptedButtons: Qt.LeftButton
         longPressThreshold: root.holdWithinBounds ? 0.55 : undefined
         onTapped: {
+            if (root.interactionCanceled)
+                return
             if (root.distinguishDoubleClick && !holdTriggered) {
                 doubleTapTimer.registerTap()
             } else if (root.activateOnRelease && !root.distinguishDoubleClick) {
@@ -76,6 +86,8 @@ Control {
             }
         }
         onLongPressed: {
+            if (root.interactionCanceled)
+                return
             if (root.activateOnHold || (root.distinguishDoubleClick &&
                 (root.mouseHoldEnabled || point.device.type === PointerDevice.TouchScreen))) {
                 holdTriggered = true
@@ -85,6 +97,7 @@ Control {
         }
         onPressedChanged: {
             if (pressed) {
+                root.interactionCanceled = false
                 holdTriggered = false
                 if (!root.activateOnRelease && !root.distinguishDoubleClick)
                     root.clicked()
@@ -114,7 +127,7 @@ Control {
     Timer {
         interval: root.repeatInterval
         repeat: true
-        running: root.enabled && root.repeatWhileHeld && root.pressed
+        running: root.visible && root.enabled && !root.interactionCanceled && root.repeatWhileHeld && root.pressed
         onTriggered: root.clicked()
     }
 

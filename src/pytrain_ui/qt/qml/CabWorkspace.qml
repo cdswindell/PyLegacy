@@ -12,6 +12,7 @@ Rectangle {
     property var stateInfoController
     property var accessoryCatalogController
     property var engineCatalogController
+    property var trainLinkController
     property var selectedEngineController
     property var switchOpsController
     property var routeOpsController
@@ -183,7 +184,15 @@ Rectangle {
         const sameAccessoryScope = scope === "ACCESSORY" && window.activeScope === "ACCESSORY"
         const showAccessoryRoster = sameAccessoryScope && window.accessoryOperatingVisible
         const selectedAccessoryKey = sameAccessoryScope ? window.activeAccessoryKey : ""
+        const returnToTrain = scope === "TRAIN" && window.activeScope === "TRAIN"
+            && window.trainLinkController && window.trainLinkController.selectedId > 0
         closeOpenPanels()
+        if (returnToTrain && !showKeypad) {
+            window.trainLinkController.clearSelection()
+            window.engineCatalogVisible = false
+            operatingCabView.selectControlPage(0)
+            return
+        }
         if (scope === "SWITCH") {
             switchOpsController.reload()
             window.activeScope = "SWITCH"
@@ -254,6 +263,27 @@ Rectangle {
     }
 
     Connections {
+        target: window.trainLinkController
+        function onSelectionInvalidated(address) {
+            operatingCabView.cancelTransientPanels()
+            if (window.activeScope === "TRAIN" && window.stateInfoVisible
+                && window.stateInfoScope === "ENGINE" && window.stateInfoId === address) {
+                window.closeStateInfo()
+                discardChanges.close()
+            }
+        }
+        function onTrainUnavailable(address) {
+            if (window.activeScope !== "TRAIN" || cabController.tmccId !== address)
+                return
+            operatingCabView.cancelTransientPanels()
+            window.closeStateInfo()
+            discardChanges.close()
+            window.engineCatalogVisible = true
+            engineCatalogController.reload()
+        }
+    }
+
+    Connections {
         target: stateInfoController
         function onRecordReady(scope, tmccId) {
             if (scope === "ACC") {
@@ -289,15 +319,18 @@ Rectangle {
             } else if (scope === "ENGINE" || scope === "TRAIN") {
                 const operatingRecord = window.activeScope === scope
                     && cabController.scope === scope && cabController.tmccId === tmccId
-                if (operatingRecord || editingRecord) {
+                const linkedCarRecord = scope === "ENGINE" && window.activeScope === "TRAIN"
+                    && window.trainLinkController && window.trainLinkController.selectedId === tmccId
+                if (window.trainLinkController)
+                    window.trainLinkController.refresh()
+                if (operatingRecord || (editingRecord && !linkedCarRecord)) {
                     window.engineCatalogVisible = true
                     operatingCabView.cancelTransientPanels()
                     if (!window.stateInfoVisible)
                         discardChanges.close()
                 }
                 cabController.forgetClearedTarget(scope, tmccId)
-                if (scope === "ENGINE")
-                    selectedEngineController.pruneDeleted()
+                selectedEngineController.pruneDeleted()
                 engineCatalogController.reload()
                 cabController.refreshRoster()
             }
@@ -408,6 +441,8 @@ Rectangle {
                         anchors.fill: parent
                         visible: window.stateInfoVisible || !window.engineCatalogVisible
                         cab: cabController
+                        controlCab: window.activeScope === "TRAIN" && window.trainLinkController && window.trainLinkController.selectedCab
+                            ? window.trainLinkController.selectedCab : cabController
                         selection: selectedEngineController
                         infoController: stateInfoController
                         stateInfoVisible: window.stateInfoVisible
@@ -415,9 +450,9 @@ Rectangle {
                         stateInfoFromTab: window.stateInfoFromTab
                         stateInfoIdentity: window.stateInfoScope + " " + window.stateInfoId
                         onStateInfoRequested: window.requestEditorExit(() =>
-                            window.openStateInfo(cabController.scope, cabController.tmccId, false))
+                            window.openStateInfo(operatingCabView.controlCab.scope, operatingCabView.controlCab.tmccId, false))
                         onStateInfoTabRequested: window.requestEditorExit(() =>
-                            window.openStateInfo(cabController.scope, cabController.tmccId, false, "", true))
+                            window.openStateInfo(operatingCabView.controlCab.scope, operatingCabView.controlCab.tmccId, false, "", true))
                         onControlPageRequested: index => window.requestEditorExit(() => {
                             if (window.stateInfoVisible)
                                 window.closeStateInfo()
@@ -579,14 +614,40 @@ Rectangle {
 
             SelectedEngineBar {
                 id: selectedEngineBar
-                Layout.topMargin: -4
+                Layout.topMargin: 8
                 color: "#0d1f58"
                 Layout.fillWidth: true
                 Layout.leftMargin: -6
                 Layout.rightMargin: -6
-                Layout.preferredHeight: visible ? panelMetrics.selectedEngineBarHeight(operatingCabView.compact) : 0
+                Layout.preferredHeight: visible ? panelMetrics.selectedEngineBarHeight(operatingCabView.compact) + 14 : 0
                 visible: !window.manageVisible && !operatingCabView.dialogPanelOpen && !window.stateInfoVisible && window.activeScope === "ENGINE" && !window.engineCatalogVisible && cabController.scope === "ENGINE"
                 selection: selectedEngineController
+                onTrainSelected: (tmccId) => window.requestEditorExit(() => {
+                    if (selectedEngineController.selectTrain(tmccId)) {
+                        window.closeOpenPanels()
+                        window.activeScope = "TRAIN"
+                        window.engineCatalogVisible = false
+                    }
+                })
+            }
+
+            TrainLinkedCarBar {
+                Layout.topMargin: 8
+                Layout.fillWidth: true
+                Layout.leftMargin: -6
+                Layout.rightMargin: -6
+                Layout.preferredHeight: visible ? panelMetrics.selectedEngineBarHeight(operatingCabView.compact) + 14 : 0
+                visible: !window.manageVisible && !operatingCabView.dialogPanelOpen && !window.stateInfoVisible
+                    && window.activeScope === "TRAIN" && !window.engineCatalogVisible && cabController.scope === "TRAIN"
+                links: window.trainLinkController
+                onCarRequested: tmccId => window.requestEditorExit(() => {
+                    if (window.stateInfoVisible) window.closeStateInfo()
+                    operatingCabView.selectControlPage(0)
+                    if (window.trainLinkController.selectedId === tmccId)
+                        window.trainLinkController.clearSelection()
+                    else
+                        window.trainLinkController.select(tmccId)
+                })
             }
 
             ScopeBar {

@@ -20,16 +20,26 @@ Item {
     property string valueSuffix: ""
     property bool muted: false
     readonly property int scaleCount: Math.floor((maximumValue - minimumValue) / scaleStep) + 1
-    readonly property bool dragging: pointer.pressed
+    readonly property bool dragging: pointer.pressed && !interactionCanceled
     readonly property real activeHeight: Math.max(1, height)
     signal valueCommitted(int value)
     signal gestureStarted()
     signal valueMoved(int value)
     signal gestureFinished()
 
-    onVisibleChanged: if (!visible && springReturn) gestureFinished()
-    onEnabledChanged: if (!enabled && springReturn) gestureFinished()
+    onVisibleChanged: if (!visible) cancelInteraction()
+    onEnabledChanged: if (!enabled) cancelInteraction()
     onSpringReturnChanged: gestureFinished()
+
+    property bool interactionCanceled: false
+    function cancelInteraction() {
+        interactionCanceled = true
+        awaitingConfirmation = false
+        confirmationTimer.stop()
+        pendingValue = springReturn ? 0 : value
+        if (springReturn)
+            gestureFinished()
+    }
 
     implicitWidth: 112
     implicitHeight: 520
@@ -201,6 +211,7 @@ Item {
         }
 
         onPressed: function(event) {
+            root.interactionCanceled = false
             const thumbY = root.valueToY(root.awaitingConfirmation ? root.pendingValue : root.value)
             const onThumb = event.x >= handle.x && event.x <= handle.x + handle.width
                 && event.y >= thumbY && event.y <= thumbY + handle.height
@@ -213,10 +224,12 @@ Item {
             moveTo(event.y)
         }
         onPositionChanged: function(event) {
-            if (pressed)
+            if (pressed && !root.interactionCanceled)
                 moveTo(event.y)
         }
         onReleased: function(event) {
+            if (root.interactionCanceled)
+                return
             if (root.springReturn) {
                 root.pendingValue = 0
                 root.gestureFinished()

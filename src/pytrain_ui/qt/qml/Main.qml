@@ -14,6 +14,7 @@ CabWindow {
     property var context_stateInfoController: stateInfoController
     property var context_accessoryCatalogController: accessoryCatalogController
     property var context_engineCatalogController: engineCatalogController
+    property var context_trainLinkController: trainLinkController
     property var context_selectedEngineController: selectedEngineController
     property var context_switchOpsController: switchOpsController
     property var context_routeOpsController: routeOpsController
@@ -27,6 +28,7 @@ CabWindow {
         stateInfoController: host.context_stateInfoController
         accessoryCatalogController: host.context_accessoryCatalogController
         engineCatalogController: host.context_engineCatalogController
+        trainLinkController: host.context_trainLinkController
         selectedEngineController: host.context_selectedEngineController
         switchOpsController: host.context_switchOpsController
         routeOpsController: host.context_routeOpsController
