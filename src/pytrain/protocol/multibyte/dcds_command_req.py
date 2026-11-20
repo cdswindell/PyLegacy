@@ -15,6 +15,7 @@ from .multibyte_constants import (
     TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX,
     TMCC2DcdsCommandEnum,
     TMCC2EngineCommandEnumEx,
+    TMCC2RawVariableEnum,
     TMCC2VariableEnum,
     VolumeCode,
 )
@@ -86,7 +87,7 @@ class VariableCommandReq(MultiByteReq):
             cmd_enum = next(
                 (
                     command
-                    for enum in (TMCC2DcdsCommandEnum, TMCC2EngineCommandEnumEx)
+                    for enum in (TMCC2DcdsCommandEnum, TMCC2EngineCommandEnumEx, TMCC2RawVariableEnum)
                     for command in enum
                     if command.value.bits == pi
                 ),
@@ -119,10 +120,9 @@ class VariableCommandReq(MultiByteReq):
                     )
                 # build_req the request and return
                 address_bytes = param[1:7] if is_d4 else param[1:3]
-                address = cmd_enum.value.address_from_bytes(address_bytes)
+                address = cmd_enum.value.address_from_bytes(address_bytes, prefix=param[0])
                 cmd_req = VariableCommandReq.build(cmd_enum, address, data_bytes, scope, address_bytes=address_bytes)
-                cmd_req._is_tmcc_rx = from_tmcc_rx
-                cmd_req._is_tmcc4 = is_d4
+                cmd_req._set_decoded_bytes(param, is_d4, from_tmcc_rx)
                 return cmd_req
         raise ValueError(f"Invalid variable byte command: {param.hex(':')}")
 
@@ -154,7 +154,18 @@ class VariableCommandReq(MultiByteReq):
             self._data_bytes = data_bytes if data_bytes is not None else []
 
     def __repr__(self) -> str:
+        if isinstance(self.command, TMCC2RawVariableEnum):
+            payload = bytes(self.data_bytes).hex(" ").upper()
+            rx = " (RX)" if self.is_tmcc_rx else ""
+            return (
+                f"[{self.scope.name} {self.address} VARIABLE ID 0x{self.command_id:04X} "
+                f"DATA {payload}{rx} (0x{self.as_bytes.hex()})]"
+            )
         return super().__repr__()
+
+    @property
+    def command_id(self) -> int:
+        return self.command.value.bits
 
     @property
     def data_bytes(self) -> List[int] | bytes:
@@ -172,12 +183,19 @@ class VariableCommandReq(MultiByteReq):
             Words 5 - N: Data words
             Word N + 1: Checksum
         """
-        pkt_len = 7 if self.address > 99 else 3
-        return (5 + self.command.value.num_data_bytes) * pkt_len
+        pkt_len = 7 if self.uses_d4_address else 3
+        count = (
+            len(self.data_bytes)
+            if isinstance(self.command, TMCC2RawVariableEnum)
+            else self.command.value.num_data_bytes
+        )
+        return (5 + count) * pkt_len
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     @property
     def as_bytes(self) -> bytes:
+        if self.decoded_bytes is not None:
+            return self.decoded_bytes
         if isinstance(self.command, TMCC2VariableEnum):
             cd = TMCC2DcdsCommandEnum.VOLUME_DIRECT.value if self.command.has_volume_code else self.command.value
         else:
@@ -201,7 +219,7 @@ class VariableCommandReq(MultiByteReq):
         # finally, add the checksum word
         byte_str += self.word_prefix
         byte_str += self.checksum(byte_str)
-        if self.address > 99:
+        if self.uses_d4_address:
             # handle 4-digit address
             address_bytes = str(self.address).zfill(4).encode()
             tmp = bytes()

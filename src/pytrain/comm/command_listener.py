@@ -631,7 +631,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         if isinstance(command, CommandReq) and command.is_tmcc_rx:
             # Bare TMCC bytes discard the source flag and merge delayed RX echoes
             # with immediate server feedback on clients that own a ramp.
-            pdi_command = PdiCommand.TMCC4_RX if command.address > 99 else PdiCommand.TMCC_RX
+            pdi_command = PdiCommand.TMCC4_RX if command.uses_d4_address else PdiCommand.TMCC_RX
             payload = TmccReq(command, pdi_command).as_bytes
         else:
             payload = command.as_bytes
@@ -697,7 +697,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 
             # send TMCC-centric state information (Engines, Trains, Switches, Accessories, Routes
             store = ComponentStateStore.get()
-            for scope in store.scopes():
+            # Clients must load engine record numbers before decoding train rosters.
+            for scope in sorted(store.scopes(), key=lambda item: item != CommandScope.ENGINE):
                 if scope == CommandScope.SYNC:
                     continue
                 for address in store.addresses(scope):

@@ -375,23 +375,40 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x6B: CompDataHandler("_max_speed"),
     0x6C: CompDataHandler("_unk_6c"),
     0x6D: CompDataHandler("_lighting"),
-    0xB8: CompDataHandler(
-        "_tmcc_id",
-        4,
-        lambda t: int(PdiReq.decode_int(t)),
-        lambda t: PdiReq.encode_text(str(t).zfill(4), 4),
-        d4_only=True,
-    ),
-    0xBC: CompDataHandler(
-        "_timestamp",
-        4,
-        lambda t: int.from_bytes(t[0:4], byteorder="little"),
-        lambda t: t.to_bytes(4, byteorder="little"),
-        d4_only=True,
-    ),
 }
 # build an inverse map from the token name to the address
 FIELD_TO_ADDR_ENGINE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ENGINE_READ_MAP.items()}
+
+BASE_MEMORY_D4_ENGINE_READ_MAP = BASE_MEMORY_ENGINE_READ_MAP.copy()
+BASE_MEMORY_D4_ENGINE_READ_MAP.update(
+    {
+        0xB4: CompDataHandler(
+            "_train_record_no",
+            2,
+            lambda t: int.from_bytes(t, byteorder="little"),
+            lambda t: t.to_bytes(2, byteorder="little"),
+            d4_only=True,
+            default=0xFFFF,
+        ),
+        # Preserve these bytes without assigning membership or unit semantics.
+        0xB6: CompDataHandler("_unk_b6", d4_only=True),
+        0xB7: CompDataHandler("_unk_b7", d4_only=True),
+        0xB8: CompDataHandler(
+            "_tmcc_id",
+            4,
+            lambda t: int(PdiReq.decode_int(t)),
+            lambda t: PdiReq.encode_text(str(t).zfill(4), 4),
+            d4_only=True,
+        ),
+        0xBC: CompDataHandler(
+            "_timestamp",
+            4,
+            lambda t: int.from_bytes(t[0:4], byteorder="little"),
+            lambda t: t.to_bytes(4, byteorder="little"),
+            d4_only=True,
+        ),
+    }
+)
 
 BASE_MEMORY_TRAIN_READ_MAP = BASE_MEMORY_ENGINE_READ_MAP.copy()
 BASE_MEMORY_TRAIN_READ_MAP.update(
@@ -421,7 +438,9 @@ BASE_MEMORY_D4_TRAIN_READ_MAP.update(
             lambda t: ConsistComponent.to_d4_bytes(t),
             default=None,
         ),
-        0xB6: CompDataHandler("_pseudo_train_id", default=0),
+        0xB6: CompDataHandler("_pseudo_train_id"),
+        0xB8: BASE_MEMORY_D4_ENGINE_READ_MAP[0xB8],
+        0xBC: BASE_MEMORY_D4_ENGINE_READ_MAP[0xBC],
     }
 )
 
@@ -1004,7 +1023,9 @@ class CompData(ABC, Generic[R]):
                     f"got {len(data)} bytes, expected {PdiReq.scope_record_length(self.scope)}"
                 )
 
-            if scope == CommandScope.TRAIN and (tmcc_id is None or tmcc_id > 99):
+            if scope == CommandScope.ENGINE and self._is_d4_record:
+                comp_map = BASE_MEMORY_D4_ENGINE_READ_MAP
+            elif scope == CommandScope.TRAIN and (tmcc_id is None or tmcc_id > 99):
                 comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
             else:
                 comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
@@ -1013,7 +1034,9 @@ class CompData(ABC, Generic[R]):
             self._set_defaults()
 
     def _set_defaults(self) -> None:
-        if self._scope == CommandScope.TRAIN and self._tmcc_id is not None and self._tmcc_id > 99:
+        if self._scope == CommandScope.ENGINE and self._is_d4_record:
+            field_map = BASE_MEMORY_D4_ENGINE_READ_MAP
+        elif self._scope == CommandScope.TRAIN and self._tmcc_id is not None and self._tmcc_id > 99:
             field_map = BASE_MEMORY_D4_TRAIN_READ_MAP
         else:
             field_map = SCOPE_TO_COMP_MAP.get(self._scope)
@@ -1175,12 +1198,14 @@ class CompData(ABC, Generic[R]):
         raise AttributeError(f"Invalid CompData: {self}")
 
     def as_bytes(self) -> bytes:
-        if self.scope == CommandScope.TRAIN and self.tmcc_id > 99:
+        if self.scope == CommandScope.ENGINE and self._is_d4_record:
+            comp_map = BASE_MEMORY_D4_ENGINE_READ_MAP
+        elif self.scope == CommandScope.TRAIN and self.tmcc_id > 99:
             comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
         else:
             comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
-        if self.tmcc_id <= 99:
+        if self.tmcc_id <= 99 and not (self.scope == CommandScope.ENGINE and self._is_d4_record):
             # delete any entries that are 4-digit specific
             for k in list(schema.keys()):
                 if schema[k].is_d4_only:
@@ -1255,6 +1280,11 @@ class EngineData(CompData):
         self._train_brake: int | None = None
         self._train_unit: int | None = None
         self._train_tmcc_id: int | None = None
+        self._train_record_no: int | None = None
+        self._unk_b6: int | None = None
+        self._unk_b7: int | None = None
+        # The D4 channel omits the external ID. Keep its format even for IDs <= 99.
+        self._is_d4_record = scope == CommandScope.ENGINE and (tmcc_id is None or tmcc_id > 99)
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
         self._water_level: int | None = None

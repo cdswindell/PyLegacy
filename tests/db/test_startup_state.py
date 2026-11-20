@@ -1,13 +1,18 @@
+from typing import cast
+
 import pytest
 
-import src.pytrain.db.startup_state as startup_state_module
-from src.pytrain.comm.command_listener import SYNC_COMPLETE
+from src.pytrain.db import startup_state as startup_state_module
+from src.pytrain.comm.command_listener import CommandDispatcher, SYNC_COMPLETE
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.startup_state import StartupState
+from src.pytrain.pdi.amc2_req import Amc2StateSync
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
+from src.pytrain.pdi.pdi_listener import PdiListener
 from src.pytrain.pdi.pdi_req import AllReq, PdiReq
+from src.pytrain.pdi.pdi_state_store import PdiStateStore
 from src.pytrain.protocol.constants import CommandScope
 from tests.test_base import wait_until
 
@@ -84,7 +89,7 @@ def build_component_store():
 def no_thread_start(monkeypatch, request):
     # Prevent the background thread from running in tests to avoid timing dependencies
     # noinspection PyTypeChecker, PyUnusedLocal
-    def dummy_run(self):
+    def dummy_run(_self):
         return None
 
     # Allow specific tests to use the real run() by marking them with @pytest.mark.allow_thread
@@ -123,7 +128,7 @@ class FakeConfigReq(PdiReq):
 
 
 # noinspection PyPropertyAccess
-def make_dummy_basereq_for_memory(scope: CommandScope, tmcc_id: int, data_length: int):
+def make_dummy_base_req_for_memory(scope: CommandScope, tmcc_id: int, data_length: int):
     """
     Create a minimal BaseReq instance without invoking BaseReq.__init__.
     Ensures isinstance(dummy, BaseReq) is True and necessary attributes exist.
@@ -138,7 +143,7 @@ def make_dummy_basereq_for_memory(scope: CommandScope, tmcc_id: int, data_length
 
 
 # noinspection PyPropertyAccess
-def make_dummy_d4req(action, pdi_command=PdiCommand.D4_ENGINE, next_record_no=None):
+def make_dummy_d4req(action, pdi_command: PdiCommand = PdiCommand(0x2E), next_record_no=None):
     """
     Create a minimal D4Req instance without invoking D4Req.__init__.
     Ensures isinstance(dummy, D4Req) is True and attributes StartupState uses are present.
@@ -146,7 +151,7 @@ def make_dummy_d4req(action, pdi_command=PdiCommand.D4_ENGINE, next_record_no=No
     dummy = object.__new__(D4Req)
     dummy._action = action
     dummy._pdi_command = pdi_command
-    dummy._scope = CommandScope.ENGINE
+    dummy._scope = CommandScope.TRAIN if pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
     dummy._record_no = 0
     dummy._next_record_no = next_record_no
     dummy._suffix = None
@@ -192,7 +197,7 @@ def test_base_memory_triggers_next_query(monkeypatch):
 
     # Create a BaseReq-like object for TRAIN scope, tmcc_id 98, with correct record length
     record_len = PdiReq.scope_record_length(CommandScope.ENGINE)
-    base_cmd = make_dummy_basereq_for_memory(CommandScope.ENGINE, tmcc_id=97, data_length=record_len)
+    base_cmd = make_dummy_base_req_for_memory(CommandScope.ENGINE, tmcc_id=97, data_length=record_len)
 
     # Call into StartupState with the "response"
     ss(base_cmd)
@@ -220,7 +225,7 @@ def test_base_memory_triggers_sync_complete_and_next_query(monkeypatch):
 
     # Create a BaseReq-like object for TRAIN scope, tmcc_id 98, with correct record length
     record_len = PdiReq.scope_record_length(CommandScope.TRAIN)
-    base_cmd = make_dummy_basereq_for_memory(CommandScope.TRAIN, tmcc_id=98, data_length=record_len)
+    base_cmd = make_dummy_base_req_for_memory(CommandScope.TRAIN, tmcc_id=98, data_length=record_len)
 
     # Call into StartupState with the "response"
     ss(base_cmd)
@@ -244,7 +249,7 @@ def test_base_memory_requests_created_for_all_scopes():
     for scope in [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SWITCH, CommandScope.ROUTE, CommandScope.ACC]:
         tmcc_id = 1  # less than 98 so that a "next" query should be generated
         record_len = PdiReq.scope_record_length(scope)
-        base_cmd = make_dummy_basereq_for_memory(scope, tmcc_id=tmcc_id, data_length=record_len)
+        base_cmd = make_dummy_base_req_for_memory(scope, tmcc_id=tmcc_id, data_length=record_len)
 
         ss(base_cmd)
 
@@ -337,7 +342,7 @@ def test_run_skips_amc2_sync_when_listener_has_no_dispatcher(monkeypatch):
         amc2_sync_calls.append(listener_arg)
         return object()
 
-    monkeypatch.setattr(startup_state_module, "Amc2StateSync", fake_amc2_state_sync)
+    monkeypatch.setattr(startup_state_module, Amc2StateSync.__name__, fake_amc2_state_sync)
 
     # noinspection PyTypeChecker
     ss = StartupState(listener, dispatcher, pdi_state_store)
@@ -364,7 +369,7 @@ def test_base_memory_id1_responses_trigger_id2_requests_per_scope():
     scopes = [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ROUTE, CommandScope.SWITCH, CommandScope.ACC]
     for scope in scopes:
         record_len = PdiReq.scope_record_length(scope)
-        resp = make_dummy_basereq_for_memory(scope, tmcc_id=1, data_length=record_len)
+        resp = make_dummy_base_req_for_memory(scope, tmcc_id=1, data_length=record_len)
         ss(resp)
 
     # For each scope ensure a follow-up BASE_MEMORY request for tmcc_id=2 was enqueued
@@ -385,7 +390,11 @@ def test_base_memory_id1_responses_trigger_id2_requests_per_scope():
 @pytest.mark.parametrize("action", [D4Action.FIRST_REC, D4Action.NEXT_REC])
 def test_d4_roster_walk_uses_next_rec_without_query(command, scope, action):
     listener = MockPdiListener()
-    ss = StartupState(listener, MockDispatcher(), MockPdiStateStore())
+    ss = StartupState(
+        cast(PdiListener, cast(object, listener)),
+        cast(CommandDispatcher, cast(object, MockDispatcher())),
+        cast(PdiStateStore, cast(object, MockPdiStateStore())),
+    )
     response = make_dummy_d4req(action, pdi_command=command, next_record_no=7)
     response._scope = scope
 
@@ -403,16 +412,18 @@ def test_d4_roster_walk_uses_next_rec_without_query(command, scope, action):
     assert not any(req.action == D4Action.QUERY for req in listener.enqueued)
 
 
-def test_d4_engine_roster_completion_starts_deferred_train_harvest():
+def test_d4_engine_roster_completion_requests_train_count():
     listener = MockPdiListener()
-    ss = StartupState(listener, MockDispatcher(), MockPdiStateStore())
-    ss._defer_d4_train_harvest = True
+    ss = StartupState(
+        cast(PdiListener, cast(object, listener)),
+        cast(CommandDispatcher, cast(object, MockDispatcher())),
+        cast(PdiStateStore, cast(object, MockPdiStateStore())),
+    )
     response = make_dummy_d4req(D4Action.NEXT_REC, next_record_no=0xFFFF)
 
     ss(response)
 
     assert len(listener.enqueued) == 1
-    assert listener.enqueued[0].action == D4Action.FIRST_REC
+    assert listener.enqueued[0].action == D4Action.COUNT
     assert listener.enqueued[0].pdi_command == PdiCommand.D4_TRAIN
-    assert not ss._defer_d4_train_harvest
     assert not any(req.action == D4Action.QUERY for req in listener.enqueued)

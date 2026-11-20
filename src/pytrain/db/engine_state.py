@@ -305,7 +305,7 @@ class EngineState(ComponentState):
             ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
             if self._d4_rec_no is not None:
                 rn = f" {self.record_no_label}"
-            if isinstance(self, TrainState) and self.pseudo_train_id:
+            if isinstance(self, TrainState) and self.pseudo_train_id and self.pseudo_train_id != 0xFF:
                 pid = f" PID: {self.pseudo_train_id}"
             if isinstance(self, TrainState) and self.consist_components:
                 c = "\n"
@@ -315,7 +315,7 @@ class EngineState(ComponentState):
                 tr = f" Train: {self.train_tmcc_id}"
             return (
                 f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{fl}{dr}{sm}"
-                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{ss}{tr}{nu}{aux}{c}{pid}"
+                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{pid}{ss}{tr}{nu}{aux}{c}"
             )
         except AttributeError as ae:
             if self.comp_data is None:
@@ -1110,8 +1110,38 @@ class EngineState(ComponentState):
             return None
 
     @property
-    def train_tmcc_id(self) -> int:
-        return self.comp_data.train_tmcc_id if self.comp_data and self.comp_data.train_tmcc_id != 255 else None
+    def raw_train_tmcc_id(self) -> int | None:
+        """Return the unmodified engine record value at 0x1C, including 255."""
+        return self.comp_data.train_tmcc_id if self.comp_data else None
+
+    @property
+    def train_tmcc_id(self) -> int | None:
+        """Resolve the containing train from a D4 record reference or 2D assignment.
+
+        Missing train records and unknown pseudo IDs remain unresolved. The engine's
+        raw one-byte assignment remains available through raw_train_tmcc_id.
+        """
+        if self.scope == CommandScope.ENGINE and self.is_d4:
+            record_no = self.comp_data.train_record_no if self.comp_data else None
+            if record_no is None or record_no == 0xFFFF:
+                return None
+            from .component_state_store import ComponentStateStore
+
+            train = ComponentStateStore.by_record_no(record_no, scope=CommandScope.TRAIN)
+            return train.tmcc_id if train is not None else None
+        raw_id = self.raw_train_tmcc_id
+        if raw_id is None or raw_id == 255:
+            return None
+        if self.scope != CommandScope.ENGINE:
+            return raw_id
+        if 0 <= raw_id <= 99:
+            return raw_id
+        if 100 <= raw_id <= 127:
+            from .component_state_store import ComponentStateStore
+
+            owner = ComponentStateStore.by_pseudo_train_id(raw_id)
+            return owner.address if owner is not None else None
+        return None
 
     # noinspection PyTypeChecker
     @property

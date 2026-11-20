@@ -13,7 +13,13 @@ from datetime import datetime
 
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .pdi_req import PdiReq
-from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataHandler, CompDataMixin
+from ..db.comp_data import (
+    BASE_MEMORY_D4_ENGINE_READ_MAP,
+    BASE_MEMORY_D4_TRAIN_READ_MAP,
+    CompData,
+    CompDataHandler,
+    CompDataMixin,
+)
 from ..protocol.constants import CommandScope
 
 LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
@@ -49,6 +55,7 @@ class D4Req(PdiReq, CompDataMixin):
         # D4 scope is determined by the PDI command: ENGINE or TRAIN.
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None
+        self._next_free_rec = None
         self._data_length = self._data_bytes = self._start = self._timestamp = self._next_record_post_bytes = None
         self._error = error
         self._tmcc_id = tmcc_id
@@ -78,6 +85,8 @@ class D4Req(PdiReq, CompDataMixin):
                         self._data_bytes = data_bytes.to_bytes(data_length, byteorder="little")
             elif self.action == D4Action.COUNT:
                 self._count = int.from_bytes(self._data[6:8], byteorder="little") if data_len > 7 else None
+            elif self.action == D4Action.FREE_REC:
+                self._next_free_rec = self._record_no
             elif self.action == D4Action.MAP:
                 self._suffix = None
                 if data_len > 9:
@@ -154,12 +163,20 @@ class D4Req(PdiReq, CompDataMixin):
         return self._data_length
 
     @property
+    def data_bytes(self) -> bytes | None:
+        return self._data_bytes
+
+    @property
     def count(self) -> int:
         return self._count
 
     @property
     def next_record_no(self) -> int:
         return self._next_record_no
+
+    @property
+    def next_free_record_no(self) -> int:
+        return self._next_free_rec
 
     @property
     def timestamp(self) -> int:
@@ -195,6 +212,8 @@ class D4Req(PdiReq, CompDataMixin):
             if self.action == D4Action.COUNT:
                 rn = ""
                 ct = f": {self.count}" if self.count is not None else ""
+            if self.action == D4Action.FREE_REC:
+                rn = f" Next Free Record No: {self.next_free_record_no}"
             elif self.action == D4Action.MAP:
                 tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
                 if self.record_no == 0xFFFF:
@@ -205,7 +224,12 @@ class D4Req(PdiReq, CompDataMixin):
                 ts = f" {self.timestamp_str}"
                 di = f" Index: {hex(self.start)}" if self.start is not None else ""
                 dl = f" Length: {hex(self.data_length)}" if self.data_length is not None else ""
-                tpl = BASE_MEMORY_ENGINE_READ_MAP.get(self.start, None)
+                read_map = (
+                    BASE_MEMORY_D4_TRAIN_READ_MAP
+                    if self.scope == CommandScope.TRAIN
+                    else BASE_MEMORY_D4_ENGINE_READ_MAP
+                )
+                tpl = read_map.get(self.start, None)
                 if isinstance(tpl, CompDataHandler) and self._data_bytes and (self.data_length == tpl.length):
                     db = f" Data: {tpl.from_bytes(self._data_bytes)}"
                 else:
@@ -232,6 +256,8 @@ class D4Req(PdiReq, CompDataMixin):
             D4Action.UPDATE,
         }:
             byte_str += (self.post_action if self.post_action else 0).to_bytes(2, byteorder="little")
+        elif self.action in {D4Action.FREE_REC}:
+            byte_str += bytes([0])
         if self.action == D4Action.COUNT:
             byte_str += self.count.to_bytes(2, byteorder="little") if self.count is not None else bytes()
             byte_str += self.suffix.to_bytes(2, byteorder="little") if self.suffix is not None else bytes()

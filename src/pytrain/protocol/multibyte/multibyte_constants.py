@@ -889,6 +889,13 @@ class TMCC2VariableEnum(TMCC2MultiByteEnum):
         return self.value.volume_code
 
 
+class TMCC2RawVariableEnum(TMCC2VariableEnum):
+    """Observed command IDs whose meanings are not established."""
+
+    RAW_D000 = VariableCommandDef(0xD000, 5, noop=True)
+    RAW_F012 = VariableCommandDef(0xF012, 2, noop=True)
+
+
 class TMCC2DcdsCommandEnum(TMCC2VariableEnum):
     MASTER_VOLUME = VariableCommandDef(TMCC2_SET_MASTER_VOLUME, 1, d_min=0, d_max=255)
     BLEND_VOLUME = VariableCommandDef(TMCC2_SET_BLEND_VOLUME, 1, d_min=0, d_max=255)

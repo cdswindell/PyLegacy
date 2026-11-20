@@ -83,10 +83,9 @@ class ParameterCommandReq(MultiByteReq):
                         data = 0xFFFF & command & cmd_enum.data_mask_bits
                     else:
                         data = 0
-                    address = cmd_enum.value.address_from_bytes(param[1:7] if is_d4 else param[1:3])
+                    address = cmd_enum.value.address_from_bytes(param[1:7] if is_d4 else param[1:3], prefix=param[0])
                     cmd_req = ParameterCommandReq.build(cmd_enum, address, data, scope)
-                    cmd_req._is_tmcc_rx = from_tmcc_rx
-                    cmd_req._is_tmcc4 = is_d4
+                    cmd_req._set_decoded_bytes(param, is_d4, from_tmcc_rx)
                     return cmd_req
         raise ValueError(f"Invalid parameter command:{param.hex(':')}")
 

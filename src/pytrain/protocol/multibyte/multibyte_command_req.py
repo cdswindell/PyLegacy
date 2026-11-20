@@ -133,6 +133,27 @@ class MultiByteReq(CommandReq, ABC):
     ) -> None:
         super().__init__(command_def_enum, address, data, scope)
 
+    def _set_decoded_bytes(self, param: bytes, is_d4: bool, from_tmcc_rx: bool) -> None:
+        """Retain the received wire format, including seven-bit pseudo train addresses."""
+        checksum_index = 2 - (7 if is_d4 else 3)
+        if self.checksum(param[:checksum_index], is_d4) != param[checksum_index].to_bytes(1, "big"):
+            raise ValueError(f"Invalid multibyte checksum: {param.hex(':')}")
+        self._is_tmcc4 = is_d4
+        self._wire_is_d4 = is_d4
+        self._is_tmcc_rx = from_tmcc_rx
+        self._decoded_bytes = param
+        self._decoded_signature = self._wire_signature()
+
+    def _wire_signature(self) -> tuple:
+        return self.command, self.address, self.scope, self.data, tuple(getattr(self, "data_bytes", ()))
+
+    @property
+    def decoded_bytes(self) -> bytes | None:
+        """Original bytes while the decoded command, address, scope, and data are unchanged."""
+        if getattr(self, "_decoded_signature", None) == self._wire_signature():
+            return self._decoded_bytes
+        return None
+
     @property
     def num_bytes(self) -> int:
         """
@@ -140,13 +161,15 @@ class MultiByteReq(CommandReq, ABC):
         Variable length multibyte commands, this is always 9 bytes
         in three sets of three bytes a piece.
         """
-        if 1 <= self.address <= 99:
+        if not self.uses_d4_address:
             return 9
         else:  # 4-digit addressing
             return 21
 
     @property
     def as_bytes(self) -> bytes:
+        if self.decoded_bytes is not None:
+            return self.decoded_bytes
         byte_str = bytes()
         byte_str += TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big")
         byte_str += self._word_1
@@ -154,7 +177,7 @@ class MultiByteReq(CommandReq, ABC):
         byte_str += self._word_2
         byte_str += self.word_prefix
         byte_str += self.checksum(byte_str)
-        if self.address > 99:
+        if self.uses_d4_address:
             # handle 4-digit address
             address_bytes = str(self.address).zfill(4).encode()
             tmp = bytes()
@@ -170,11 +193,11 @@ class MultiByteReq(CommandReq, ABC):
     @property
     def address_byte(self) -> bytes:
         e_t = 1 if self.scope == CommandScope.TRAIN else 0
-        if 1 <= self.address <= 99:
+        if not self.uses_d4_address:
             address = self.address
         else:
             address = 0  # prep for 4-digit
-        return ((address << 1) + e_t).to_bytes(1, "big")
+        return (self._encode_2d_address(address, 1) + e_t).to_bytes(1, "big")
 
     @property
     def word_prefix(self) -> bytes:
@@ -182,11 +205,11 @@ class MultiByteReq(CommandReq, ABC):
 
     @property
     def _word_1(self) -> bytes:
-        if 1 <= self.address <= 99:
+        if not self.uses_d4_address:
             address = self.address
         else:
             address = 0  # prep for 4-digit
-        return ((address << 1) + 1).to_bytes(1, "big") + self.index_byte
+        return (self._encode_2d_address(address, 1) + 1).to_bytes(1, "big") + self.index_byte
 
     @property
     def _word_2(self) -> bytes:
@@ -210,10 +233,8 @@ class MultiByteReq(CommandReq, ABC):
                 filtered += data[i : i + 3]
         else:
             filtered = data
-        byte_sum = 0
-        for b in filtered:
-            if b not in {0xF8, 0xF9, 0xFB}:
-                byte_sum += int(b)
+        # Skip word prefixes by position, not value: payload bytes may equal a prefix.
+        byte_sum = sum(b for i, b in enumerate(filtered) if i % 3)
         return (~(byte_sum % 256) & 0xFF).to_bytes(1, byteorder="big")  # return 1's complement of sum mod 256
 
     def _apply_address(self, **kwargs) -> int:

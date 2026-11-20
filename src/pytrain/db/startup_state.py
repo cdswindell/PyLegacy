@@ -42,7 +42,7 @@ class StartupState(Thread):
         self.pdi_state_store = pdi_state_store
         self._force_sync = force_sync
         self._no_d4 = no_d4
-        self._defer_d4_train_harvest = False
+        self._d4_train_count_requested = False
         self._cv = Condition()
         self._ev = Event()
         self._waiting_for = dict()
@@ -61,7 +61,12 @@ class StartupState(Thread):
 
         if cmd:
             with self._cv:
-                self._waiting_for.pop(cmd.as_key, None)
+                response_key = cmd.as_key
+                if isinstance(cmd, D4Req) and cmd.action == D4Action.FIRST_REC:
+                    # FIRST_REC requests use record 0, but replies carry the actual first
+                    # record number (or 0xFFFF). Match the request without losing that seed.
+                    response_key = (0, cmd.pdi_command, cmd.action, cmd.scope)
+                self._waiting_for.pop(response_key, None)
         else:
             return
         if isinstance(cmd, PdiReq):
@@ -83,25 +88,22 @@ class StartupState(Thread):
                     req = BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope)
             elif isinstance(cmd, D4Req):
                 req = None
-                if cmd.action == D4Action.COUNT and cmd.count:
-                    # request first record of D4 engines
-                    if cmd.pdi_command == PdiCommand.D4_ENGINE:
+                if cmd.action == D4Action.COUNT:
+                    if cmd.count:
                         req = D4Req(0, cmd.pdi_command, D4Action.FIRST_REC)
-                    else:
-                        # delay harvest of D4 train records until all D4 engines loaded,
-                        # as D4 trains use D4 engine record number as ID
-                        self._defer_d4_train_harvest = True
-                    log.debug(
-                        f"Found {cmd.count} 4-digit {'train' if cmd.pdi_command == PdiCommand.D4_TRAIN else 'engine'}s."
-                    )
+                        log.debug(
+                            f"Found {cmd.count} 4-digit "
+                            f"{'train' if cmd.pdi_command == PdiCommand.D4_TRAIN else 'engine'}s."
+                        )
+                    elif cmd.count == 0 and cmd.pdi_command == PdiCommand.D4_ENGINE:
+                        req = self._start_d4_train_discovery()
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
                     if cmd.next_record_no is not None and cmd.next_record_no != 0xFFFF:
                         # NEXT_REC returns the requested record's CompData and the following record number.
                         # The dispatcher can populate the D4 roster directly from this response.
                         req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC, data_length=0xC0)
-                    elif self._defer_d4_train_harvest:
-                        self._defer_d4_train_harvest = False
-                        req = D4Req(0, PdiCommand.D4_TRAIN, D4Action.FIRST_REC)
+                    elif cmd.next_record_no == 0xFFFF and cmd.pdi_command == PdiCommand.D4_ENGINE:
+                        req = self._start_d4_train_discovery()
             if req:
                 with self._cv:
                     self._waiting_for[req.as_key] = req
@@ -111,6 +113,14 @@ class StartupState(Thread):
                     if not self._waiting_for:
                         self._ev.set()
                         self._cv.notify_all()
+
+    def _start_d4_train_discovery(self) -> D4Req | None:
+        """Request the train count once the engine roster has reached its end."""
+        with self._cv:
+            if self._no_d4 or self._d4_train_count_requested:
+                return None
+            self._d4_train_count_requested = True
+        return D4Req(0, PdiCommand.D4_TRAIN, D4Action.COUNT)
 
     @staticmethod
     def _config_key(cmd: PdiReq) -> bytes:
@@ -142,11 +152,11 @@ class StartupState(Thread):
         if self._no_d4:
             log.info("Omitting 4-digit engines and trains...")
         else:
-            for pdi_command in [PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN]:
-                req = D4Req(0, pdi_command, D4Action.COUNT)
-                with self._cv:
-                    self._waiting_for[req.as_key] = req
-                self.pdi_listener.enqueue_command(req)
+            # Train rosters reference engine record numbers, so discover engines first.
+            req = D4Req(0, PdiCommand.D4_ENGINE, D4Action.COUNT)
+            with self._cv:
+                self._waiting_for[req.as_key] = req
+            self.pdi_listener.enqueue_command(req)
         # Request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw/Route then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity

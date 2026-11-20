@@ -117,7 +117,7 @@ class CommandReq:
         if cmd_req is not None:
             if from_tmcc_rx:
                 cmd_req._is_tmcc_rx = True
-            if is_tmcc4 or cmd_req.address > 99:
+            if is_tmcc4 or (cmd_req.address > 99 and not cmd_req.is_pseudo_train):
                 cmd_req._is_tmcc4 = True
             return cmd_req
         raise ValueError(f"Command bytes not understood {param.hex(':')}")
@@ -360,6 +360,7 @@ class CommandReq:
         self._message_processor = None
         self._is_tmcc_rx = False
         self._is_tmcc4 = False
+        self._wire_is_d4: bool | None = None
 
         # save the command bits from the def, as we will be modifying them
         self._command_bits: int = self._command_def.bits
@@ -402,6 +403,9 @@ class CommandReq:
     def address(self, new_address: int) -> None:
         if self.command_def.is_addressable and new_address != self._address:
             self._address = new_address
+            # A new destination must select its own format rather than retain the received format.
+            self._wire_is_d4 = None
+            self._is_tmcc4 = self.uses_d4_address
             self._apply_address()
 
     @property
@@ -508,6 +512,20 @@ class CommandReq:
         return self._is_tmcc4 or self._command_def.is_tmcc2 is True
 
     @property
+    def is_pseudo_train(self) -> bool:
+        if self.scope != CommandScope.TRAIN or not 100 <= self.address <= 127 or self.syntax != CommandSyntax.LEGACY:
+            return False
+        if self._wire_is_d4 is not None:
+            return not self._wire_is_d4
+        from ..db.component_state_store import ComponentStateStore
+
+        return ComponentStateStore.is_pseudo_train_id(self.address)
+
+    @property
+    def uses_d4_address(self) -> bool:
+        return self.address > 99 and not self.is_pseudo_train
+
+    @property
     def is_tmcc4(self) -> bool:
         return self._is_tmcc4
 
@@ -538,7 +556,7 @@ class CommandReq:
         This method is used to determine if a command should be force-broadcast to all clients.
         """
         if isinstance(self.command_def, TMCC2CommandDef):
-            return self.command_def.is_d4_broadcast is False and self.address > 99
+            return self.command_def.is_d4_broadcast is False and self.uses_d4_address
         return False
 
     def _validate_send(self) -> None:
@@ -588,8 +606,16 @@ class CommandReq:
             first_byte = self.command_def.first_byte
         else:
             first_byte = self._determine_first_byte(self.command_def, self.scope)
-        byte_str = first_byte + self._command_bits.to_bytes(2, byteorder="big")
-        if self.address > 99:
+        uses_d4 = self.uses_d4_address
+        if self.syntax == CommandSyntax.TMCC:
+            self._encode_2d_address(self.address, 7)
+        command_bits = self._command_bits
+        if self.syntax == CommandSyntax.LEGACY and self.command_def.is_addressable:
+            command_bits &= self.command_def.address_mask
+            if not uses_d4:
+                command_bits |= self._encode_2d_address(self.address, 9)
+        byte_str = first_byte + command_bits.to_bytes(2, byteorder="big")
+        if uses_d4:
             byte_str += str(self.address).zfill(4).encode()
         return byte_str
 
@@ -637,6 +663,13 @@ class CommandReq:
 
         return send_func
 
+    @staticmethod
+    def _encode_2d_address(address: int, shift: int) -> int:
+        """Reject addresses that would overflow the seven-bit 2D address field."""
+        if not 0 <= address <= 127:
+            raise ValueError(f"2D address must be between 0 and 127: {address}")
+        return address << shift
+
     def _apply_address(self, new_address: int = None) -> int:
         if not self.command_def.is_addressable:  # HALT command
             return self._command_bits
@@ -645,13 +678,13 @@ class CommandReq:
         # figure out which address we're using
         the_address = new_address if new_address and new_address > 0 else self._address
         if self.syntax == CommandSyntax.TMCC:
-            self._command_bits |= the_address << 7
+            self._command_bits |= self._encode_2d_address(the_address, 7)
             if self.scope == CommandScope.TRAIN and self.identifier == TMCC1CommandIdentifier.ENGINE:
                 self._command_bits &= TMCC1_TRAIN_COMMAND_PURIFIER
                 self._command_bits |= TMCC1_TRAIN_COMMAND_MODIFIER
         elif self.syntax == CommandSyntax.LEGACY:
-            if 1 <= the_address <= 99:
-                self._command_bits |= the_address << 9
+            if 1 <= the_address <= 99 or (the_address == self.address and self.is_pseudo_train):
+                self._command_bits |= self._encode_2d_address(the_address, 9)
         else:
             raise ValueError(f"Command syntax not recognized {self.syntax}")
         return self._command_bits
@@ -755,7 +788,10 @@ class CommandReq:
                         address = int(addr_str)
                     else:
                         address = cmd_enum.value.address_from_bytes(param[1:3], prefix=param[0])
-                    return CommandReq.build(cmd_enum, address, data, scope)
+                    cmd_req = CommandReq.build(cmd_enum, address, data, scope)
+                    cmd_req._wire_is_d4 = len(param) == 7
+                    cmd_req._apply_address()
+                    return cmd_req
             raise ValueError(f"Invalid tmcc2 command: {param.hex(':')}")
         else:
             from ..protocol.multibyte.multibyte_command_req import MultiByteReq

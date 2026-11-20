@@ -353,7 +353,7 @@ class TmccReq(PdiReq):
         Also support 4-digit engines and trains using PdiCommand.TMCC4_RX
         """
         byte_str = tmcc_cmd.as_bytes
-        if tmcc_cmd.address > 99:
+        if tmcc_cmd.uses_d4_address:
             pdi_cmd = PdiCommand.TMCC4_TX
             step_size = 7
         else:
@@ -421,7 +421,7 @@ class TmccReq(PdiReq):
 
     @property
     def is_tmcc4(self) -> bool:
-        return self.address > 99
+        return self.tmcc_command.uses_d4_address
 
 
 class AllReq(PdiReq):

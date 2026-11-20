@@ -23,6 +23,7 @@ from .constants import KEEP_ALIVE_CMD, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
 from .pdi_listener import PdiListener
 from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
+from ..protocol.tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 from ..protocol.constants import (
     DEFAULT_BASE_PORT,
     DEFAULT_QUEUE_SIZE,
@@ -56,7 +57,7 @@ class _MultyByteCommand:
         # This is a legacy/tmcc2 multibyte parameter command. We have to send it
         # as 3 byte packets, using PdiCommand.TMCC_RX
         for packet in self.packets:
-            self.buffer.send(packet)
+            self.buffer.send(packet, sniff_pseudo_train=False)
             # time.sleep(0.001)
 
     def is_next_packet(self, packet: bytes) -> bool:
@@ -155,12 +156,51 @@ class Base3Buffer(Thread):
                 Base3Buffer._instance._initialized = False
             return Base3Buffer._instance
 
-    def send(self, data: bytes) -> None:
+    @staticmethod
+    def _pseudo_train_command(data: bytes) -> bytes | None:
+        # Inspect only the first word before doing any command decoding. The command byte
+        # can be stuffed; the four ASCII address digits themselves cannot be stuffed.
+        if (
+            len(data) < 11
+            or data[:3] != bytes((PDI_SOP, TMCC4_TX, LEGACY_TRAIN_COMMAND_PREFIX))
+            or data[3] not in {0, 1}
+        ):
+            return None
+        from ..db.component_state_store import ComponentStateStore
+        from .constants import PDI_STF
+
+        address_start = 6 if data[4] == PDI_STF else 5
+        digits = data[address_start : address_start + 4]
+        if len(digits) != 4 or not all(0x30 <= digit <= 0x39 for digit in digits):
+            return None
+        address = int(digits)
+        if ComponentStateStore.pseudo_train_id_for_train(address) is None:
+            return None
+        try:
+            command = TmccReq(data).tmcc_command
+            # Decode outside the lock, then recheck the association and keep it stable
+            # through the setter's lookups and serialization. Queueing happens afterward.
+            with ComponentStateStore.pseudo_train_snapshot(address) as pseudo_id:
+                if pseudo_id is None:
+                    return None
+                command.address = pseudo_id
+                return TmccReq(command, PdiCommand.TMCC_TX).as_bytes
+        except (AttributeError, IndexError, TypeError, ValueError):
+            # Mirroring must not discard or change the original request.
+            log.warning("Cannot create pseudo train command for 0x%s", data.hex(), exc_info=True)
+            return None
+
+    def send(self, data: bytes, sniff_pseudo_train: bool = True) -> None:
         if data:
+            companion = self._pseudo_train_command(data) if sniff_pseudo_train else None
             if data != KEEP_ALIVE_CMD and log.isEnabledFor(logging.DEBUG):
                 log.debug("Base3Buffer.send queueing: 0x%s", data.hex())
+                if companion is not None:
+                    log.debug("Base3Buffer.send queueing pseudo train: 0x%s", companion.hex())
             with self._send_cv:
                 self._send_queue.put(data)
+                if companion is not None:
+                    self._send_queue.put(companion)
                 self._send_cv.notify_all()
 
     @staticmethod
@@ -224,7 +264,7 @@ class Base3Buffer(Thread):
                             # keep trying; unix can sometimes just hang up
                             if sending is not None:
                                 log.info(f"Exception sending: 0x{sending.hex(':').upper()}; retrying ({bpe})")
-                                self.send(sending)
+                                self.send(sending, sniff_pseudo_train=False)
                             elif received is not None:
                                 log.info(f"Exception receiving: 0x{received.hex(':').upper()}; retrying: {bpe}")
                             else:
@@ -285,7 +325,10 @@ class Base3Buffer(Thread):
         # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
         # it down into 3-7 byte packets; this needs to be done here so sync_state
         # in the calling layer gets a complete command
-        cmd_bytes = data[2:-2]
+        if data[1] not in {TMCC_TX, TMCC4_TX}:
+            return data
+        payload, _ = PdiReq._calculate_checksum(data[1:-2], False)
+        cmd_bytes = payload[1:]
         is_mfb, is_mvb, _ = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
         if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
             tmcc_cmd = CommandReq.from_bytes(cmd_bytes)

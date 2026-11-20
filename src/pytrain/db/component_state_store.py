@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 import threading
 from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Generic, List, Set, Tuple, TypeVar
 
 from sortedcontainers import SortedDict
@@ -89,8 +91,13 @@ class ComponentStateStore:
     def set_state(cls, scope: CommandScope, address: int, state: T) -> None:
         if cls._instance is None:
             raise AttributeError("ComponentStateStore not built")
-        cls._instance._state[scope][address] = state
-        cls._instance._deleted_addresses.discard((scope, address))
+        with cls._lock:
+            old_state = cls._instance.query(scope, address)
+            if old_state is not None:
+                cls._instance._remove_pseudo_train(old_state)
+            cls._instance._state[scope][address] = state
+            cls._instance._deleted_addresses.discard((scope, address))
+            cls._instance._index_pseudo_train(state)
         state_changes.publish(scope, state.address)
 
     @classmethod
@@ -106,6 +113,8 @@ class ComponentStateStore:
             if cls._instance:
                 cls._instance._state.clear()
                 cls._instance._bt_index.clear()
+                cls._instance._pseudo_train_index.clear()
+                cls._instance._pseudo_train_ids_by_address.clear()
                 cls._instance._deleted_addresses.clear()
 
     @classmethod
@@ -136,11 +145,43 @@ class ComponentStateStore:
         return sd[max(sd.keys())] if sd else None
 
     @classmethod
+    def by_pseudo_train_id(cls, pseudo_id: int) -> T | None:
+        """Return the D4 train that owns a known seven-bit pseudo ID."""
+        with cls._lock:
+            return cls._instance._pseudo_train_index.get(pseudo_id) if cls._instance else None
+
+    @classmethod
+    def is_pseudo_train_id(cls, address: int) -> bool:
+        return 100 <= address <= 127 and cls.by_pseudo_train_id(address) is not None
+
+    @classmethod
+    def pseudo_train_id_for_train(cls, address: int) -> int | None:
+        """Return the pseudo ID associated with a D4 train without creating state."""
+        with cls._lock:
+            return cls._instance._pseudo_train_ids_by_address.get(address) if cls._instance else None
+
+    @classmethod
+    @contextmanager
+    def pseudo_train_snapshot(cls, address: int) -> Iterator[int | None]:
+        """Keep an association stable while a companion command is retargeted and serialized.
+
+        Callers must leave this context before queueing or performing network I/O.
+        """
+        with cls._lock:
+            yield cls._instance._pseudo_train_ids_by_address.get(address) if cls._instance else None
+
+    @classmethod
+    def pseudo_train_ids(cls) -> set[int]:
+        with cls._lock:
+            return set(cls._instance._pseudo_train_index) if cls._instance else set()
+
+    @classmethod
     def by_record_no(cls, record_no: int, scope: CommandScope = CommandScope.ENGINE) -> T | None:
-        if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and scope in cls._instance._state:
-            for address in cls._instance._state[scope]:
-                if cls._instance._state[scope][address].record_no == record_no:
-                    return cls._instance._state[scope][address]
+        with cls._lock:
+            if cls._instance is not None and scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                for state in cls._instance._state.get(scope, {}).values():
+                    if state.record_no == record_no:
+                        return state
         return None
 
     def __new__(cls, *args, **kwargs):
@@ -172,13 +213,15 @@ class ComponentStateStore:
             self._initialized = True
 
         from ..pdi.constants import PdiCommand
-        from .engine_state import EngineState
+        from .engine_state import EngineState, TrainState
 
         self._dependencies = DependencyCache.build()
         self._listeners = listeners if listeners is not None else ()
         self._state: dict[CommandScope, ComponentStateDict] = SystemStateDict()
 
         self._bt_index: dict[int, SortedDict[int, EngineState]] = {}
+        self._pseudo_train_index: dict[int, TrainState] = {}
+        self._pseudo_train_ids_by_address: dict[int, int] = {}
         # Prevent queued updates from recreating recently deleted states.
         self._deleted_addresses: set[tuple[CommandScope, int]] = set()
         self._is_base = is_base
@@ -213,6 +256,8 @@ class ComponentStateStore:
                 log.debug(f"ComponentStateStore.__call__ ignoring: {command}")
                 return
             try:
+                if self._update_pseudo_train_field(command):
+                    return
                 if isinstance(command, CommandReq):
                     # A four-digit address programming echo carries no engine state.
                     if (
@@ -261,6 +306,8 @@ class ComponentStateStore:
                                     del self._state[scope][address]
 
                             self._state[scope][address].update(command)
+                            if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+                                self._index_pseudo_train(self._state[scope][address])
                             if isinstance(command, LcsReq) and command.is_config_req:
                                 self._cache_lcs_config(command)
                             if (
@@ -301,6 +348,55 @@ class ComponentStateStore:
                         config.address,
                         repaired,
                     )
+
+    def _remove_pseudo_train(self, state: ComponentState) -> None:
+        from .engine_state import TrainState
+
+        if not isinstance(state, TrainState):
+            return
+        pseudo_id = self._pseudo_train_ids_by_address.get(state.address)
+        if pseudo_id is not None and self._pseudo_train_index.get(pseudo_id) is state:
+            del self._pseudo_train_index[pseudo_id]
+            del self._pseudo_train_ids_by_address[state.address]
+
+    def _index_pseudo_train(self, state: ComponentState) -> None:
+        from .engine_state import TrainState
+
+        if not isinstance(state, TrainState):
+            return
+        with self._lock:
+            self._remove_pseudo_train(state)
+            if state.is_d4:
+                pseudo_id = state.pseudo_train_id
+                if isinstance(pseudo_id, int) and 100 <= pseudo_id <= 127:
+                    old_owner = self._pseudo_train_index.get(pseudo_id)
+                    if old_owner is not None:
+                        self._pseudo_train_ids_by_address.pop(old_owner.address, None)
+                    self._pseudo_train_index[pseudo_id] = state
+                    self._pseudo_train_ids_by_address[state.address] = pseudo_id
+
+    def _update_pseudo_train_field(self, command: Message) -> bool:
+        from ..pdi.constants import D4Action
+        from ..pdi.d4_req import D4Req
+
+        if (
+            isinstance(command, D4Req)
+            and command.scope == CommandScope.TRAIN
+            and command.action == D4Action.UPDATE
+            and not command.is_comp_data_record
+            and command.start is not None
+            and command.data_length is not None
+            and command.start <= 0xB6 < command.start + command.data_length
+        ):
+            state = self.by_record_no(command.record_no, CommandScope.TRAIN)
+            data = command.data_bytes
+            offset = 0xB6 - command.start
+            if state is not None and state.comp_data is not None and data and offset < len(data):
+                state.comp_data.pseudo_train_id = data[offset]
+                self._index_pseudo_train(state)
+            # An acknowledgment has no data; it must not clear the index or create train 0.
+            return True
+        return False
 
     def _clear_config_cache(self) -> None:
         with self._lcs_config_lock:
@@ -471,6 +567,7 @@ class ComponentStateStore:
             if scope not in self._state or address not in self._state[scope]:
                 return
             state = self._state[scope][address]
+            self._remove_pseudo_train(state)
             # A road number can be another key for the same state object.
             for key, value in list(self._state[scope].items()):
                 if value is state:
