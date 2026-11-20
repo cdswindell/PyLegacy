@@ -207,7 +207,7 @@ class D4Req(PdiReq, CompDataMixin):
                 rn = ""
                 ct = f": {self.count}" if self.count is not None else ""
             if self.action == D4Action.FREE_REC:
-                rn = f" Next Free Record No {self.next_free_record_no}"
+                rn = f" Next Free Record No: {self.next_free_record_no}"
             elif self.action == D4Action.MAP:
                 tmcc = f" TMCC ID: {self.tmcc_id}" if self.tmcc_id else ""
                 if self.record_no == 0xFFFF:
