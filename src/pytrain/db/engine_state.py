@@ -1110,8 +1110,33 @@ class EngineState(ComponentState):
             return None
 
     @property
-    def train_tmcc_id(self) -> int:
-        return self.comp_data.train_tmcc_id if self.comp_data and self.comp_data.train_tmcc_id != 255 else None
+    def raw_train_tmcc_id(self) -> int | None:
+        """Return the unmodified engine record value at 0x1C, including 255."""
+        return self.comp_data.train_tmcc_id if self.comp_data else None
+
+    @property
+    def train_tmcc_id(self) -> int | None:
+        """Resolve a 2D engine's one-byte train assignment to its actual train ID.
+
+        Four-digit engine membership is unknown until its record format is decoded.
+        A pseudo ID without a known owner is also unresolved, rather than an actual
+        train address. The raw record value remains available separately.
+        """
+        raw_id = self.raw_train_tmcc_id
+        if raw_id is None or raw_id == 255:
+            return None
+        if self.scope != CommandScope.ENGINE:
+            return raw_id
+        if self.is_d4:
+            return None
+        if 0 <= raw_id <= 99:
+            return raw_id
+        if 100 <= raw_id <= 127:
+            from .component_state_store import ComponentStateStore
+
+            owner = ComponentStateStore.by_pseudo_train_id(raw_id)
+            return owner.address if owner is not None else None
+        return None
 
     # noinspection PyTypeChecker
     @property
