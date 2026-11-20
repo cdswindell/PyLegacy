@@ -66,6 +66,26 @@ The default run skips optional API integration without `PYTRAIN_API_CHECKOUT`
 pointing to a compatible local PyTrainApi checkout. That integration needs its
 own prerequisites and validation; a passing smoke run does not verify it.
 
+## On-demand original-byte regression checks
+
+The exhaustive command byte comparisons are kept in
+`tests/protocol/command_byte_baseline.py`. Its filename intentionally does not
+match pytest's default test discovery pattern, so normal unit test runs omit
+these comparisons. Run them explicitly from the project root:
+
+```bash
+../bin/python -m pytest tests/protocol/command_byte_baseline.py
+```
+
+This runs all 17,942 frozen original byte vectors through construction, address
+changes, scope changes, and real 4D IDs 100–127 with a populated pseudo index.
+The saved fixtures and generator remain in version control. Address overflow,
+pseudo-train encoding, companion sending, race, and membership tests remain in
+the default suite.
+
+To verify both suites, run the normal command and then the explicit comparison
+command above as separate pytest invocations.
+
 ## Historical coverage results
 
 The dated step results below describe earlier coverage work, not current counts

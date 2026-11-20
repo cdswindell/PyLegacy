@@ -1,4 +1,4 @@
-"""Compare encoders against bytes frozen from the original Git revision."""
+"""On-demand original-byte comparisons; run this module explicitly with pytest."""
 
 import json
 from pathlib import Path
