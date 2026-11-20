@@ -18,13 +18,18 @@ from pytrain.utils.host_info import HostInfo, is_linux, is_steam_deck
 from pytrain.utils.update_policy import self_update_disabled
 
 
+from .network_monitor import NetworkMonitor
+
+
 class AdminController(QObject):
     changed = Signal()
     finished = Signal(str)
     exitRequested = Signal()
 
-    def __init__(self) -> None:
+    def __init__(self, network: NetworkMonitor | None = None) -> None:
         super().__init__()
+        self._network = network if network is not None else NetworkMonitor(self)
+        self._owns_network = network is None
         self._runtime = PyTrain.current(raise_exception=False)
         self._flatpak_tag = installed_flatpak_tag()
         self._deck = is_steam_deck()
@@ -33,6 +38,19 @@ class AdminController(QObject):
         self._busy = False
         self._status = ""
         self.finished.connect(self._finish)
+
+    @Property(QObject, constant=True)
+    def network(self) -> NetworkMonitor:
+        return self._network
+
+    @Slot(bool)
+    def setNetworkVisible(self, visible: bool) -> None:
+        self._network.set_active(self, visible)
+
+    def close(self) -> None:
+        self._network.set_active(self, False)
+        if self._owns_network:
+            self._network.close()
 
     @Property(str, constant=True)
     def version(self) -> str:

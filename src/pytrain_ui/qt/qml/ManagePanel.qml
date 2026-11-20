@@ -22,7 +22,11 @@ Rectangle {
     color: "#102858"
     radius: 12
 
+    Component.onCompleted: admin.setNetworkVisible(visible)
+    Component.onDestruction: if (admin) admin.setNetworkVisible(false)
+
     onVisibleChanged: {
+        admin.setNetworkVisible(visible)
         if (visible) {
             allNodes = false
             admin.refresh()
@@ -207,12 +211,9 @@ Rectangle {
                 width: scroll.availableWidth - 2 * x
                 spacing: root.compact ? 8 : 10
 
-                Label {
+                NetworkCard {
                     Layout.fillWidth: true
-                    text: "Local IP  " + root.admin.addresses
-                    color: "#f4f6f8"
-                    font.pixelSize: 16
-                    wrapMode: Text.WordWrap
+                    reading: root.admin.network.reading
                 }
                 SectionLabel { text: "Base 3 Database"; Layout.topMargin: root.sectionGap }
                 RowLayout {

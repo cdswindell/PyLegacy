@@ -88,6 +88,21 @@ The five screenshots supplied on November 8, 2026, their identities, and the
 user's design preferences are preserved in the
 [design reference index](design-references/2026-11-08/README.md).
 
+## Admin network status
+
+Manage PyTrain displays a Network card with the local IP address and available
+Wi-Fi SSID, signal bars, percentage, and quality description. It measures the
+local PyCab device, not the PyTrain server or Base 3. Missing measurements display
+“Signal unavailable”; a missing reading is never presented as zero strength.
+Ethernet is labeled only when a physical wired Linux interface can be confirmed.
+
+The card uses the existing `WiFiInfo` helper. Queries run on a background worker
+when Admin opens and every five seconds while visible. Steam Deck panes share
+one monitor. Hidden panels stop polling; overlapping queries are prevented, stale
+results are ignored, and shutdown does not wait for an external network command.
+Available readings depend on the helper's platform backend and host permissions,
+including those of an external Steam Deck Flatpak.
+
 ## Test groups
 
 The default `pytest` run includes core and Qt controller/unit tests. Native Qt
@@ -107,5 +122,5 @@ suite. The groups preserve all existing assertions and scenarios.
 
 ## Remaining tasks
 
-- [ ] Implement the Wi-Fi signal-strength meter in the Qt GUI. Deferred; not implemented yet.
+- [x] Implement the Wi-Fi signal-strength meter on the Admin page using the shared `WiFiInfo` helper. Validate readings on Raspberry Pi, macOS, and the external Steam Deck Flatpak during device testing.
 - [ ] Separate core PyTrain and the GUI into independently installable packages in the same repository. Move shared accessory metadata, registry definitions, and configuration models out of `pytrain.gui` into a GUI-independent core location, retaining compatibility imports for legacy callers. Keep Qt dependencies in the GUI package so core-only installations do not require them. Deferred; do not implement yet.

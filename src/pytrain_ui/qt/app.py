@@ -65,6 +65,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
     from .catalog_controller import EngineCatalogController
     from .gamepad import QtCabInputSink, QtGamepadInput
     from .lcs_controller import LcsConfigController
+    from .network_monitor import NetworkMonitor
     from .ops_controller import OpsController
     from .selection_controller import SelectedEngineController
     from .session import restore_engine, save_engine
@@ -101,6 +102,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
 
     state_bridge = QtStateChangeBridge({CommandScope.SWITCH, CommandScope.ROUTE}, app)
     engine = QQmlApplicationEngine()
+    network = NetworkMonitor(app)
     bundles = []
     for side in ("left", "right") if deck else ("",):
         cab = CabController(scope, tmcc_id, remember_initial=not show_catalog)
@@ -112,7 +114,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
         state_bridge.changesReady.connect(switches.applyStateChanges)
         state_bridge.changesReady.connect(routes.applyStateChanges)
         lcs = LcsConfigController()
-        admin = AdminController()
+        admin = AdminController(network)
         admin.exitRequested.connect(app.quit)
         state_info = StateInfoController()
         bundle = {
@@ -185,6 +187,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
         signal.signal(signal.SIGINT, previous_sigint)
         cleanup = [
             ("state-change bridge", state_bridge.close),
+            ("network monitor", network.close),
             ("session preferences", remember_current_engine),
             ("gamepad", gamepad.close),
         ]
@@ -192,6 +195,7 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
             cleanup.extend(
                 [
                     ("LCS readback", bundle["lcsConfigController"].clearConfigureStatus),
+                    ("admin", bundle["managePyTrainController"].close),
                     ("accessories", bundle["accessoryCatalogController"].close),
                     ("routes", bundle["routeOpsController"].close),
                     ("switches", bundle["switchOpsController"].close),
