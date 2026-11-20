@@ -61,7 +61,12 @@ class StartupState(Thread):
 
         if cmd:
             with self._cv:
-                self._waiting_for.pop(cmd.as_key, None)
+                response_key = cmd.as_key
+                if isinstance(cmd, D4Req) and cmd.action == D4Action.FIRST_REC:
+                    # FIRST_REC requests use record 0, but replies carry the actual first
+                    # record number (or 0xFFFF). Match the request without losing that seed.
+                    response_key = (0, cmd.pdi_command, cmd.action, cmd.scope)
+                self._waiting_for.pop(response_key, None)
         else:
             return
         if isinstance(cmd, PdiReq):

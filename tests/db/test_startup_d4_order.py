@@ -38,6 +38,10 @@ def count_response(command: PdiCommand, count: int) -> D4Req:
     return D4Req(D4Req(0, command, D4Action.COUNT, count=count).as_bytes)
 
 
+def first_record_response(command: PdiCommand, record_no: int) -> D4Req:
+    return D4Req(D4Req(record_no, command, D4Action.FIRST_REC).as_bytes)
+
+
 def request_sequence(listener):
     return [(req.pdi_command, req.action, req.record_no) for req in listener.enqueued if isinstance(req, D4Req)]
 
@@ -59,7 +63,7 @@ def test_run_requests_only_engine_count_before_responses(startup, no_d4: bool):
 def test_engine_walk_then_train_count_then_train_walk(startup):
     state, listener = startup
     state(count_response(D4_ENGINE, 2))
-    state(make_dummy_d4req(D4Action.FIRST_REC, next_record_no=3))
+    state(first_record_response(D4_ENGINE, 3))
     next_engine = make_dummy_d4req(D4Action.NEXT_REC, next_record_no=7)
     next_engine._record_no = 3
     state(next_engine)
@@ -78,7 +82,7 @@ def test_engine_walk_then_train_count_then_train_walk(startup):
     assert not state._ev.is_set()
 
     state(count_response(D4_TRAIN, 1))
-    state(make_dummy_d4req(D4Action.FIRST_REC, D4_TRAIN, next_record_no=2))
+    state(first_record_response(D4_TRAIN, 2))
     last_train = make_dummy_d4req(D4Action.NEXT_REC, D4_TRAIN, next_record_no=0xFFFF)
     last_train._record_no = 2
     state(last_train)
@@ -140,3 +144,46 @@ def test_no_d4_does_not_start_trains_on_unsolicited_engine_end(startup):
     state._no_d4 = True
     state(make_dummy_d4req(D4Action.NEXT_REC, next_record_no=0xFFFF))
     assert request_sequence(listener) == []
+
+
+# Verify response correlation against the real wire format, not a dummy record-zero key.
+# noinspection PyProtectedMember
+@pytest.mark.parametrize("command", (D4_ENGINE, D4_TRAIN))
+@pytest.mark.parametrize("first_record", (0, 1, 17, 0xFFFE))
+def test_first_record_reply_seeds_returned_address_and_clears_pending_request(startup, command, first_record: int):
+    state, listener = startup
+    state(count_response(command, 1))
+    seed_request = listener.enqueued[-1]
+    assert seed_request.as_key in state._waiting_for
+    response = first_record_response(command, first_record)
+    assert response.record_no == first_record
+    assert response.next_record_no == first_record
+
+    state(response)
+
+    assert seed_request.as_key not in state._waiting_for
+    next_request = listener.enqueued[-1]
+    assert isinstance(next_request, D4Req)
+    assert next_request.action == D4Action.NEXT_REC
+    assert next_request.pdi_command == command
+    assert next_request.record_no == first_record
+    assert next_request.data_length == 0xC0
+    assert set(state._waiting_for) == {next_request.as_key}
+    assert not state._ev.is_set()
+
+
+# The FIRST_REC sentinel must clear its request even though its response record is 65535.
+# noinspection PyProtectedMember
+@pytest.mark.parametrize("command", (D4_ENGINE, D4_TRAIN))
+def test_first_record_empty_list_clears_pending_seed(startup, command):
+    state, listener = startup
+    state(count_response(command, 1))
+    seed_request = listener.enqueued[-1]
+    state(first_record_response(command, 0xFFFF))
+    assert seed_request.as_key not in state._waiting_for
+    if command == D4_ENGINE:
+        assert request_sequence(listener)[-1] == (D4_TRAIN, D4Action.COUNT, 0)
+        assert set(state._waiting_for) == {listener.enqueued[-1].as_key}
+    else:
+        assert state._waiting_for == {}
+        assert state._ev.is_set()
