@@ -697,7 +697,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 
             # send TMCC-centric state information (Engines, Trains, Switches, Accessories, Routes
             store = ComponentStateStore.get()
-            for scope in store.scopes():
+            # Clients must load engine record numbers before decoding train rosters.
+            for scope in sorted(store.scopes(), key=lambda item: item != CommandScope.ENGINE):
                 if scope == CommandScope.SYNC:
                     continue
                 for address in store.addresses(scope):
