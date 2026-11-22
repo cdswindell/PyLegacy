@@ -15,8 +15,10 @@ from .multibyte_constants import (
     TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX,
     TMCC2DcdsCommandEnum,
     TMCC2EngineCommandEnumEx,
+    TMCC2LashupCommandEnum,
     TMCC2RawVariableEnum,
     TMCC2VariableEnum,
+    UnitAssignment,
     VolumeCode,
 )
 
@@ -102,6 +104,9 @@ class VariableCommandReq(MultiByteReq):
                 # data starts with word 5
                 for i in range(4 * pkt_len + 2, 5 * pkt_len + (num_data_words - 1) * pkt_len, pkt_len):
                     data_bytes.append(param[i])
+                lashup = cls._decode_lashup_payload(pi, bytes(data_bytes), scope)
+                if lashup is not None:
+                    cmd_enum = lashup
                 # If a Volume Direct command, first data byte is volume code
                 if cmd_enum.is_abstract:
                     # first byte of data bytes has to be a volume code
@@ -133,6 +138,9 @@ class VariableCommandReq(MultiByteReq):
         data_bytes: int | List[int] = None,
         scope: CommandScope = None,
     ) -> None:
+        if command_def_enum in {TMCC2DcdsCommandEnum.FACTORY_DEFAULT, TMCC2LashupCommandEnum.ROAD_SPEED}:
+            if data_bytes is None or data_bytes == 0:
+                data_bytes = list(command_def_enum.value.data_bytes)
         if isinstance(data_bytes, int):
             super().__init__(command_def_enum, address, data_bytes, scope)
         elif isinstance(data_bytes, list) and len(data_bytes) == 1 and isinstance(data_bytes[0], int):
@@ -153,12 +161,48 @@ class VariableCommandReq(MultiByteReq):
         else:
             self._data_bytes = data_bytes if data_bytes is not None else []
 
+        if isinstance(command_def_enum, TMCC2LashupCommandEnum):
+            if self.lashup_command is not command_def_enum:
+                raise ValueError(f"Invalid payload or scope for {command_def_enum.name}: {self.data_bytes}")
+
+    @staticmethod
+    def _decode_lashup_payload(command_id: int, payload: bytes, scope: CommandScope) -> TMCC2LashupCommandEnum | None:
+        command = TMCC2LashupCommandEnum.from_payload(command_id, payload)
+        if command is TMCC2LashupCommandEnum.ROAD_SPEED and scope is not CommandScope.TRAIN:
+            return None
+        return command
+
+    @property
+    def lashup_command(self) -> TMCC2LashupCommandEnum | None:
+        return self._decode_lashup_payload(self.command_id, bytes(self.data_bytes), self.scope)
+
+    @property
+    def assigned_train_id(self) -> int | None:
+        if self.lashup_command is TMCC2LashupCommandEnum.ASSIGN_TRAIN:
+            return int(bytes(self.data_bytes[:4]).decode("ascii"))
+        return None
+
+    @property
+    def unit_assignment(self) -> UnitAssignment | None:
+        if self.lashup_command is TMCC2LashupCommandEnum.ASSIGN_TRAIN:
+            return UnitAssignment(self.data_bytes[4])
+        return None
+
     def __repr__(self) -> str:
-        if isinstance(self.command, TMCC2RawVariableEnum):
-            payload = bytes(self.data_bytes).hex(" ").upper()
+        if isinstance(self.command, (TMCC2RawVariableEnum, TMCC2LashupCommandEnum)):
+            data = bytes(self.data_bytes)
+            payload = data.hex(" ").upper()
+            command = self._decode_lashup_payload(self.command_id, data, self.scope)
+            meaning = "VARIABLE"
+            if command is TMCC2LashupCommandEnum.ASSIGN_TRAIN:
+                train_id = int(data[:4].decode("ascii"))
+                unit = UnitAssignment(data[4])
+                meaning = f"ASSIGN_TRAIN TRAIN {train_id:04d} {unit.position.upper()} {unit.direction.upper()}"
+            elif command is TMCC2LashupCommandEnum.ROAD_SPEED:
+                meaning = "ROAD_SPEED"
             rx = " (RX)" if self.is_tmcc_rx else ""
             return (
-                f"[{self.scope.name} {self.address} VARIABLE ID 0x{self.command_id:04X} "
+                f"[{self.scope.name} {self.address} {meaning} ID 0x{self.command_id:04X} "
                 f"DATA {payload}{rx} (0x{self.as_bytes.hex()})]"
             )
         return super().__repr__()
@@ -178,15 +222,15 @@ class VariableCommandReq(MultiByteReq):
         of three-byte words where:
             Word 1: Command index
             Word 2: Number of data words (N)
-            Word 3: LSB of destination address
-            Word 4: MSB of destination address
-            Words 5 - N: Data words
-            Word N + 1: Checksum
+            Word 3: LSB of command ID
+            Word 4: MSB of command ID
+            Words 5 through N + 4: Data words
+            Word N + 5: Checksum
         """
         pkt_len = 7 if self.uses_d4_address else 3
         count = (
             len(self.data_bytes)
-            if isinstance(self.command, TMCC2RawVariableEnum)
+            if isinstance(self.command, (TMCC2RawVariableEnum, TMCC2LashupCommandEnum))
             else self.command.value.num_data_bytes
         )
         return (5 + count) * pkt_len

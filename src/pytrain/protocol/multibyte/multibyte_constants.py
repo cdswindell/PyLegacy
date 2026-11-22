@@ -809,6 +809,10 @@ class VariableCommandDef(MultiByteCommandDef):
         return self._num_data_bytes
 
     @property
+    def data_bytes(self) -> List[int] | None:
+        return self._data_bytes
+
+    @property
     def lsb(self) -> int:
         return 0x00FF & self.bits
 
@@ -889,8 +893,24 @@ class TMCC2VariableEnum(TMCC2MultiByteEnum):
         return self.value.volume_code
 
 
+class TMCC2LashupCommandEnum(TMCC2VariableEnum):
+    """Lashup programming commands documented in Rules for Lashup Programming."""
+
+    ASSIGN_TRAIN = VariableCommandDef(0xD000, 5)
+    ROAD_SPEED = VariableCommandDef(0xF012, 2, [0xEF, 0xBE])
+
+    @classmethod
+    def from_payload(cls, command_id: int, payload: bytes) -> TMCC2LashupCommandEnum | None:
+        if command_id == cls.ASSIGN_TRAIN.bits:
+            if len(payload) == 5 and all(0x30 <= digit <= 0x39 for digit in payload[:4]) and payload[4] <= 7:
+                return cls.ASSIGN_TRAIN
+        elif command_id == cls.ROAD_SPEED.bits and payload == b"\xef\xbe":
+            return cls.ROAD_SPEED
+        return None
+
+
 class TMCC2RawVariableEnum(TMCC2VariableEnum):
-    """Observed command IDs whose meanings are not established."""
+    """Fallbacks for payload shapes not covered by the lashup programming rules."""
 
     RAW_D000 = VariableCommandDef(0xD000, 5, noop=True)
     RAW_F012 = VariableCommandDef(0xF012, 2, noop=True)
