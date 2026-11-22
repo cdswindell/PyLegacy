@@ -1,4 +1,4 @@
-"""Regression coverage for Cab 3 pseudo trains and uninterpreted variable commands."""
+"""Regression coverage for Cab 3 pseudo trains and variable command decoding."""
 
 import pytest
 
@@ -6,7 +6,7 @@ from pytrain.protocol.command_req import CommandReq
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.multibyte.dcds_command_req import VariableCommandReq
 from pytrain.protocol.multibyte.multibyte_command_req import MultiByteReq
-from pytrain.protocol.multibyte.multibyte_constants import TMCC2RawVariableEnum
+from pytrain.protocol.multibyte.multibyte_constants import TMCC2LashupCommandEnum, TMCC2RawVariableEnum
 from pytrain.protocol.multibyte.param_command_req import ParameterCommandReq
 from pytrain.protocol.multibyte.r4lc_command_req import R4LCCommandReq
 
@@ -64,7 +64,9 @@ def make_packet(prefix: int, address: int, values: tuple[int, ...]) -> bytes:
 @pytest.mark.parametrize("parser", (CommandReq, MultiByteReq, VariableCommandReq))
 @pytest.mark.parametrize("from_tmcc_rx", (False, True))
 @pytest.mark.parametrize("hex_packet,scope,address,command_id,payload", CAPTURED_RAW_COMMANDS)
-def test_captured_variable_ids_and_payloads(parser, from_tmcc_rx, hex_packet, scope, address, command_id, payload):
+def test_captured_variable_ids_and_payloads(
+    parser, from_tmcc_rx: bool, hex_packet: str, scope: CommandScope, address: int, command_id: int, payload: bytes
+):
     packet = bytes.fromhex(hex_packet)
     req = parser.from_bytes(packet, from_tmcc_rx=from_tmcc_rx)
 
@@ -78,9 +80,10 @@ def test_captured_variable_ids_and_payloads(parser, from_tmcc_rx, hex_packet, sc
     assert req.is_tmcc_rx is from_tmcc_rx
     assert req.is_pseudo_train is (address == 100)
     assert req.is_tmcc4 is (address > 127)
-    assert req.is_noop
-    assert f"VARIABLE ID 0x{command_id:04X} DATA {payload.hex(' ').upper()}" in repr(req)
-    assert all(word not in repr(req).lower() for word in ("assign", "commit", "reset", "store"))
+    assert not req.is_noop
+    expected = TMCC2LashupCommandEnum.ASSIGN_TRAIN if command_id == 0xD000 else TMCC2LashupCommandEnum.ROAD_SPEED
+    assert req.command is expected
+    assert f"ID 0x{command_id:04X} DATA {payload.hex(' ').upper()}" in repr(req)
 
 
 @pytest.mark.parametrize("address", range(100, 128))
@@ -136,7 +139,7 @@ def test_ordinary_multibyte_addresses_keep_their_wire_format(address, prefix):
 
 @pytest.mark.parametrize("address", (100, 127, 550))
 @pytest.mark.parametrize("prefix", (0xF8, 0xF9))
-def test_four_digit_addresses_are_distinct_from_pseudo_trains(address, prefix):
+def test_four_digit_addresses_are_distinct_from_pseudo_trains(address: int, prefix: int):
     template = make_packet(prefix, 0, (0x76, 0))
     packet = b"".join(template[i : i + 3] + f"{address:04d}".encode() for i in range(0, len(template), 3))
     req = CommandReq.from_bytes(packet)
@@ -159,6 +162,9 @@ def test_raw_variable_payload_is_not_interpreted_or_replaced(command_id, payload
     assert bytes(req.data_bytes) == payload
     assert req.as_bytes == packet
     assert req.num_bytes == len(packet)
+    assert isinstance(req.command, TMCC2RawVariableEnum)
+    assert req.is_noop
+    assert "VARIABLE ID" in repr(req)
 
 
 @pytest.mark.parametrize("values", ((0x76, 0), (0x43, 2), (0x6F, 2, 0x12, 0xF0, 0xEF, 0xBE)))
@@ -189,5 +195,5 @@ def test_raw_variable_command_rebuilds_after_payload_change():
     payload = req.data_bytes
     assert isinstance(payload, list)
     payload[0] = 0x31
-    assert req.command is TMCC2RawVariableEnum.RAW_D000
+    assert req.command is TMCC2LashupCommandEnum.ASSIGN_TRAIN
     assert req.as_bytes == make_packet(0xF9, 100, (0x6F, 5, 0, 0xD0, *b"1001\x00"))

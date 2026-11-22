@@ -1,5 +1,7 @@
 """Hybrid train fan-out at the Base 3 send boundary, without network activity."""
 
+from __future__ import annotations
+
 from queue import Queue
 from threading import Condition
 from typing import cast
@@ -18,7 +20,11 @@ from pytrain.protocol.command_def import CommandDefEnum
 from pytrain.protocol.multibyte.dcds_command_req import VariableCommandReq
 from pytrain.utils.pollable_queue import PollableQueue
 from pytrain.protocol.constants import CommandScope
-from pytrain.protocol.multibyte.multibyte_constants import TMCC2MaskingControl, TMCC2RawVariableEnum, TMCC2VariableEnum
+from pytrain.protocol.multibyte.multibyte_constants import (
+    TMCC2LashupCommandEnum,
+    TMCC2MaskingControl,
+    TMCC2VariableEnum,
+)
 from pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 from ..db.test_pseudo_train_index import train_record
@@ -50,6 +56,9 @@ def queued(writer: Base3Buffer) -> list[bytes]:
     return packets
 
 
+# Scalar commands and variable payloads require this valid scalar-or-list union.
+# PyCharm incorrectly rejects its list branch; keep the suppression on this helper only.
+# noinspection PyTypeHints
 def packet(
     address: int = 550,
     scope: CommandScope = CommandScope.TRAIN,
@@ -150,8 +159,8 @@ def test_invalid_candidate_preserves_original_and_logs_failure(buffer, caplog):
     "command,data,word_count",
     (
         (TMCC2MaskingControl.NC_NC, 0, 3),
-        (TMCC2RawVariableEnum.RAW_D000, list(b"0001\x00"), 10),
-        (TMCC2RawVariableEnum.RAW_F012, [0xEF, 0xBE], 7),
+        (TMCC2LashupCommandEnum.ASSIGN_TRAIN, list(b"0001\x00"), 10),
+        (TMCC2LashupCommandEnum.ROAD_SPEED, [0xEF, 0xBE], 7),
     ),
 )
 # Exercise private packetization and completion with no background thread.
@@ -236,7 +245,10 @@ def test_stuffed_command_byte_does_not_hide_the_train_address(buffer, labor):
     assert companion.tmcc_command.data == labor
 
 
-@pytest.mark.parametrize("pdi_command", tuple(command for command in PdiCommand if command != PdiCommand.TMCC4_TX))
+@pytest.mark.parametrize(
+    "pdi_command",
+    tuple(command for command in dict.fromkeys(PdiCommand.__members__.values()) if command != PdiCommand.TMCC4_TX),
+)
 def test_every_other_pdi_command_type_bypasses_sniffer_decoding(buffer, pdi_command):
     # A train-looking payload must not override the outer command type.
     source = bytes((0xD1, pdi_command, 0xF9, 1, 0xE7)) + b"0550" + bytes((0, 0xDF))
