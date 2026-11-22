@@ -905,7 +905,7 @@ class TMCC2DcdsCommandEnum(TMCC2VariableEnum):
     BELL_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BELL, d_min=0, d_max=7)
     DIALOG_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.DIALOG, d_min=0, d_max=7)
     BLEND_DIRECT = VariableCommandDef(TMCC2_SET_VOLUME_DIRECT, 2, code=VolumeCode.BLEND, d_min=0, d_max=15)
-    FACTORY_DEFAULT = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
+    FACTORY_DEFAULT = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBE])
     STORE = VariableCommandDef(TMCC2_DCDS_FACTORY_DEFAULT, 2, [0xEF, 0xBF])
     GET_INFO = VariableCommandDef(TMCC2_BLE_GET_INFO, 4, [0x0, 0x0, 0x0, 0x0])
     GET_STATUS = VariableCommandDef(TMCC2_BLE_GET_STATUS, 5, [0x0, 0x0, 0x0, 0x0, 0x0])
