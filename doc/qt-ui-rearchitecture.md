@@ -122,12 +122,85 @@ suite. The groups preserve all existing assertions and scenarios.
 
 ## Remaining tasks
 
-- [x] Implement the Wi-Fi signal-strength meter on the Admin page using the shared `WiFiInfo` helper. Validate readings on Raspberry Pi, macOS, and the external Steam Deck Flatpak during device testing.
-- [ ] Separate core PyTrain and the GUI into independently installable packages in the same repository. Move shared accessory metadata, registry definitions, and configuration models out of `pytrain.gui` into a GUI-independent core location, retaining compatibility imports for legacy callers. Keep Qt dependencies in the GUI package so core-only installations do not require them. Deferred; do not implement yet.
+The checklist below separates work to complete before merging this branch into
+`master` from follow-up work deferred from that merge. Hardware validation is
+still required even where implementation and automated coverage are present.
+
+### Pre-merge checklist
+
+- [ ] Validate Steam Deck through the actual external Flatpak. Exercise the
+  two-pane layout, every controller binding, focus changes, touch gestures,
+  held-output release, Gamescope sizing, Qt platform plugins, device permissions,
+  and update/restart behavior. The Qt Deck implementation exists; the external
+  bundle has not been validated by the Python wheel tests.
+- [ ] Validate the cab on Raspberry Pi touch hardware. Check layout fit, fixed
+  StateInfo panels with all fields and footers visible, scrolling indicators,
+  tap/double-tap/hold gestures, responsiveness, and network status. Include
+  macOS regression checks for desktop and device-preview layouts.
+- [ ] Exercise hybrid 2D/4D trains and Train Link on hardware. Automated coverage
+  exists, but verify train/car command targeting and formats, selection and
+  return-to-train behavior, train-controlled throttle and secondary sliders,
+  train-controlled state tiles, car-controlled volume keys, consist changes,
+  and removal of linked cars. Verify real versus pseudo train visibility and
+  active engine/train tile membership.
+- [ ] Complete and validate BPC2 Train-mode support. BPC2 devices programmed as
+  Train addresses must be discoverable and operable with the correct addressing,
+  controls, and state feedback; existing ACC-mode support does not close this task.
+- [ ] Implement server-side live consist rediscovery after Cab 3 edits using the
+  [discovery plan](train-consist-discovery-plan.md). First revise that plan to
+  reflect the documented lashup commands now decoded as `ASSIGN_TRAIN` (`0xD000`)
+  and `ROAD_SPEED` (`0xF012`), replacing its earlier unknown-command hypotheses.
+  Cover known, unknown, and stale pseudo mappings; old/new parent and component
+  refreshes; additions/removals; bounded retries and queue cleanup; and regression
+  tests. Keep discovery in core PyTrain and reuse shared state notifications.
+- [ ] Refresh documentation and screenshots for Train Link controls, active
+  engines/trains, Info tabs, accessory controls, switch/route coloring, wired
+  network status, ASC2 uncoupler/relay controls, and the actual Steam Deck Flatpak
+  launch procedure. Reconcile this checklist with validated behavior.
+- [ ] Validate the implemented Wi-Fi meter on Raspberry Pi, macOS, and the external
+  Steam Deck Flatpak. Confirm available signal readings, unavailable readings,
+  wired connection labeling and interface names where available, and polling
+  lifecycle behavior on the target devices.
+- [ ] Run final merge validation against the integrated code: Ruff and the full
+  Python unit-test matrix with `tox -p`, native Qt integration tests with
+  `tox -e qt-gui`, and installation/launcher smoke tests. Verify both Qt launch
+  paths and the retained legacy fallback, and resolve failures before merging.
+
+### Deferred follow-up tasks
+
+These tasks remain in the broader UI architecture project but are outside the
+pre-merge checklist. Deferral does not mean they have been implemented.
+
+- [ ] Convert the other GUIs in `pytrain.gui`, including the launcher, systems,
+  motors, power districts, and remaining standalone component/accessory views.
+  Inventory each entry point and preserve its supported operations during migration.
+- [ ] Build the Operating Accessory Configurator: a graphical tool, comparable to
+  the LCS Device Manager and Route Builder, for maintaining and extending
+  `accessory_config.json`. Use the prepared handoff and established GUI styles.
+- [ ] Separate core PyTrain and the GUI into independently installable packages
+  in the same repository. Move shared accessory metadata, registry definitions,
+  and configuration models out of `pytrain.gui` into a GUI-independent core
+  location, retaining compatibility imports for legacy callers. Keep Qt
+  dependencies in the GUI package so core-only installations do not require them.
+  Explicitly deferred; do not implement as part of this checklist update.
+- [ ] Decide when to retire GuiZero after parity and hardware testing. Retain the
+  legacy launch paths during migration; retirement is a separate decision from
+  merging the Qt architecture or making Qt the preferred presentation.
+
+### Implemented features awaiting final validation
+
+- [x] ASC2 Mode 1 uncouplers, relay controls and Edit Group, and the standard ACC tab.
+- [x] Train Link controls and active engine/train tiles.
+- [x] Switch state filters and switch/route state coloring.
+- [x] Embedded Info tabs and fixed, non-scrolling StateInfo layouts.
+- [x] Admin Wi-Fi signal-strength meter using the shared `WiFiInfo` helper, with
+  wired connection reporting where available.
 
 ## Live train edits from Cab 3
 
 A proposed server-side discovery and reconciliation mechanism for train edits
 is documented in [Live train-consist discovery](train-consist-discovery-plan.md).
 It is not implemented yet. The plan covers unknown pseudo mappings, affected
-engine/train refreshes, bounded retries, and the observed raw variable commands.
+engine/train refreshes, and bounded retries. Its packet interpretation predates
+the documented `ASSIGN_TRAIN` and `ROAD_SPEED` decoding and must be updated before
+implementation, as recorded in the pre-merge checklist above.
