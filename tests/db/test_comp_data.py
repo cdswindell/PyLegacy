@@ -230,13 +230,8 @@ class TestCompData:
             # Invalid scope must raise
             CompData.from_bytes(b"", types.SimpleNamespace(name="BOGUS"), tmcc_id=1)  # type: ignore[arg-type]
 
-    #
-    # which of the two train layouts a record is read with and written with is decided by
-    # two different questions - the parse side asks whether an id was supplied, as only
-    # the base memory channel supplies one, and the serialize side asks whether the id is
-    # 4-digit. Both answer "D4" for the same records, as a D4 record carries a 4-digit id
-    # of its own at 0xB8, so the pair has to be read as one decision
-    #
+    # Base memory supplies the external ID separately; the D4 channel embeds it at 0xB8.
+    # Preserve the channel's train layout when serializing, even for an ID below 100.
     def test_a_four_digit_train_record_is_read_and_written_with_the_d4_layout(self):
         rec = train_record(0x6D, 0b10101010, tmcc_id=1234)
 
@@ -257,21 +252,16 @@ class TestCompData:
         assert train.lighting == 0xFF  # the byte the D4 layout spends on the consist flags
         assert train.as_bytes() == rec
 
-    def test_a_record_from_the_d4_channel_needs_a_four_digit_id_to_be_written_back(self):
-        # NOTE: characterizes today's behavior. The two questions agree only while every
-        # record arriving on the D4 channel carries an id above 99: one that does not is
-        # read with the D4 layout and written with the standard one, which insists on the
-        # lighting byte the D4 layout never set. An empty D4 slot is the way in, as the
-        # 0xFF filler at 0xB8 decodes to an id of 0
+    def test_a_record_from_the_d4_channel_preserves_its_layout_with_a_two_digit_id(self):
+        # An embedded two-digit ID must not switch the D4 record to the standard layout.
         rec = train_record(0x6D, 0b10101010, tmcc_id=21)
 
         train = CompData.from_bytes(rec, CommandScope.TRAIN)  # the D4 channel supplies no id
 
         assert isinstance(train, TrainData)
         assert train.tmcc_id == 21
-        assert train.consist_flags == 0b10101010  # read with the D4 layout
-        with pytest.raises(AttributeError):
-            train.as_bytes()
+        assert train.consist_flags == 0b10101010
+        assert train.as_bytes() == rec
 
     def test_engine_data_is_legacy_flag_and_smoke_mapping(self):
         # Initialize with padded bytes so all fields get some numeric defaults
@@ -371,8 +361,8 @@ class TestCompData:
     def test_a_tmcc1_smoke_keypress_writes_the_base_smoke_byte(self, command, data, alias, expected):
         # a TMCC1 numeric reaches this map only under the name the alias table gives it,
         # and the bare form only under its own, as it carries no data to be aliased by.
-        # The write is what makes the level last: a numeric also asks the server for a
-        # full record refresh, which replaces every field the Base 3 was never told about
+        # Saving the level makes it persist when a numeric requests a full record refresh.
+        # That refresh replaces fields whose values were not saved to the Base 3.
         # None deliberately exercises commands with no data.
         # noinspection PyTypeChecker
         req = CommandReq.build(command, 24, data=data)
@@ -569,6 +559,8 @@ class TestCompData:
             assert comp_data.as_bytes() == before
         assert_read_only_state_lookups(get_state, scope, address)
 
+    # The pytest log capture fixture requires this parameter name.
+    # noinspection SpellCheckingInspection
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
     @pytest.mark.parametrize("address", [7, 99, 1234])
@@ -586,6 +578,8 @@ class TestCompData:
         assert store.get_state(scope, address, False) is None
         assert ("State not found" in caplog.text) is (address != 99)
 
+    # The pytest log capture fixture requires this parameter name.
+    # noinspection SpellCheckingInspection
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN])
     @pytest.mark.parametrize("comp_data", [None, types.SimpleNamespace()])
@@ -606,6 +600,8 @@ class TestCompData:
         assert "soft_status" in caplog.text
         assert_read_only_state_lookups(get_state, scope, 7)
 
+    # The pytest log capture fixture requires this parameter name.
+    # noinspection SpellCheckingInspection
     @pytest.mark.usefixtures("isolated_state_store")
     @pytest.mark.parametrize("data_cls, scope", [(EngineData, CommandScope.ENGINE), (TrainData, CommandScope.TRAIN)])
     @pytest.mark.parametrize("current", [None, -1, 256, 1.0, "1", True])

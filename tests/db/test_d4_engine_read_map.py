@@ -1,4 +1,4 @@
-"""Decode the 4D engine train reference while preserving adjacent unknown bytes."""
+"""Decode the 4D engine train reference and unit while preserving the adjacent unknown byte."""
 
 import pytest
 
@@ -34,7 +34,7 @@ def test_d4_engine_reference_decodes_little_endian_and_round_trips(reference: by
     assert isinstance(data, EngineData)
     assert data.train_record_no == expected_record
     assert data.train_tmcc_id == 37
-    assert data.unk_b6 == reference[2]
+    assert data.train_unit_4d == reference[2]
     assert data.unk_b7 == reference[3]
     assert data.as_bytes() == record
 
@@ -49,7 +49,7 @@ def test_d4_channel_retains_layout_for_real_four_digit_engine_addresses(address:
     assert data.as_bytes() == record
 
 
-def test_changing_train_record_reference_preserves_unknown_bytes_and_one_byte_assignment():
+def test_changing_train_record_reference_preserves_unit_unknown_byte_and_one_byte_assignment():
     record = engine_record(reference=bytes.fromhex("34 12 a5 5a"))
     data = CompData.from_bytes(record, CommandScope.ENGINE)
     assert isinstance(data, EngineData)
@@ -65,7 +65,7 @@ def test_changing_train_record_reference_preserves_unknown_bytes_and_one_byte_as
 def test_defaults_only_include_d4_reference_for_four_digit_engines(address: int):
     data = EngineData(None, address)
     assert data.train_record_no == (0xFFFF if address > 99 else None)
-    assert data.unk_b6 == (0xFF if address > 99 else None)
+    assert data.train_unit_4d == (0xFF if address > 99 else None)
     assert data.unk_b7 == (0xFF if address > 99 else None)
     assert data.as_bytes()[0xB4:0xB8] == bytes.fromhex("ff ff ff ff")
 
@@ -77,7 +77,7 @@ def test_two_digit_engine_record_uses_standard_map_and_one_byte_train_assignment
     assert data.tmcc_id == 37
     assert data.train_tmcc_id == 37
     assert data.train_record_no is None
-    assert data.unk_b6 is None
+    assert data.train_unit_4d is None
     assert data.unk_b7 is None
     serialized = data.as_bytes()
     assert serialized[0x1C] == 37
@@ -108,7 +108,7 @@ def test_d4_train_pseudo_id_stays_separate_from_engine_reference_map():
     assert decoded.tmcc_id == 550
     assert decoded.timestamp == 0x12345678
     assert decoded.train_record_no is None
-    assert decoded.unk_b6 is None
+    assert decoded.train_unit_4d is None
 
 
 def test_standard_engine_map_contains_no_d4_only_fields():
@@ -130,3 +130,28 @@ def test_partial_d4_response_formats_fields_with_its_specific_map(command, offse
     packet = D4Req(1, command, D4Action.QUERY, start=offset, data_length=len(value), data_bytes=value, timestamp=0)
     decoded = D4Req(packet.as_bytes)
     assert f"Data: {expected}" in decoded.payload
+
+
+@pytest.mark.parametrize("address", [1, 99])
+def test_d4_defaults_and_serialization_preserve_channel_after_decoding_a_two_digit_id(address):
+    data = EngineData(None)
+    assert data.train_record_no == 0xFFFF
+    assert data.train_unit_4d == 0xFF
+    assert data.unk_b7 == 0xFF
+
+    # Resolving the external ID must not change the record's established D4 layout.
+    data.tmcc_id = address
+    data.train_record_no = 0x1234
+    data.train_unit_4d = 3
+    data.unk_b7 = 0x5A
+    record = data.as_bytes()
+
+    assert record[0xB4:0xB8] == b"\x34\x12\x03\x5a"
+    assert record[0xB8:0xBC] == f"{address:04d}".encode("ascii")
+    decoded = CompData.from_bytes(record, CommandScope.ENGINE)
+    assert isinstance(decoded, EngineData)
+    assert decoded.tmcc_id == address
+    assert decoded.train_record_no == 0x1234
+    assert decoded.train_unit_4d == 3
+    assert decoded.unk_b7 == 0x5A
+    assert decoded.as_bytes() == record

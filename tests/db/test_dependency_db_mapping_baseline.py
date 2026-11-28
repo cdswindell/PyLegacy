@@ -16,7 +16,7 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as
 
 
 @pytest.fixture
-def cache():
+def cache() -> DependencyCache:
     # DependencyCache is a singleton; reset its relationships to the declared baseline.
     instance = DependencyCache.build()
     instance.initialize()
@@ -98,15 +98,19 @@ def cache():
         (Engine1.TOGGLE_DIRECTION, {Engine1.SPEED_STOP_HOLD}),
     ],
 )
-def test_direct_dependency_graph_baseline(cache, cause, effects):
+def test_direct_dependency_graph_baseline(cache: DependencyCache, cause, effects):
     # Compare raw edges, rather than results_in(), which also includes the cause.
+    # Inspect stored edges directly to exclude the derived closure.
+    # noinspection PyProtectedMember
     assert cache._causes[cause] == effects
     assert cache.results_in(cause) == effects | {cause}
     for effect in effects:
+        # Verify the reverse stored edge as well.
+        # noinspection PyProtectedMember
         assert cause in cache._caused_bys[effect]
 
 
-def test_unknown_command_returns_itself(cache):
+def test_unknown_command_returns_itself(cache: DependencyCache):
     assert cache.results_in(Engine2.BELL_OFF) == {Engine2.BELL_OFF}
 
 
@@ -123,6 +127,8 @@ def test_unknown_command_returns_itself(cache):
         ("ABSOLUTE_SPEED", ("speed", "target_speed")),
         ("RAMP_TARGET_SPEED", ("target_speed",)),
         ("SPEED", ("speed",)),
+        ("CLEAR_TRAIN_INFO_2D", ("train_tmcc_id",)),
+        ("CLEAR_TRAIN_INFO_4D", ("train_record_no",)),
         ("DIESEL_RPM", ("rpm",)),
         ("ENGINE_LABOR", ("labor",)),
         ("FORWARD_DIRECTION", ("soft_status",)),
@@ -140,6 +146,8 @@ def test_database_map_key_inventory_baseline():
         "ABSOLUTE_SPEED",
         "SPEED",
         "RAMP_TARGET_SPEED",
+        "CLEAR_TRAIN_INFO_2D",
+        "CLEAR_TRAIN_INFO_4D",
         "DIESEL_RPM",
         "ENGINE_LABOR",
         "ENGINEER_FUEL_REFILLED",

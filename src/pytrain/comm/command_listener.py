@@ -18,11 +18,10 @@ from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checka
 
 from .comm_buffer import CommBuffer
 from ..db.component_state import ComponentState
-from ..db.engine_state import EngineState, TrainState
+from ..db.engine_state import TrainState
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import D4Action, PdiCommand
-from ..pdi.d4_req import D4Req
+from ..pdi.constants import PdiCommand
 from ..pdi.pdi_req import TmccReq
 from ..protocol.command_def import CommandDef, CommandDefEnum
 from ..protocol.command_req import TMCC_FIRST_BYTE_TO_INTERPRETER, CommandReq
@@ -886,11 +885,9 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if not self._channels[BROADCAST_TOPIC].subscribers:
                 self._broadcasts = False
 
-    # noinspection PyArgumentList,PyUnnecessaryCast
     @staticmethod
     def request_command_impact(cmd: CommandReq) -> None:
         from ..db.component_state_store import ComponentStateStore
-        from ..db.comp_data import CompData
 
         action = COMMAND_IMPACTS.get(cmd.command, None)
         # Executes immediate command impact action if state qualifies; sends resulting request
@@ -901,43 +898,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 if req:
                     req.send()
                 return
-        """
-        Engine/Train state is also impacted by states initiated and maintained by hand-held
-        controllers. For example, when the throttle is moved, a target speed is set on the
-        Base 3 that is not reflected in the command flow. This function queries the Base 3
-        for these states and updates the local state store accordingly.
-        """
-        pkgs = CompData.request_to_query(cmd)
-        if pkgs:
-            cmds = []
-            for pkg in pkgs:
-                if 1 <= cmd.address <= 99:
-                    cmds.append(
-                        BaseReq(
-                            cmd.address,
-                            pdi_command=PdiCommand.BASE_MEMORY,
-                            flags=0x02,
-                            scope=cmd.scope,
-                            start=pkg.offset,
-                            data_length=pkg.length,
-                        )
-                    )
-                else:
-                    state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
-                    state = cast(EngineState, state)
-                    assert state.record_no != 0xFFFF
-                    pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-                    cmds.append(
-                        D4Req(
-                            state.record_no,
-                            pdi_cmd,
-                            D4Action.QUERY,
-                            start=pkg.offset,
-                            data_length=pkg.length,
-                        )
-                    )
-            for query in cmds:
-                query.send()
 
     # noinspection PyUnnecessaryCast
     def _on_clear_consist(self, tmcc_cmd: CommandReq) -> None:

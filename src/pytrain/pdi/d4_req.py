@@ -73,7 +73,7 @@ class D4Req(PdiReq, CompDataMixin):
                 if isinstance(data_bytes, bytes):
                     self._data_bytes = data_bytes
                     if self.start == 0 and self.data_length == PdiReq.scope_record_length(CommandScope.ENGINE):
-                        self._comp_data = CompData.from_bytes(data_bytes, self.scope)
+                        self._comp_data = CompData.from_bytes(data_bytes, self.scope, d4=True)
                         # noinspection PyUnresolvedReferences
                         self._tmcc_id = self._comp_data.tmcc_id
                         self._comp_data_record = True  # mark this req as containing a complete CompData record
@@ -108,7 +108,7 @@ class D4Req(PdiReq, CompDataMixin):
                     record_length = PdiReq.scope_record_length(self.scope)
                     if self._data_length == record_length and data_len >= 12 + record_length:
                         self._data_bytes = self._data[12 : 12 + record_length]
-                        self._comp_data = CompData.from_bytes(self._data_bytes, self.scope)
+                        self._comp_data = CompData.from_bytes(self._data_bytes, self.scope, d4=True)
                         self._tmcc_id = self._comp_data.tmcc_id
                         self._comp_data_record = True
                 else:

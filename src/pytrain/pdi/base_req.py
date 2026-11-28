@@ -539,7 +539,9 @@ class BaseReq(PdiReq, CompDataMixin):
                     CommandScope.ROUTE,
                 }:
                     if self._data_bytes:
-                        self._comp_data = CompData.from_bytes(self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id)
+                        self._comp_data = CompData.from_bytes(
+                            self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id, d4=False
+                        )
                         self._comp_data_record = True  # mark this req as containing a complete CompData record
                         self._name = self._comp_data.road_name
                         self._number = self._comp_data.road_number

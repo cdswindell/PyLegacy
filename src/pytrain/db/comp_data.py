@@ -144,58 +144,20 @@ class CompDataHandler:
         return f"<{self.field}: Length: {self.length}>"
 
 
-class QueryPkg:
-    def __init__(self, field: str, offset: int, length: int) -> None:
+class UpdatePkg:
+    def __init__(self, field: str, offset: int, length: int, data_bytes: bytes) -> None:
         self.field: str = field
         self.offset: int = offset
         self.length: int = length
+        self.data_bytes: bytes = data_bytes
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, QueryPkg) or self.__class__ != other.__class__:
+        if not isinstance(other, UpdatePkg) or self.__class__ != other.__class__:
             return False
         return self.field == other.field and self.offset == other.offset and self.length == other.length
 
     def __hash__(self):
         return hash((self.field, self.offset, self.length))
-
-    def __repr__(self) -> str:
-        return f"{self.field}: Address: {hex(self.offset)} Length: {self.length}"
-
-    # noinspection bad-argument-type
-    def as_request(
-        self,
-        tmcc_id: int,
-        scope: CommandScope = CommandScope.ENGINE,
-        record_no: int | None = None,
-    ) -> PdiReq:
-        from ..pdi.base_req import BaseReq
-        from ..pdi.d4_req import D4Req
-
-        if 1 <= tmcc_id <= 99:
-            return BaseReq(
-                tmcc_id,
-                pdi_command=PdiCommand.BASE_MEMORY,
-                flags=0x3,
-                scope=scope,
-                start=self.offset,
-                data_length=self.length,
-            )
-        else:
-            assert 0 <= record_no < 0xFFFF
-            pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
-            return D4Req(
-                record_no,
-                pdi_cmd,
-                D4Action.QUERY,
-                start=self.offset,
-                data_length=self.length,
-            )
-
-
-class UpdatePkg(QueryPkg):
-    def __init__(self, field: str, offset: int, length: int, data_bytes: bytes) -> None:
-        super().__init__(field, offset, length)
-        self.data_bytes: bytes = data_bytes
 
     def __repr__(self) -> str:
         return f"{self.field}: Address: {hex(self.offset)} Length: {self.length} data: {self.data_bytes.hex()}"
@@ -390,8 +352,8 @@ BASE_MEMORY_D4_ENGINE_READ_MAP.update(
             d4_only=True,
             default=0xFFFF,
         ),
-        # Preserve these bytes without assigning membership or unit semantics.
-        0xB6: CompDataHandler("_unk_b6", d4_only=True),
+        # D4 train unit follows the two-byte train record reference; 0xB7 remains unknown.
+        0xB6: CompDataHandler("_train_unit_4d", d4_only=True),
         0xB7: CompDataHandler("_unk_b7", d4_only=True),
         0xB8: CompDataHandler(
             "_tmcc_id",
@@ -409,6 +371,7 @@ BASE_MEMORY_D4_ENGINE_READ_MAP.update(
         ),
     }
 )
+FIELD_TO_ADDR_D4_ENGINE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_D4_ENGINE_READ_MAP.items()}
 
 BASE_MEMORY_TRAIN_READ_MAP = BASE_MEMORY_ENGINE_READ_MAP.copy()
 BASE_MEMORY_TRAIN_READ_MAP.update(
@@ -443,6 +406,7 @@ BASE_MEMORY_D4_TRAIN_READ_MAP.update(
         0xBC: BASE_MEMORY_D4_ENGINE_READ_MAP[0xBC],
     }
 )
+FIELD_TO_ADDR_D4_TRAIN_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_D4_TRAIN_READ_MAP.items()}
 
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
@@ -508,6 +472,8 @@ FIELD_TO_ADDR_ROUTE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ROUTE_READ_MAP
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
     CommandScope.TRAIN: BASE_MEMORY_TRAIN_READ_MAP,
+    (CommandScope.ENGINE, "D4"): BASE_MEMORY_D4_ENGINE_READ_MAP,
+    (CommandScope.TRAIN, "D4"): BASE_MEMORY_D4_TRAIN_READ_MAP,
     CommandScope.ACC: BASE_MEMORY_ACC_READ_MAP,
     CommandScope.SWITCH: BASE_MEMORY_SWITCH_READ_MAP,
     CommandScope.ROUTE: BASE_MEMORY_ROUTE_READ_MAP,
@@ -516,6 +482,8 @@ SCOPE_TO_COMP_MAP = {
 SCOPE_TO_FIELDS_MAP = {
     CommandScope.ENGINE: FIELD_TO_ADDR_ENGINE_MAP,
     CommandScope.TRAIN: FIELD_TO_ADDR_TRAIN_MAP,
+    (CommandScope.ENGINE, "D4"): FIELD_TO_ADDR_D4_ENGINE_MAP,
+    (CommandScope.TRAIN, "D4"): FIELD_TO_ADDR_D4_TRAIN_MAP,
     CommandScope.ACC: FIELD_TO_ADDR_ACC_MAP,
     CommandScope.SWITCH: FIELD_TO_ADDR_SWITCH_MAP,
     CommandScope.ROUTE: FIELD_TO_ADDR_ROUTE_MAP,
@@ -533,6 +501,8 @@ REQUEST_TO_UPDATES_MAP = {
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
     "RAMP_TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
+    "CLEAR_TRAIN_INFO_2D": [("train_tmcc_id", lambda _: b"\xff\xff")],
+    "CLEAR_TRAIN_INFO_4D": [("train_record_no", lambda _: b"\xff\xff\xff")],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -589,13 +559,6 @@ REQUEST_TO_UPDATES_MAP = {
     "TRAIN_UNIT": [("train_unit",)],
 }
 
-#
-# Additionally, some requests require a query to the Base 3 to determine the
-# current state of the component. This map defines the fields that must be
-# queried and the corresponding update fields that must be set.
-#
-REQUEST_TO_QUERIES_MAP = {}
-
 CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
     "train_brake": (lambda x: min(round(x * 0.4667), 7), lambda x: min(round(x * 2.143), 15)),
     "momentum": (lambda x: min(round(x * 0.05512), 7), lambda x: min(round(x * 18.14), 127)),
@@ -645,14 +608,21 @@ class CompData(ABC, Generic[R]):
         return cls._state_store
 
     @classmethod
-    def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int | None = None) -> C:
+    def from_bytes(
+        cls,
+        data: bytes,
+        scope: CommandScope,
+        tmcc_id: int | None = None,
+        *,
+        d4: bool | None = None,
+    ) -> C:
         """
         Parse byte packet into a CompData object, based on scope.
         """
         if scope == CommandScope.ENGINE:
-            return EngineData(data, tmcc_id=tmcc_id)
+            return EngineData(data, tmcc_id=tmcc_id, d4=d4)
         elif scope == CommandScope.TRAIN:
-            return TrainData(data, tmcc_id=tmcc_id)
+            return TrainData(data, tmcc_id=tmcc_id, d4=d4)
         elif scope == CommandScope.ACC:
             return AccessoryData(data, tmcc_id=tmcc_id)
         elif scope == CommandScope.SWITCH:
@@ -755,6 +725,19 @@ class CompData(ABC, Generic[R]):
         return True
 
     @classmethod
+    def _make_key(
+        cls,
+        scope: CommandScope,
+        tmcc_id: int | None,
+        *,
+        d4: bool = False,
+    ) -> CommandScope | tuple[CommandScope, str]:
+        if scope in (CommandScope.ENGINE, CommandScope.TRAIN):
+            if d4 or (tmcc_id is not None and 100 <= tmcc_id <= 9999):
+                return (scope, "D4")
+        return scope
+
+    @classmethod
     def field_to_updates(
         cls,
         field: str,
@@ -788,10 +771,11 @@ class CompData(ABC, Generic[R]):
         transform: Callable | None = None,
     ) -> UpdatePkg | None:
         sub_field = field = field.lower()
-        scoped_field_map = SCOPE_TO_FIELDS_MAP.get(scope, None)
+        key = cls._make_key(scope, address)
+        scoped_field_map = SCOPE_TO_FIELDS_MAP.get(key, None)
         assert scoped_field_map is not None, f"Scope {scope} not found in SCOPE_TO_FIELDS_MAP"
 
-        scoped_comp_map = SCOPE_TO_COMP_MAP.get(scope, None)
+        scoped_comp_map = SCOPE_TO_COMP_MAP.get(key, None)
         assert scoped_comp_map is not None, f"Scope {scope} not found in SCOPE_TO_COMP_MAP"
 
         addr = scoped_field_map.get(field, None)
@@ -858,50 +842,18 @@ class CompData(ABC, Generic[R]):
                 base_value = transform(data)
         if base_value is None:
             return None
+
+        # A bytes result is a complete, already encoded memory write.
+        if isinstance(base_value, bytes):
+            if not base_value:
+                raise ValueError("Memory update must contain at least one byte.")
+            return UpdatePkg(field, addr, len(base_value), base_value)
+
         # noinspection unbound-local-variable
         data_bytes = handler.to_bytes(base_value)
         if len(data_bytes) < handler.length:
             data_bytes += b"\xff" * (handler.length - len(data_bytes))
         return UpdatePkg(field, addr, handler.length, data_bytes)
-
-    # noinspection PyTypeChecker
-    @classmethod
-    def request_to_query(cls, req: R) -> list[QueryPkg] | None:
-        """
-        Queries Base 3 for the current value of an impacted field in response
-        to a CommandReq.
-        """
-        if not isinstance(req, CommandReq):
-            raise AttributeError(f"'Argument is not a CommandReq: {req}'")
-
-        query_pkgs: list[QueryPkg] = []
-        cmd = req.command
-        queries = REQUEST_TO_QUERIES_MAP.get(cmd.name, None)
-        if queries is None:
-            return None
-        for query in queries:
-            if isinstance(query, tuple) and len(query) >= 1:
-                pkg = cls._create_query_pkg(query[0])
-                if pkg:
-                    query_pkgs.append(pkg)
-        return query_pkgs
-
-    @classmethod
-    def _create_query_pkg(cls, field: str) -> QueryPkg | None:
-        addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
-        # special case for rpm/labor
-        if addr is None and field in {"rpm", "labor"}:
-            field = "rpm_labor"
-            addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
-        if addr is None:
-            log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP")
-            return None
-        handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
-        if handler is None:
-            if addr is None:
-                log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP")
-            return None
-        return QueryPkg(field, addr, handler.length)
 
     @classmethod
     def generate_update_req(
@@ -927,31 +879,10 @@ class CompData(ABC, Generic[R]):
         return pkg.as_request(address, scope, record_no) if pkg else None
 
     @classmethod
-    def generate_query_req(
-        cls,
-        field: str,
-        state=None,
-        scope: CommandScope = None,
-        address: int = None,
-    ) -> PdiReq | None:
-        from .engine_state import EngineState, TrainState
-
-        pkg = None
-        record_no = 0
-        if isinstance(state, EngineState) or isinstance(state, TrainState):
-            pkg = cls._create_query_pkg(field)
-            address = state.address
-            scope = state.scope
-            record_no = state.record_no
-        elif isinstance(scope, CommandScope) and isinstance(address, int):
-            pkg = cls._create_query_pkg(field)
-        return pkg.as_request(address, scope, record_no) if pkg else None
-
-    @classmethod
     def clear_road_name_number_req(cls, address: int, scope: CommandScope = None) -> PdiReq:
         scope = scope or CompDataClassToScopeMap.get(cls, None)
         if scope:
-            field_map = SCOPE_TO_FIELDS_MAP.get(scope, None)
+            field_map = SCOPE_TO_FIELDS_MAP.get(cls._make_key(scope, address), None)
             if field_map:
                 road_name_len_addr = field_map.get("road_name_len", None)
                 assert road_name_len_addr
@@ -1023,23 +954,17 @@ class CompData(ABC, Generic[R]):
                     f"got {len(data)} bytes, expected {PdiReq.scope_record_length(self.scope)}"
                 )
 
-            if scope == CommandScope.ENGINE and self._is_d4_record:
-                comp_map = BASE_MEMORY_D4_ENGINE_READ_MAP
-            elif scope == CommandScope.TRAIN and (tmcc_id is None or tmcc_id > 99):
-                comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
-            else:
-                comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
-            self._parse_bytes(data, comp_map)
+            self._parse_bytes(data, self._record_map())
         else:
             self._set_defaults()
 
+    def _record_map(self) -> dict[int, CompDataHandler]:
+        """Select the retained record layout independently of the decoded address."""
+        key = (self.scope, "D4") if getattr(self, "_is_d4_record", False) else self.scope
+        return SCOPE_TO_COMP_MAP[key]
+
     def _set_defaults(self) -> None:
-        if self._scope == CommandScope.ENGINE and self._is_d4_record:
-            field_map = BASE_MEMORY_D4_ENGINE_READ_MAP
-        elif self._scope == CommandScope.TRAIN and self._tmcc_id is not None and self._tmcc_id > 99:
-            field_map = BASE_MEMORY_D4_TRAIN_READ_MAP
-        else:
-            field_map = SCOPE_TO_COMP_MAP.get(self._scope)
+        field_map = self._record_map()
         if field_map:
             for addr, field in field_map.items():
                 if field.field == "_tmcc_id":
@@ -1151,7 +1076,7 @@ class CompData(ABC, Generic[R]):
 
     def set_road_name_req(self, road_name: str | None) -> PdiReq:
         if self.scope:
-            field_map = SCOPE_TO_FIELDS_MAP.get(self.scope, None)
+            field_map = SCOPE_TO_FIELDS_MAP.get(self._make_key(self.scope, self.tmcc_id), None)
             if field_map:
                 road_name_len_addr = field_map.get("road_name_len", None)
                 assert road_name_len_addr
@@ -1175,7 +1100,7 @@ class CompData(ABC, Generic[R]):
         # validate road number
         road_number = Validations.validate_int(road_number, 0, 9999, "Road Number", True)
         if self.scope:
-            field_map = SCOPE_TO_FIELDS_MAP.get(self.scope, None)
+            field_map = SCOPE_TO_FIELDS_MAP.get(self._make_key(self.scope, self.tmcc_id), None)
             if field_map:
                 road_number_len_addr = field_map.get("road_number_len", None)
                 assert road_number_len_addr
@@ -1198,14 +1123,10 @@ class CompData(ABC, Generic[R]):
         raise AttributeError(f"Invalid CompData: {self}")
 
     def as_bytes(self) -> bytes:
-        if self.scope == CommandScope.ENGINE and self._is_d4_record:
-            comp_map = BASE_MEMORY_D4_ENGINE_READ_MAP
-        elif self.scope == CommandScope.TRAIN and self.tmcc_id > 99:
-            comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
-        else:
-            comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
+        d4 = getattr(self, "_is_d4_record", False)
+        comp_map = self._record_map()
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
-        if self.tmcc_id <= 99 and not (self.scope == CommandScope.ENGINE and self._is_d4_record):
+        if self.tmcc_id <= 99 and not d4:
             # delete any entries that are 4-digit specific
             for k in list(schema.keys()):
                 if schema[k].is_d4_only:
@@ -1254,6 +1175,8 @@ class EngineData(CompData):
         data: bytes | None,
         tmcc_id: int | None = None,
         scope: CommandScope = CommandScope.ENGINE,
+        *,
+        d4: bool | None = None,
     ) -> None:
         self._signal_initializing()
         self._bt_id: int | None = None
@@ -1281,10 +1204,12 @@ class EngineData(CompData):
         self._train_unit: int | None = None
         self._train_tmcc_id: int | None = None
         self._train_record_no: int | None = None
-        self._unk_b6: int | None = None
+        self._train_unit_4d: int | None = None
         self._unk_b7: int | None = None
-        # The D4 channel omits the external ID. Keep its format even for IDs <= 99.
-        self._is_d4_record = scope == CommandScope.ENGINE and (tmcc_id is None or tmcc_id > 99)
+        # Packet readers supply the layout; direct callers retain address-based inference.
+        self._is_d4_record = scope in (CommandScope.ENGINE, CommandScope.TRAIN) and (
+            d4 if d4 is not None else tmcc_id is None or 100 <= tmcc_id <= 9999
+        )
         self._tsdb_left: int | None = None
         self._tsdb_right: int | None = None
         self._water_level: int | None = None
@@ -1331,12 +1256,12 @@ class TrainData(EngineData):
             components are defined.
     """
 
-    def __init__(self, data: bytes | None, tmcc_id: int | None = None) -> None:
+    def __init__(self, data: bytes | None, tmcc_id: int | None = None, *, d4: bool | None = None) -> None:
         self._signal_initializing()
         self._consist_flags: int | None = None
         self._consist_comps: list[ConsistComponent] | None = None
         self._pseudo_train_id: int | None = None
-        super().__init__(data, tmcc_id=tmcc_id, scope=CommandScope.TRAIN)
+        super().__init__(data, tmcc_id=tmcc_id, scope=CommandScope.TRAIN, d4=d4)
 
 
 class SwitchData(CompData):
