@@ -47,7 +47,24 @@ Rectangle {
 
     property bool manageVisible: false
     property bool engineCatalogVisible: showCatalogAtStartup
+    readonly property var activeTarget: {
+        if (!cabController || !trainLinkController || !switchOpsController || !routeOpsController)
+            return {scope: "", tmccId: 0}
+        if (activeScope === "ENGINE" || activeScope === "TRAIN") {
+            if (activeScope === "TRAIN" && trainLinkController.selectedId)
+                return {scope: "ENGINE", tmccId: trainLinkController.selectedId}
+            return {scope: activeScope, tmccId: cabController.scope === activeScope ? cabController.tmccId : 0}
+        }
+        if (activeScope === "SWITCH")
+            return {scope: activeScope, tmccId: switchOpsController.selectedId}
+        if (activeScope === "ROUTE")
+            return {scope: activeScope, tmccId: routeOpsController.selectedId}
+        return {scope: "ACC", tmccId: activeAccessory.tmccId || 0}
+    }
     property string activeScope: "ENGINE"
+    Component.onCompleted: {
+        if (cabController && cabController.scope === "TRAIN") activeScope = "TRAIN"
+    }
     property string activeAccessoryKey: ""
     property string lastOperatedAccessoryKey: ""
     property bool lastAccessoryOperationFromRoster: false

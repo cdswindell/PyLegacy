@@ -7,6 +7,7 @@ CabWindow {
     minimumWidth: 480
     minimumHeight: workspaceItem.devicePreviewActive ? 400 : 720
     title: "PyTrain — " + workspaceItem.activePanelTitle
+    readonly property var activeTarget: workspaceItem.activeTarget
     property alias activeScope: workspaceItem.activeScope
     property Item workspace: workspaceItem
     property var context_cabController: cabController

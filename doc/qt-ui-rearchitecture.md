@@ -30,8 +30,66 @@ The `pycab` launcher now prefers the Qt cab when PySide6 is installed. Compatibi
 - `pycab --qt` or `pycab-qt` explicitly launches the Qt cab.
 - `PYTRAIN_LEGACY_GUI=1` opts out of the Qt default without changing scripts or services.
 
-The legacy cab should remain available until the Qt implementation has been exercised on macOS, Raspberry Pi touch hardware, and Steam Deck controller hardware. Retirement of GuiZero is a separate decision after parity testing, not a prerequisite for making Qt the preferred cab presentation.
+The legacy cab should remain available until the Qt implementation has been exercised on macOS, Raspberry Pi touch hardware, and Steam Deck controller hardware. Retirement of GuiZero requires conversion and validation of the entire GUI suite, including the wide-screen GUI (`WideComponentStateGui`). It is a separate decision from making Qt the preferred cab presentation or merging this branch.
 
+
+## Starting the Qt cab from buttons.py
+
+A normal PyTrain startup script can register the Qt cab against its existing
+runtime. No second PyTrain instance, process, or connection is created. The script
+runs on the buttons loader thread; after the complete script finishes, PyTrain
+starts the registered presentation on the Python main thread. Core PyTrain uses
+presentation callbacks and does not import Qt or `pytrain_ui`.
+
+```python
+from pytrain.protocol.constants import CommandScope
+from pytrain_ui.qt import QtCabGui
+
+cab = QtCabGui(
+    tmcc_id=37,
+    scope=CommandScope.ENGINE,
+    width=800,
+    height=1280,
+    full_screen=True,
+)
+
+
+def selection_changed(target):
+    print(target.scope, target.tmcc_id)
+
+
+unsubscribe = cab.subscribe(selection_changed)
+```
+
+Use `cab.selection` to read an atomic `CabSelection(scope, tmcc_id, revision)`.
+`cab.scope` and `cab.tmcc_id` expose individual values. `cab.active_state` returns
+an existing selected record; `cab.active_engine_state` returns it only for Engine
+or Train scope, including selected cars. These lookups never create records and
+return `None` for missing or deleted records. Before the window starts, selection
+has no scope or ID. A scope with no selected record has a `None` ID.
+
+Callbacks receive future changes to the selected `(scope, tmcc_id)`, not ordinary
+state updates such as speed changes. They execute on the UI thread and must return
+promptly. Call the returned `unsubscribe()` function to detach a callback. For a
+worker-thread watcher, use `cab.wait_for_selection_change(revision, timeout)`;
+it returns the latest newer snapshot or `None` on timeout or shutdown. Revisions
+prevent lost wakeups, multiple waiters are supported, and rapid changes may be
+coalesced without accumulating a queue. Use `StateWatcher` separately to monitor
+the selected record's state changes.
+
+Selection follows the displayed scope and target. Selecting a Train Link car
+reports its Engine address while the throttle remains assigned to the train.
+In the two-pane Steam Deck host, selection follows the focused pane.
+
+An explicit `tmcc_id` takes precedence over saved session selection; omit it to
+retain normal session restoration and roster startup. `deck=None` uses platform
+detection; `deck=True` explicitly requests the two-pane host and supports
+`controller_profile`. Width, height, and fullscreen options apply to the requested
+host. `cab.close()` requests window exit from any thread, and closing the GUI
+shuts down its existing PyTrain runtime through the normal lifecycle. Only one
+startup GUI may be registered. API hosts must launch their presentation explicitly;
+the automatic buttons-file GUI hook is for normal PyTrain startup, not API mode.
+Legacy `EngineGui` styling and Tk embedding arguments are not Qt options.
 
 ## Fullscreen startup
 
@@ -171,9 +229,12 @@ still required even where implementation and automated coverage are present.
 These tasks remain in the broader UI architecture project but are outside the
 pre-merge checklist. Deferral does not mean they have been implemented.
 
-- [ ] Convert the other GUIs in `pytrain.gui`, including the launcher, systems,
-  motors, power districts, and remaining standalone component/accessory views.
-  Inventory each entry point and preserve its supported operations during migration.
+- [ ] Convert the other GUIs in `pytrain.gui`, prioritizing the wide-screen host
+  (`WideComponentStateGui`, also referred to as the WideScreenGui). Preserve its
+  configurable independent panes and panel selection. Include the Launch Pad,
+  systems, motors, power districts, component hosts, and remaining standalone
+  accessory views. Inventory each entry point and preserve its supported operations
+  during migration. Review current/proposed layouts side by side before conversion.
 - [ ] Build the Operating Accessory Configurator: a graphical tool, comparable to
   the LCS Device Manager and Route Builder, for maintaining and extending
   `accessory_config.json`. Use the prepared handoff and established GUI styles.
@@ -183,9 +244,10 @@ pre-merge checklist. Deferral does not mean they have been implemented.
   location, retaining compatibility imports for legacy callers. Keep Qt
   dependencies in the GUI package so core-only installations do not require them.
   Explicitly deferred; do not implement as part of this checklist update.
-- [ ] Decide when to retire GuiZero after parity and hardware testing. Retain the
-  legacy launch paths during migration; retirement is a separate decision from
-  merging the Qt architecture or making Qt the preferred presentation.
+- [ ] Retire GuiZero only after the entire GUI suite has been converted and
+  validated, including the wide-screen host and every standalone entry point.
+  Retain the legacy launch paths until then; retirement is a separate decision
+  from merging the Qt architecture or making Qt the preferred presentation.
 
 ### Implemented features awaiting final validation
 

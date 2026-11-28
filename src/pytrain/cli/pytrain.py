@@ -24,7 +24,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Lock, Thread, current_thread, get_native_id
+from threading import Event, Lock, Thread, current_thread, get_native_id, main_thread
 from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
@@ -180,6 +180,7 @@ class PyTrain:
         self._api_exit_notified = False
         self._lifecycle_phase = "running"
         self._buttons_loader: ButtonsFileLoader | None = None
+        self._startup_gui: Callable[[], int] | None = None
         self._client_ip = None
         self._server_ips = None
         self._admin_action: CommandDefEnum | None = None
@@ -351,7 +352,25 @@ class PyTrain:
         else:
             log.info(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
+    def register_startup_gui(self, run: Callable[[], int], close: Callable[[], None]) -> None:
+        """Register one main-thread GUI from a startup script without importing a UI package.
+
+        API hosts own their main thread and must launch their presentation explicitly.
+        The normal buttons loader only registers callbacks; run() invokes the GUI after
+        the complete script has loaded, using the already initialized runtime.
+        """
+        if not callable(run) or not callable(close):
+            raise TypeError("GUI run and close callbacks must be callable")
+        if self._api:
+            raise RuntimeError("A buttons-file GUI requires normal PyTrain startup, not API mode")
+        if getattr(self, "_startup_gui", None) is not None or self._gui_admin_close is not None:
+            raise RuntimeError("A GUI is already registered for this PyTrain runtime")
+        self._startup_gui = run
+        self._gui_admin_close = close
+        self._gui_owns_admin_lifecycle = True
+
     def run(self) -> None:
+        startup_gui_ran = False
         processed_replay = False
         try:
             self._start_cache_sync()
@@ -391,6 +410,21 @@ class PyTrain:
                 self._buttons_loader = ButtonsFileLoader(self._buttons_file, self)
                 assert self._buttons_loader is not None
                 self._buttons_loader.join()
+
+            startup_gui = getattr(self, "_startup_gui", None)
+            if callable(startup_gui):
+                if current_thread() is not main_thread():
+                    raise RuntimeError("The startup GUI must run on the Python main thread")
+                startup_gui_ran = True
+                try:
+                    if not self.admin_exit_requested:
+                        startup_gui()
+                finally:
+                    try:
+                        self.shutdown()
+                    except Exception as exc:
+                        log.warning("Error stopping GUI runtime, continuing shutdown: %s", exc)
+                return
 
             # print opening line
             log.info(f"{PROGRAM_NAME} {'Server' if self.is_server else 'Client'} {self._version}")
@@ -458,6 +492,8 @@ class PyTrain:
 
             # print closing line
             log.info(f"{PROGRAM_NAME} exiting...")
+            if startup_gui_ran and self.admin_exit_requested:
+                self.perform_gui_admin_action()
 
         if not getattr(self, "_gui_owns_admin_lifecycle", False):
             self.perform_deferred_admin_action()

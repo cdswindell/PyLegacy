@@ -10,6 +10,7 @@ CabWindow {
     minimumWidth: 960
     minimumHeight: 640
     title: "PyTrain — " + (deckController.focusedPane === "left" ? leftWorkspace.activePanelTitle : rightWorkspace.activePanelTitle)
+    readonly property var activeTarget: deckController.focusedPane === "left" ? leftWorkspace.activeTarget : rightWorkspace.activeTarget
     property Item leftPane: leftWorkspace
     property Item rightPane: rightWorkspace
     RowLayout {

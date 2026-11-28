@@ -45,7 +45,19 @@ def run_deck(
     )
 
 
-def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller_profile=None, full_screen=None) -> int:
+def _run(
+    scope,
+    tmcc_id,
+    args,
+    *,
+    deck=False,
+    width=1280,
+    height=800,
+    controller_profile=None,
+    full_screen=None,
+    explicit_target=False,
+    interface=None,
+) -> int:
     try:
         from PySide6.QtCore import QTimer, QUrl
         from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
@@ -95,8 +107,8 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
     if not icon.isNull():
         app.setWindowIcon(icon)
 
-    restored_id = restore_engine()
-    show_catalog = restored_id is None
+    restored_id = None if explicit_target else restore_engine()
+    show_catalog = restored_id is None and not explicit_target
     if restored_id is not None:
         scope = CommandScope.ENGINE
         tmcc_id = restored_id
@@ -164,10 +176,22 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
         engine.load(QUrl.fromLocalFile(str(qml_path)))
     if deck and engine.rootObjects():
         gamepad.attach(engine.rootObjects()[0])
+    selection_observer = None
+    if interface is not None and engine.rootObjects():
+        from .startup_observer import StartupSelectionObserver
+
+        window = engine.rootObjects()[0]
+        if not deck:
+            window.setProperty("width", width)
+            window.setProperty("height", height)
+        selection_observer = StartupSelectionObserver(window, interface, app)
+        # Parent ownership keeps the observer alive throughout the event loop.
+        selection_observer.publish()
 
     def process_python_signals() -> None:
         # Returning to Python lets pending SIGINT handlers run while Qt is idle.
-        pass
+        if interface is not None and interface.close_requested:
+            app.quit()
 
     def interrupt(_signum, _frame) -> None:
         app.quit()
@@ -198,6 +222,8 @@ def _run(scope, tmcc_id, args, *, deck=False, width=1280, height=800, controller
             ("session preferences", remember_current_engine),
             ("gamepad", gamepad.close),
         ]
+        if selection_observer is not None:
+            cleanup.insert(0, ("startup selection observer", selection_observer.close))
         for bundle in bundles:
             cleanup.extend(
                 [
